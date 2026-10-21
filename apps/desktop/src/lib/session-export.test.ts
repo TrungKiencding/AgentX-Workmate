@@ -81,6 +81,16 @@ describe('exportSession', () => {
     expect(notifyError).not.toHaveBeenCalled()
   })
 
+  it('refuses a chat the store flags, with no Data Hub row in sight', async () => {
+    // A subagent read Data Hub, or the chat continues a compressed one that did.
+    getSessionMessages.mockResolvedValue({ data_hub: true, messages: transcript('delegate_task'), session_id: 's1' })
+
+    await exportSession('s1', { title: 'Công tác phí' })
+
+    expect(clicked).toEqual([])
+    expect(notify).toHaveBeenCalledWith(expect.objectContaining({ kind: 'error' }))
+  })
+
   it('exports any other chat', async () => {
     getSessionMessages.mockResolvedValue({ messages: transcript('read_file'), session_id: 's1' })
 

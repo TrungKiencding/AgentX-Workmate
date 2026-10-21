@@ -112,9 +112,12 @@ describe('Data Hub tool names', () => {
     expect(isDataHubSourceTool(SEARCH)).toBe(true)
     expect(isDataHubSourceTool('mcp__agentx_agentx_data__read_passage_context')).toBe(true)
     expect(isDataHubSourceTool('mcp__agentx_agentx_data_2__search_knowledge')).toBe(true)
+    // Inside a hub toolset: `<alias>_<tool>`.
+    expect(isDataHubSourceTool('mcp__agentx_ts_7f2__data_search_knowledge')).toBe(true)
+    expect(isDataHubSourceTool('mcp__agentx_ts_7f2__read_passage_context')).toBe(true)
     expect(isDataHubSourceTool('mcp__agentx_agentx_data__list_knowledge_bases')).toBe(false)
-    expect(isDataHubSourceTool('mcp__agentx_agentx_database__search_knowledge')).toBe(false)
-    expect(isDataHubSourceTool('mcp__other__search_knowledge')).toBe(false)
+    expect(isDataHubSourceTool('mcp__other__research_knowledge')).toBe(false)
+    expect(isDataHubSourceTool('search_knowledge')).toBe(false)
     expect(isDataHubToolName('mcp__agentx_agentx_data__list_knowledge_bases')).toBe(true)
     expect(isDataHubToolName('web_search')).toBe(false)
   })
@@ -143,6 +146,7 @@ describe('parseDataHubResult', () => {
 
   it('refuses what lacks the contract shape', () => {
     expect(parseDataHubResult({ result: 'evidence', result_id: 'x_1', passages: [] })).toBeNull()
+    expect(parseDataHubResult({ result: 'evidence', result_id: 'rs_1', passages: [] })).toBeNull()
     expect(parseDataHubResult({ result: 'ok', result_id: 'rs_1' })).toBeNull()
     expect(parseDataHubResult('Data Hub tạm thời không phục vụ được (mã data_unavailable).')).toBeNull()
     expect(parseDataHubResult(JSON.stringify({ result: 'plain text' }))).toBeNull()
@@ -216,6 +220,25 @@ describe('DataHubSourcesTool', () => {
     expect(cards[1].textContent).toContain('Đã cắt bớt')
     // The passage itself stays out of the cards.
     expect(container.textContent).not.toContain('Mức chi công tác phí')
+  })
+
+  it('shows cards for a toolset entry that holds the server', () => {
+    const container = renderTool({
+      result: packaged(evidence()),
+      toolName: 'mcp__agentx_ts_7f2__data_search_knowledge'
+    })
+
+    expect(container.querySelectorAll('[data-slot="data-hub-source"]')).toHaveLength(1)
+  })
+
+  it('keeps the plain row for a look-alike tool without the contract shape', () => {
+    const container = renderTool({
+      result: JSON.stringify({ result: JSON.stringify({ result: 'evidence', hits: [] }) }),
+      toolName: 'mcp__wiki__search_knowledge'
+    })
+
+    expect(container.querySelector('[data-slot="data-hub-sources"]')).toBeNull()
+    expect(container.querySelector('[data-slot="data-hub-no-evidence"]')).toBeNull()
   })
 
   it('shows the same cards for a reloaded row', () => {

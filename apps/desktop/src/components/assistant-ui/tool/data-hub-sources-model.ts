@@ -1,7 +1,11 @@
 // Results of the hub's Data Hub server (`agentx-data`) — the contract is the
-// hub's docs/data-hub/agents.md. The desktop only sees tool names, so a result
-// is read as Data Hub's only when the tool name says so AND the payload has the
-// contract's shape; anything else keeps the ordinary tool row.
+// hub's docs/data-hub/agents.md. The desktop only sees tool names, and the
+// server can be reached as its own entry or inside a hub toolset (whose tools
+// are `mcp__<entry>__<alias>_<tool>`), so a result is read as Data Hub's when
+// the tool's name ends in one of its passage tools AND the payload has the
+// contract's shape (verdict, `rs_` result id, notice); anything else keeps
+// the ordinary tool row. Display only: what may be offered or exported is the
+// backend's decision.
 
 import { translationsNow } from '@/i18n'
 
@@ -10,8 +14,9 @@ import { translationsNow } from '@/i18n'
  *  suffix), whose tools are `mcp__agentx_agentx_data__<tool>`. */
 export const DATA_HUB_TOOL_RE = /^mcp__agentx_agentx_data(?:_\d+)?__\w+$/
 
-/** The two tools whose results are passages, shown as source cards. */
-export const DATA_HUB_SOURCE_TOOL_RE = /^mcp__agentx_agentx_data(?:_\d+)?__(?:search_knowledge|read_passage_context)$/
+/** The two tools whose results are passages, shown as source cards: of the
+ *  server's own entry, or of a toolset entry that holds it. */
+export const DATA_HUB_SOURCE_TOOL_RE = /^mcp__\w+?__(?:\w*_)?(?:search_knowledge|read_passage_context)$/
 
 export const isDataHubToolName = (name: unknown): boolean => typeof name === 'string' && DATA_HUB_TOOL_RE.test(name)
 
@@ -79,7 +84,8 @@ function isDataHubRecord(value: Json): boolean {
     typeof value.result === 'string' &&
     RESULT_KINDS.has(value.result) &&
     typeof value.result_id === 'string' &&
-    value.result_id.startsWith('rs_')
+    value.result_id.startsWith('rs_') &&
+    typeof value.notice === 'string'
   )
 }
 

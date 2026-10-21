@@ -88,9 +88,12 @@ export async function exportSession(sessionId: string, params: Omit<ExportSessio
 
   try {
     const profile = params.profile ?? params.session?.profile
-    const { messages } = await getSessionMessages(sessionId, profile)
+    const { data_hub: dataHub, messages } = await getSessionMessages(sessionId, profile)
 
-    if (hasDataHubResult(messages)) {
+    // The store's flag covers what no tool row here shows (a subagent's
+    // findings, a compressed continuation); the rows are the fallback for an
+    // older backend.
+    if (dataHub || hasDataHubResult(messages)) {
       notify({ kind: 'error', message: translateNow('desktop.sessionExportDataHubBlocked') })
 
       return
