@@ -3455,6 +3455,46 @@ export interface Translations {
         /** Closes a record cut short: "… 3 more fields". */
         moreFields: (count: number) => string
       }
+      /** A Data Hub search's "Sources" panel (hub server `agentx-data`):
+       *  one card per passage, and the one line its row reads as. */
+      dataHub: {
+        /** The panel's heading. */
+        sources: string
+        /** The row's line for passages found: "3 nguồn". */
+        sourceCount: (count: number) => string
+        /** The row's line when nothing was found. */
+        noEvidence: string
+        /** The row's line for a knowledge-base listing: "2 kho dữ liệu". */
+        knowledgeBaseCount: (count: number) => string
+        /** A document with no title. */
+        untitled: string
+        /** The card's button that opens the source in the browser. */
+        open: string
+        /** That button's accessible name. */
+        openSource: (title: string) => string
+        /** Where in its document a passage sits. */
+        location: {
+          /** `end` only for a passage that spans pages. */
+          page: (page: number, end: null | number) => string
+          slide: (slide: number) => string
+          /** `rows` is "12–40", or '' when the passage names none. */
+          sheet: (sheet: string, rows: string) => string
+          /** `path` is the heading path, already joined with "›". */
+          section: (path: string) => string
+          /** A chat message; either part may be ''. */
+          message: (author: string, date: string) => string
+          none: string
+        }
+        version: (version: number) => string
+        /** `date` is already formatted ("12/10/2026"). */
+        updated: (date: string) => string
+        /** Badges, by the contract's flag. */
+        flags: {
+          instruction_like: string
+          ocr_low_confidence: string
+          truncated: string
+        }
+      }
       /** Under output clamped for display; `omitted` is the number of characters
        *  left out, already formatted for the display language. */
       truncatedNotice: (omitted: string) => string
@@ -3560,6 +3600,8 @@ export interface Translations {
     cwdStagedMessage: string
     modelSwitchFailed: string
     sessionExported: string
+    /** Export refused: the chat holds Data Hub results, which stay in Workmate. */
+    sessionExportDataHubBlocked: string
     sessionExportFailed: string
     imageSaved: string
     downloadStarted: string

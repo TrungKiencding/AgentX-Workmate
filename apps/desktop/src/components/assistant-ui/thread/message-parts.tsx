@@ -8,6 +8,8 @@ import { type ComponentProps, type FC, type ReactNode, useEffect, useRef, useSta
 
 import { ClarifyTool } from '@/components/assistant-ui/clarify-tool'
 import { MarkdownText, MarkdownTextContent } from '@/components/assistant-ui/markdown-text'
+import { DataHubSourcesTool } from '@/components/assistant-ui/tool/data-hub-sources'
+import { isDataHubSourceTool } from '@/components/assistant-ui/tool/data-hub-sources-model'
 import { DelegateTool } from '@/components/assistant-ui/tool/delegate'
 import { ToolFallback, ToolGroupSlot } from '@/components/assistant-ui/tool/fallback'
 import { formatElapsed, useElapsedSeconds, useMeasuredDuration } from '@/components/chat/activity-timer'
@@ -89,6 +91,10 @@ const ChainToolFallback: FC<ToolCallMessagePartProps> = props => {
 
   if (props.toolName === 'clarify') {
     return <ClarifyTool {...props} />
+  }
+
+  if (isDataHubSourceTool(props.toolName)) {
+    return <DataHubSourcesTool {...props} />
   }
 
   return <ToolFallback {...props} />

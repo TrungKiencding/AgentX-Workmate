@@ -1,6 +1,7 @@
 // Heuristic JSON → human summary for tool results. Default view; technical
 // mode still gets the raw JSON section.
 
+import { dataHubResultSummary } from '@/components/assistant-ui/tool/data-hub-sources-model'
 import { formatDurationSeconds } from '@/components/assistant-ui/tool/fallback-model/format'
 import { translationsNow } from '@/i18n'
 import { stripAnsi } from '@/lib/ansi'
@@ -513,7 +514,9 @@ function findNestedError(value: unknown, depth: number, seen: Set<unknown>, fail
 }
 
 export function formatToolResultSummary(value: unknown): string {
-  return formatSummaryValue(unwrapPayload(value), 0) || formatSummaryValue(value, 0)
+  // A Data Hub result keeps its verdict in `result` ("evidence"), the key the
+  // generic unwrap descends into — it would read as that bare word.
+  return dataHubResultSummary(value) || formatSummaryValue(unwrapPayload(value), 0) || formatSummaryValue(value, 0)
 }
 
 export function extractToolErrorMessage(value: unknown): string {

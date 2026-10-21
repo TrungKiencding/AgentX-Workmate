@@ -4293,6 +4293,30 @@ export const vi: Translations = {
         moreItems: n => `… còn ${n} mục nữa`,
         moreFields: n => `… còn ${n} trường nữa`
       },
+      dataHub: {
+        sources: 'Nguồn',
+        sourceCount: count => `${count} nguồn`,
+        noEvidence: 'Không tìm thấy trong dữ liệu',
+        knowledgeBaseCount: count => `${count} kho dữ liệu`,
+        untitled: 'Tài liệu không tên',
+        open: 'Mở',
+        openSource: title => `Mở “${title}” trong trình duyệt`,
+        location: {
+          page: (page, end) => (end ? `trang ${page}–${end}` : `trang ${page}`),
+          slide: slide => `slide ${slide}`,
+          sheet: (sheet, rows) => (rows ? `sheet ${sheet} · dòng ${rows}` : `sheet ${sheet}`),
+          section: path => `mục ${path}`,
+          message: (author, date) => ['tin nhắn', author, date].filter(Boolean).join(' · '),
+          none: 'không có vị trí chi tiết'
+        },
+        version: version => `phiên bản ${version}`,
+        updated: date => `cập nhật ${date}`,
+        flags: {
+          instruction_like: 'Giống câu lệnh',
+          ocr_low_confidence: 'Chữ nhận dạng chưa chắc',
+          truncated: 'Đã cắt bớt'
+        }
+      },
       truncatedNotice: omitted => `… đã lược bớt ${omitted} ký tự — bấm Sao chép để lấy toàn bộ kết quả.`,
       payload: {
         toggle: 'Dữ liệu thô của công cụ',
@@ -4468,6 +4492,8 @@ export const vi: Translations = {
     modelSwitchFailed: 'Đổi model thất bại',
     sessionExported: 'Đã xuất cuộc trò chuyện',
     sessionExportFailed: 'Không xuất được cuộc trò chuyện',
+    sessionExportDataHubBlocked:
+      'Cuộc trò chuyện này có kết quả từ Data Hub — chỉ được đọc trong Workmate, nên không xuất được.',
     imageSaved: 'Đã lưu ảnh',
     downloadStarted: 'Đã bắt đầu tải xuống',
     restartToUseSaveImage: 'Hãy khởi động lại AgentX Workmate Desktop để dùng chức năng Lưu ảnh.',
