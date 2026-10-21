@@ -652,17 +652,21 @@ async def get_session_messages(
             sid = db.resolve_resume_session_id(sid)
             # Clamp limit to prevent abuse (max 500 per page)
             _limit = min(limit, 500) if limit is not None else None
-            return sid, _limit, db.get_messages(sid, limit=_limit, offset=offset)
+            return sid, _limit, db.get_messages(sid, limit=_limit, offset=offset), store_flags_data_hub(db, sid)
         finally:
             db.close()
+
+    from hermes_cli.session_export import store_flags_data_hub
 
     result = await asyncio.to_thread(_read)
     if result is None:
         raise HTTPException(status_code=404, detail="Session not found")
-    sid, _limit, messages = result
+    sid, _limit, messages, data_hub = result
     return {
         "session_id": sid,
         "messages": messages,
+        # The session holds a Data Hub result: clients refuse to export it.
+        "data_hub": data_hub,
         "pagination": {
             "limit": _limit,
             "offset": offset,

@@ -360,12 +360,13 @@ def cmd_sessions(args, sessions_parser=None):
             DataHubExportRefused,
             data_hub_export_refusal,
             data_hub_export_skipped,
-            data_hub_server_keys,
+            data_hub_entries,
             partition_exportable_sessions,
             session_has_data_hub_result,
+            store_flags_data_hub,
         )
 
-        data_hub_keys = data_hub_server_keys()
+        data_hub_keys = data_hub_entries()
 
         def _refused(data) -> bool:
             if session_has_data_hub_result(data, server_keys=data_hub_keys):
@@ -517,7 +518,12 @@ def cmd_sessions(args, sessions_parser=None):
                     db.close()
                     return
                 resolved = db.resolve_session_id(session_id)
-                if _refused(db.get_messages_as_conversation(resolved)):
+                if _refused(
+                    {
+                        "data_hub": store_flags_data_hub(db, resolved),
+                        "messages": db.get_messages_as_conversation(resolved),
+                    }
+                ):
                     db.close()
                     return
                 db.close()
@@ -557,7 +563,9 @@ def cmd_sessions(args, sessions_parser=None):
                 messages = db.get_messages_as_conversation(sid)
                 if not messages:
                     return None
-                if session_has_data_hub_result(messages, server_keys=data_hub_keys):
+                if store_flags_data_hub(db, sid) or session_has_data_hub_result(
+                    messages, server_keys=data_hub_keys
+                ):
                     raise DataHubExportRefused()
                 return build_trace_jsonl(
                     messages,

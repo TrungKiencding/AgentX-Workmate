@@ -7792,30 +7792,32 @@ def refresh_agent_mcp_tools(
     explicit user consent; the late-binding and between-turns paths only rebuild
     at a turn boundary, before that turn's ``tools=`` prefix is assembled).
     """
+    from hermes_cli.tools_config import data_hub_disabled_toolsets, data_hub_platform_of, drop_data_hub_tools
     from model_tools import get_tool_definitions
     from tools.registry import registry
 
     # The platform the Data Hub guard answers to (agent_init: a subagent's is
-    # its parent's).
-    data_hub_platform = getattr(agent, "_data_hub_platform", getattr(agent, "platform", None))
+    # its parent's, a Kanban worker's "kanban").
+    data_hub_platform = data_hub_platform_of(agent)
 
     # Explicit reloads (/reload-mcp) pass freshly-resolved toolsets so a server
     # the user just ENABLED in config is picked up; the agent's stored selection
     # is then updated to match. The automatic paths (between-turns, late-binding)
     # pass nothing and reuse the agent's build-time selection unchanged.
     if enabled_override is not None or disabled_override is not None:
-        from hermes_cli.tools_config import data_hub_disabled_toolsets
-
         enabled = enabled_override if enabled_override is not None else getattr(agent, "enabled_toolsets", None)
         disabled = disabled_override if disabled_override is not None else getattr(agent, "disabled_toolsets", None)
-        # A freshly-resolved selection must not hand a Data Hub server back to
-        # a session that may not have it (see agent_init).
-        disabled = data_hub_disabled_toolsets(disabled, data_hub_platform)
-        agent.enabled_toolsets = enabled
-        agent.disabled_toolsets = disabled
     else:
         enabled = getattr(agent, "enabled_toolsets", None)
         disabled = getattr(agent, "disabled_toolsets", None)
+    # Every rebuild takes the Data Hub entries the config has now (a server
+    # added since the agent was built included), so neither a fresh selection
+    # nor a stale one hands Data Hub to a session that may not have it.
+    guarded = data_hub_disabled_toolsets(disabled, data_hub_platform)
+    if enabled_override is not None or disabled_override is not None or guarded != disabled:
+        agent.enabled_toolsets = enabled
+        agent.disabled_toolsets = guarded
+    disabled = guarded
 
     # Capture the registry generation this rebuild is derived from BEFORE the
     # (potentially slow) get_tool_definitions call. Used at publish time to
@@ -7829,8 +7831,6 @@ def refresh_agent_mcp_tools(
     # Computed OUTSIDE the lock (get_tool_definitions can be slow); the diff and
     # publish below happen together in ONE critical section so two concurrent
     # callers can't torn-publish or compute overlapping ``added`` sets.
-    from hermes_cli.tools_config import drop_data_hub_tools
-
     new_defs = list(
         drop_data_hub_tools(
             get_tool_definitions(

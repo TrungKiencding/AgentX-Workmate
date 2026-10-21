@@ -4521,6 +4521,7 @@ class SessionDB(
             if system_prompt_hash is not None:
                 self._delete_unreferenced_system_prompts(conn)
             if parent_session_id:
+                self._inherit_data_hub(conn, session_id)
                 conn.execute(
                     """UPDATE sessions
                        SET cwd = COALESCE(sessions.cwd,
@@ -5480,6 +5481,7 @@ class SessionDB(
                     time.time(),
                 ),
             )
+            self._inherit_data_hub(conn, child_session_id)
             total_messages, total_tool_calls = self._insert_message_rows(
                 conn, child_session_id, messages
             )
@@ -8421,6 +8423,10 @@ class SessionDB(
                 ),
             )
             msg_id = cursor.lastrowid
+            if role == "tool" and self._rows_hold_data_hub(
+                [{"role": "tool", "tool_name": tool_name, "content": content}]
+            ):
+                self._flag_data_hub(conn, session_id)
 
             # Update counters
             if num_tool_calls > 0:
@@ -8891,7 +8897,78 @@ class SessionDB(
                     len(tool_calls) if isinstance(tool_calls, list) else 1
                 )
             now_ts = max(now_ts + 1e-6, message_timestamp + 1e-6)
+        if any(msg.get("role") == "tool" for msg in messages) and self._rows_hold_data_hub(messages):
+            self._flag_data_hub(conn, session_id)
         return inserted, tool_calls_total
+
+    # -- Data Hub results stay in Workmate (Data Hub plan D2.8) -------------
+
+    @staticmethod
+    def _rows_hold_data_hub(messages: List[Dict[str, Any]]) -> bool:
+        """Whether *messages* hold a Data Hub tool result. Never raises: the
+        transcript write it rides on must not fail over it."""
+        try:
+            from hermes_cli.session_export import messages_have_data_hub_result
+
+            return messages_have_data_hub_result(messages)
+        except Exception:
+            logger.debug("Data Hub check of new rows failed", exc_info=True)
+            return False
+
+    @staticmethod
+    def _flag_data_hub(conn, session_id: str) -> None:
+        """Flag *session_id* and every session above it (``parent_session_id``:
+        the parent a subagent answers to, the segment a continuation follows)
+        as holding a Data Hub result."""
+        conn.execute(
+            """WITH RECURSIVE lineage(id) AS (
+                   SELECT ?
+                   UNION
+                   SELECT s.parent_session_id FROM sessions s
+                   JOIN lineage l ON s.id = l.id
+                   WHERE s.parent_session_id IS NOT NULL
+               )
+               UPDATE sessions SET data_hub = 1
+               WHERE data_hub = 0 AND id IN (SELECT id FROM lineage)""",
+            (session_id,),
+        )
+
+    @staticmethod
+    def _inherit_data_hub(conn, session_id: str) -> None:
+        """A session continuing (compression, branch) or spawned from a flagged
+        one is flagged too: it carries the parent's context forward."""
+        conn.execute(
+            """UPDATE sessions SET data_hub = 1
+               WHERE id = ? AND data_hub = 0 AND EXISTS (
+                   SELECT 1 FROM sessions p
+                   WHERE p.id = sessions.parent_session_id AND p.data_hub = 1
+               )""",
+            (session_id,),
+        )
+
+    def mark_session_data_hub(self, session_id: str) -> None:
+        """Flag *session_id* (and the sessions above it) as holding a Data Hub
+        result — e.g. a parent whose subagent read one."""
+        if session_id:
+            self._execute_write(lambda conn: self._flag_data_hub(conn, session_id))
+
+    def session_has_data_hub(self, session_id: str) -> bool:
+        """Whether the store flags *session_id* as holding a Data Hub result."""
+        if not session_id:
+            return False
+        with self._read_ctx() as conn:
+            row = conn.execute(
+                "SELECT data_hub FROM sessions WHERE id = ?", (session_id,)
+            ).fetchone()
+        return bool(row and row[0])
+
+    def any_session_has_data_hub(self) -> bool:
+        """Whether any session in this store holds a Data Hub result."""
+        with self._read_ctx() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM sessions WHERE data_hub = 1 LIMIT 1"
+            ).fetchone()
+        return row is not None
 
     def replace_messages(
         self,

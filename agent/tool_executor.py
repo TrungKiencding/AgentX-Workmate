@@ -378,8 +378,10 @@ def _tool_search_scoped_names(agent) -> frozenset:
     except Exception:
         return frozenset()
 
+    from hermes_cli.tools_config import data_hub_platform_of, data_hub_tool_blocked, session_disabled_toolsets
+
     enabled = getattr(agent, "enabled_toolsets", None)
-    disabled = getattr(agent, "disabled_toolsets", None)
+    disabled = session_disabled_toolsets(agent)
     cache_key = (
         getattr(_registry, "_generation", 0),
         frozenset(enabled) if enabled is not None else None,
@@ -395,7 +397,11 @@ def _tool_search_scoped_names(agent) -> frozenset:
             quiet_mode=True,
             skip_tool_search_assembly=True,
         ) or []
-        names = _ts.scoped_deferrable_names(scoped_defs)
+        platform = data_hub_platform_of(agent)
+        names = frozenset(
+            name for name in _ts.scoped_deferrable_names(scoped_defs)
+            if not data_hub_tool_blocked(name, platform)
+        )
     except Exception:
         names = frozenset()
     try:
@@ -403,6 +409,28 @@ def _tool_search_scoped_names(agent) -> frozenset:
     except Exception:
         pass
     return names
+
+
+def _session_disabled_toolsets(agent):
+    """The session's disabled toolsets with the Data Hub entries the config has
+    now: what scopes the Tool Search bridge's listing and calls."""
+    from hermes_cli.tools_config import session_disabled_toolsets
+
+    return session_disabled_toolsets(agent)
+
+
+def _data_hub_scope_block(agent, function_name: str) -> Optional[str]:
+    """Why a call is refused when it is, or may be, a Data Hub tool and the
+    session's platform may not have them (a server that connected since the
+    agent was built included); None otherwise."""
+    try:
+        from hermes_cli.tools_config import data_hub_platform_of, data_hub_tool_blocked
+
+        if data_hub_tool_blocked(function_name, data_hub_platform_of(agent)):
+            return f"'{function_name}' is not available in this session."
+    except Exception:
+        logger.debug("Data Hub scope check failed for %s", function_name, exc_info=True)
+    return None
 
 
 @dataclass
@@ -1075,6 +1103,8 @@ def execute_tool_calls_concurrent(agent, assistant_message, messages: list, effe
                         )
         except Exception:
             pass
+        if _ts_scope_block is None:
+            _ts_scope_block = _data_hub_scope_block(agent, function_name)
 
         parsed_calls.append(
             (tool_call, function_name, function_args, [], None, _ts_scope_block)
@@ -1934,6 +1964,8 @@ def execute_tool_calls_sequential(agent, assistant_message, messages: list, effe
                         )
         except Exception:
             pass
+        if _ts_scope_block is None:
+            _ts_scope_block = _data_hub_scope_block(agent, function_name)
 
         middleware_trace: list[dict[str, Any]] = []
         _execution_blocked = False
@@ -2220,7 +2252,7 @@ def execute_tool_calls_sequential(agent, assistant_message, messages: list, effe
                             skip_tool_execution_middleware=True,
                             tool_request_middleware_trace=list(middleware_trace),
                             enabled_toolsets=getattr(agent, "enabled_toolsets", None),
-                            disabled_toolsets=getattr(agent, "disabled_toolsets", None),
+                            disabled_toolsets=_session_disabled_toolsets(agent),
                         )
 
                 (
@@ -2302,7 +2334,7 @@ def execute_tool_calls_sequential(agent, assistant_message, messages: list, effe
                             skip_tool_execution_middleware=True,
                             tool_request_middleware_trace=list(middleware_trace),
                             enabled_toolsets=getattr(agent, "enabled_toolsets", None),
-                            disabled_toolsets=getattr(agent, "disabled_toolsets", None),
+                            disabled_toolsets=_session_disabled_toolsets(agent),
                         )
 
                 (

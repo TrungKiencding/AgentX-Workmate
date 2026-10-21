@@ -2215,15 +2215,17 @@ def data_hub_allowed_on(platform: Optional[str]) -> bool:
 
 
 def data_hub_server_names(config: Optional[dict]) -> Set[str]:
-    """The ``mcp_servers`` keys of *config* that reach the Data Hub server —
-    by gateway ref, or by the entry's default name."""
-    from hermes_cli.session_export import data_hub_server_keys, is_data_hub_server_key
+    """The ``mcp_servers`` keys of *config* that are, or may be, a Data Hub
+    entry (``session_export.data_hub_entries``): the server's own endpoint, a
+    hub toolset that holds it, and a hub toolset whose members are not known
+    here yet — kept off until a sync says it holds no Data Hub."""
+    from hermes_cli.session_export import data_hub_entries, is_data_hub_server_key
 
     mcp_servers = (config or {}).get("mcp_servers") or {}
     if not isinstance(mcp_servers, dict):
         return set()
-    keys = data_hub_server_keys(mcp_servers)
-    return {str(name) for name in mcp_servers if is_data_hub_server_key(name, keys)}
+    entries = data_hub_entries(mcp_servers)
+    return {str(name) for name in mcp_servers if is_data_hub_server_key(name, entries)}
 
 
 def data_hub_toolset_names(config: Optional[dict]) -> Set[str]:
@@ -2262,18 +2264,41 @@ def data_hub_disabled_toolsets(
 
 
 def drop_data_hub_tools(tool_defs: Optional[list], platform: Optional[str]) -> Optional[list]:
-    """*tool_defs* (OpenAI-style schemas) without a Data Hub server's tools,
-    unless a session on *platform* may have them."""
+    """*tool_defs* (OpenAI-style schemas) without the tools of an entry that is,
+    or may be, a Data Hub entry, unless a session on *platform* may have them."""
     if not tool_defs or data_hub_allowed_on(platform):
         return tool_defs
-    from hermes_cli.session_export import data_hub_server_keys, is_data_hub_tool_name
+    from hermes_cli.session_export import data_hub_entries, is_data_hub_suspect_tool
 
-    keys = data_hub_server_keys()
+    entries = data_hub_entries()
     return [
         tool
         for tool in tool_defs
-        if not is_data_hub_tool_name(((tool or {}).get("function") or {}).get("name"), keys)
+        if not is_data_hub_suspect_tool(((tool or {}).get("function") or {}).get("name"), entries)
     ]
+
+
+def data_hub_platform_of(agent) -> Optional[str]:
+    """The platform the Data Hub guard answers to for *agent* (agent_init:
+    a subagent's is its parent's, a Kanban worker's is ``kanban``)."""
+    return getattr(agent, "_data_hub_platform", getattr(agent, "platform", None))
+
+
+def data_hub_tool_blocked(name: Optional[str], platform: Optional[str]) -> bool:
+    """Whether a call of tool *name* must be refused for a session on *platform*:
+    it is, or may be, a Data Hub tool and the platform may not have them."""
+    if data_hub_allowed_on(platform) or not isinstance(name, str) or not name.startswith("mcp__"):
+        return False
+    from hermes_cli.session_export import is_data_hub_suspect_tool
+
+    return is_data_hub_suspect_tool(name)
+
+
+def session_disabled_toolsets(agent) -> Optional[List[str]]:
+    """*agent*'s disabled toolsets with the Data Hub entries the config has
+    *now* — a server added after the agent was built included — for every
+    tool assembly and dispatch of its session."""
+    return data_hub_disabled_toolsets(getattr(agent, "disabled_toolsets", None), data_hub_platform_of(agent))
 
 
 def _exempt_explicit_platform_native(

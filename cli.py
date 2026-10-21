@@ -9282,9 +9282,15 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             print("(;_;) No conversation to save.")
             return
 
-        from hermes_cli.session_export import data_hub_export_refusal, session_has_data_hub_result
+        from hermes_cli.session_export import (
+            data_hub_export_refusal,
+            session_has_data_hub_result,
+            store_flags_data_hub,
+        )
 
-        if session_has_data_hub_result(self.conversation_history):
+        if store_flags_data_hub(getattr(self, "_session_db", None), self.session_id) or session_has_data_hub_result(
+            self.conversation_history
+        ):
             print(f"(x_x) {data_hub_export_refusal()}")
             return
 

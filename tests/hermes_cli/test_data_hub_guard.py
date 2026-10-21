@@ -618,3 +618,316 @@ def test_trace_upload_is_refused(monkeypatch):
     ):
         assert trace_upload.upload_session_trace("s1") == REFUSAL_VI
     upload.assert_not_called()
+
+
+# ─── Hub toolsets that hold the server, and hand-added entries ──────────────
+
+
+def _toolset_entry(ref: str, servers=None) -> dict:
+    entry = _gateway_entry(ref)
+    entry["url"] = f"https://hub.example/gw/t/{ref}"
+    entry["gateway"] = {"kind": "toolset", "ref": ref, "label": ref}
+    if servers is not None:
+        entry["gateway"]["servers"] = servers
+    return entry
+
+
+TOOLSET_CFG = {
+    "mcp_servers": {
+        "agentx-ts-data": _toolset_entry("ts_data", ["agentx-data", "github"]),
+        "agentx-ts-plain": _toolset_entry("ts_plain", ["github"]),
+        "agentx-ts-old": _toolset_entry("ts_old"),  # added before members were recorded
+        "finnhub": {"url": "https://finnhub.example/mcp", "enabled": True},
+    }
+}
+
+
+def test_toolset_entries_by_membership():
+    from hermes_cli.session_export import data_hub_entries
+
+    entries = data_hub_entries(TOOLSET_CFG["mcp_servers"])
+    assert entries.toolsets == {"agentx-ts-data"}
+    assert entries.unknown == {"agentx-ts-old"}
+    assert not entries.servers
+    assert is_data_hub_tool_name("mcp__agentx_ts_data__data_search_knowledge", entries)
+    assert is_data_hub_tool_name("mcp__agentx_ts_data__read_passage_context", entries)
+    assert not is_data_hub_tool_name("mcp__agentx_ts_data__gh_search_issues", entries)
+    assert not is_data_hub_tool_name("mcp__agentx_ts_plain__data_search_knowledge", entries)
+
+
+@pytest.mark.parametrize("platform", ["telegram", "signal", "api_server", "cron"])
+def test_toolsets_holding_or_maybe_holding_data_hub_stay_off_other_platforms(platform):
+    from hermes_cli.tools_config import _get_platform_tools
+
+    enabled = _get_platform_tools(TOOLSET_CFG, platform)
+    assert not enabled & {"agentx-ts-data", "agentx-ts-old"}
+    assert {"agentx-ts-plain", "finnhub"} <= enabled
+    assert {"agentx-ts-data", "agentx-ts-old", "agentx-ts-plain"} <= _get_platform_tools(TOOLSET_CFG, "cli")
+
+
+def test_gateway_entry_records_toolset_members():
+    from hermes_cli.hub_sync import gateway_entry
+
+    entry = gateway_entry({
+        "kind": "toolset", "ref": "ts_data", "label": "Data", "url": "https://hub.example/gw/t/ts_data",
+        "servers": [{"slug": "github", "alias": "gh"}, {"slug": "agentx-data", "alias": "data"}],
+    })
+    assert entry["gateway"]["servers"] == ["agentx-data", "github"]
+    assert "servers" not in gateway_entry({"kind": "server", "ref": "github", "url": "https://hub.example/gw/s/github"})["gateway"]
+
+
+def test_sync_records_members_of_toolset_entries():
+    from hermes_cli.config import load_config, save_config
+    from hermes_cli.hub_sync import HubSyncEngine
+    from hermes_cli.session_export import data_hub_entries
+
+    config = load_config()
+    config["mcp_servers"] = {"agentx-ts-old": _toolset_entry("ts_old"), "agentx-ts-plain": _toolset_entry("ts_plain", ["github"])}
+    save_config(config)
+    listing = {"gateway": {"enabled": True, "url": "https://hub.example/gw"}, "endpoints": [
+        {"kind": "toolset", "ref": "ts_old", "servers": [{"slug": "agentx-data"}]},
+        {"kind": "toolset", "ref": "ts_plain", "servers": [{"slug": "github"}]},
+    ]}
+    client = SimpleNamespace(gateway_endpoints=MagicMock(return_value=listing))
+    engine = SimpleNamespace(_members_seen=None)
+    creds = SimpleNamespace(bearer="b", device_id="d", device_name="n")
+    snapshot = {"mcp": {"endpoints_changed_at": "2026-10-21T10:00:00Z"}}
+
+    assert HubSyncEngine._keep_toolset_members(engine, creds, client, snapshot) == ["agentx-ts-old"]
+    assert data_hub_entries(load_config()["mcp_servers"]).toolsets == {"agentx-ts-old"}
+    # Nothing unknown and nothing changed on the hub: not asked again.
+    assert HubSyncEngine._keep_toolset_members(engine, creds, client, snapshot) == []
+    assert client.gateway_endpoints.call_count == 1
+
+
+def test_hand_added_entries_on_the_hub_gateway():
+    from hermes_cli.session_export import data_hub_entries
+
+    servers = {
+        "my-data": {"url": "https://hub.example/gw/s/agentx-data"},
+        "my-toolset": {"url": "https://hub.example/gw/t/ts_9"},
+        "elsewhere": {"url": "https://other.example/gw/s/agentx-data"},
+        "github": {"url": "https://hub.example/gw/s/github"},
+    }
+    with patch("hermes_cli.hub_client.hub_base_url", return_value="https://hub.example"):
+        entries = data_hub_entries(servers)
+    assert entries.servers == {"my-data"}
+    assert entries.unknown == {"my-toolset"}
+    assert not entries.toolsets
+
+
+# ─── The sticky flag on the session row ─────────────────────────────────────
+
+
+@pytest.fixture
+def store(tmp_path):
+    from hermes_state import SessionDB
+
+    db = SessionDB(db_path=tmp_path / "flag.db")
+    yield db
+    db.close()
+
+
+def test_a_data_hub_result_flags_its_session_and_the_parent_it_reports_to(store):
+    store.create_session("parent", source="desktop")
+    store.create_session("child", source="subagent", parent_session_id="parent")
+    store.append_message("child", role="tool", content='{"result": "{}"}', tool_name=SEARCH)
+
+    assert store.session_has_data_hub("child")
+    assert store.session_has_data_hub("parent")
+    assert store.get_session("parent")["data_hub"] == 1
+
+
+def test_a_result_of_a_toolset_entry_is_flagged_by_its_shape(store):
+    inner = json.dumps({"result": "no_evidence", "notice": "n", "result_id": "rs_1", "passages": []})
+    store.create_session("s", source="cli")
+    store.append_messages_batch("s", [{"role": "tool", "tool_name": "mcp__agentx_ts_x__data_search_knowledge",
+                                       "content": json.dumps({"result": inner})}])
+
+    assert store.session_has_data_hub("s")
+
+
+def test_continuations_carry_the_flag(store):
+    store.create_session("root", source="desktop")
+    store.append_message("root", role="tool", content="{}", tool_name=SEARCH)
+    store.publish_compression_child(
+        parent_session_id="root", child_session_id="next", source="desktop",
+        messages=[{"role": "user", "content": "[summary] … [S1]"}], require_compression_lease=False,
+    )
+    store.create_session("branch", source="desktop", parent_session_id="next")
+
+    assert store.session_has_data_hub("next")
+    assert store.session_has_data_hub("branch")
+    store.create_session("other", source="desktop")
+    store.append_message("other", role="tool", content="x", tool_name="read_file")
+    assert not store.session_has_data_hub("other")
+    assert store.any_session_has_data_hub()
+
+
+def test_sessions_recorded_before_the_flag_are_backfilled(tmp_path):
+    import sqlite3
+
+    from hermes_state import SessionDB
+
+    path = tmp_path / "old.db"
+    db = SessionDB(db_path=path)
+    db.create_session("old", source="cli")
+    db.create_session("cont", source="cli", parent_session_id="old")
+    db.append_message("old", role="tool", content="{}", tool_name=SEARCH)
+    db.close()
+    # As a store written by a build without the flag.
+    conn = sqlite3.connect(path)
+    conn.execute("UPDATE sessions SET data_hub = 0")
+    conn.execute("DELETE FROM state_meta WHERE key = 'data_hub_backfilled'")
+    conn.commit()
+    conn.close()
+
+    db = SessionDB(db_path=path)
+    try:
+        assert db.session_has_data_hub("old")
+        assert db.session_has_data_hub("cont")
+    finally:
+        db.close()
+
+
+def test_a_subagent_without_a_transcript_reports_to_the_parent(store):
+    from tools.delegate_tool import _report_data_hub_to_parent
+
+    store.create_session("parent", source="desktop")
+    parent = SimpleNamespace(_session_db=store, session_id="parent")
+    _report_data_hub_to_parent(_plain_messages(), parent)
+    assert not store.session_has_data_hub("parent")
+    _report_data_hub_to_parent(_data_hub_messages(), parent)
+    assert store.session_has_data_hub("parent")
+
+
+def test_export_refuses_a_flagged_session_without_data_hub_rows(state_db, tmp_path, monkeypatch, capsys):
+    from hermes_state import SessionDB
+
+    db = SessionDB(db_path=state_db)
+    db.mark_session_data_hub("s-plain")  # e.g. its subagent read Data Hub
+    db.close()
+    out = tmp_path / "out.jsonl"
+
+    _sessions_export(monkeypatch, "--session-id", "s-plain", str(out))
+
+    assert REFUSAL_VI in capsys.readouterr().out
+    assert not out.exists()
+
+
+def test_rest_honours_the_profile_store(tmp_path, monkeypatch):
+    from fastapi import HTTPException
+
+    from hermes_cli import web_server
+    from hermes_cli.web_routers import sessions as web_sessions
+    from hermes_state import SessionDB
+
+    other = tmp_path / "other-profile.db"
+    db = SessionDB(db_path=other)
+    db.create_session("s", source="desktop")
+    db.mark_session_data_hub("s")
+    db.close()
+    opened = []
+
+    def _open(profile=None, *, read_only):
+        opened.append(profile)
+        return SessionDB(db_path=other if profile == "work" else tmp_path / "active.db")
+
+    monkeypatch.setattr(web_server, "_open_session_db_for_profile", _open)
+    with pytest.raises(HTTPException) as refused:
+        asyncio.run(web_sessions.export_session_endpoint("s", profile="work"))
+    assert refused.value.status_code == 403
+    assert opened == ["work"]
+    page = asyncio.run(web_sessions.get_session_messages("s", profile="work", limit=None, offset=0))
+    assert page["data_hub"] is True
+
+
+# ─── Kanban workers ─────────────────────────────────────────────────────────
+
+
+def test_a_kanban_worker_does_not_get_data_hub_tools(_registered_tools, monkeypatch):
+    monkeypatch.setenv("AGENTX_KANBAN_TASK", "t_1")
+    agent = _agent("cli", OWNER_TOOLSETS)
+
+    assert agent._data_hub_platform == "kanban"
+    assert SEARCH not in _scoped_names(agent)
+    assert "mcp__finnhub__quote" in _scoped_names(agent)
+
+
+# ─── A server added after the agent was built, then /reload-mcp ─────────────
+
+
+def test_a_server_added_later_stays_off_a_platform_that_may_not_have_it(_registered_tools):
+    from agent.tool_executor import _data_hub_scope_block, _tool_search_scoped_names
+    from tools.mcp_tool import refresh_agent_mcp_tools
+
+    later = {"mcp_servers": {"finnhub": CFG["mcp_servers"]["finnhub"]}}
+    with (
+        patch("hermes_cli.config.load_config_readonly", return_value=later),
+        patch("run_agent.check_toolset_requirements", return_value={}),
+        patch("run_agent.OpenAI"),
+    ):
+        from run_agent import AIAgent
+
+        agent = AIAgent(api_key="test-key-1234567890", base_url="https://openrouter.ai/api/v1",
+                        enabled_toolsets=None, platform="telegram", quiet_mode=True,
+                        skip_context_files=True, skip_memory=True)
+    # Built before "kho-noi-bo" was in the config: nothing told it apart yet.
+    assert "mcp__kho_noi_bo__search_knowledge" in _scoped_names(agent)
+
+    with patch("hermes_cli.config.load_config_readonly", return_value=CFG):
+        refresh_agent_mcp_tools(agent)  # /reload-mcp, no fresh selection
+        assert "mcp-kho-noi-bo" in agent.disabled_toolsets
+        assert "mcp__kho_noi_bo__search_knowledge" not in _scoped_names(agent)
+        assert "mcp__kho_noi_bo__search_knowledge" not in _tool_search_scoped_names(agent)
+        assert _data_hub_scope_block(agent, "mcp__kho_noi_bo__search_knowledge")
+        assert _data_hub_scope_block(agent, "mcp__finnhub__quote") is None
+
+
+def test_the_bridge_cannot_list_or_call_data_hub_tools(_registered_tools):
+    import model_tools
+    from agent.tool_executor import _session_disabled_toolsets
+
+    agent = _agent("signal", None)
+    with patch("hermes_cli.config.load_config_readonly", return_value=CFG):
+        disabled = _session_disabled_toolsets(agent)
+    found = json.loads(model_tools.handle_function_call(
+        "tool_search", {"query": "search_knowledge"}, "task",
+        enabled_toolsets=agent.enabled_toolsets, disabled_toolsets=disabled,
+    ))
+    assert SEARCH not in json.dumps(found)
+    called = json.loads(model_tools.handle_function_call(
+        "tool_call", {"name": SEARCH, "arguments": {}}, "task",
+        enabled_toolsets=agent.enabled_toolsets, disabled_toolsets=disabled,
+    ))
+    assert "not available" in json.dumps(called)
+
+
+# ─── Profile export ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.parametrize("named", [True, False])
+def test_profile_export_is_refused_when_a_session_holds_data_hub(tmp_path, named):
+    from hermes_cli import profiles
+    from hermes_cli.session_export import DataHubProfileExportRefused
+    from hermes_constants import get_hermes_home
+    from hermes_state import SessionDB
+
+    if named:
+        profiles.create_profile("work", no_alias=True)
+        home, name = profiles.get_profile_dir("work"), "work"
+    else:
+        home, name = get_hermes_home(), "default"
+    db = SessionDB(db_path=home / "state.db")
+    db.create_session("s", source="desktop")
+    db.close()
+
+    out = tmp_path / f"{name}.tar.gz"
+    assert profiles.export_profile(name, str(out)).exists()
+
+    db = SessionDB(db_path=home / "state.db")
+    db.mark_session_data_hub("s")
+    db.close()
+    with pytest.raises(DataHubProfileExportRefused, match="Data Hub"):
+        profiles.export_profile(name, str(tmp_path / f"{name}-2.tar.gz"))
+    assert not (tmp_path / f"{name}-2.tar.gz").exists()

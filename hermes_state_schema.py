@@ -153,6 +153,44 @@ class SessionSchemaMixin:
             )
         return True
 
+    def _backfill_data_hub_flag(self, cursor: sqlite3.Cursor) -> None:
+        """Flag, once, the sessions recorded before ``sessions.data_hub``
+        existed that hold a Data Hub result (a tool row of the default
+        ``agentx-agentx-data`` entry), the sessions above them and the
+        continuations below. Idempotent; marked done in ``state_meta``."""
+        if cursor.execute(
+            "SELECT 1 FROM state_meta WHERE key = 'data_hub_backfilled' LIMIT 1"
+        ).fetchone():
+            return
+        try:
+            cursor.execute(
+                """WITH RECURSIVE
+                   direct(id) AS (
+                       SELECT DISTINCT session_id FROM messages
+                       WHERE role = 'tool' AND (
+                           tool_name GLOB 'mcp__agentx_agentx_data__*'
+                           OR tool_name GLOB 'mcp__agentx_agentx_data_[0-9]*__*'
+                       )
+                   ),
+                   up(id) AS (
+                       SELECT id FROM direct
+                       UNION
+                       SELECT s.parent_session_id FROM sessions s JOIN up ON s.id = up.id
+                       WHERE s.parent_session_id IS NOT NULL
+                   ),
+                   down(id) AS (
+                       SELECT id FROM direct
+                       UNION
+                       SELECT s.id FROM sessions s JOIN down ON s.parent_session_id = down.id
+                   )
+                   UPDATE sessions SET data_hub = 1
+                   WHERE data_hub = 0 AND (id IN (SELECT id FROM up) OR id IN (SELECT id FROM down))"""
+            )
+        except sqlite3.OperationalError as exc:
+            logger.debug("data_hub backfill skipped: %s", exc)
+            return
+        self.set_meta("data_hub_backfilled", "1", cursor=cursor)
+
     def _drop_retired_sync_bookkeeping(self, cursor: sqlite3.Cursor) -> bool:
         """Drop what the retired conversation sync kept in this database.
 
@@ -801,6 +839,9 @@ class SessionSchemaMixin:
         # like the version-gated chain below: an older runtime sharing this
         # database recreates the bookkeeping on its own open.
         self._drop_retired_sync_bookkeeping(cursor)
+
+        # Sessions recorded before the sticky Data Hub flag (D2.8).
+        self._backfill_data_hub_flag(cursor)
 
         fts5_available = self._sqlite_supports_fts5(cursor)
         fts_migrations_complete = True

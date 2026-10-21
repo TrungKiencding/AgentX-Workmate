@@ -845,10 +845,14 @@ def init_agent(
     # cron — also one built with every toolset) has its toolsets disabled, and
     # every later assembly of this session's tools honours that.
     # A delegate_task child acts for its parent's person and machine, so it
-    # answers to the parent's platform here (unknown parent: blocked).
+    # answers to the parent's platform here (unknown parent: blocked). A
+    # Kanban worker runs as `agentx chat` (platform cli) but its summaries go
+    # back to the board's chats: it answers to "kanban", which is not allowed.
     from hermes_cli.tools_config import data_hub_disabled_toolsets
 
     agent._data_hub_platform = delegated_from_platform if platform == "subagent" else platform
+    if platform != "subagent" and os.environ.get("AGENTX_KANBAN_TASK"):
+        agent._data_hub_platform = "kanban"
     disabled_toolsets = data_hub_disabled_toolsets(disabled_toolsets, agent._data_hub_platform)
     agent.enabled_toolsets = enabled_toolsets
     agent.disabled_toolsets = disabled_toolsets

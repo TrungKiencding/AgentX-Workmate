@@ -1964,6 +1964,25 @@ def export_profile(name: str, output_path: str, extra_files: Optional[Dict[str, 
     if not profile_dir.is_dir():
         raise FileNotFoundError(f"Profile '{canon}' does not exist.")
 
+    # Sessions holding Data Hub results may only be read in Workmate: a profile
+    # carrying them (its state.db, the default profile's sessions/ dumps) is
+    # not exported. A whole-machine backup (`agentx backup`) is a backup.
+    import sqlite3
+
+    from hermes_cli.session_export import (
+        DataHubProfileExportRefused,
+        data_hub_profile_export_refusal,
+        data_hub_profile_unchecked,
+        store_file_holds_data_hub,
+    )
+
+    try:
+        holds_data_hub = store_file_holds_data_hub(profile_dir / "state.db")
+    except sqlite3.Error as exc:
+        raise DataHubProfileExportRefused(data_hub_profile_unchecked(canon, exc)) from exc
+    if holds_data_hub:
+        raise DataHubProfileExportRefused(data_hub_profile_export_refusal(canon))
+
     output = Path(output_path)
     # Archive base name without extension (.tar.gz appended by the writer).
     base = str(output).removesuffix(".tar.gz").removesuffix(".tgz")

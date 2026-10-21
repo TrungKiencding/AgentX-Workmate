@@ -183,9 +183,10 @@ class HubSyncOutcome:
         """An MCP server was installed, updated, removed or switched — or the
         gateway token changed under the servers that send it, or a gateway
         entry was switched off for pointing off the gateway, or rewritten to
-        read the token's own key: the desktop reloads MCP."""
+        read the token's own key, or a toolset entry's members were recorded:
+        the desktop reloads MCP."""
         return (any(self.mcp[key] for key in ("installed", "updated", "removed", "disabled", "enabled"))
-                or any(self.gateway.get(key) for key in ("renewed", "refused", "renamed")))
+                or any(self.gateway.get(key) for key in ("renewed", "refused", "renamed", "members")))
 
     def to_json(self) -> Dict[str, Any]:
         return {
@@ -827,6 +828,8 @@ class HubSyncEngine:
         self._stream_state = "off"
         self._wake: Any | None = None
         self._loop: Any | None = None
+        #: ``endpoints_changed_at`` when the toolset entries' members were last read (None: not yet).
+        self._members_seen: Optional[Tuple[Any]] = None
 
     @property
     def settings(self) -> HubSyncSettings:
@@ -879,6 +882,9 @@ class HubSyncEngine:
                 self._reconcile_mcp(snapshot["mcp"], credentials, client, outcome)
             self._keep_state(snapshot)
             outcome.gateway = self._keep_gateway(credentials, client)
+            members = self._keep_toolset_members(credentials, client, snapshot)
+            if members:
+                outcome.gateway = {**outcome.gateway, "members": members}
             if self._waits.current():
                 outcome.mcp["installed"] += [added["slug"] for added in self.complete_waits(client, credentials)]
         except HubError as exc:
@@ -1392,6 +1398,46 @@ class HubSyncEngine:
     def _remember(self, action: str, slug: str, version: str = "", detail: str = "") -> None:
         self._history.appendleft({"action": action, "slug": slug, "version": version or None, "detail": detail, "at": datetime.now(timezone.utc).isoformat()})
 
+    # -- what each toolset entry holds (Data Hub plan D2.8) -----------------
+
+    def _keep_toolset_members(self, credentials: HubCredentials, client: Any, snapshot: Dict[str, Any]) -> List[str]:
+        """Record on each gateway toolset entry the hub servers it holds, so one
+        holding the Data Hub server is told apart (``session_export``): read
+        when an entry's members are not known yet, at the first tick, and when
+        the hub says the person's endpoints changed. Returns the entries
+        rewritten. A refusal other than a lapsed session waits for the next tick."""
+        from hermes_cli.hub_client import HubError
+
+        toolsets = [cfg for cfg in gateway_entries().values() if (cfg.get("gateway") or {}).get("kind") == "toolset"]
+        if not toolsets:
+            return []
+        block = snapshot.get("mcp") if isinstance(snapshot.get("mcp"), dict) else {}
+        seen = (block.get("endpoints_changed_at"),)
+        unknown = any(not isinstance((cfg.get("gateway") or {}).get("servers"), list) for cfg in toolsets)
+        if not unknown and seen == self._members_seen:
+            return []
+        try:
+            listing = client.gateway_endpoints(bearer=credentials.bearer, device_id=credentials.device_id,
+                                               device_name=credentials.device_name)
+        except HubError as exc:
+            if exc.reauth:
+                raise
+            logger.info("hub sync: what the toolsets hold could not be read: %s", exc)
+            return []
+        members = {}
+        for endpoint in listing.get("endpoints") or []:
+            if isinstance(endpoint, dict) and endpoint.get("kind") == "toolset":
+                slugs = toolset_members(endpoint)
+                if slugs is not None:
+                    members[str(endpoint.get("ref") or "")] = slugs
+        try:
+            changed = record_toolset_members(members)
+        except Exception as exc:  # noqa: BLE001 - the next tick tries again
+            logger.warning("hub sync: what the toolsets hold could not be written: %s", exc)
+            return []
+        self._members_seen = seen
+        return changed
+
     # -- the gateway token --------------------------------------------------
 
     def _keep_gateway(self, credentials: HubCredentials, client: Any) -> Dict[str, Any]:
@@ -1770,16 +1816,55 @@ def gateway_entry_name(ref: str) -> str:
     return f"agentx-{tail}"
 
 
+def toolset_members(endpoint: Dict[str, Any]) -> Optional[List[str]]:
+    """The hub servers a toolset *endpoint* holds (their slugs, from its
+    ``servers``), or None when the hub did not say."""
+    servers = endpoint.get("servers")
+    if not isinstance(servers, list):
+        return None
+    return sorted({str(row.get("slug")) for row in servers if isinstance(row, dict) and row.get("slug")})
+
+
 def gateway_entry(endpoint: Dict[str, Any]) -> Dict[str, Any]:
-    """The entry that reaches *endpoint* through the gateway with this machine's token."""
+    """The entry that reaches *endpoint* through the gateway with this machine's token.
+    A toolset's entry records the hub servers it holds (``gateway.servers``):
+    one holding the Data Hub server is kept where Data Hub is
+    (``session_export.data_hub_entries``)."""
+    kind = str(endpoint.get("kind") or "server")
+    gateway = {"kind": kind, "ref": str(endpoint.get("ref") or ""), "label": str(endpoint.get("label") or "")}
+    members = toolset_members(endpoint) if kind == "toolset" else None
+    if members is not None:
+        gateway["servers"] = members
     return {
         "url": str(endpoint["url"]),
         "headers": {"Authorization": f"Bearer ${{{GATEWAY_TOKEN_ENV}}}"},
         "protocol": "auto",
         "enabled": True,
         "source": GATEWAY_SOURCE,
-        "gateway": {"kind": str(endpoint.get("kind") or "server"), "ref": str(endpoint.get("ref") or ""), "label": str(endpoint.get("label") or "")},
+        "gateway": gateway,
     }
+
+
+def record_toolset_members(members: Dict[str, List[str]]) -> List[str]:
+    """Write onto each gateway toolset entry the hub servers it holds now
+    (*members*: toolset ref → slugs, as the hub lists them). Returns the
+    entries rewritten; an entry the listing does not name is left as it is."""
+    from hermes_cli.config import read_raw_config, save_config
+
+    config = read_raw_config()
+    servers = config.get("mcp_servers")
+    changed: List[str] = []
+    for name, cfg in servers.items() if isinstance(servers, dict) else ():
+        gateway = cfg.get("gateway") if isinstance(cfg, dict) and cfg.get("source") == GATEWAY_SOURCE else None
+        if not isinstance(gateway, dict) or gateway.get("kind") != "toolset":
+            continue
+        slugs = members.get(str(gateway.get("ref") or ""))
+        if slugs is not None and gateway.get("servers") != slugs:
+            gateway["servers"] = list(slugs)
+            changed.append(str(name))
+    if changed:
+        save_config(config)
+    return changed
 
 
 def gateway_entries() -> Dict[str, dict]:
