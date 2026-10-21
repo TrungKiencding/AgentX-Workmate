@@ -2179,7 +2179,7 @@ def _parse_enabled_flag(value, default: bool = True) -> bool:
     return default
 
 
-def enabled_mcp_server_names(config: dict) -> Set[str]:
+def enabled_mcp_server_names(config: dict, platform: Optional[str] = None) -> Set[str]:
     """Names of MCP servers globally enabled in config.yaml.
 
     Shared by the gateway/CLI platform resolver (``_get_platform_tools``) and
@@ -2187,14 +2187,93 @@ def enabled_mcp_server_names(config: dict) -> Set[str]:
     on MCP membership. A server is enabled unless its config sets an explicitly
     falsey ``enabled`` (per ``_parse_enabled_flag``: false/0/no/off) — a missing
     flag or an unrecognized value is treated as enabled.
+
+    With *platform*, a Data Hub server is left out where its tools are not
+    allowed (:func:`data_hub_allowed_on`).
     """
     mcp_servers = (config or {}).get("mcp_servers") or {}
-    return {
+    names = {
         str(name)
         for name, server_cfg in mcp_servers.items()
         if isinstance(server_cfg, dict)
         and _parse_enabled_flag(server_cfg.get("enabled", True), default=True)
     }
+    if platform is not None and not data_hub_allowed_on(platform):
+        names -= data_hub_server_names(config)
+    return names
+
+
+# The Data Hub server's passages may only be read in the owner's own Workmate
+# (Data Hub plan D2.8, §9.3 #23): its tools stay on the desktop, the TUI and
+# the CLI, and no messaging platform, API, webhook or cron session gets them.
+DATA_HUB_PLATFORMS = frozenset({"cli", "desktop", "tui"})
+
+
+def data_hub_allowed_on(platform: Optional[str]) -> bool:
+    """Whether a session on *platform* may have the Data Hub server's tools."""
+    return str(platform or "").strip().lower() in DATA_HUB_PLATFORMS
+
+
+def data_hub_server_names(config: Optional[dict]) -> Set[str]:
+    """The ``mcp_servers`` keys of *config* that reach the Data Hub server —
+    by gateway ref, or by the entry's default name."""
+    from hermes_cli.session_export import data_hub_server_keys, is_data_hub_server_key
+
+    mcp_servers = (config or {}).get("mcp_servers") or {}
+    if not isinstance(mcp_servers, dict):
+        return set()
+    keys = data_hub_server_keys(mcp_servers)
+    return {str(name) for name in mcp_servers if is_data_hub_server_key(name, keys)}
+
+
+def data_hub_toolset_names(config: Optional[dict]) -> Set[str]:
+    """Every toolset name a Data Hub server answers to: its ``mcp_servers``
+    key (the alias platform lists use) and its registry toolset ``mcp-<key>``."""
+    names = data_hub_server_names(config)
+    return names | {f"mcp-{name}" for name in names}
+
+
+def data_hub_disabled_toolsets(
+    disabled: Optional[List[str]], platform: Optional[str], config: Optional[dict] = None
+) -> Optional[List[str]]:
+    """*disabled* plus the Data Hub server's registry toolsets for a session on
+    a *platform* that may not have them; *disabled* unchanged otherwise.
+
+    Disabled toolsets scope every later tool assembly of the session (MCP
+    refresh, the Tool Search bridge), so this covers an ``all`` session and a
+    server that connects after the agent is built. *config* defaults to the
+    active profile's.
+    """
+    if data_hub_allowed_on(platform):
+        return disabled
+    if config is None:
+        try:
+            from hermes_cli.config import load_config_readonly
+
+            config = load_config_readonly() or {}
+        except Exception:
+            config = {}
+    blocked = sorted(f"mcp-{name}" for name in data_hub_server_names(config))
+    if not blocked:
+        return disabled
+    merged = list(disabled or [])
+    merged.extend(name for name in blocked if name not in merged)
+    return merged
+
+
+def drop_data_hub_tools(tool_defs: Optional[list], platform: Optional[str]) -> Optional[list]:
+    """*tool_defs* (OpenAI-style schemas) without a Data Hub server's tools,
+    unless a session on *platform* may have them."""
+    if not tool_defs or data_hub_allowed_on(platform):
+        return tool_defs
+    from hermes_cli.session_export import data_hub_server_keys, is_data_hub_tool_name
+
+    keys = data_hub_server_keys()
+    return [
+        tool
+        for tool in tool_defs
+        if not is_data_hub_tool_name(((tool or {}).get("function") or {}).get("name"), keys)
+    ]
 
 
 def _exempt_explicit_platform_native(
@@ -2558,6 +2637,11 @@ def _get_platform_tools(
             name.strip() for name in parse_config_string_list(disabled_toolsets) if name.strip()
         }
         enabled_toolsets -= disabled_set
+
+    # A Data Hub server stays on the owner's own desktop/TUI/CLI only — even
+    # when this platform's saved list names it.
+    if not data_hub_allowed_on(platform):
+        enabled_toolsets -= data_hub_toolset_names(config)
 
     # #38798: if this platform was explicitly configured but every toolset name
     # is invalid (e.g. a migration or hand-edit left `agentx` instead of

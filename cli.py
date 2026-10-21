@@ -9251,6 +9251,12 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
             _cprint(f"  Failed to export session {self.session_id}.")
             return
 
+        from hermes_cli.session_export import data_hub_export_refusal, session_has_data_hub_result
+
+        if session_has_data_hub_result(export_data):
+            _cprint(f"  {data_hub_export_refusal()}")
+            return
+
         try:
             with open(filename, "w", encoding="utf-8") as f:
                 if format_type == "json":
@@ -9274,6 +9280,12 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         """
         if not self.conversation_history:
             print("(;_;) No conversation to save.")
+            return
+
+        from hermes_cli.session_export import data_hub_export_refusal, session_has_data_hub_result
+
+        if session_has_data_hub_result(self.conversation_history):
+            print(f"(x_x) {data_hub_export_refusal()}")
             return
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

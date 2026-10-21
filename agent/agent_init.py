@@ -836,7 +836,13 @@ def init_agent(
     agent.provider_data_collection = provider_data_collection
     agent.openrouter_min_coding_score = openrouter_min_coding_score
 
-    # Store toolset filtering options
+    # Store toolset filtering options. A Data Hub server's tools stay on the
+    # owner's own desktop/TUI/CLI: any other session (messaging platform, API,
+    # cron — also one built with every toolset) has its toolsets disabled, and
+    # every later assembly of this session's tools honours that.
+    from hermes_cli.tools_config import data_hub_disabled_toolsets
+
+    disabled_toolsets = data_hub_disabled_toolsets(disabled_toolsets, platform)
     agent.enabled_toolsets = enabled_toolsets
     agent.disabled_toolsets = disabled_toolsets
     
@@ -1468,6 +1474,9 @@ def init_agent(
         disabled_toolsets=disabled_toolsets,
         quiet_mode=agent.quiet_mode,
     )
+    from hermes_cli.tools_config import drop_data_hub_tools
+
+    agent.tools = drop_data_hub_tools(agent.tools, agent.platform)
     
     # Show tool configuration and store valid tool names for validation
     agent.valid_tool_names = set()

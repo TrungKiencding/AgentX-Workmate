@@ -768,6 +768,10 @@ async def export_session_endpoint(session_id: str, profile: Optional[str] = None
     data = await asyncio.to_thread(_export)
     if data is None:
         raise HTTPException(status_code=404, detail="Session not found")
+    from hermes_cli.session_export import data_hub_export_refusal, session_has_data_hub_result
+
+    if session_has_data_hub_result(data):
+        raise HTTPException(status_code=403, detail=data_hub_export_refusal())
     return data
 
 

@@ -354,6 +354,36 @@ def cmd_sessions(args, sessions_parser=None):
 
             return redact_session_data(data)
 
+        # A session holding a Data Hub result is never exported: a single
+        # export is refused, a bulk one leaves it out and says how many.
+        from hermes_cli.session_export import (
+            DataHubExportRefused,
+            data_hub_export_refusal,
+            data_hub_export_skipped,
+            data_hub_server_keys,
+            partition_exportable_sessions,
+            session_has_data_hub_result,
+        )
+
+        data_hub_keys = data_hub_server_keys()
+
+        def _refused(data) -> bool:
+            if session_has_data_hub_result(data, server_keys=data_hub_keys):
+                print(data_hub_export_refusal())
+                return True
+            return False
+
+        def _note_left_out(count: int) -> None:
+            if count:
+                print(data_hub_export_skipped(count), file=sys.stderr)
+
+        def _leave_out_data_hub(sessions):
+            kept, left_out = partition_exportable_sessions(
+                sessions, server_keys=data_hub_keys
+            )
+            _note_left_out(left_out)
+            return kept
+
         def _collect_sessions():
             """Resolve --session-id / filters / bare export into a list
             of redacted session dicts, or None after printing an error."""
@@ -362,6 +392,8 @@ def cmd_sessions(args, sessions_parser=None):
                 data = _redact(db.export_session(resolved)) if resolved else None
                 if not data:
                     print(f"Session '{args.session_id}' not found.")
+                    return None
+                if _refused(data):
                     return None
                 return [data]
             if filters:
@@ -376,17 +408,19 @@ def cmd_sessions(args, sessions_parser=None):
                     if len(candidates) > 100:
                         print(f"  ... {len(candidates) - 100} more")
                     return None
-                return [
+                return _leave_out_data_hub([
                     s
                     for s in (
                         _redact(db.export_session(row["id"])) for row in candidates
                     )
                     if s
-                ]
+                ])
             if args.dry_run:
                 print("--dry-run requires at least one filter.")
                 return None
-            return [_redact(s) for s in db.export_all(source=None)]
+            return _leave_out_data_hub(
+                [_redact(s) for s in db.export_all(source=None)]
+            )
 
         # Prompt-only export (--only user-prompts): one prompt record per
         # line (jsonl) or headed sections (md). Delegates rendering to
@@ -483,6 +517,9 @@ def cmd_sessions(args, sessions_parser=None):
                     db.close()
                     return
                 resolved = db.resolve_session_id(session_id)
+                if _refused(db.get_messages_as_conversation(resolved)):
+                    db.close()
+                    return
                 db.close()
                 status = upload_session_trace(
                     resolved,
@@ -520,6 +557,8 @@ def cmd_sessions(args, sessions_parser=None):
                 messages = db.get_messages_as_conversation(sid)
                 if not messages:
                     return None
+                if session_has_data_hub_result(messages, server_keys=data_hub_keys):
+                    raise DataHubExportRefused()
                 return build_trace_jsonl(
                     messages,
                     session_id=sid,
@@ -530,7 +569,12 @@ def cmd_sessions(args, sessions_parser=None):
 
             try:
                 if len(ids) == 1:
-                    jsonl = _render_trace(ids[0])
+                    try:
+                        jsonl = _render_trace(ids[0])
+                    except DataHubExportRefused as refused:
+                        print(refused)
+                        db.close()
+                        return
                     if not jsonl:
                         print(f"No transcript to export for session '{ids[0]}'.")
                         db.close()
@@ -549,8 +593,13 @@ def cmd_sessions(args, sessions_parser=None):
                     )
                     out_dir.mkdir(parents=True, exist_ok=True)
                     exported = 0
+                    left_out = 0
                     for sid in ids:
-                        jsonl = _render_trace(sid)
+                        try:
+                            jsonl = _render_trace(sid)
+                        except DataHubExportRefused:
+                            left_out += 1
+                            continue
                         if not jsonl:
                             continue
                         (out_dir / f"{sid}.trace.jsonl").write_text(
@@ -558,6 +607,7 @@ def cmd_sessions(args, sessions_parser=None):
                         )
                         exported += 1
                     print(f"Exported {exported} session trace(s) to {out_dir}")
+                    _note_left_out(left_out)
             except TraceRedactionError:
                 print("Redaction failed; refusing to export unredacted trace content.")
             db.close()
@@ -575,6 +625,8 @@ def cmd_sessions(args, sessions_parser=None):
                 data = _redact(db.export_session(resolved_session_id))
                 if not data:
                     print(f"Session '{args.session_id}' not found.")
+                    return
+                if _refused(data):
                     return
                 line = _json.dumps(data, ensure_ascii=False) + "\n"
                 if args.output == "-":
@@ -609,6 +661,7 @@ def cmd_sessions(args, sessions_parser=None):
                         print("--dry-run requires at least one filter.")
                         return
                     sessions = db.export_all(source=None)
+                sessions = _leave_out_data_hub(sessions)
                 if args.output == "-":
 
                     for s in sessions:
@@ -637,15 +690,19 @@ def cmd_sessions(args, sessions_parser=None):
             return
         output_dir = Path(args.output).expanduser() if args.output else get_hermes_home() / "session-exports"
 
-        def _export_one(session_id: str, *, include_lineage: bool = False):
+        def _load_one(session_id: str, *, include_lineage: bool = False):
             data = (
                 db.export_session_lineage(session_id)
                 if include_lineage
                 else db.export_session(session_id)
             )
             if not data:
-                return None, None
-            data = _redact(data)
+                return None
+            if session_has_data_hub_result(data, server_keys=data_hub_keys):
+                raise DataHubExportRefused()
+            return _redact(data)
+
+        def _write_one(data):
             path = write_session_markdown(
                 data,
                 output_dir,
@@ -653,7 +710,13 @@ def cmd_sessions(args, sessions_parser=None):
                 force=args.force,
             )
             append_manifest_entry(output_dir, data, path, fmt=args.format)
-            return data, path
+            return path
+
+        def _export_one(session_id: str, *, include_lineage: bool = False):
+            data = _load_one(session_id, include_lineage=include_lineage)
+            if not data:
+                return None, None
+            return data, _write_one(data)
 
         if args.delete_after_verified and not args.yes:
             print("--delete-after-verified requires --yes.")
@@ -678,16 +741,28 @@ def cmd_sessions(args, sessions_parser=None):
                     resolved_session_id
                 )
 
-            exported_items = []
-            for target_id in delete_target_ids:
-                try:
-                    data, exported_path = _export_one(
+            # Every target is checked before any file is written, so a refused
+            # delegate leaves no partial export behind.
+            try:
+                loaded = [
+                    _load_one(
                         target_id,
                         include_lineage=(
                             target_id == resolved_session_id
                             and lineage_is_logical
                         ),
                     )
+                    for target_id in delete_target_ids
+                ]
+            except DataHubExportRefused as refused:
+                print(refused)
+                db.close()
+                return
+
+            exported_items = []
+            for target_id, data in zip(delete_target_ids, loaded):
+                try:
+                    exported_path = _write_one(data) if data else None
                 except FileExistsError as e:
                     print(
                         f"Export already exists: {e}. "
@@ -774,18 +849,23 @@ def cmd_sessions(args, sessions_parser=None):
             db.close()
             return
         exported = 0
+        left_out = 0
         for row in candidates:
             try:
                 data, exported_path = _export_one(
                     row["id"],
                     include_lineage=lineage_is_logical,
                 )
+            except DataHubExportRefused:
+                left_out += 1
+                continue
             except FileExistsError as e:
                 print(f"Skipping existing export: {e}. Pass --force to overwrite.")
                 continue
             if data and exported_path:
                 exported += 1
         print(f"Exported {exported} session(s) to {output_dir}")
+        _note_left_out(left_out)
 
     elif action == "delete":
         resolved_session_id = db.resolve_session_id(args.session_id)

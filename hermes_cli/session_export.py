@@ -11,7 +11,18 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from html import escape as html_escape
 import json
-from typing import Any, Dict, Iterable, Iterator, List, Literal, Optional, Tuple
+import re
+from typing import (
+    AbstractSet,
+    Any,
+    Dict,
+    Iterable,
+    Iterator,
+    List,
+    Literal,
+    Optional,
+    Tuple,
+)
 
 
 ExportFormat = Literal["jsonl", "markdown"]
@@ -315,3 +326,191 @@ def _finish_markdown(lines: List[str]) -> str:
     while lines and lines[-1] == "":
         lines.pop()
     return "\n".join(lines) + "\n"
+
+
+# ---------------------------------------------------------------------------
+# Data Hub results stay in Workmate (Data Hub plan D2.8, §9.3 #22).
+#
+# The hub's ``agentx-data`` server returns passages from the organisation's
+# documents. The hub cannot take back a passage it returned, so a session
+# that holds one is never exported — on any surface — and the export paths
+# share this one predicate.
+# ---------------------------------------------------------------------------
+
+#: The hub server (gateway ``ref``) whose results may only be read in Workmate.
+DATA_HUB_SERVER_REF = "agentx-data"
+
+# A hub server becomes the ``mcp_servers`` entry ``agentx-<slug>`` (hub_sync
+# ``gateway_entry_name``), whose tools are ``mcp__agentx_agentx_data__<tool>``;
+# a second entry for the same server carries a numeric suffix.
+_DATA_HUB_TOOL_RE = re.compile(r"^mcp__agentx_agentx_data(?:_\d+)?__\w+$")
+_MCP_NAME_UNSAFE_RE = re.compile(r"[^A-Za-z0-9_]")
+
+_DATA_HUB_EXPORT_REFUSAL = {
+    "vi": (
+        "Phiên này có kết quả từ Data Hub — chỉ được đọc trong Workmate, "
+        "nên không xuất được."
+    ),
+    "en": (
+        "This session contains Data Hub results, which may only be read in "
+        "Workmate; exporting is blocked."
+    ),
+}
+_DATA_HUB_EXPORT_SKIPPED = {
+    "vi": "Đã bỏ qua {count} phiên có kết quả từ Data Hub (chỉ được đọc trong Workmate).",
+    "en": "Left out {count} session(s) containing Data Hub results (they may only be read in Workmate).",
+}
+
+
+class DataHubExportRefused(Exception):
+    """An export of a session that holds a Data Hub result."""
+
+    def __init__(self) -> None:
+        super().__init__(data_hub_export_refusal())
+
+
+def _message_language() -> str:
+    """``en`` when the display language is English, else Vietnamese (the shipped default)."""
+    try:
+        from agent.i18n import get_language
+
+        return "en" if get_language() == "en" else "vi"
+    except Exception:
+        return "vi"
+
+
+def data_hub_export_refusal() -> str:
+    """Why an export of a session with a Data Hub result is refused."""
+    return _DATA_HUB_EXPORT_REFUSAL[_message_language()]
+
+
+def data_hub_export_skipped(count: int) -> str:
+    """What a bulk export says about the sessions it left out."""
+    return _DATA_HUB_EXPORT_SKIPPED[_message_language()].format(count=count)
+
+
+def data_hub_server_keys(mcp_servers: Any = None) -> frozenset:
+    """The ``mcp_servers`` keys whose entry reaches the hub's Data Hub server.
+
+    Told by the entry's gateway ref (``hub_sync.gateway_server_of``), not by
+    its name. *mcp_servers* defaults to the active profile's config.
+    """
+    if mcp_servers is None:
+        try:
+            from hermes_cli.config import load_config_readonly
+
+            mcp_servers = (load_config_readonly() or {}).get("mcp_servers")
+        except Exception:
+            mcp_servers = None
+    if not isinstance(mcp_servers, dict):
+        return frozenset()
+    from hermes_cli.hub_sync import gateway_server_of
+
+    return frozenset(
+        str(name)
+        for name, cfg in mcp_servers.items()
+        if gateway_server_of(cfg) == DATA_HUB_SERVER_REF
+    )
+
+
+def is_data_hub_tool_name(
+    name: Any, server_keys: Optional[AbstractSet[str]] = None
+) -> bool:
+    """Whether *name* is a tool of a Data Hub server.
+
+    The default entry's tool family always counts; *server_keys* (see
+    :func:`data_hub_server_keys`) adds the entries the config names
+    differently. Pass them when testing many names.
+    """
+    if not isinstance(name, str) or not name.startswith("mcp__"):
+        return False
+    if _DATA_HUB_TOOL_RE.match(name):
+        return True
+    keys = data_hub_server_keys() if server_keys is None else server_keys
+    return any(
+        name.startswith(f"mcp__{_MCP_NAME_UNSAFE_RE.sub('_', key)}__")
+        for key in keys
+    )
+
+
+def is_data_hub_server_key(
+    name: Any, server_keys: Optional[AbstractSet[str]] = None
+) -> bool:
+    """Whether the ``mcp_servers`` key *name* reaches the Data Hub server: by
+    gateway ref (*server_keys*), or as the default entry's name."""
+    return is_data_hub_tool_name(
+        f"mcp__{_MCP_NAME_UNSAFE_RE.sub('_', str(name))}__tool", server_keys
+    )
+
+
+def _call_names(tool_calls: Any) -> Iterator[Tuple[str, str]]:
+    """``(id, name)`` of each call in an assistant message's ``tool_calls``."""
+    if isinstance(tool_calls, str):
+        try:
+            tool_calls = json.loads(tool_calls)
+        except ValueError:
+            return
+    if not isinstance(tool_calls, list):
+        return
+    for call in tool_calls:
+        if not isinstance(call, dict):
+            continue
+        function = call.get("function") if isinstance(call.get("function"), dict) else {}
+        name = function.get("name") or call.get("name")
+        call_id = call.get("id") or call.get("call_id")
+        if isinstance(name, str) and isinstance(call_id, str):
+            yield call_id, name
+
+
+def session_has_data_hub_result(
+    session: Any, *, server_keys: Optional[AbstractSet[str]] = None
+) -> bool:
+    """Whether *session* (a session dict with ``messages``, or a message list)
+    holds a result of a Data Hub tool.
+
+    A result is a ``tool`` message: named by its ``tool_name``, or by the
+    assistant call it answers when the row carries no name.
+    """
+    messages = session.get("messages") if isinstance(session, dict) else session
+    if not isinstance(messages, list) or not messages:
+        return False
+    keys = data_hub_server_keys() if server_keys is None else server_keys
+    called: Dict[str, str] = {}
+    for message in messages:
+        if isinstance(message, dict) and message.get("role") == "assistant":
+            called.update(_call_names(message.get("tool_calls")))
+    for message in messages:
+        if not isinstance(message, dict) or message.get("role") != "tool":
+            continue
+        names = (
+            message.get("tool_name"),
+            message.get("name"),
+            called.get(str(message.get("tool_call_id") or "")),
+        )
+        if any(is_data_hub_tool_name(name, keys) for name in names):
+            return True
+    return False
+
+
+def ensure_session_exportable(
+    session: Any, *, server_keys: Optional[AbstractSet[str]] = None
+) -> None:
+    """Raise :class:`DataHubExportRefused` for a session with a Data Hub result."""
+    if session_has_data_hub_result(session, server_keys=server_keys):
+        raise DataHubExportRefused()
+
+
+def partition_exportable_sessions(
+    sessions: Iterable[Any], *, server_keys: Optional[AbstractSet[str]] = None
+) -> Tuple[List[Any], int]:
+    """``(exportable, left_out)``: a bulk export drops the sessions that hold
+    a Data Hub result and counts them."""
+    keys = data_hub_server_keys() if server_keys is None else server_keys
+    kept: List[Any] = []
+    left_out = 0
+    for session in sessions:
+        if session_has_data_hub_result(session, server_keys=keys):
+            left_out += 1
+        else:
+            kept.append(session)
+    return kept, left_out

@@ -7800,8 +7800,13 @@ def refresh_agent_mcp_tools(
     # is then updated to match. The automatic paths (between-turns, late-binding)
     # pass nothing and reuse the agent's build-time selection unchanged.
     if enabled_override is not None or disabled_override is not None:
+        from hermes_cli.tools_config import data_hub_disabled_toolsets
+
         enabled = enabled_override if enabled_override is not None else getattr(agent, "enabled_toolsets", None)
         disabled = disabled_override if disabled_override is not None else getattr(agent, "disabled_toolsets", None)
+        # A freshly-resolved selection must not hand a Data Hub server back to
+        # a session that may not have it (see agent_init).
+        disabled = data_hub_disabled_toolsets(disabled, getattr(agent, "platform", None))
         agent.enabled_toolsets = enabled
         agent.disabled_toolsets = disabled
     else:
@@ -7820,11 +7825,16 @@ def refresh_agent_mcp_tools(
     # Computed OUTSIDE the lock (get_tool_definitions can be slow); the diff and
     # publish below happen together in ONE critical section so two concurrent
     # callers can't torn-publish or compute overlapping ``added`` sets.
+    from hermes_cli.tools_config import drop_data_hub_tools
+
     new_defs = list(
-        get_tool_definitions(
-            enabled_toolsets=enabled,
-            disabled_toolsets=disabled,
-            quiet_mode=quiet_mode,
+        drop_data_hub_tools(
+            get_tool_definitions(
+                enabled_toolsets=enabled,
+                disabled_toolsets=disabled,
+                quiet_mode=quiet_mode,
+            ),
+            getattr(agent, "platform", None),
         )
         or []
     )

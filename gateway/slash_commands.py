@@ -4426,6 +4426,11 @@ class GatewaySlashCommandsMixin:
         if not export_data:
             return f"Failed to export session {session_id}."
 
+        from hermes_cli.session_export import data_hub_export_refusal, session_has_data_hub_result
+
+        if session_has_data_hub_result(export_data):
+            return data_hub_export_refusal()
+
         import json
         import shutil
         import tempfile
