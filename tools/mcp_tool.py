@@ -7795,6 +7795,10 @@ def refresh_agent_mcp_tools(
     from model_tools import get_tool_definitions
     from tools.registry import registry
 
+    # The platform the Data Hub guard answers to (agent_init: a subagent's is
+    # its parent's).
+    data_hub_platform = getattr(agent, "_data_hub_platform", getattr(agent, "platform", None))
+
     # Explicit reloads (/reload-mcp) pass freshly-resolved toolsets so a server
     # the user just ENABLED in config is picked up; the agent's stored selection
     # is then updated to match. The automatic paths (between-turns, late-binding)
@@ -7806,7 +7810,7 @@ def refresh_agent_mcp_tools(
         disabled = disabled_override if disabled_override is not None else getattr(agent, "disabled_toolsets", None)
         # A freshly-resolved selection must not hand a Data Hub server back to
         # a session that may not have it (see agent_init).
-        disabled = data_hub_disabled_toolsets(disabled, getattr(agent, "platform", None))
+        disabled = data_hub_disabled_toolsets(disabled, data_hub_platform)
         agent.enabled_toolsets = enabled
         agent.disabled_toolsets = disabled
     else:
@@ -7834,7 +7838,7 @@ def refresh_agent_mcp_tools(
                 disabled_toolsets=disabled,
                 quiet_mode=quiet_mode,
             ),
-            getattr(agent, "platform", None),
+            data_hub_platform,
         )
         or []
     )

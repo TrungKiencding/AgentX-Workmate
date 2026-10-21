@@ -3,9 +3,10 @@
 The hub's ``agentx-data`` server returns passages from the organisation's
 documents. Two guards keep them on the owner's machine:
 
-* its tools are only offered to the owner's own desktop/TUI/CLI sessions —
-  never to a messaging platform, the API server, a webhook or cron, also not
-  through an ``all`` toolset or the cron fallback that loads every toolset;
+* its tools are only offered to the owner's own desktop/TUI/CLI sessions (and
+  the subagents they delegate to) — never to a messaging platform, the API
+  server, a webhook or cron, also not through an ``all`` toolset or the cron
+  fallback that loads every toolset;
 * a session holding one of its results is never exported, on any export path
   (bulk exports leave it out and say how many).
 """
@@ -236,7 +237,7 @@ def _registered_tools():
             registry.deregister(name)
 
 
-def _agent(platform, enabled_toolsets):
+def _agent(platform, enabled_toolsets, **kwargs):
     with (
         patch("hermes_cli.config.load_config_readonly", return_value=CFG),
         patch("run_agent.check_toolset_requirements", return_value={}),
@@ -252,6 +253,7 @@ def _agent(platform, enabled_toolsets):
             quiet_mode=True,
             skip_context_files=True,
             skip_memory=True,
+            **kwargs,
         )
 
 
@@ -293,6 +295,85 @@ def test_owner_agent_reaches_data_hub_tools(_registered_tools, platform):
     agent = _agent(platform, None)
 
     assert {SEARCH, "mcp__kho_noi_bo__search_knowledge"} <= _scoped_names(agent)
+
+
+# A delegate_task child acts for its parent's person on the same machine: it
+# keeps the tools only when the parent session may have them.
+
+
+def _child_of(parent):
+    """A real delegate_task child of *parent*, built the way delegate_task builds it."""
+    from tools.delegate_tool import _build_child_agent
+
+    with (
+        patch("hermes_cli.config.load_config_readonly", return_value=CFG),
+        patch("run_agent.check_toolset_requirements", return_value={}),
+        patch("run_agent.OpenAI"),
+    ):
+        return _build_child_agent(
+            task_index=0,
+            goal="Tra cứu công tác phí",
+            context=None,
+            toolsets=None,
+            model=None,
+            max_iterations=5,
+            task_count=1,
+            parent_agent=parent,
+        )
+
+
+# A parent session's toolsets as its surface resolves them; the foreign ones
+# name the Data Hub servers outright, so only the child's own guard stops them.
+OWNER_TOOLSETS = ["terminal", "finnhub", "agentx-agentx-data", "kho-noi-bo"]
+
+
+@pytest.mark.parametrize("platform", ["desktop", "tui", "cli"])
+def test_subagent_of_an_owner_session_keeps_data_hub_tools(_registered_tools, platform):
+    child = _child_of(_agent(platform, OWNER_TOOLSETS))
+
+    assert child.platform == "subagent"
+    assert {SEARCH, "mcp__kho_noi_bo__search_knowledge"} <= _scoped_names(child)
+    # …and so does a child it delegates to in turn.
+    assert SEARCH in _scoped_names(_child_of(child))
+
+
+@pytest.mark.parametrize("platform", ["signal", "api_server", "cron"])
+def test_subagent_of_another_session_does_not(_registered_tools, platform):
+    child = _child_of(_agent(platform, OWNER_TOOLSETS))
+
+    assert child.platform == "subagent"
+    reachable = _scoped_names(child)
+    assert SEARCH not in reachable
+    assert "mcp__kho_noi_bo__search_knowledge" not in reachable
+    assert "mcp__finnhub__quote" in reachable
+    assert SEARCH not in _scoped_names(_child_of(child))
+
+
+@pytest.mark.parametrize("parent_platform", [None, "subagent", "signal"])
+def test_subagent_with_an_unknown_or_foreign_parent_does_not(_registered_tools, parent_platform):
+    agent = _agent("subagent", None, delegated_from_platform=parent_platform)
+
+    assert SEARCH not in _scoped_names(agent)
+
+
+def test_delegate_task_hands_the_parent_platform_to_the_child():
+    from tools.delegate_tool import _build_child_agent
+
+    parent = MagicMock()
+    parent._data_hub_platform = "desktop"
+    parent.enabled_toolsets = None
+    parent.disabled_toolsets = None
+    parent._delegate_depth = 0
+    parent._session_db = None
+    with patch("run_agent.AIAgent") as child_cls:
+        child_cls.return_value = MagicMock()
+        _build_child_agent(
+            task_index=0, goal="g", context=None, toolsets=None, model=None,
+            max_iterations=5, task_count=1, parent_agent=parent,
+        )
+
+    assert child_cls.call_args.kwargs["platform"] == "subagent"
+    assert child_cls.call_args.kwargs["delegated_from_platform"] == "desktop"
 
 
 # ─── Export paths ───────────────────────────────────────────────────────────

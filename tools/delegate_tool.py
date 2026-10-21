@@ -1595,6 +1595,9 @@ def _build_child_agent(
                 ephemeral_system_prompt=child_prompt,
                 log_prefix=f"[subagent-{task_index}]",
                 platform="subagent",
+                # Decides whether the child keeps the Data Hub tools: a nested
+                # child carries its root session's platform on.
+                delegated_from_platform=getattr(parent_agent, "_data_hub_platform", None),
                 skip_context_files=True,
                 skip_memory=True,
                 clarify_callback=None,
