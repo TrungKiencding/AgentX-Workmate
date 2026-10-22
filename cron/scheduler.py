@@ -306,7 +306,13 @@ def _merge_mcp_into_per_job_toolsets(per_job: list[str], cfg: dict) -> list[str]
     # computation with the gateway/CLI platform resolver.
     from hermes_cli.tools_config import enabled_mcp_server_names
     enabled_mcp = enabled_mcp_server_names(cfg)
-    if set(result) & enabled_mcp:
+    # A job names an MCP server by its TOOLSET name (``mcp-<server>``) or by the bare alias the
+    # registry registers for it; compare against BOTH, or a job that named one server never matched
+    # and the fallback below unioned EVERY enabled server into its allowlist. A server that is
+    # CONFIGURED but disabled still counts as named: it stays off and must not widen the job either.
+    configured = cfg.get("mcp_servers") if isinstance(cfg.get("mcp_servers"), dict) else {}
+    known = enabled_mcp | {str(name) for name in configured}
+    if set(result) & (known | {f"mcp-{name}" for name in known}):
         return result
     for name in sorted(enabled_mcp):
         if name not in result:
