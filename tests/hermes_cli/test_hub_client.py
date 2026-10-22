@@ -105,6 +105,8 @@ class TestCalls:
         sent = hub.requests[-1]
         assert sent.headers["Authorization"] == "Bearer tok"
         assert sent.headers["X-AgentX-Device"] == DEVICE and sent.headers["X-AgentX-Device-Name"] == "Ada's laptop"
+        # The Data Hub client contract this Workmate keeps (AgentHub docs/data-hub/agents.md §4a).
+        assert sent.headers["X-AgentX-Data-Client"] == "1"
 
     def test_max_bundle_bytes_is_what_the_hub_announces(self, client, hub):
         assert client.max_bundle_bytes(bearer="tok") == 25 * 1024 * 1024

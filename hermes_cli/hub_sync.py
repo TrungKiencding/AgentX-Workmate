@@ -101,6 +101,8 @@ from datetime import datetime, timezone
 from typing import Any, Callable, Deque, Dict, List, Optional, Tuple
 from urllib.parse import urlsplit
 
+from hermes_cli.hub_client import DATA_CLIENT_CONTRACT, DATA_CLIENT_HEADER
+
 logger = logging.getLogger("hermes_cli.hub_sync")
 
 DEFAULT_INTERVAL_SECONDS = 60.0
@@ -1447,6 +1449,7 @@ class HubSyncEngine:
         and the entries rewritten are said (``renamed``: the desktop reloads
         MCP). Then :meth:`_renew_gateway`."""
         renamed = self._move_gateway_token()
+        renamed += [name for name in self._mark_data_client() if name not in renamed]
         kept = self._renew_gateway(credentials, client)
         return {**kept, "renamed": renamed} if renamed else kept
 
@@ -1461,6 +1464,13 @@ class HubSyncEngine:
         elif moved["expired"]:
             self._remember("gateway_token", GATEWAY_TOKEN_ENV, detail=f"{LEGACY_GATEWAY_TOKEN_ENV} did not hold this machine's token: a new one is asked for")
         return list(moved["entries"])
+
+    def _mark_data_client(self) -> List[str]:
+        try:
+            return mark_data_client_entries()
+        except Exception as exc:  # noqa: BLE001 - the next tick tries again
+            logger.warning("hub sync: the gateway entries could not say the Data Hub client contract: %s", exc)
+            return []
 
     def _renew_gateway(self, credentials: HubCredentials, client: Any) -> Dict[str, Any]:
         """Renew this machine's gateway token while it has under
@@ -1837,7 +1847,7 @@ def gateway_entry(endpoint: Dict[str, Any]) -> Dict[str, Any]:
         gateway["servers"] = members
     return {
         "url": str(endpoint["url"]),
-        "headers": {"Authorization": f"Bearer ${{{GATEWAY_TOKEN_ENV}}}"},
+        "headers": {"Authorization": f"Bearer ${{{GATEWAY_TOKEN_ENV}}}", DATA_CLIENT_HEADER: DATA_CLIENT_CONTRACT},
         "protocol": "auto",
         "enabled": True,
         "source": GATEWAY_SOURCE,
@@ -2137,6 +2147,32 @@ def migrate_gateway_token_env(device: GatewayDevice | None = None) -> Dict[str, 
         elif done["entries"] and not device.is_its_token(load_env().get(GATEWAY_TOKEN_ENV)):
             done["expired"] = device.expire()
     return done
+
+
+def mark_data_client_entries() -> List[str]:
+    """Every gateway entry (``source: hub-gateway``) says this Workmate keeps
+    the Data Hub client contract (:data:`DATA_CLIENT_HEADER`): the hub serves
+    ``agentx-data`` — alone or in a toolset — only to an entry that does, so an
+    entry an older Workmate wrote gains the header once. Runs each tick
+    beside :func:`migrate_gateway_token_env`; returns the entries rewritten
+    (the desktop reloads MCP)."""
+    from hermes_cli.config import is_managed, read_raw_config, save_config
+
+    if is_managed():
+        return []
+    with _TOKEN_ENV_LOCK:
+        config = read_raw_config()
+        servers = config.get("mcp_servers")
+        changed: List[str] = []
+        for name, cfg in servers.items() if isinstance(servers, dict) else ():
+            headers = cfg.get("headers") if isinstance(cfg, dict) and cfg.get("source") == GATEWAY_SOURCE else None
+            if not isinstance(headers, dict) or headers.get(DATA_CLIENT_HEADER) == DATA_CLIENT_CONTRACT:
+                continue
+            cfg["headers"] = {**headers, DATA_CLIENT_HEADER: DATA_CLIENT_CONTRACT}
+            changed.append(name)
+        if changed:
+            save_config(config)
+    return changed
 
 
 def gateway_server_of(cfg: Any) -> Optional[str]:
