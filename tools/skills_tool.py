@@ -1009,6 +1009,12 @@ def skill_view(
             from hermes_cli.plugins import discover_plugins, get_plugin_manager
 
             namespace, bare = parse_qualified_name(name)
+            if namespace == "plugin" and ":" in bare:
+                # The skills index lists plugin skills under a "plugin" heading, and models write
+                # that heading as a prefix ("plugin:<namespace>:<skill>"). A bare skill name never
+                # holds a colon, so the remainder is the real qualified name.
+                name = bare
+                namespace, bare = parse_qualified_name(name)
             if not is_valid_namespace(namespace):
                 return json.dumps(
                     {
