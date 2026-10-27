@@ -7488,7 +7488,7 @@ class APIServerAdapter(BasePlatformAdapter):
         self._mark_disconnected()
         if self._response_store is not None:
             try:
-                self._response_store.close()
+                await asyncio.to_thread(self._response_store.close)  # a persistence worker may hold its lock
             except Exception:
                 logger.debug(
                     "Failed to close response store for %s", self.name, exc_info=True,
