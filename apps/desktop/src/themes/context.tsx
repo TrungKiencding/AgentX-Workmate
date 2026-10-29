@@ -124,6 +124,7 @@ export function moveOldDefaultSkinToQuiet(): void {
   }
 
   const perProfile = storedStringRecord(PROFILE_SKINS_KEY)
+
   const moved = Object.fromEntries(
     Object.entries(perProfile).map(([profile, skin]) => [profile, skin === 'night-owl' ? DEFAULT_SKIN_NAME : skin])
   )
