@@ -10,6 +10,7 @@ import { chatMessageText } from '@/lib/chat-messages'
 import { sanitizeComposerInput } from '@/lib/composer-input-sanitize'
 import { DATA_IMAGE_URL_RE } from '@/lib/embedded-images'
 import { triggerHaptic } from '@/lib/haptics'
+import { isImeComposing } from '@/lib/ime'
 import { cn } from '@/lib/utils'
 import { interceptsTypedVoiceStop } from '@/lib/voice-stop-word'
 import { repoStatusForCwd } from '@/store/coding-status'
@@ -525,10 +526,10 @@ export function ChatBar({
   const handleEditorKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     // IME composition: Enter confirms composed text, not a message submission.
     // We check both composingRef (set by compositionstart/compositionend, robust
-    // across browsers) and nativeEvent.isComposing (Chromium fallback).  Without
-    // this guard, pressing Enter to finalise a Korean/Japanese/Chinese IME
-    // preedit fires submitDraft() and splits the message mid-word.
-    if (composingRef.current || event.nativeEvent.isComposing) {
+    // across browsers) and the event itself (isComposing + Chromium's 229
+    // boundary code). Without this guard, pressing Enter to finalise a Telex /
+    // VNI / CJK preedit fires submitDraft() and splits the message mid-word.
+    if (composingRef.current || isImeComposing(event)) {
       return
     }
 
