@@ -52,7 +52,7 @@ describe('skinToDesktopTheme', () => {
     const theme = withColors('bare', { background: '#101010', banner_text: '#eeeeee' })!
 
     // Skins are palette-only: applyTheme's `{ ...DEFAULT_TYPOGRAPHY, ... }`
-    // merge supplies sans/mono and the newer fontSerifDisplay, so a skin
+    // merge supplies sans/mono, so a skin
     // authored before those fields existed keeps rendering unchanged.
     expect(theme.typography).toBeUndefined()
   })

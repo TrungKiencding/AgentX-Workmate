@@ -30,14 +30,126 @@ const SYSTEM_MONO = 'Menlo, Monaco, "SF Mono", monospace, ' + EMOJI_FALLBACK
 const GEIST_SANS = '"Geist", ' + SYSTEM_SANS
 const JETBRAINS_MONO = '"JetBrains Mono", ' + SYSTEM_MONO
 
-// Display serif — the sanctioned outlier face, used in exactly two slots
-// (home greeting, onboarding hero). Roman only.
-export const DEFAULT_SERIF_DISPLAY = '"Newsreader", Georgia, serif'
-
 export const DEFAULT_TYPOGRAPHY: DesktopThemeTypography = {
   fontSans: GEIST_SANS,
-  fontMono: JETBRAINS_MONO,
-  fontSerifDisplay: DEFAULT_SERIF_DISPLAY
+  fontMono: JETBRAINS_MONO
+}
+
+// Quiet Tool type (spec §3.6): the platform's own UI face — SF Pro on macOS,
+// Segoe UI on Windows — both carry full Vietnamese; JetBrains Mono stays
+// bundled as the mono fallback behind SF Mono / ui-monospace.
+const QUIET_SANS =
+  '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Inter, system-ui, sans-serif, ' + EMOJI_FALLBACK
+
+const QUIET_MONO = '"SF Mono", ui-monospace, "JetBrains Mono", Menlo, Consolas, monospace, ' + EMOJI_FALLBACK
+
+/**
+ * The warm-gray ladder of the Quiet Tool spec (§3.2), as flat hex — this
+ * pipeline parses `#rrggbb` only. styles.css/tokens.css carries the same
+ * values as `--gray-*` primitives; change one, change both.
+ */
+const WARM = {
+  0: '#ffffff',
+  50: '#f7f7f5',
+  100: '#f0f0ee',
+  150: '#eaeae7',
+  200: '#e2e2df',
+  300: '#cecec9',
+  400: '#b3b3ae',
+  500: '#8b8b86',
+  600: '#646460',
+  700: '#4f4f4c',
+  800: '#333331',
+  850: '#2a2a29',
+  900: '#232322',
+  950: '#1c1c1b'
+} as const
+
+/**
+ * Quiet — the shipped default (Quiet Tool spec v2.0). The interface steps back
+ * so content leads: warm neutral grays everywhere, colour only as a signal.
+ *
+ * `primary` here is the SIGNAL blue (links, references, the selected-state
+ * accent of a few legacy surfaces); the primary BUTTON is not the skin's
+ * primary at all — it paints `--bg-inverse` on every skin (button.tsx), so it
+ * never wears the brand or the accent. Exact surface values come from the
+ * `[data-agentx-theme='quiet']` block in tokens.css; the seeds below exist so
+ * the pipeline (title bar, boot paint, contrast gate) sees the same numbers.
+ *
+ * One deliberate deviation, dark only: the sidebar hairline is gray-800, not
+ * the spec's gray-850 — 850 on the 950 page measures 1.19:1, just under the
+ * gate's 1.2:1 "the line still exists" floor.
+ *
+ * Axes — band: warm gray, white / oklch(22% 0.002 106) dark · display: system
+ * UI + SF Mono · accent: blue #2563eb light, #6b9bf7 dark.
+ */
+export const quietTheme: DesktopTheme = {
+  name: 'quiet',
+  label: 'Quiet',
+  description: 'Warm neutral grays — colour only as a signal',
+  colors: {
+    background: WARM[0],
+    foreground: WARM[950],
+    card: WARM[0],
+    cardForeground: WARM[950],
+    muted: WARM[50],
+    mutedForeground: WARM[600], // 5.9:1 on the page, 5.5:1 on muted
+    popover: WARM[0],
+    popoverForeground: WARM[950],
+    primary: '#2563eb', // 5.2:1 under a white label
+    primaryForeground: '#ffffff',
+    secondary: WARM[100],
+    secondaryForeground: WARM[950],
+    accent: WARM[100],
+    accentForeground: WARM[950],
+    border: WARM[200],
+    input: WARM[400],
+    ring: '#2563eb',
+    midground: '#2563eb',
+    composerRing: WARM[300],
+    destructive: '#c8372d', // 5.2:1 under white
+    destructiveForeground: '#ffffff',
+    sidebarBackground: WARM[0],
+    sidebarBorder: WARM[150],
+    userBubble: WARM[50],
+    userBubbleBorder: WARM[50]
+  },
+  darkColors: {
+    background: WARM[950],
+    foreground: WARM[100], // 15.0:1
+    card: WARM[950],
+    cardForeground: WARM[100],
+    muted: WARM[900],
+    mutedForeground: WARM[400], // 8.1:1 on the page
+    popover: WARM[850],
+    popoverForeground: WARM[100],
+    // A step lighter than the spec's blue-400 so a dark label on the fill
+    // clears APCA Lc 60 (blue-400 under gray-950 measures Lc 49); the ring and
+    // strokes keep blue-400 itself.
+    primary: '#8db3f9',
+    primaryForeground: WARM[950], // 8.4:1
+    secondary: WARM[850],
+    secondaryForeground: WARM[100],
+    accent: WARM[850],
+    accentForeground: WARM[100],
+    border: WARM[800],
+    input: WARM[700],
+    ring: '#6b9bf7',
+    midground: '#6b9bf7',
+    composerRing: WARM[700],
+    // The danger FILL keeps the light rung so a white label still reads; danger
+    // TEXT in dark is --ui-red (red-400) from styles.css.
+    destructive: '#c8372d',
+    destructiveForeground: '#ffffff',
+    sidebarBackground: WARM[950],
+    sidebarBorder: WARM[800],
+    userBubble: WARM[900],
+    userBubbleBorder: WARM[900]
+  },
+  typography: {
+    fontSans: QUIET_SANS,
+    fontMono: QUIET_MONO
+  }
 }
 
 const NOUS_BLUE = '#0053FD'
@@ -102,7 +214,7 @@ const nousTintTransparent = (pct: number) => `color-mix(in srgb, ${NOUS_BLUE} ${
  * return as accent seeds.
  *
  * Axes — band: Paper (light) / Graphite (dark), the hue-262 ladders above ·
- * display: Geist + JetBrains Mono + the Newsreader outlier · accent:
+ * display: Geist + JetBrains Mono · accent:
  * Nous blue oklch(52.8% 0.259 263), lifted per-band for stroke duty.
  */
 export const nousTheme: DesktopTheme = {
@@ -624,6 +736,7 @@ export function nousWithAccent(accent: string): DesktopTheme {
 }
 
 export const BUILTIN_THEMES: Record<string, DesktopTheme> = {
+  quiet: quietTheme,
   'night-owl': nightOwlTheme,
   nous: nousTheme,
   'nous-classic': nousClassicTheme,
@@ -637,7 +750,7 @@ export const BUILTIN_THEMES: Record<string, DesktopTheme> = {
 export const BUILTIN_THEME_LIST = Object.values(BUILTIN_THEMES)
 
 /** Skin used when nothing is persisted or the persisted name is retired. */
-export const DEFAULT_SKIN_NAME = 'night-owl'
+export const DEFAULT_SKIN_NAME = 'quiet'
 
 /**
  * The one skin the accent picker recolors. Deliberately NOT the default skin:

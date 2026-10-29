@@ -188,7 +188,7 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
     >
       <div className="w-full min-w-0">
         <div className="intro-head">
-          <h2 className="intro-greeting intro-enter font-serif-display text-2xl text-(--ui-text-primary)">
+          <h2 className="intro-greeting intro-enter text-2xl font-medium text-(--text-primary)">
             {greeting}
           </h2>
 

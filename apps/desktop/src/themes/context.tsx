@@ -22,11 +22,10 @@ import { baseColorsFor, bestTextOn, hexToRgb, mix } from './color'
 import {
   ACCENT_SKIN_NAME,
   BUILTIN_THEME_LIST,
-  DEFAULT_SERIF_DISPLAY,
   DEFAULT_SKIN_NAME,
   DEFAULT_TYPOGRAPHY,
-  nightOwlTheme,
-  nousWithAccent
+  nousWithAccent,
+  quietTheme
 } from './presets'
 import type { DesktopTheme, DesktopThemeColors } from './types'
 import { $userThemes, listAllThemes, resolveTheme } from './user-themes'
@@ -59,11 +58,11 @@ const resolveMode = (mode: ThemeMode, systemDark = matchesQuery('(prefers-color-
 const normalizeSkin = (name: string | null): string =>
   name && resolveTheme(name) && !RETIRED_SKINS.has(name) ? name : DEFAULT_SKIN_NAME
 
-// Nothing stored means a fresh install, which opens on Night Owl Light — a
-// fixed pick rather than the OS's answer, so the first frame (index.html) and
-// the native window (electron/main.ts) can paint it before this module runs.
+// Nothing stored means a fresh install, which follows the OS (Quiet Tool spec
+// §11): index.html and electron/main.ts paint the matching Quiet background
+// from prefers-color-scheme before this module runs.
 const normalizeMode = (value: string | null): ThemeMode =>
-  value === 'light' || value === 'dark' || value === 'system' ? value : 'light'
+  value === 'light' || value === 'dark' || value === 'system' ? value : 'system'
 
 const normalizeAccent = (value: string | null): string =>
   value && /^#[0-9a-f]{6}$/i.test(value) ? value.toLowerCase() : ''
@@ -107,8 +106,38 @@ export function keepDarkForInstallsThatShippedDark(): void {
   persistString(LIGHT_DEFAULT_MIGRATION_KEY, '1')
 }
 
+// The Quiet Tool redesign moved the shipped skin from Night Owl to Quiet. An
+// install still on Night Owl almost always got it as the old default (it was
+// never a deliberate pick for most people), so it moves to Quiet once — the
+// global slot and every per-profile assignment. The marker makes it one-shot:
+// anyone who switches back to Night Owl afterwards keeps it. Any other stored
+// skin was chosen on purpose and is left alone.
+const QUIET_DEFAULT_MIGRATION_KEY = 'agentx-desktop-quiet-default-v1'
+
+export function moveOldDefaultSkinToQuiet(): void {
+  if (storedString(QUIET_DEFAULT_MIGRATION_KEY) !== null) {
+    return
+  }
+
+  if (storedString(SKIN_KEY) === 'night-owl') {
+    persistString(SKIN_KEY, DEFAULT_SKIN_NAME)
+  }
+
+  const perProfile = storedStringRecord(PROFILE_SKINS_KEY)
+  const moved = Object.fromEntries(
+    Object.entries(perProfile).map(([profile, skin]) => [profile, skin === 'night-owl' ? DEFAULT_SKIN_NAME : skin])
+  )
+
+  if (Object.entries(perProfile).some(([profile, skin]) => moved[profile] !== skin)) {
+    persistStringRecord(PROFILE_SKINS_KEY, moved)
+  }
+
+  persistString(QUIET_DEFAULT_MIGRATION_KEY, '1')
+}
+
 if (typeof window !== 'undefined') {
   keepDarkForInstallsThatShippedDark()
+  moveOldDefaultSkinToQuiet()
 }
 
 // Last active profile — lets the boot paint pick its appearance before the
@@ -123,11 +152,11 @@ const rememberActiveProfileKey = (profile: string) => persistString(LAST_PROFILE
 
 /** Returns the seed palette for a given skin + mode (no overrides applied). */
 export function getBaseColors(skinName: string, mode: 'light' | 'dark'): DesktopThemeColors {
-  return baseColorsFor(resolveTheme(skinName) ?? nightOwlTheme, mode)
+  return baseColorsFor(resolveTheme(skinName) ?? quietTheme, mode)
 }
 
 function deriveTheme(skinName: string, mode: 'light' | 'dark', accent = ''): DesktopTheme {
-  const resolved = resolveTheme(skinName) ?? nightOwlTheme
+  const resolved = resolveTheme(skinName) ?? quietTheme
   // The accent picker recolors the Nous preset only — every other theme owns
   // its accent. '' (or the Nous blue itself) resolves to the shipped skin.
   const seed = accent && skinName === ACCENT_SKIN_NAME ? nousWithAccent(accent) : resolved
@@ -169,8 +198,13 @@ function renderedModeFor(colors: DesktopThemeColors, mode: 'light' | 'dark'): 'l
 // band rather than toward a 0-chroma near-black.
 const NEUTRAL_CHROME = { light: '#f9fafd', dark: '#0d0f15' } as const
 
-const chromeBackground = (background: string, isDark: boolean) =>
-  mix(background, NEUTRAL_CHROME[isDark ? 'dark' : 'light'], isDark ? 0.26 : 0.08)
+// The Quiet skin's chrome IS its page — pure white / gray-950 — with no band
+// to pull toward; mixing it into the Paper/Graphite rungs would tint the title
+// bar and the boot paint blue.
+const isQuietSkin = (name: string) => name === 'quiet' || name.startsWith('quiet-')
+
+const chromeBackground = (background: string, isDark: boolean, skinName = '') =>
+  isQuietSkin(skinName) ? background : mix(background, NEUTRAL_CHROME[isDark ? 'dark' : 'light'], isDark ? 0.26 : 0.08)
 
 const mixesFor = (isDark: boolean): Record<string, string> => ({
   '--theme-mix-chrome': isDark ? '74%' : '92%',
@@ -193,7 +227,7 @@ function applyTheme(theme: DesktopTheme, mode: 'light' | 'dark') {
 
   const root = document.documentElement
   const c = theme.colors
-  const typo = { ...DEFAULT_TYPOGRAPHY, ...nightOwlTheme.typography, ...theme.typography }
+  const typo = { ...DEFAULT_TYPOGRAPHY, ...quietTheme.typography, ...theme.typography }
   const rendered = renderedModeFor(c, mode)
   const isDark = rendered === 'dark'
   const midground = c.midground ?? c.ring
@@ -236,8 +270,6 @@ function applyTheme(theme: DesktopTheme, mode: 'light' | 'dark') {
     '--dt-user-bubble-border': c.userBubbleBorder ?? c.border,
     '--dt-font-sans': typo.fontSans,
     '--dt-font-mono': typo.fontMono,
-    // Optional per-theme override; every theme falls back to the bundled face.
-    '--dt-font-serif-display': typo.fontSerifDisplay ?? DEFAULT_SERIF_DISPLAY,
     '--noise-opacity-mul': isDark ? 'calc(0.04 / 0.21)' : 'calc(0.34 / 0.21)'
   }
 
@@ -245,7 +277,7 @@ function applyTheme(theme: DesktopTheme, mode: 'light' | 'dark') {
     root.style.setProperty(k, v)
   }
 
-  const chromeBg = chromeBackground(c.background, isDark)
+  const chromeBg = chromeBackground(c.background, isDark, skinName)
 
   window.agentxDesktop?.setTitleBarTheme?.({
     background: chromeBg,
@@ -318,11 +350,11 @@ interface ThemeContextValue {
 const SKIN_LIST = BUILTIN_THEME_LIST.map(({ name, label, description }) => ({ name, label, description }))
 
 const ThemeContext = createContext<ThemeContextValue>({
-  theme: nightOwlTheme,
+  theme: quietTheme,
   themeName: DEFAULT_SKIN_NAME,
-  mode: 'dark',
-  resolvedMode: 'dark',
-  renderedMode: 'dark',
+  mode: 'system',
+  resolvedMode: 'light',
+  renderedMode: 'light',
   availableThemes: SKIN_LIST,
   accent: '',
   setTheme: () => {},
@@ -360,7 +392,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   )
 
   const [mode, setModeState] = useState<ThemeMode>(() =>
-    typeof window === 'undefined' ? 'dark' : modePref.resolve(readBootProfileKey())
+    typeof window === 'undefined' ? 'system' : modePref.resolve(readBootProfileKey())
   )
 
   const [accent, setAccentState] = useState(() =>

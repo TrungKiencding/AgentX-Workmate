@@ -1,0 +1,247 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Quiet Tool tokens — the three-tier token architecture of the design spec
+   ("AgentX - Design Spec Quiet Tool" v2.0, §3).
+
+     Primitive  (raw values)     --gray-600: #646460
+        ↓
+     Semantic   (meaning)        --text-secondary: var(--gray-600)
+        ↓
+     Component  (per component)  --ui-row-active-background, --nav-row-*, …
+
+   Components consume the SEMANTIC tier (or a component token built on it) —
+   never a primitive, never a hex. A theme change or dark mode swaps only the
+   semantic tier.
+
+   Two paths feed the semantic tier:
+   · The Quiet skin (the shipped default) pins it straight to the warm-gray
+     primitives below — exact spec values, both modes.
+   · Every other skin (Night Owl, Nous, Midnight, …) keeps its own palette
+     pipeline (`--theme-*` seeds → `--ui-*` in styles.css) and the semantic tier
+     reads from that, so new components written against the spec names still
+     paint correctly under a legacy skin.
+
+   Contrast for the Quiet values is the spec's §3.5 table; the gate
+   (scripts/check-theme-contrast.mjs) re-measures the preset on every check.
+   ───────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    /* Primitive — warm gray ladder (§3.2). */
+    --gray-0: #ffffff;
+    --gray-50: #f7f7f5;
+    --gray-100: #f0f0ee;
+    --gray-150: #eaeae7;
+    --gray-200: #e2e2df;
+    --gray-300: #cececa;
+    --gray-400: #b3b3ae;
+    --gray-500: #8b8b86;
+    --gray-600: #646460;
+    --gray-700: #4f4f4c;
+    --gray-750: #3f3f3d;
+    --gray-800: #333331;
+    --gray-850: #2a2a29;
+    --gray-900: #232322;
+    --gray-950: #1c1c1b;
+    --gray-1000: #141413;
+
+    --blue-400: #6b9bf7;
+    --blue-500: #2563eb;
+    --blue-600: #1d4fc4;
+    --blue-300: #8db3f9;
+    --amber-600: #a15c07;
+    --amber-400: #e0a44a;
+    --amber-50: #fdf3e4;
+    --amber-950: #3a2e1c;
+    --red-600: #c8372d;
+    --red-400: #f07167;
+    --red-50: #fcebe9;
+    --red-950: #3d2321;
+    --green-600: #2e7d4f;
+    --green-400: #5bbf86;
+    --clay-500: #d97757;
+    --clay-400: #e08a6c;
+
+    /* Semantic — read from the active skin's pipeline. The Quiet skin
+       overrides every one of these with a primitive (blocks below). */
+    --bg-app: var(--ui-bg-chrome);
+    --bg-subtle: var(--ui-bg-quaternary);
+    --bg-raised: var(--ui-bg-elevated);
+    --bg-hover: var(--ui-row-hover-background);
+    --bg-selected: var(--ui-row-active-background);
+    --bg-pressed: var(--ui-control-active-background);
+    --bg-inverse: var(--theme-foreground);
+
+    --border-subtle: var(--ui-stroke-quaternary);
+    --border-default: var(--ui-stroke-tertiary);
+    --border-strong: var(--ui-stroke-secondary);
+    --border-input: var(--ui-stroke-primary);
+
+    --text-primary: var(--ui-text-primary);
+    --text-secondary: var(--ui-text-secondary);
+    --text-tertiary: var(--ui-text-tertiary);
+    --text-disabled: var(--ui-text-quaternary);
+    --text-inverse: var(--ui-bg-chrome);
+
+    --icon-default: var(--ui-text-secondary);
+    --icon-muted: var(--ui-text-tertiary);
+
+    /* Signals. The semantic trio lives once per mode in styles.css
+       (`--ui-red/-yellow/-green`, stated in OKLCH for the contrast gate) and is
+       the spec's 600 rung in light, the 400 rung in dark. */
+    --accent: var(--ui-accent);
+    --accent-hover: color-mix(in srgb, var(--ui-accent) 82%, var(--ui-base));
+    --warning: var(--ui-yellow);
+    --warning-bg: color-mix(in srgb, var(--ui-yellow) 10%, var(--bg-app));
+    --danger: var(--ui-red);
+    --danger-bg: color-mix(in srgb, var(--ui-red) 9%, var(--bg-app));
+    --success: var(--ui-green);
+    /* Mascot and logo ONLY — 3.1:1 on paper, never text. */
+    --brand: var(--clay-500);
+
+    --selection: color-mix(in srgb, var(--accent) 18%, transparent);
+    --scrim: rgb(0 0 0 / 0.32);
+    /* The spec states the ring at 60% of the accent; at that strength a 2px
+       blue ring on white lands at 2.6:1, under the WCAG 1.4.11 floor for a
+       focus indicator, so the ring paints the accent at full strength
+       (5.2:1). Clarity outranks quiet (§1, priority order). */
+    --focus-ring: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--accent);
+
+    /* Elevation levels (§3.9). Flat by default: cards and the composer carry a
+       border, never a shadow. */
+    --elevation-drawer: 0 0 0 1px var(--border-default), 8px 0 24px rgb(0 0 0 / 0.08);
+    --elevation-1: 0 4px 16px rgb(0 0 0 / 0.08), 0 0 0 1px var(--border-default);
+    --elevation-2: 0 16px 48px rgb(0 0 0 / 0.16), 0 0 0 1px var(--border-default);
+  }
+
+  :root.dark {
+    --brand: var(--clay-400);
+    --scrim: rgb(0 0 0 / 0.56);
+    --warning-bg: color-mix(in srgb, var(--ui-yellow) 14%, var(--bg-app));
+    --danger-bg: color-mix(in srgb, var(--ui-red) 14%, var(--bg-app));
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Quiet skin — the semantic tier pinned to primitives (§3.3 / §3.4), and the
+   legacy component tokens (`--ui-*`) pointed back at it so every existing
+   surface paints the spec values without a per-component rewrite.
+
+   Unlayered on purpose: the `:root` / `:root.dark` defaults in styles.css live
+   in `@layer base`, and an unlayered declaration wins over any layered one.
+   No cycles: every `--ui-*` below resolves to a semantic token that this same
+   block pins to a primitive.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root[data-agentx-theme='quiet'] {
+  --bg-app: var(--gray-0);
+  --bg-subtle: var(--gray-50);
+  --bg-raised: var(--gray-0);
+  --bg-hover: var(--gray-100);
+  --bg-selected: var(--gray-150);
+  --bg-pressed: var(--gray-200);
+  --bg-inverse: var(--gray-950);
+
+  --border-subtle: var(--gray-150);
+  --border-default: var(--gray-200);
+  --border-strong: var(--gray-300);
+  --border-input: var(--gray-400);
+
+  --text-primary: var(--gray-950);
+  --text-secondary: var(--gray-600);
+  --text-tertiary: var(--gray-500);
+  --text-disabled: var(--gray-400);
+  --text-inverse: var(--gray-0);
+
+  --icon-default: var(--gray-700);
+  --icon-muted: var(--gray-500);
+
+  --accent: var(--blue-500);
+  --accent-hover: var(--blue-600);
+  --warning-bg: var(--amber-50);
+  --danger-bg: var(--red-50);
+
+  /* Legacy component tokens → semantic tier. */
+  --ui-bg-chrome: var(--bg-app);
+  --ui-bg-sidebar: var(--bg-app);
+  --ui-bg-editor: var(--bg-app);
+  --ui-bg-elevated: var(--bg-raised);
+  --ui-bg-card: var(--bg-app);
+  --ui-bg-input: var(--bg-app);
+  --ui-bg-primary: var(--bg-pressed);
+  --ui-bg-secondary: var(--bg-selected);
+  --ui-bg-tertiary: var(--bg-hover);
+  --ui-bg-quaternary: var(--bg-subtle);
+  --ui-bg-quinary: var(--bg-subtle);
+  --ui-row-hover-background: var(--bg-hover);
+  --ui-row-active-background: var(--bg-selected);
+  --ui-control-hover-background: var(--bg-hover);
+  --ui-control-active-background: var(--bg-selected);
+
+  --ui-text-primary: var(--text-primary);
+  --ui-text-secondary: var(--text-secondary);
+  --ui-text-tertiary: var(--text-tertiary);
+  --ui-text-quaternary: var(--text-disabled);
+  --conversation-scaffold-text: var(--text-secondary);
+  --conversation-scaffold-meta: var(--text-tertiary);
+
+  --ui-stroke-primary: var(--border-strong);
+  --ui-stroke-secondary: var(--border-default);
+  --ui-stroke-tertiary: var(--border-default);
+  --ui-stroke-quaternary: var(--border-subtle);
+  --sidebar-edge-border: var(--border-subtle);
+  --ui-sash-hover-border: var(--border-strong);
+  --ui-sash-hover-background: var(--bg-hover);
+
+  --ui-scrollbar-thumb: var(--gray-300);
+  --ui-scrollbar-thumb-hover: var(--gray-400);
+  --ui-scrollbar-thumb-overlay: var(--gray-300);
+  --ui-scrollbar-thumb-overlay-hover: var(--gray-400);
+
+  --ui-chat-bubble-background: var(--bg-subtle);
+  --ui-chat-bubble-opaque-background: var(--bg-subtle);
+  --ui-widget-surface-background: var(--bg-app);
+  --ui-terminal-surface-background: var(--bg-app);
+  --ui-inline-code-background: var(--bg-hover);
+  --ui-inline-code-foreground: var(--text-primary);
+  --ui-selection-background: var(--selection);
+
+  --dt-popover: var(--bg-raised);
+  --dt-user-bubble-hover: var(--bg-hover);
+  --dt-input-inset: none;
+}
+
+:root.dark[data-agentx-theme='quiet'] {
+  --bg-app: var(--gray-950);
+  --bg-subtle: var(--gray-900);
+  --bg-raised: var(--gray-850);
+  --bg-hover: var(--gray-850);
+  --bg-selected: var(--gray-800);
+  --bg-pressed: var(--gray-750);
+  --bg-inverse: var(--gray-100);
+
+  --border-subtle: var(--gray-850);
+  --border-default: var(--gray-800);
+  --border-strong: var(--gray-700);
+  --border-input: var(--gray-700);
+
+  --text-primary: var(--gray-100);
+  --text-secondary: var(--gray-400);
+  --text-tertiary: var(--gray-500);
+  --text-disabled: var(--gray-700);
+  --text-inverse: var(--gray-950);
+
+  --icon-default: var(--gray-300);
+  --icon-muted: var(--gray-500);
+
+  --accent: var(--blue-400);
+  --accent-hover: var(--blue-300);
+  --warning-bg: var(--amber-950);
+  --danger-bg: var(--red-950);
+
+  --ui-scrollbar-thumb: var(--gray-700);
+  --ui-scrollbar-thumb-hover: var(--gray-600);
+  --ui-scrollbar-thumb-overlay: var(--gray-700);
+  --ui-scrollbar-thumb-overlay-hover: var(--gray-600);
+  /* In dark, a code block or bubble reads as a step UP from the page. */
+  --ui-widget-surface-background: var(--bg-app);
+}

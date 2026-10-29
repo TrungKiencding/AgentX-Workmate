@@ -810,12 +810,11 @@ function readPersistedThemeSource() {
       return parsed.themeSource
     }
   } catch {
-    // Missing / malformed → a fresh install, which opens light (the renderer's
-    // default mode). Pin that now rather than following the OS, so a dark-mode
-    // Mac does not paint a dark window for the light app to cover.
+    // Missing / malformed → a fresh install, which follows the OS (the
+    // renderer's default mode, Quiet Tool spec §11).
   }
 
-  return 'light'
+  return 'system'
 }
 
 function writePersistedThemeSource(mode) {
@@ -893,7 +892,8 @@ function getWindowBackgroundColor() {
     return rendererTitleBarTheme.background
   }
 
-  return nativeTheme.shouldUseDarkColors ? '#111111' : '#f7f7f7'
+  // The Quiet skin's page in each mode (gray-950 / white).
+  return nativeTheme.shouldUseDarkColors ? '#1c1c1b' : '#ffffff'
 }
 
 // Transparent WCO — renderer chrome shows through. rgba(0,0,0,0) can fall back

@@ -141,8 +141,8 @@ export function BrowserStepPanel({
   return (
     <div className={cn('grid gap-4 transition duration-[360ms] ease-out', leaving ? 'opacity-0' : 'opacity-100')}>
       <div>
-        <h3 className="font-serif-display text-2xl text-(--ui-text-primary)">{copy.title}</h3>
-        <p className="mt-1.5 text-sm leading-6 text-(--ui-text-tertiary)">{copy.intro}</p>
+        <h3 className="text-2xl font-medium text-balance text-(--text-primary)">{copy.title}</h3>
+        <p className="mt-1.5 text-base text-pretty text-(--text-secondary)">{copy.intro}</p>
       </div>
 
       {guide ? (

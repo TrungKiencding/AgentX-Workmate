@@ -4,7 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="color-scheme" content="light dark" />
-    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#1c1c1b" media="(prefers-color-scheme: dark)" />
     <link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="shortcut icon" href="/apple-touch-icon.png" />
@@ -19,11 +20,12 @@
         let bg = localStorage.getItem('agentx-boot-background')
         let scheme = localStorage.getItem('agentx-boot-color-scheme')
         if (!bg) {
-          // Nothing cached yet — a fresh install. Paint the shipped default
-          // (Night Owl Light's chrome) rather than the OS answer, so the first
-          // frame matches what applyTheme() is about to render.
-          bg = '#fbfbfb'
-          scheme = 'light'
+          // Nothing cached yet — a fresh install, which follows the OS on the
+          // Quiet skin: white, or gray-950 in dark. Matches what applyTheme()
+          // is about to render, so the first frame never flashes.
+          const dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
+          bg = dark ? '#1c1c1b' : '#ffffff'
+          scheme = dark ? 'dark' : 'light'
         }
         document.documentElement.style.backgroundColor = bg
         if (scheme === 'dark' || scheme === 'light') {

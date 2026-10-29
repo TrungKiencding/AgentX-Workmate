@@ -50,13 +50,6 @@ export interface DesktopThemeColors {
 export interface DesktopThemeTypography {
   fontSans: string
   fontMono: string
-  /**
-   * Display serif for the three sanctioned outlier slots (connect splash,
-   * home greeting, onboarding hero). Optional — themes without it fall back to
-   * the bundled default, so existing user themes and VS Code imports are
-   * unaffected.
-   */
-  fontSerifDisplay?: string
   /** Google/Bunny/self-hosted font stylesheet URL. */
   fontUrl?: string
 }

@@ -12,26 +12,30 @@
  * in `src/` where a raw `cubic-bezier()` is allowed to appear.
  */
 
-/** Enter — things arriving on screen. */
-export const EASE_OUT = 'cubic-bezier(0.16, 1, 0.3, 1)'
+/** Enter — things arriving on screen (spec §3.11). */
+export const EASE_OUT = 'cubic-bezier(0.2, 0, 0, 1)'
 /** Exit — things leaving. */
-export const EASE_IN = 'cubic-bezier(0.7, 0, 0.84, 0)'
-/** In-place morph — something changing shape without arriving or leaving. */
-export const EASE_IN_OUT = 'cubic-bezier(0.65, 0, 0.35, 1)'
+export const EASE_IN = 'cubic-bezier(0.4, 0, 1, 1)'
+/** Move / resize — something changing shape or place without arriving or leaving. */
+export const EASE_IN_OUT = 'cubic-bezier(0.4, 0, 0.2, 1)'
 
-/** Physical overshoot: reaction pop, particle burst, a dragged row settling. */
-export const SPRING_POP = 'cubic-bezier(0.34, 1.56, 0.64, 1)'
-/** Physical overshoot, softer and longer: the pet hatching out of its egg. */
-export const SPRING_REVEAL = 'cubic-bezier(0.22, 1.4, 0.4, 1)'
+/**
+ * Physical settle: reaction pop, particle burst, a dragged row landing. The
+ * spec bans bounce and spring overshoot, so both "springs" are the enter curve
+ * — kept as named tokens so the physical call sites stay distinguishable.
+ */
+export const SPRING_POP = EASE_OUT
+/** Physical settle, the pet hatching out of its egg. */
+export const SPRING_REVEAL = EASE_OUT
 
-/** Press, toggle, colour. */
-export const DUR_MICRO_MS = 100
-/** Hover, menu, tooltip. */
-export const DUR_SHORT_MS = 200
-/** Overlay, entrance. */
-export const DUR_LONG_MS = 320
+/** Hover, colour change. */
+export const DUR_MICRO_MS = 120
+/** Popover, menu. */
+export const DUR_SHORT_MS = 160
+/** Dialog, toast. */
+export const DUR_LONG_MS = 200
 
-/** Exits run ≈ 75% of the enter they answer. */
-export const DUR_MICRO_EXIT_MS = 75
-export const DUR_SHORT_EXIT_MS = 150
-export const DUR_LONG_EXIT_MS = 240
+/** Exits run faster than the enter they answer. */
+export const DUR_MICRO_EXIT_MS = 80
+export const DUR_SHORT_EXIT_MS = 100
+export const DUR_LONG_EXIT_MS = 150

@@ -153,9 +153,9 @@ export function GatewayConnectingOverlay() {
       <DecodeText
         active={phase === 'live' && (previewing || connecting)}
         className={cn(
-          // Display-serif slot 3 of 3 (see DESIGN.md) — the same face and size
-          // as the home greeting, so boot hands off to a room it matches.
-          'font-serif-display text-2xl text-(--theme-primary) transition duration-(--dur-long) ease-out',
+          // text-display — the same face and size as the home greeting, so
+          // boot hands off to a room it matches.
+          'text-2xl font-medium text-(--text-primary) transition duration-(--dur-long) ease-out',
           leaving ? 'translate-y-2 opacity-0 saturate-0' : 'translate-y-0 opacity-100 saturate-100'
         )}
         cursor

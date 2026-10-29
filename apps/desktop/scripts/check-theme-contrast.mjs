@@ -218,13 +218,13 @@ for (const [label, theme] of measured) {
     const card = resolve(colors.card, page) ?? page
     const ink = resolve(colors.foreground, page) ?? page
 
-    // The trio was pitched for the Paper/Graphite bands, so as bare text it is
-    // gated on those two and the shipped default only (kind 'tone' → advisory
+    // The trio is the Quiet Tool signal set (600 rung light / 400 dark), so as
+    // bare text it is gated on the shipped default plus the two neutral bands (kind 'tone' → advisory
     // elsewhere). The StatusPill pulls its label toward the preset's own ink
     // (`--status-pill-ink`) over a soft tint of the tone (`--status-pill-tint`),
     // which is what lets the pill clear 4.5:1 on every preset — so the pill
     // pair is a hard gate everywhere.
-    const bandGated = ['night-owl', 'nous'].includes(label)
+    const bandGated = ['quiet', 'night-owl', 'nous'].includes(label)
 
     const semanticPairs = SEMANTIC_TONES.flatMap(tone => {
       const fg = semanticTone(tone, mode)
