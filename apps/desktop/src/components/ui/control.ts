@@ -9,14 +9,15 @@ import { cva, type VariantProps } from 'class-variance-authority'
 // state) comes from the `desktop-input-chrome` CSS so every control shares
 // one exact look.
 export const controlVariants = cva(
-  'desktop-input-chrome w-full min-w-0 rounded-(--radius-control) border text-sm leading-4 text-foreground outline-none placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
+  'desktop-input-chrome w-full min-w-0 rounded-(--radius-control) border text-base leading-5 text-(--text-primary) outline-none placeholder:text-(--text-tertiary) disabled:pointer-events-none disabled:cursor-not-allowed disabled:text-(--text-disabled)',
   {
+    // Spec §5.6: 32px (lg 40px), 10px inline padding, 14px text.
     variants: {
       size: {
-        xs: 'px-2 py-0.5 text-xs',
-        sm: 'h-(--control-h-sm) px-2.5',
-        default: 'h-(--control-h-md) px-3',
-        lg: 'h-(--control-h-lg) px-3.5 text-base'
+        xs: 'h-6 px-2 text-xs',
+        sm: 'h-(--control-h-sm) px-2.5 text-sm',
+        default: 'h-(--control-h-md) px-2.5',
+        lg: 'h-(--control-h-lg) px-3'
       }
     },
     defaultVariants: {

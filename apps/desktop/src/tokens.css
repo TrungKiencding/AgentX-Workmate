@@ -207,7 +207,6 @@
 
   --dt-popover: var(--bg-raised);
   --dt-user-bubble-hover: var(--bg-hover);
-  --dt-input-inset: none;
 }
 
 :root.dark[data-agentx-theme='quiet'] {

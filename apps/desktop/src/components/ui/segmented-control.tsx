@@ -17,8 +17,8 @@ interface SegmentedControlProps<T extends string> extends Omit<React.ComponentPr
   /** Dims the whole track and blocks selection (e.g. gated behind a prerequisite). */
   disabled?: boolean
   /**
-   * `sm` (default) — 28px track, 12px labels: the in-form choice.
-   * `md` — 32px track, 13px labels: a view switch inside one page tab (the
+   * `sm` (default) — 28px track: the in-form choice.
+   * `md` — 32px track with 28px segments (spec §5.4): a view switch inside one page tab (the
    * store's Kỹ năng · MCP), which has to read as a switch at a glance without
    * becoming a second page-tab row.
    */
@@ -26,14 +26,15 @@ interface SegmentedControlProps<T extends string> extends Omit<React.ComponentPr
 }
 
 const SIZES = {
-  sm: { option: 'h-6 gap-1 px-2.5 text-xs', icon: 'size-3' },
-  md: { option: 'h-7 gap-1.5 px-3 text-sm', icon: 'size-3.5' }
+  sm: { option: 'h-6 gap-1.5 px-2.5 text-sm', icon: 'size-3.5' },
+  md: { option: 'h-7 min-w-8 gap-1.5 px-2.5 text-sm', icon: 'size-4' }
 } as const
 
 /**
- * Grouped one-row toggle used for small mutually-exclusive choices
- * (color mode, tool-call display, usage period, etc.). Flat by design —
- * no per-option borders, just a tinted track with a raised active pill.
+ * Segmented control (spec §5.4) for 2–4 mutually-exclusive choices (colour
+ * mode, tool-call display, usage period…); five or more belong in a dropdown.
+ * A --bg-subtle track with a 2px pad; the active segment is the page colour
+ * edged by --border-default (dark: --bg-selected, no edge).
  */
 export function SegmentedControl<T extends string>({
   className,
@@ -51,7 +52,7 @@ export function SegmentedControl<T extends string>({
       className={cn(
         // Options sit inside the 2px track pad — `sm` lands on --control-h-sm
         // (28px), matching buttons/inputs on the row; `md` on --control-h-md.
-        'inline-grid w-fit auto-cols-fr grid-flow-col gap-0.5 rounded-(--radius-control) bg-(--ui-bg-tertiary) p-0.5',
+        'inline-grid w-fit auto-cols-fr grid-flow-col gap-0.5 rounded-(--radius-control) bg-(--bg-subtle) p-0.5',
         disabled && 'opacity-50',
         className
       )}
@@ -65,9 +66,11 @@ export function SegmentedControl<T extends string>({
           <button
             aria-pressed={active}
             className={cn(
-              'flex items-center justify-center rounded-[calc(var(--radius-control)-0.125rem)] font-medium transition-colors disabled:cursor-default',
+              'flex items-center justify-center rounded-sm transition-colors duration-(--dur-micro) disabled:cursor-default',
               metrics.option,
-              active ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              active
+                ? 'bg-(--bg-app) text-(--text-primary) shadow-sm dark:bg-(--bg-selected) dark:shadow-none'
+                : 'text-(--text-secondary) hover:text-(--text-primary)'
             )}
             data-active={active}
             disabled={disabled}

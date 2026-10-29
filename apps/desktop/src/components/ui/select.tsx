@@ -1,10 +1,12 @@
 import { Select as SelectPrimitive } from 'radix-ui'
 import * as React from 'react'
 
-import { Codicon } from '@/components/ui/codicon'
 import { type ControlVariantProps, controlVariants } from '@/components/ui/control'
 import { usePopoverPortalContainer } from '@/components/ui/dialog-portal-context'
+import { Check, ChevronDown } from '@/lib/icons'
 import { cn } from '@/lib/utils'
+
+import { MENU_INDICATOR, MENU_ITEM, MENU_LABEL, MENU_MOTION, MENU_SURFACE } from './menu-styles'
 
 function Select({ ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) {
   return <SelectPrimitive.Root data-slot="select" {...props} />
@@ -28,7 +30,7 @@ function SelectTrigger({
     >
       {children}
       <SelectPrimitive.Icon asChild>
-        <Codicon className="opacity-60" name="chevron-down" size="1rem" />
+        <ChevronDown className="size-3.5 text-(--icon-muted)" />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
   )
@@ -53,7 +55,7 @@ function SelectContent({
     <SelectPrimitive.Portal container={container}>
       <SelectPrimitive.Content
         className={cn(
-          'relative z-(--z-modal-popover) max-h-72 min-w-32 overflow-hidden rounded-md border border-border bg-popover text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=top]:slide-in-from-bottom-2 data-[side=right]:slide-in-from-left-2',
+          `relative z-(--z-modal-popover) max-h-[60vh] ${MENU_SURFACE} p-0 ${MENU_MOTION}`,
           position === 'popper' &&
             'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
           className
@@ -82,7 +84,7 @@ function SelectGroup({ ...props }: React.ComponentProps<typeof SelectPrimitive.G
 function SelectLabel({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Label>) {
   return (
     <SelectPrimitive.Label
-      className={cn('px-2 py-1.5 text-2xs font-medium uppercase tracking-wide text-muted-foreground', className)}
+      className={cn(MENU_LABEL, className)}
       data-slot="select-label"
       {...props}
     />
@@ -93,15 +95,15 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
   return (
     <SelectPrimitive.Item
       className={cn(
-        'relative flex w-full cursor-pointer items-center gap-2 rounded-sm py-1.5 pr-8 pl-2 text-xs outline-none select-none focus:bg-accent focus:text-accent-foreground data-disabled:pointer-events-none data-disabled:cursor-default data-disabled:opacity-50',
+        `${MENU_ITEM} w-full pr-8`,
         className
       )}
       data-slot="select-item"
       {...props}
     >
-      <span className="absolute right-2 flex size-3.5 items-center justify-center">
+      <span className={cn(MENU_INDICATOR, 'absolute right-2 pl-0')}>
         <SelectPrimitive.ItemIndicator>
-          <Codicon name="check" size="1rem" />
+          <Check className="size-4" />
         </SelectPrimitive.ItemIndicator>
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>

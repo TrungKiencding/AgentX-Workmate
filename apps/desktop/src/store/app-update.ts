@@ -160,7 +160,6 @@ function announce(state: AppUpdateState): void {
         kind: 'success',
         scope: 'app',
         durationMs: 8000,
-        placement: 'default',
         title: translateNow('appUpdate.updatedToastTitle'),
         message
       })

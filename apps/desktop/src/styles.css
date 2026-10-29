@@ -518,16 +518,6 @@
     --dt-accent-foreground: var(--ui-text-primary);
     --dt-border: var(--ui-stroke-secondary);
     --dt-input: var(--ui-stroke-primary);
-    /* THE single knob for input-field borders: the resting alpha (% of the ring
-       color). Hover doubles it; focus/open go full. 0% = invisible at rest. */
-    --dt-input-border: 7%;
-    /* Knob for input-field background fill: alpha (% of --dt-card) across all
-       states. 100% = fully opaque, lower = translucent over the blurred chrome. */
-    --dt-input-bg: 0%;
-    /* Classic recessed "inset" — a crisp 1px inner shadow at the TOP edge.
-       :root.dark bumps the alpha since a dark card swallows shadow. Removed on
-       focus (the focus border carries the state). */
-    --dt-input-inset: inset 0 1px 1px color-mix(in srgb, #000 10%, transparent);
     /* Hovered inactive tab: deepen it AWAY from the lighter active surface, so
        hover can never be mistaken for selected. Dark mode needs more — black
        over a dark gutter shows less. */
@@ -819,11 +809,7 @@
     --ui-brand-art-strength: 0.16;
     /* Light characters on graphite read louder than dark ones on paper. */
     --ui-glyph-field-strength: 0.75;
-    /* Dark mode: a dark card needs a stronger black inset to show the recess. */
-    --dt-input-inset: inset 0 1px 1px color-mix(in srgb, #000 38%, transparent);
     --ui-tab-hover-darken: 6%;
-    /* Dark needs a lighter resting border than light mode. */
-    --dt-input-border: 4%;
 
     --ui-inline-code-background: color-mix(in srgb, #ffffff 7%, transparent);
     --ui-inline-code-foreground: color-mix(in srgb, #ffffff 88%, transparent);
@@ -1075,21 +1061,14 @@
   user-select: none;
 }
 
-/* Primitive-level pointer cursor for every interactive control (buttons,
-   selects, menu items, switches, tabs, summaries). Keeps individual
-   components from having to hardcode `cursor-pointer`; explicit cursor
-   utilities (cursor-grab, cursor-default, disabled:cursor-*) still win since
-   they live in the utilities layer. */
+/* Cursor (spec §7): `pointer` belongs to links and navigation rows only —
+   buttons, menu items, switches and tabs keep the platform's default arrow,
+   the desktop convention. A nav row opts in with `data-nav-row` (or the
+   `row-hover` utility, which every clickable list row already wears). */
 @layer base {
-  button:not(:disabled):not([aria-disabled='true']),
-  summary,
-  [role='button']:not([aria-disabled='true']),
-  [role='menuitem']:not([aria-disabled='true']),
-  [role='menuitemradio']:not([aria-disabled='true']),
-  [role='menuitemcheckbox']:not([aria-disabled='true']),
-  [role='option']:not([aria-disabled='true']),
-  [role='switch']:not([aria-disabled='true']),
-  [role='tab']:not([aria-disabled='true']) {
+  a[href],
+  [role='link'],
+  [data-nav-row] {
     cursor: pointer;
   }
 }
@@ -1370,22 +1349,13 @@ button {
    attribute selectors out-specify the Tailwind utilities and silently override
    the variants. */
 
-[data-slot='dropdown-menu-content'],
-[data-slot='select-content'],
-[data-slot='dialog-content'],
+/* Floating surfaces own their look in components/ui/menu-styles.ts (level 1)
+   and dialog.tsx (level 2). The thread timeline popover is the one bespoke
+   popper outside those primitives, so it takes the level-1 recipe here. */
 [data-slot='thread-timeline-popover'] {
-  border-color: var(--ui-stroke-secondary);
-  background: color-mix(in srgb, var(--ui-bg-elevated) 96%, transparent);
+  border-color: transparent;
+  background: var(--bg-raised);
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(0.75rem) saturate(1.08);
-  -webkit-backdrop-filter: blur(0.75rem) saturate(1.08);
-}
-
-[data-slot='dropdown-menu-item']:focus,
-[data-slot='dropdown-menu-checkbox-item']:focus,
-[data-slot='dropdown-menu-radio-item']:focus {
-  background: var(--ui-bg-tertiary);
-  color: var(--ui-text-primary);
 }
 
 input,
@@ -1413,6 +1383,16 @@ button,
 [data-slot='aui_user-message-root'] [role='button'] {
   -webkit-user-select: text;
   user-select: text;
+}
+
+/* Icons (spec §3.10): one outline set at a 1.5px stroke with round caps.
+   Tabler draws at 2px by default; the stroke is set here once rather than at
+   every call site. In the base layer so a deliberate `stroke-[…]` utility
+   (a 12px check that needs more weight) still wins. */
+@layer base {
+  svg.tabler-icon {
+    stroke-width: 1.5;
+  }
 }
 
 img,
@@ -1452,48 +1432,32 @@ code {
   filter: brightness(1.08) saturate(1.06);
 }
 
-/* Shared input chrome — mirrors composer hover/focus FX. Unlayered to beat Tailwind utilities. */
-/* Border strength is driven by the single --dt-input-border alpha knob (× the
-   theme's tuned ring color); hover doubles it and focus triples it. Only the
-   border-color animates — animating the translucent background over the window's
-   backdrop-blur flickers (badly on textareas), so the bg fill snaps instead.
+/* Shared input chrome (spec §5.6) — Input, Textarea, SelectTrigger and the
+   boxed SearchField. A 1px --border-input edge on the page colour; focus turns
+   the edge accent and adds the two-layer --focus-ring (page gap, then accent),
+   painted instantly — focus is never animated. The 1px border never changes
+   weight, so nothing shifts. Unlayered to beat Tailwind utilities.
    (:focus is declared after :hover so a focused+hovered field shows focus.) */
 .desktop-input-chrome {
-  background: color-mix(in srgb, var(--dt-card) var(--dt-input-bg), transparent);
-  border-color: color-mix(in srgb, var(--dt-composer-ring) var(--dt-input-border), transparent);
-  box-shadow: var(--dt-input-inset);
-  transition: border-color var(--dur-short) var(--ease-out);
+  background: var(--bg-app);
+  border-color: var(--border-input);
+  box-shadow: none;
+  transition: border-color var(--dur-micro) var(--ease-out);
 }
 
-.desktop-input-chrome:hover {
-  border-color: color-mix(in srgb, var(--dt-composer-ring) calc(var(--dt-input-border) * 2), transparent);
-}
-
-/* `[data-state='open']` keeps the trigger looking focused while its dropdown is
-   open — Radix moves focus into the list, so the trigger itself loses :focus.
-   Focus state: the 1px border never changes weight (no layout shift); the
-   accent arrives as a 2px outline instead. The outline is not in the base
-   transition list, so it appears instantly — focus rings are never animated. */
+/* `[data-state='open']` keeps a select trigger looking focused while its list
+   is open — Radix moves focus into the list, so the trigger loses :focus. */
 .desktop-input-chrome:focus,
 .desktop-input-chrome:focus-within,
 .desktop-input-chrome[data-state='open'] {
-  border-color: color-mix(in srgb, var(--dt-composer-ring) calc(var(--dt-input-border) * 2), transparent);
-  box-shadow: none;
-  outline: 2px solid var(--dt-composer-ring);
-  outline-offset: 1px;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+  outline: none;
+  transition: none;
 }
 
 .desktop-input-chrome[aria-invalid='true'] {
-  border-color: var(--dt-destructive);
-}
-
-/* SearchField variant="field" — a list's standing finder (the chat sidebar's)
-   wears the chrome above as-is, plus one thing in dark: the chrome's 4% hairline
-   all but vanishes against the sidebar, the darkest rung, and a finder has to
-   read as a field before anyone reaches for it. A faint lift of the ink gives
-   the well an edge without turning it into a lit panel. */
-:root.dark .desktop-input-chrome[data-slot='search-field'] {
-  background: color-mix(in srgb, var(--ui-base) 3.5%, transparent);
+  border-color: var(--danger);
 }
 
 @layer components {

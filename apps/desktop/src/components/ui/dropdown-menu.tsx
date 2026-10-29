@@ -1,16 +1,27 @@
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui'
 import * as React from 'react'
 
-import { Codicon } from '@/components/ui/codicon'
 import { usePopoverPortalContainer } from '@/components/ui/dialog-portal-context'
+import { Check, ChevronRight } from '@/lib/icons'
 import { cn } from '@/lib/utils'
+
+import {
+  MENU_INDICATOR,
+  MENU_ITEM,
+  MENU_LABEL,
+  MENU_MOTION,
+  MENU_SEPARATOR,
+  MENU_SHORTCUT,
+  MENU_SUB_TRIGGER,
+  MENU_SURFACE
+} from './menu-styles'
 
 // Shared class tokens for edge-to-edge menus (use with `p-0` content): rows go
 // full-width, square, and compact so the highlight spans the whole surface.
 // Reuse these instead of re-deriving per menu so every searchable/compact menu
 // reads identically.
-export const dropdownMenuRow = 'gap-2 rounded-none px-2.5 py-1 text-sm'
-export const dropdownMenuSectionLabel = 'px-2.5 pt-1 pb-0.5 text-2xs font-medium uppercase tracking-wide'
+export const dropdownMenuRow = 'gap-2 rounded-none px-3 h-8 text-base'
+export const dropdownMenuSectionLabel = 'px-3 pt-2 pb-1 text-xs text-(--text-tertiary)'
 
 // Keys that must reach Radix's menu handler (navigation/close). Everything else
 // is a filter keystroke and is stopped so the menu's typeahead doesn't hijack it.
@@ -43,11 +54,11 @@ function DropdownMenuSearch({
   onValueChange?: (value: string) => void
 }) {
   return (
-    <div className="px-2.5 py-1.5" data-slot="dropdown-menu-search">
+    <div className="-mx-1 -mt-1 mb-1 border-b border-(--border-subtle) px-3 py-2" data-slot="dropdown-menu-search">
       <input
         autoFocus
         className={cn(
-          'h-4 w-full bg-transparent text-xs leading-none text-foreground placeholder:text-(--ui-text-tertiary) focus:outline-none',
+          'h-5 w-full bg-transparent text-base text-(--text-primary) placeholder:text-(--text-tertiary) focus:outline-none',
           className
         )}
         onChange={event => {
@@ -85,7 +96,7 @@ function DropdownMenuContent({
         // `.scrollbar-dt` for portaled overlays (Radix renders this under
         // document.body, outside #root's scope). See styles.css.
         className={cn(
-          'dt-portal-scrollbar z-50 max-h-(--radix-dropdown-menu-content-available-height) min-w-36 origin-(--radix-dropdown-menu-content-transform-origin) overflow-x-hidden overflow-y-auto rounded-lg border border-(--ui-stroke-secondary) bg-[color-mix(in_srgb,var(--ui-bg-elevated)_96%,transparent)] p-1 text-[length:var(--conversation-text-font-size)] text-popover-foreground shadow-md backdrop-blur-md data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+          `dt-portal-scrollbar z-50 max-h-[min(60vh,var(--radix-dropdown-menu-content-available-height))] origin-(--radix-dropdown-menu-content-transform-origin) ${MENU_SURFACE} ${MENU_MOTION}`,
           className
         )}
         // Keep the menu inside the viewport: Radix flips/shifts away from edges
@@ -115,7 +126,7 @@ function DropdownMenuItem({
   return (
     <DropdownMenuPrimitive.Item
       className={cn(
-        "relative flex items-center gap-2 rounded-md px-2 py-1 text-sm outline-hidden select-none focus:bg-(--ui-control-active-background) focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 data-[inset]:pl-7 data-[variant=destructive]:text-destructive data-[variant=destructive]:focus:bg-destructive/10 data-[variant=destructive]:focus:text-destructive dark:data-[variant=destructive]:focus:bg-destructive/20 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 [&_svg:not([class*='text-'])]:text-(--ui-text-tertiary) data-[variant=destructive]:*:[svg]:text-destructive!",
+        MENU_ITEM,
         className
       )}
       data-inset={inset}
@@ -136,15 +147,15 @@ function DropdownMenuCheckboxItem({
     <DropdownMenuPrimitive.CheckboxItem
       checked={checked}
       className={cn(
-        "relative flex items-center gap-2 rounded-md px-2 py-1 text-sm outline-hidden select-none focus:bg-(--ui-control-active-background) focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        MENU_ITEM,
         className
       )}
       data-slot="dropdown-menu-checkbox-item"
       {...props}
     >
       {children}
-      <DropdownMenuPrimitive.ItemIndicator className="ml-auto flex items-center pl-2 text-foreground">
-        <Codicon name="check" size="0.75rem" />
+      <DropdownMenuPrimitive.ItemIndicator className={MENU_INDICATOR}>
+        <Check className="size-4" />
       </DropdownMenuPrimitive.ItemIndicator>
     </DropdownMenuPrimitive.CheckboxItem>
   )
@@ -162,15 +173,15 @@ function DropdownMenuRadioItem({
   return (
     <DropdownMenuPrimitive.RadioItem
       className={cn(
-        "relative flex items-center gap-2 rounded-md px-2 py-1 text-sm outline-hidden select-none focus:bg-(--ui-control-active-background) focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+        MENU_ITEM,
         className
       )}
       data-slot="dropdown-menu-radio-item"
       {...props}
     >
       {children}
-      <DropdownMenuPrimitive.ItemIndicator className="ml-auto flex items-center pl-2 text-foreground">
-        <Codicon name="check" size="0.75rem" />
+      <DropdownMenuPrimitive.ItemIndicator className={MENU_INDICATOR}>
+        <Check className="size-4" />
       </DropdownMenuPrimitive.ItemIndicator>
     </DropdownMenuPrimitive.RadioItem>
   )
@@ -185,7 +196,7 @@ function DropdownMenuLabel({
 }) {
   return (
     <DropdownMenuPrimitive.Label
-      className={cn('px-2 py-1 text-xs font-medium text-(--ui-text-tertiary) data-[inset]:pl-7', className)}
+      className={cn(MENU_LABEL, className)}
       data-inset={inset}
       data-slot="dropdown-menu-label"
       {...props}
@@ -196,7 +207,7 @@ function DropdownMenuLabel({
 function DropdownMenuSeparator({ className, ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Separator>) {
   return (
     <DropdownMenuPrimitive.Separator
-      className={cn('-mx-1 my-1 h-px bg-(--ui-stroke-tertiary)', className)}
+      className={cn(MENU_SEPARATOR, className)}
       data-slot="dropdown-menu-separator"
       {...props}
     />
@@ -206,7 +217,7 @@ function DropdownMenuSeparator({ className, ...props }: React.ComponentProps<typ
 function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<'span'>) {
   return (
     <span
-      className={cn('ml-auto text-xs tracking-widest text-muted-foreground', className)}
+      className={cn(MENU_SHORTCUT, className)}
       data-slot="dropdown-menu-shortcut"
       {...props}
     />
@@ -231,7 +242,7 @@ function DropdownMenuSubTrigger({
   return (
     <DropdownMenuPrimitive.SubTrigger
       className={cn(
-        "flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm outline-hidden select-none focus:bg-(--ui-control-active-background) focus:text-foreground data-[inset]:pl-7 data-[state=open]:bg-(--ui-control-active-background) data-[state=open]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5 [&_svg:not([class*='text-'])]:text-(--ui-text-tertiary)",
+        MENU_SUB_TRIGGER,
         className
       )}
       data-inset={inset}
@@ -239,7 +250,7 @@ function DropdownMenuSubTrigger({
       {...props}
     >
       {children}
-      {!hideChevron && <Codicon className="ml-auto text-(--ui-text-tertiary)" name="chevron-right" size="1rem" />}
+      {!hideChevron && <ChevronRight className="ml-auto size-4 text-(--icon-muted)" />}
     </DropdownMenuPrimitive.SubTrigger>
   )
 }
@@ -262,7 +273,7 @@ function DropdownMenuSubContent({
         // only published on Content, NOT SubContent — using it here collapses
         // the submenu to 0px height.
         className={cn(
-          'dt-portal-scrollbar z-50 max-h-80 min-w-36 origin-(--radix-dropdown-menu-content-transform-origin) overflow-y-auto rounded-lg border border-(--ui-stroke-secondary) bg-[color-mix(in_srgb,var(--ui-bg-elevated)_96%,transparent)] p-1 text-[length:var(--conversation-text-font-size)] text-popover-foreground shadow-md backdrop-blur-md data-[side=bottom]:slide-in-from-top-1 data-[side=left]:slide-in-from-right-1 data-[side=right]:slide-in-from-left-1 data-[side=top]:slide-in-from-bottom-1 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95',
+          `dt-portal-scrollbar z-50 max-h-[60vh] origin-(--radix-dropdown-menu-content-transform-origin) ${MENU_SURFACE} ${MENU_MOTION}`,
           className
         )}
         // Flip to the other side / shift vertically when near a viewport edge

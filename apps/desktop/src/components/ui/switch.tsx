@@ -4,18 +4,20 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
-// The visual track stays compact; an invisible ::after pad extends the hit
-// target to ≥ 24px on every size so the toggle is comfortable to click.
-// `md` (22×38, 18px thumb — tokens in styles.css) is the default for the
-// enable/disable rows of a page; `xs` stays for menus and dense rows.
+// Quiet Tool switch (spec §5.6): a 28×16 track with a 12px thumb. Off is the
+// strong border tone, on is --bg-inverse — never the accent. Only for settings
+// that apply immediately; a setting that waits for "Lưu" is a checkbox. An
+// invisible ::after pad extends the hit target to ≥ 24px. `default` and `md`
+// are the same spec size (`md` is kept so page rows can say what they mean);
+// `xs` is the dense 24×14 for menus.
 const switchVariants = cva(
-  "peer relative inline-flex shrink-0 items-center rounded-full border border-[color-mix(in_srgb,var(--dt-foreground)_18%,transparent)] bg-[color-mix(in_srgb,var(--dt-background)_58%,var(--dt-input))] shadow-[inset_0_0_0_0.0625rem_color-mix(in_srgb,var(--dt-foreground)_8%,transparent)] transition-colors outline-none after:absolute after:-inset-x-1 after:-inset-y-1 after:content-[''] focus-visible:border-ring focus-visible:ring-[0.1875rem] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-transparent data-[state=checked]:bg-primary",
+  "peer relative inline-flex shrink-0 items-center rounded-full bg-(--border-strong) p-0.5 transition-colors duration-(--dur-micro) outline-none after:absolute after:-inset-x-1 after:-inset-y-1.5 after:content-[''] disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:bg-(--bg-inverse)",
   {
     variants: {
       size: {
-        default: 'h-5 w-9',
+        default: 'h-(--switch-md-track-height) w-(--switch-md-track-width)',
         md: 'h-(--switch-md-track-height) w-(--switch-md-track-width)',
-        xs: 'h-4 w-7'
+        xs: 'h-3.5 w-6'
       }
     },
     defaultVariants: {
@@ -25,14 +27,14 @@ const switchVariants = cva(
 )
 
 const switchThumbVariants = cva(
-  'pointer-events-none block rounded-full bg-foreground shadow-[0_0.0625rem_0.1875rem_color-mix(in_srgb,var(--dt-background)_50%,transparent)] ring-0 transition-transform data-[state=unchecked]:translate-x-0 data-[state=checked]:bg-background',
+  'pointer-events-none block rounded-full bg-(--bg-app) transition-transform duration-(--dur-micro) ease-(--ease-in-out) data-[state=unchecked]:translate-x-0 dark:data-[state=unchecked]:bg-(--text-secondary)',
   {
     variants: {
       size: {
-        default: 'size-4 data-[state=checked]:translate-x-4',
-        // Track 38 − 2px border − 18px thumb = an 18px throw, i.e. one thumb width.
+        // Track 28 − 2×2px inset − 12px thumb = a 12px throw.
+        default: 'size-(--switch-md-thumb) data-[state=checked]:translate-x-(--switch-md-thumb)',
         md: 'size-(--switch-md-thumb) data-[state=checked]:translate-x-(--switch-md-thumb)',
-        xs: 'size-3 data-[state=checked]:translate-x-3.5'
+        xs: 'size-2.5 data-[state=checked]:translate-x-2.5'
       }
     },
     defaultVariants: {

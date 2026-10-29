@@ -1050,8 +1050,7 @@ export async function applyWebmateUpdate(): Promise<DesktopWebmateApplyOutcome |
       dismissNotification(MANDATORY_TOAST_ID)
       notify({
         kind: 'success',
-        message: translateNow('webmate.update.doneToast', outcome.version),
-        placement: 'default'
+        message: translateNow('webmate.update.doneToast', outcome.version)
       })
     } else if (!outcome.pending) {
       notify({

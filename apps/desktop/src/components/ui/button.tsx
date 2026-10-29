@@ -8,69 +8,69 @@ import { cn } from '@/lib/utils'
 // Text+icon actions underline the label on hover, not the glyph.
 const TEXT_ACTION_ICON = '[&_.codicon]:no-underline [&_svg]:no-underline'
 
-// Every boxed button shares the control radius and the control-height ramp
-// (--control-h-*): sm 28 · md 32 (default) · lg 36 · xl 40. Boxless variants
-// (text/link/inline/micro) stay padding-driven. Transitions name their
-// properties — never transition-all — and press feedback is a 1px settle.
+// Quiet Tool buttons (spec §5.5). Every boxed button shares the 8px control
+// radius and the --control-h-* ramp: sm 28 · md 32 (default) · lg 40. Labels
+// are 14px (13px at sm), 500 only at lg. Width always follows the label —
+// Vietnamese runs 20–35% longer than English, so never a fixed width.
+// Transitions name their properties (never transition-all). Pressed is a fill
+// (--bg-pressed), not a transform. Buttons keep the default arrow cursor; the
+// keyboard ring comes from the app-wide :focus-visible rule in styles.css.
 const buttonVariants = cva(
-  "inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 rounded-(--radius-control) text-sm leading-4 font-medium whitespace-nowrap shadow-none transition-[background-color,border-color,color,box-shadow,transform] duration-(--dur-micro) outline-none focus-visible:border-ring focus-visible:ring-[0.1875rem] focus-visible:ring-ring/50 active:translate-y-px disabled:pointer-events-none disabled:cursor-default disabled:opacity-50 aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-3.5",
+  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-(--radius-control) text-base leading-5 font-normal whitespace-nowrap shadow-none transition-[background-color,border-color,color,opacity] duration-(--dur-micro) outline-none disabled:pointer-events-none disabled:text-(--text-disabled) aria-invalid:border-(--danger) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        destructive:
-          'bg-destructive text-white hover:bg-destructive/90 focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40',
-        // Quiet action — transparent fill with a 1.5px inset ring (no layout-shifting border).
+        // Primary: the inverse fill on every skin — never the brand, never the
+        // accent. One per context, rightmost in its group.
+        default:
+          'bg-(--bg-inverse) text-(--text-inverse) hover:opacity-88 active:opacity-80 disabled:bg-(--bg-pressed) disabled:opacity-100',
+        // The final confirm of an irreversible action: danger fill, white label.
+        destructive: 'bg-(--dt-destructive) text-(--dt-destructive-foreground) hover:opacity-88 active:opacity-80',
+        // Secondary: transparent with a hairline — Cancel, the alternative path.
         outline:
-          'bg-transparent text-(--ui-text-primary) shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--ui-stroke-secondary)_50%,transparent)] hover:bg-(--chrome-action-hover) hover:text-(--ui-text-primary)',
-        // Soft-fill action (the default "non-primary button" look).
+          'border border-(--border-default) bg-transparent text-(--text-primary) hover:bg-(--bg-hover) active:bg-(--bg-pressed)',
+        // Kept as the same hairline secondary (call sites predate the spec's
+        // single secondary look).
         secondary:
-          'bg-(--ui-bg-quaternary) text-(--ui-text-primary) hover:bg-(--chrome-action-hover) hover:text-(--ui-text-primary)',
-        ghost: 'text-(--ui-text-secondary) hover:bg-(--chrome-action-hover) hover:text-(--ui-text-primary)',
-        link: `text-primary underline-offset-4 decoration-current/20 hover:underline ${TEXT_ACTION_ICON}`,
-        // Boxless inline-text action (no bg/border). Quiet by default — reads as
-        // muted label text, underlines on hover (e.g. "Cancel", "Clear").
-        text: `text-muted-foreground underline-offset-4 hover:text-foreground hover:underline ${TEXT_ACTION_ICON}`,
-        // Emphasized inline-text action: bold + always-underlined link. Use for
-        // the actionable affordance in a row ("Change", "Set", "Open logs", …).
-        textStrong: `font-semibold text-muted-foreground underline underline-offset-4 hover:text-foreground ${TEXT_ACTION_ICON}`,
-        // Pill affordance for an optional way in — the home surface's
-        // quick-start row. Hairline at rest so the row stays quiet against the
-        // greeting; the border firms up and the fill arrives on hover.
-        chip: 'rounded-full border border-(--ui-stroke-tertiary) bg-transparent text-(--ui-text-secondary) hover:border-(--ui-stroke-secondary) hover:bg-(--chrome-action-hover) hover:text-(--ui-text-primary)',
-        // A task card — the home surface's "things you can do" tiles. A quiet
-        // hairline tile on --shadow-xs at rest that firms up and lifts one
-        // shadow rung on hover — the card-hover recipe in design.md § Motion:
-        // background, border and shadow at --dur-short, never a translate or a
-        // scale. Pair it with `size="card"`; the card's title/description
-        // stack is the caller's children, left-aligned.
-        card: 'rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-transparent text-(--ui-text-primary) shadow-xs duration-(--dur-short) ease-out hover:border-(--ui-stroke-secondary) hover:bg-(--chrome-action-hover) hover:shadow-sm'
+          'border border-(--border-default) bg-transparent text-(--text-primary) hover:bg-(--bg-hover) active:bg-(--bg-pressed)',
+        // Ghost: no fill, no border — icon buttons and quiet actions.
+        ghost: 'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary) active:bg-(--bg-pressed)',
+        // Link: accent text, no underline until hover.
+        link: `text-(--accent) underline-offset-4 decoration-current/40 hover:text-(--accent-hover) hover:underline ${TEXT_ACTION_ICON}`,
+        // Boxless inline-text action ("Hủy", "Xoá bộ lọc") — secondary ink.
+        text: `text-(--text-secondary) underline-offset-4 hover:text-(--text-primary) hover:underline ${TEXT_ACTION_ICON}`,
+        // Emphasized inline-text action: the actionable word in a row ("Đổi", "Mở log").
+        textStrong: `font-medium text-(--text-primary) underline underline-offset-4 decoration-(--border-strong) hover:decoration-current ${TEXT_ACTION_ICON}`,
+        // Inline control (spec §5.5): meta text + 16px glyph, the frame shows on
+        // hover only — context-bar items, in-row pickers, "Thêm" chips.
+        chip: 'rounded-(--radius-control) text-sm text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary) active:bg-(--bg-pressed)',
+        // An interactive card (spec §5.10): a flat hairline tile whose border
+        // firms to --border-strong on hover — never a lift, never a shadow.
+        card: 'rounded-(--radius-card) border border-(--border-default) bg-(--bg-app) text-(--text-primary) hover:border-(--border-strong) active:bg-(--bg-subtle)'
       },
       size: {
         default: 'h-(--control-h-md) px-3.5 has-[>svg]:px-3',
-        xs: "gap-1 px-2 py-0.5 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: 'h-(--control-h-sm) px-3 has-[>svg]:px-2.5',
-        lg: 'h-(--control-h-lg) px-4 text-base has-[>svg]:px-3.5',
-        // Hero CTA — onboarding, the primary action of a large dialog.
-        xl: 'h-(--control-h-xl) px-5 text-base has-[>svg]:px-4',
+        xs: "h-6 gap-1 px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3.5",
+        sm: 'h-(--control-h-sm) px-2.5 text-sm has-[>svg]:px-2',
+        lg: "h-(--control-h-lg) px-4.5 font-medium has-[>svg]:px-4 [&_svg:not([class*='size-'])]:size-4.5",
+        // Alias of lg — the spec ramp tops out at 40px.
+        xl: "h-(--control-h-xl) px-4.5 font-medium has-[>svg]:px-4 [&_svg:not([class*='size-'])]:size-4.5",
         // Flush inline text action — no box padding/height. Pair with text/link
-        // variants when the button must sit inline in a heading or sentence
-        // (replaces ad-hoc `h-auto px-0 py-0` overrides).
+        // variants when the button must sit inline in a heading or sentence.
         inline: 'h-auto gap-1 p-0 has-[>svg]:px-0',
         // Status-stack headers, table footers — 12px text actions beside a label.
-        micro: "h-auto gap-0.5 px-1 py-0 text-xs font-normal has-[>svg]:px-0.5 [&_svg:not([class*='size-'])]:size-3",
-        // Pairs with the `chip` variant: 36px pill at chrome text size, with a
-        // little more air than a boxed button of the same height.
-        chip: "h-(--control-h-lg) gap-2 rounded-full px-4 [&_svg:not([class*='size-'])]:size-4",
-        // Pairs with the `card` variant: a padded, left-aligned, min-height
-        // tile whose leading glyph is the list-row icon size (20px).
-        card: "h-auto min-h-(--intro-card-min-height) items-center justify-start gap-3 px-3.5 py-2.5 text-left whitespace-normal [&_svg:not([class*='size-'])]:size-5",
-        icon: 'size-(--control-h-md)',
-        'icon-xs': "size-6 [&_svg:not([class*='size-'])]:size-3",
+        micro: "h-auto gap-1 px-1 py-0 text-xs has-[>svg]:px-0.5 [&_svg:not([class*='size-'])]:size-3.5",
+        // Pairs with the `chip` variant: the inline control's 4×8 box.
+        chip: 'h-7 gap-1.5 px-2',
+        // Pairs with the `card` variant: a padded, left-aligned tile whose
+        // leading glyph is the list icon size (18px).
+        card: "h-auto min-h-(--intro-card-min-height) items-center justify-start gap-2.5 px-4 py-3 text-left whitespace-normal [&_svg:not([class*='size-'])]:size-4.5",
+        icon: "size-(--control-h-md) [&_svg:not([class*='size-'])]:size-5",
+        'icon-xs': "size-6 [&_svg:not([class*='size-'])]:size-3.5",
         'icon-sm': 'size-(--control-h-sm)',
-        'icon-lg': 'size-(--control-h-lg)',
+        'icon-lg': "size-(--control-h-lg) [&_svg:not([class*='size-'])]:size-5",
         'icon-titlebar':
-          'h-(--titlebar-control-height) w-(--titlebar-control-size) rounded-[4px] [&_.codicon]:text-base'
+          'h-(--titlebar-control-height) w-(--titlebar-control-size) rounded-(--radius-control) [&_.codicon]:text-base'
       }
     },
     compoundVariants: [
@@ -79,11 +79,6 @@ const buttonVariants = cva(
       {
         variant: 'textStrong',
         class: 'px-0 has-[>svg]:px-0'
-      },
-      // OS window chrome stays inert: no press-settle on titlebar actions.
-      {
-        size: 'icon-titlebar',
-        class: 'active:translate-y-0'
       }
     ],
     defaultVariants: {
@@ -132,7 +127,7 @@ function Button({
             {children}
           </span>
           <span className="absolute inset-0 grid place-items-center">
-            <Loader2 className="animate-spin" />
+            <Loader2 className="size-4 animate-spin" />
           </span>
         </>
       ) : (

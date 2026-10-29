@@ -129,7 +129,8 @@ export function ConfirmDialog({
   return (
     <Dialog onOpenChange={value => !value && !busy && onClose()} open={open}>
       <DialogContent
-        className="max-w-md"
+        // 440px — the confirm width (spec §5.17).
+        className="max-w-[min(27.5rem,calc(100vw-2rem))]"
         onKeyDown={event => {
           const target = event.target as HTMLElement
 
@@ -153,14 +154,16 @@ export function ConfirmDialog({
         </DialogHeader>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs text-destructive">
-            <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
+          <div className="flex items-start gap-2 rounded-lg bg-(--danger-bg) px-3 py-2.5 text-sm text-(--danger)" role="alert">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         <DialogFooter>
-          <Button disabled={busy} onClick={onClose} type="button" variant="ghost">
+          {/* Cancel first in DOM order: Radix focuses the first tabbable, so a
+              confirm opens with focus on the safe choice (spec §5.17). */}
+          <Button disabled={busy} onClick={onClose} type="button" variant="outline">
             {resolvedCancelLabel}
           </Button>
           <Button disabled={busy} onClick={() => void run()} variant={destructive ? 'destructive' : 'default'}>
