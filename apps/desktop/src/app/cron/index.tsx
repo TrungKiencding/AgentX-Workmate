@@ -47,6 +47,7 @@ import { type Translations, useI18n } from '@/i18n'
 import { AlertTriangle } from '@/lib/icons'
 import { requestModelOptions } from '@/lib/model-options'
 import { asText } from '@/lib/text'
+import { fmtDateTime } from '@/lib/time'
 import { $cronFocusJobId, $cronJobs, setCronFocusJobId, setCronJobs, updateCronJobs } from '@/store/cron'
 import { $changeEventsAvailable, $cronChangeTick } from '@/store/live-sync'
 import { notify, notifyError } from '@/store/notifications'
@@ -262,7 +263,7 @@ function formatTime(iso?: null | string): string {
     return iso
   }
 
-  return date.toLocaleString()
+  return fmtDateTime.format(date)
 }
 
 function matchesQuery(job: CronJob, q: string): boolean {
@@ -667,7 +668,7 @@ function formatRunTime(seconds?: null | number): string {
 
   const date = new Date(seconds * 1000)
 
-  return Number.isNaN(date.valueOf()) ? '—' : date.toLocaleString()
+  return Number.isNaN(date.valueOf()) ? '—' : fmtDateTime.format(date)
 }
 
 // Runs are produced by the background scheduler tick. cron.changed /

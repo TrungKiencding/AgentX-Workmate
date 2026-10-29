@@ -98,7 +98,7 @@ export function SessionsSettings() {
         setBusyId(null)
       }
     },
-    [s]
+    [s, t.common.delete]
   )
 
   useDeepLinkHighlight({
