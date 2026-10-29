@@ -743,10 +743,16 @@ running — while staying quieter than the content they frame.
   divider, a 60px band (a 44px row with 8px above and below): a 28px round initials
   avatar on `--bg-selected` (13px/500, `accountInitials()` — two initials
   from the display name, else
-  the email's first letter), the name in primary ink · the plan in tertiary,
-  and a ⌄. The whole row opens the account menu upward (Tài khoản · Cài đặt ·
+  the email's first letter), the name in primary ink — no plan (review: the
+  licence's plan name is account detail, shown in Settings → Account) — and
+  a ⌄. The whole row opens the account menu upward (Tài khoản · Cài đặt ·
   Phím tắt, with their keybind hints). It renders nothing until someone is
-  signed in — the sign-in gate owns that state.
+  signed in — the sign-in gate owns that state. **It reads the sign-in
+  through `useKeycloakAccount()`** (`hooks/use-keycloak-account.ts`), as the
+  home greeting does: the main process only learns the realm once a backend
+  is up, so a launch-time read can say "not configured"; the hook re-reads
+  whenever the gateway opens while no one shows as signed in, so the name
+  appears on its own instead of only after Settings → Account re-reads it.
 - **The projects tree keeps Codicon only for data.** A project's icon is a
   Codicon name the user picked, and the tree's lead glyphs (home, branch,
   kanban, repo) share that column, so they stay Codicon as file-tree

@@ -660,3 +660,7 @@ in the app — popper, dialog and toast entrances — did nothing.
   old default) move to 100% once; any other saved scale is kept, and a 125%
   chosen after the move sticks (`zoom-state.json` now carries
   `defaultPercent`).
+- Account row and greeting name show on launch: both read the sign-in through
+  `useKeycloakAccount()`, which re-reads once the gateway opens (a launch-time
+  read happens before the backend knows the realm). The account row drops the
+  plan name.

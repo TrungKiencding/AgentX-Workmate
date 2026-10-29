@@ -43,7 +43,7 @@ describe('SidebarAccountRow', () => {
     expect(container.textContent).toBe('')
   })
 
-  it('shows initials, name and plan, and opens the account menu', () => {
+  it('shows initials and the name — never the plan', () => {
     $keycloakAccount.set({
       ...signedOut,
       displayName: 'Lê Kiên',
@@ -59,6 +59,6 @@ describe('SidebarAccountRow', () => {
 
     expect(trigger.textContent).toContain('LK')
     expect(trigger.textContent).toContain('Lê Kiên')
-    expect(trigger.textContent).toContain('· Pro')
+    expect(trigger.textContent).not.toContain('Pro')
   })
 })

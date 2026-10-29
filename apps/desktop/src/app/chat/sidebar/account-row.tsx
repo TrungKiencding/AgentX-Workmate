@@ -1,5 +1,3 @@
-import { useStore } from '@nanostores/react'
-import { useEffect } from 'react'
 import { useNavigate } from 'react-router'
 
 import { SETTINGS_ROUTE } from '@/app/routes'
@@ -12,11 +10,10 @@ import {
   DropdownMenuShortcut,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
+import { useKeycloakAccount } from '@/hooks/use-keycloak-account'
 import { useI18n } from '@/i18n'
 import { ChevronDown, Keyboard, Settings, User } from '@/lib/icons'
 import { useKeybindHint } from '@/lib/keybinds/use-keybind-hint'
-import { $keycloakAccount, refreshKeycloakAccount } from '@/store/account'
-import { $license } from '@/store/license'
 
 /** Up to two initials from a display name, else the first letter of the email. */
 export function accountInitials(displayName: string, email: string): string {
@@ -34,25 +31,19 @@ export function accountInitials(displayName: string, email: string): string {
 
 /**
  * The account row pinned to the foot of the sidebar (Quiet Tool spec §5.3):
- * a 52px row under a divider — a 24px initials avatar on --bg-selected, the
- * name in primary ink · the plan in tertiary, and a ⌄. The whole row opens the
+ * a row under a divider — an initials avatar on --bg-selected, the name in
+ * primary ink, and a ⌄ (the plan is not shown here; it lives in Settings →
+ * Account). The whole row opens the
  * account menu. Renders nothing until someone is signed in: a row that says
  * "unknown" would be noise, and the sign-in gate already owns that state.
  */
 export function SidebarAccountRow() {
-  const account = useStore($keycloakAccount)
-  const license = useStore($license)
+  const account = useKeycloakAccount()
   const navigate = useNavigate()
   const { t } = useI18n()
   const copy = t.sidebar.account
   const settingsHint = useKeybindHint('nav.settings')
   const shortcutsHint = useKeybindHint('keybinds.openPanel')
-
-  useEffect(() => {
-    if (!account.loaded) {
-      void refreshKeycloakAccount()
-    }
-  }, [account.loaded])
 
   const name = account.displayName?.trim() || account.email?.trim() || ''
 
@@ -60,7 +51,6 @@ export function SidebarAccountRow() {
     return null
   }
 
-  const plan = license.license?.plan?.name?.trim()
   const initials = accountInitials(account.displayName ?? '', account.email ?? '')
 
   return (
@@ -78,10 +68,7 @@ export function SidebarAccountRow() {
             >
               {initials}
             </span>
-            <span className="min-w-0 flex-1 truncate text-base">
-              <span className="text-(--text-primary)">{name}</span>
-              {plan ? <span className="text-(--text-tertiary)"> · {plan}</span> : null}
-            </span>
+            <span className="min-w-0 flex-1 truncate text-base text-(--text-primary)">{name}</span>
             <ChevronDown className="size-4 shrink-0 text-(--icon-muted)" />
           </button>
         </DropdownMenuTrigger>

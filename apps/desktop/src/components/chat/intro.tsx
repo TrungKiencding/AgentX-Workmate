@@ -3,9 +3,9 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { requestComposerFocus, requestComposerInsert } from '@/app/chat/composer/focus'
 import { Button } from '@/components/ui/button'
+import { useKeycloakAccount } from '@/hooks/use-keycloak-account'
 import { useI18n } from '@/i18n/context'
 import { Clock, FileText, FolderOpen, Mail, NotebookTabs, Search } from '@/lib/icons'
-import { $keycloakAccount, refreshKeycloakAccount } from '@/store/account'
 import { $repoStatus } from '@/store/coding-status'
 import { $desktopOnboarding } from '@/store/onboarding'
 import { $profileScope, $showAllProfiles } from '@/store/profile'
@@ -56,7 +56,7 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
   const [playEntrance] = useState(() => !entrancePlayed)
   const { locale, t } = useI18n()
 
-  const account = useStore($keycloakAccount)
+  const account = useKeycloakAccount()
   const onboarding = useStore($desktopOnboarding)
   const sessions = useStore($sessions)
   const projects = useStore($projectTree)
@@ -69,14 +69,6 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
 
   useEffect(() => {
     entrancePlayed = true
-  }, [])
-
-  // Who the user is, read from the token store on disk in the main process —
-  // no network, and idempotent, so an empty state that remounts costs nothing.
-  useEffect(() => {
-    if (!$keycloakAccount.get().loaded) {
-      void refreshKeycloakAccount()
-    }
   }, [])
 
   // Onboarding owns the screen while it's up; and `configured === null` just
