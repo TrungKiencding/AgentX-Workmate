@@ -87,11 +87,13 @@ export const skinPref = profilePref(PROFILE_SKINS_KEY, SKIN_KEY, normalizeSkin)
 export const modePref = profilePref(PROFILE_MODES_KEY, MODE_KEY, normalizeMode)
 export const accentPref = profilePref(PROFILE_ACCENTS_KEY, ACCENT_KEY, normalizeAccent)
 
-// The shipped mode used to be dark. An install that already opened on it has a
-// cached boot background (applyTheme writes one on every paint), and if nobody
-// there ever picked a mode it has been dark all along — pin that, so only fresh
-// installs meet the light default. The marker makes this one-shot: without it,
-// a fresh install's own second launch would look like an old one and turn dark.
+// The shipped mode was once dark (then light; now it follows the OS). An
+// install that opened on the dark default has a cached boot background
+// (applyTheme writes one on every paint), and if nobody there ever picked a
+// mode it has been dark all along — pin that. Installs that never picked a
+// mode after the light default follow the OS like a fresh one (spec §11). The
+// marker makes this one-shot: without it, a fresh install's own second launch
+// would look like an old one and turn dark.
 const LIGHT_DEFAULT_MIGRATION_KEY = 'agentx-desktop-light-default-v1'
 
 export function keepDarkForInstallsThatShippedDark(): void {

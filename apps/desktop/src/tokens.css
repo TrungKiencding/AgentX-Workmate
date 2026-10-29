@@ -240,12 +240,14 @@
   --warning-bg: var(--amber-950);
   --danger-bg: var(--red-950);
 
+  /* gray-850 on the gray-950 page measures 1.19:1 — the sidebar edge in dark
+     takes the default hairline so it still exists (see presets.ts). */
+  --sidebar-edge-border: var(--border-default);
+
   --ui-scrollbar-thumb: var(--gray-700);
   --ui-scrollbar-thumb-hover: var(--gray-600);
   --ui-scrollbar-thumb-overlay: var(--gray-700);
   --ui-scrollbar-thumb-overlay-hover: var(--gray-600);
-  /* In dark, a code block or bubble reads as a step UP from the page. */
-  --ui-widget-surface-background: var(--bg-app);
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

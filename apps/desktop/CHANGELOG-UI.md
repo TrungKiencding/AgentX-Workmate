@@ -478,3 +478,95 @@ how it read: a static picture next to a timer.
   timer keeps counting either way.
 - **Kept honest.** `StatusPulse` lost its opacity beat (the thinking row was
   its only user) and is the sidebar's ping alone.
+
+## The 2026-10 Quiet Tool pass
+
+One direction, taken whole: the app now follows **AgentX - Design Spec Quiet
+Tool** (v2.0) — the interface steps back so content leads. Warm neutral grays
+everywhere, colour only as a signal, regions split by whitespace and one 1px
+line, hierarchy by contrast instead of by size. Eleven commits on
+`ui/quiet-tool` (`8e48b32dbd`…`72d39b0467`), 152 files under `src/`,
+`scripts/`, `electron/` and `index.html`. The contract is rewritten in
+[`DESIGN.md`](./DESIGN.md); counts below are `git grep` over `src/` (tests
+excluded) at `main` and at the branch tip.
+
+**Before.** Night Owl was the shipped skin and a fresh install opened in a
+fixed light mode. A display serif (Newsreader) held three slots; 11px type,
+54 `uppercase` labels and 50 widened-tracking literals survived in the chrome.
+Selected rows wore a fill plus a 2px accent bar; nav rows were 40px, chat rows
+36px, the sidebar 237px. Floating surfaces each picked their own shadow,
+hairline and backdrop blur (34 `backdrop-blur` uses); the composer was
+translucent glass with an accent focus ring and a coloured dock glow. The
+primary button and the send button were the skin's accent. Toasts lived in two
+stacks — top-centre for errors and actions, bottom-right for the rest — and
+timed out at 5s. Deleting a chat happened on the first click; six places asked
+through the OS `window.confirm()`. The Vietnamese copy said "phiên" for a chat
+in 46 strings and the system called itself "tôi".
+
+**After.**
+- **Three token tiers.** `src/tokens.css` adds the spec's primitives (a
+  warm-gray ladder plus the signal hues) and a semantic tier (`--bg-*`,
+  `--border-*`, `--text-*`, `--icon-*`, `--accent`, `--warning`, `--danger`,
+  `--success`, `--scrim`, `--focus-ring`, `--elevation-*`), exposed to
+  Tailwind as `bg-app`, `text-fg-muted`, `border-line`, `text-signal`… The new
+  **Quiet** skin pins the semantic tier to the primitives and points the old
+  `--ui-*` tokens back at it, so every existing surface paints spec values;
+  other skins feed the semantic tier from their own pipeline.
+- **Quiet is the default, and the default follows the OS.** A fresh install
+  opens on Quiet in the system's light or dark mode, with `index.html` and the
+  native window painting the matching white / `#1c1c1b` before any script. An
+  install still on Night Owl moves to Quiet once (marker
+  `agentx-desktop-quiet-default-v1`); switching back sticks.
+- **Type without ornament.** Newsreader and every serif hook are gone; Quiet
+  sets the platform face (SF Pro / Segoe UI, both full Vietnamese). The ramp
+  is 12 · 13 · 14 · 15 · 16 · 20 · 24 · 28px, body chrome at 14px, nothing
+  under 12px (`text-2xs` is now an alias of 12px). `uppercase` in class
+  strings: 54 → 0; widened tracking: 50 → 1.
+- **Fixed radius rungs and two elevation levels.** 6 · 8 · 12 · 16px, no
+  scalar. Cards and the composer carry a border, never a shadow; menus,
+  popovers and toasts are level 1 (`shadow-md`), dialogs, the palette and
+  route overlays level 2 (`shadow-nous`), each with its own 1px edge.
+  `--stroke-nous` is transparent; `backdrop-blur` uses: 34 → 20.
+- **Primitives on the spec.** `Button`'s primary is `--bg-inverse` on every
+  skin (never the accent), secondary a hairline, `chip` the inline control,
+  `card` a flat hairline tile; pressed is a fill, not a 1px drop. One
+  `menu-styles.ts` recipe for every menu, select, popover and cmdk list (32px
+  rows, 12px surface, 160ms in / 100ms out). Inputs: a `--border-input` edge,
+  an accent edge plus a two-layer ring on focus. Switch 28×16 and Checkbox
+  16×16 on `--bg-inverse`. `PillTabs` became `PageTabs` — text tabs over one
+  sliding underline — and `TextTab` / `PaneTab` share the voice.
+  `StatusPill` is a dot and a secondary word with no fill (the contrast gate
+  dropped its pill-tint pairs), `Kbd` an 18px flat cap, `Skeleton` an opacity
+  pulse that stays invisible for 300ms (`useDelayedTrue` deleted).
+- **Dialogs, toasts and banners.** Dialogs are 16px, 24px padding, 560 / 440 /
+  720px wide, over a plain scrim, focus on Cancel for a confirm.
+  `requestConfirm()` replaces all six `window.confirm()` calls. Toasts are one
+  bottom-centre stack above the composer, two at a time with an overflow row,
+  4s (6s with an action), errors and warnings persistent, paused while hovered
+  or focused; the placement API is gone. `Alert` is a flat in-flow banner on
+  the signal's soft fill.
+- **Undo before confirm.** Archiving a chat is immediate with "Hoàn tác" in
+  its toast; deleting one now asks, naming the chat and pointing to Archive.
+- **Sidebar and composer.** The sidebar opens at 288px (256px under a 1280px
+  window), resizable 240–400px. Nav and chat rows share 32px at 14px; selected
+  is `--bg-selected` alone; group headers carry the ▸ on the left; the search
+  field is a nav row; a 52px account row sits at the foot. The composer is
+  opaque, 16px corners, hairline firming to `--border-strong` on hover and
+  focus, a 28px inverse send circle and a ghost mic when empty, 16px above the
+  window edge — its 44px single-line height deliberately kept.
+- **Transcript.** The code card is `--bg-subtle` under a subtle hairline with a
+  32px header; inline code 0.92em; tables framed at 12px with 36px rows; an
+  opened tool step hangs behind a 1px rule instead of a box; a "↓ Mới nhất"
+  pill returns the reader to the stream.
+- **Palette, keyboard, access.** The palette is 640px at 20vh over a light
+  scrim with a key footer. ⌘\ toggles the sidebar (panes flip on ⌘⇧\), ⌘[ / ⌘]
+  step between chats. One IME guard (`lib/ime.ts`, also in the plugin SDK)
+  keeps every Enter handler from submitting mid-Telex/VNI. A skip link, a
+  polite "turn finished" announcement and a `forced-colors` block (real edges
+  where shadows vanish) join the focus ring, which stays at full accent
+  strength — the spec's 60% measures 2.6:1, under WCAG's 3:1.
+- **Copy.** "Cuộc trò chuyện" everywhere a chat was "phiên" (46 → 15 strings
+  left: sign-in and runtime sessions, plus the tool-argument label "Mã
+  phiên" for `session_id`); the system never says "tôi"
+  (30 → 21 matches, every one left the user's own words); no exclamation
+  marks or all-caps emphasis in system copy.

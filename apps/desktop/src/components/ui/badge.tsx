@@ -4,8 +4,6 @@ import type * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
-// Small status/metadata tag. App radius (not a full pill); tones map to the
-// shared accent/muted/destructive surfaces so badges read consistently.
 const badgeVariants = cva(
   // Spec §5.14: a 16px caption badge, 500 weight, tabular figures, full
   // radius. Neutral on --bg-selected; a signal tone only ever tints its soft

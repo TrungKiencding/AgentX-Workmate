@@ -98,7 +98,7 @@ export function OverlayView({
       <div
         className={cn(
           // Level 2 (spec §3.9): a route overlay is a dialog-sized task.
-          'relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-(--bg-app) shadow-nous',
+          'relative flex h-full min-h-0 flex-col overflow-hidden rounded-(--radius-dialog) bg-(--bg-app) shadow-nous',
           rootClassName
         )}
       >

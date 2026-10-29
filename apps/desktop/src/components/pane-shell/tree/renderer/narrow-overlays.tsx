@@ -128,13 +128,13 @@ export function NarrowOverlays() {
       {revealed && (
         <div
           className={cn(
-            'absolute inset-y-0 z-40 flex flex-col overflow-hidden bg-(--ui-sidebar-surface-background) shadow-2xl',
-            sideOf(revealed) === 'left'
-              ? 'left-0 border-r border-(--ui-stroke-secondary)'
-              : 'right-0 border-l border-(--ui-stroke-secondary)'
+            // The drawer (spec §3.9 / §4.3): the drawer elevation, sliding in
+            // over --dur-sidebar.
+            'absolute inset-y-0 z-40 flex flex-col overflow-hidden bg-(--ui-sidebar-surface-background) shadow-(--elevation-drawer) animate-in fade-in-0 duration-(--dur-sidebar) ease-(--ease-in-out)',
+            sideOf(revealed) === 'left' ? 'left-0 slide-in-from-left-4' : 'right-0 slide-in-from-right-4'
           )}
           onMouseLeave={() => setReveal(current => (current?.pinned ? current : null))}
-          // Match the pane's docked width (sessions ~237px, files its rail
+          // Match the pane's docked width (sessions 288/256px, files its rail
           // width) instead of a fat fixed 20rem — capped for tiny screens.
           style={{ width: `min(${(revealed.data as { width?: string } | undefined)?.width ?? '18rem'}, 85vw)` }}
         >

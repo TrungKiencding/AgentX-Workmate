@@ -554,11 +554,9 @@
     --control-h-xl: 2.5rem; /* 40px — alias of lg; the spec ramp tops out at 40 */
 
     /* Chrome row heights (spec §5.1). Navigation rows and conversation rows
-       share the comfortable 32px rung; compact density (dense lists) drops to
-       28px through --row-h-compact. */
+       share the comfortable 32px rung. */
     --sidebar-nav-row-height: 2rem; /* 32px — nav rows ("Trò chuyện mới", Tiện ích, …) */
     --sidebar-row-height: 2rem; /* 32px — session / project rows */
-    --row-h-compact: 1.75rem; /* 28px */
     --statusbar-height: 1.625rem; /* 26px — the bottom status band */
     /* StatusPill heights — sm sits under the control ramp (a pill beside a
        row title), md rides --control-h-sm so it lines up with a small button. */
@@ -635,8 +633,8 @@
     --conversation-measure: 72ch;
     /* Markdown headings inside a reply. A chat heading is a section break in a
        message, not a page title — it tops out one rung above the prose. */
-    --conversation-h1-font-size: 1.125rem; /* 18px */
-    --conversation-h2-font-size: 1rem; /* 16px */
+    --conversation-h1-font-size: 1rem; /* 16px — never above a page/dialog title */
+    --conversation-h2-font-size: 0.9375rem; /* 15px */
     --conversation-h3-font-size: 0.9375rem; /* 15px — prose size, weight carries it */
     --conversation-h4-font-size: 0.875rem; /* 14px — the content floor */
     /* Fenced code and any mono payload in the transcript. */
@@ -1793,13 +1791,12 @@ code {
   color: var(--dt-primary);
 }
 
-/* The one "human" moment in the product: a serif line that greets, a muted line
-   that says what this surface is for, and a row of ways in. The composer stays
-   the only CTA — this block leads the eye down to it. Roman, never italic, and
-   never all-caps (see design.md § Typography, serif slot 1 of 2). */
+/* The one "human" moment in the product: a text-display line (24/500) that
+   greets, a muted line that says what this surface is for, and a row of ways
+   in. The composer stays the only CTA — this block leads the eye down to it.
+   Weight comes from the element's `font-medium`. */
 .intro-greeting {
   margin: 0;
-  font-weight: 400;
 }
 
 .intro-body {

@@ -1240,8 +1240,8 @@ export function ChatSidebar({
       <SidebarContent className="gap-0 overflow-hidden bg-transparent px-2">
         <SidebarGroup className="shrink-0 p-0 pb-2 pt-[calc(var(--titlebar-height)+0.375rem)]">
           <SidebarGroupContent>
-            {/* A hair of daylight between the rows: at gap-px the 40px rows
-                fused into one slab and the hover fill had no edge to land on. */}
+            {/* 2px between rows (spec §3.7) — enough for each hover fill to
+                land on its own edge. */}
             <SidebarMenu className="gap-0.5">
               <SidebarMenuItem>
                 {/* Right-click offers the same "Open in split" submenu as the
@@ -1321,7 +1321,7 @@ export function ChatSidebar({
                     {item.id === 'messaging' && pendingPairingCount > 0 && (
                       <span
                         aria-label={t.messaging.pendingAria(pendingPairingCount)}
-                        className="ml-auto inline-flex min-w-4.5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-medium tabular-nums text-[color-mix(in_srgb,var(--ui-red)_var(--status-pill-ink),var(--dt-foreground))] [background:color-mix(in_srgb,var(--ui-red)_var(--status-pill-tint),transparent)]"
+                        className="ml-auto inline-flex min-w-4.5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-medium tabular-nums bg-(--danger-bg) text-(--danger)"
                       >
                         {pendingPairingCount}
                       </span>

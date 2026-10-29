@@ -8,7 +8,7 @@ export const HUD_POSITION = 'fixed left-1/2 top-[20vh] -translate-x-1/2'
 // `no-drag`: a HUD can overlap the titlebar's `[-webkit-app-region:drag]` band
 // on a short window, which wins hit-testing over DOM regardless of z-index —
 // without it the search input would swallow clicks.
-export const HUD_SURFACE = 'rounded-xl bg-(--bg-raised) shadow-nous [-webkit-app-region:no-drag]'
+export const HUD_SURFACE = 'rounded-(--radius-dialog) bg-(--bg-raised) shadow-nous [-webkit-app-region:no-drag]'
 
 // One row/text size for both HUDs — text-body (14px). A palette is something
 // you read at speed under a moving selection; it gets no discount.

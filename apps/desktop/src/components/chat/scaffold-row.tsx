@@ -19,9 +19,8 @@ import { DisclosureRow } from '@/components/chat/disclosure-row'
 export const SCAFFOLD_LABEL_CLASS =
   'text-[length:var(--conversation-caption-font-size)] leading-(--conversation-line-height) text-(--conversation-scaffold-text)'
 
-/** Durations, counts and diff stats trailing a scaffold label. Sits at the
- *  type ramp's floor (11px) — a step behind the label it trails, never below
- *  what the ramp allows. */
+/** Durations, counts and diff stats trailing a scaffold label: a 12px caption
+ *  (the ramp's floor), a step behind the label it trails. */
 export const SCAFFOLD_META_CLASS = 'shrink-0 text-xs tabular-nums text-(--conversation-scaffold-meta)'
 
 /**
