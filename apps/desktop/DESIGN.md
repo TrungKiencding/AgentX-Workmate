@@ -184,7 +184,7 @@ would tint the title bar and the boot paint blue).
 | `--bg-selected` | gray-150 | gray-800 |
 | `--bg-pressed` | gray-200 | gray-750 |
 | `--bg-inverse` — primary button, the send circle, tooltip, skip link | gray-700 (charcoal) | gray-200 |
-| `--border-subtle / -default / -strong / -input` | 200 / 300 / 400 / 500 | 800 / 750 / 700 / 600 |
+| `--border-subtle / -default / -strong / -input` | 200 / 300 / 400 / 500 | 800 / 750 / 700 / 500 |
 | `--text-primary / -secondary / -tertiary / -disabled` | 950 / 700 / 600 / 500 | 100 / 300 / 400 / 600 |
 | `--icon-default / -muted` | 800 / 600 | 200 / 400 |
 | `--accent / -hover` | blue-500 / blue-600 | blue-400 / blue-300 |
@@ -194,7 +194,11 @@ would tint the title bar and the boot paint blue).
 lower-density displays the spec's greys read too faded). On white, secondary
 text measures 8.2:1 and tertiary 5.9:1 — every text tier now clears AA, so
 tertiary may carry a caption a person reads — and the `--border-input` edge
-measures 3.4:1, clearing the 3:1 boundary floor. **`--bg-inverse` is
+measures 3.4:1, clearing the 3:1 boundary floor. A form field's edge is its
+only boundary, so dark keeps the same gray-500 rung rather than stepping
+down with the other hairlines: 5.0:1 on the page, 4.2:1 on a dialog
+(gray-600 measured 2.9:1). The contrast gate checks Quiet's `input` against
+the page and the popover at 3:1. **`--bg-inverse` is
 charcoal, not black** (review: an all-black UI read heavy): white on gray-700
 is 8.2:1. `--brand` (clay) is for the mascot and the logo only, never text
 (3.1:1). `--scrim` is 32% black (56% in dark) behind a dialog;
@@ -205,7 +209,7 @@ is 8.2:1. `--brand` (clay) is for the mascot and the logo only, never text
 parses `#rrggbb` only) so the title bar, the boot paint and the contrast gate
 see the same numbers as `tokens.css`. Change one, change both — the firmer
 greys moved the seeds with them (`mutedForeground` gray-700 / gray-300,
-`border` gray-300 / gray-750, `input` gray-500 / gray-600, the light
+`border` gray-300 / gray-750, `input` gray-500 in both modes, the light
 `composerRing` gray-400; the `WARM` ladder gained the 750 rung), and the
 sidebar seeds carry its surface (`sidebarBackground` gray-50 / `#141413`,
 light `sidebarBorder` gray-300). Two seeds are deliberate: the dark `primary`
@@ -422,7 +426,7 @@ ASCII art, which is drawing, not text):
 | `text-lg` | 17 / 1.47 | title (16) | dialog titles, page / overlay titles |
 | `text-xl` | 21 / 1.38 | — (20) | a rare page title |
 | `text-2xl` | 26 / 1.3 | section display (24) | onboarding title, sign-in title |
-| `text-3xl` | 30 / 1.27 | display (28) | **the home greeting** — 600 weight, `tracking-display`; the sign-in headline |
+| `text-3xl` | 30 / 1.27 | display (28) | **the home greeting** — Newsreader serif, 400 weight, `tracking-display`; the sign-in headline (sans) |
 
 The floor is **13px** (the spec's 12px caption, one step up) — nothing
 renders below the caption. Every multi-line rung keeps line-height ≥ 1.4 so

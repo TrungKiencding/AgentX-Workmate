@@ -12,6 +12,9 @@
  *                                  accent, primary, destructive
  *   filled controls APCA |Lc| ≥ 60 primary + destructive carry their label
  *   focus ring      WCAG ≥ 3:1     ring vs page (WCAG 1.4.11 boundary)
+ *   input edge      WCAG ≥ 3:1     Quiet's `input` vs page and popover — a
+ *                                  form field's border is its only boundary
+ *                                  (other skins use `input` as a fill)
  *   hairlines       WCAG ≥ 1.2:1   border/sidebarBorder must exist on screen
  *   status tones    WCAG ≥ 4.5:1   --ui-green/-yellow/-red (styles.css, per
  *                                  mode) as TEXT on every preset's page and
@@ -229,7 +232,17 @@ for (const [label, theme] of measured) {
       ]
     })
 
-    for (const { kind, label, fg, bg } of [...pairsFor(colors), ...semanticPairs]) {
+    const popover = resolve(colors.popover, page) ?? page
+
+    const inputPairs =
+      label === 'quiet'
+        ? [
+            { bg: page, fg: resolve(colors.input, page), kind: 'boundary', label: 'input/background' },
+            { bg: popover, fg: resolve(colors.input, popover), kind: 'boundary', label: 'input/popover' }
+          ]
+        : []
+
+    for (const { kind, label, fg, bg } of [...pairsFor(colors), ...semanticPairs, ...inputPairs]) {
       if (fg === null) {
         failures.push(`${variant} · ${label}: unresolvable color`)
         continue

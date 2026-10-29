@@ -260,11 +260,13 @@
   --bg-pressed: var(--gray-750);
   --bg-inverse: var(--gray-200);
 
-  /* One rung firmer than §3.4, as in light. */
+  /* One rung firmer than §3.4, as in light. The input edge is the same
+     gray-500 as light: a form field's border is its only boundary, so it must
+     clear 3:1 — 5.0:1 on the page, 4.2:1 on a dialog (gray-600 was 2.9:1). */
   --border-subtle: var(--gray-800);
   --border-default: var(--gray-750);
   --border-strong: var(--gray-700);
-  --border-input: var(--gray-600);
+  --border-input: var(--gray-500);
 
   --text-primary: var(--gray-100);
   --text-secondary: var(--gray-300);

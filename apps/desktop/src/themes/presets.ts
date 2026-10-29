@@ -136,7 +136,7 @@ export const quietTheme: DesktopTheme = {
     accent: WARM[850],
     accentForeground: WARM[100],
     border: WARM[750],
-    input: WARM[600],
+    input: WARM[500], // a field's only edge: ≥ 3:1 on the page and a dialog
     ring: '#6b9bf7',
     midground: '#6b9bf7',
     composerRing: WARM[700],

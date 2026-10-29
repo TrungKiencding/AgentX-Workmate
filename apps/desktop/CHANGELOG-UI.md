@@ -671,3 +671,6 @@ in the app — popper, dialog and toast entrances — did nothing.
   shown?" helper never matched the line (it lacked the "…"), so every
   assertion passed vacuously; it now matches, and a positive case covers the
   screen during first boot.
+- Dark input borders clear 3:1: `--border-input` is gray-500 in dark as in
+  light (5.0:1 on the page, 4.2:1 on a dialog; gray-600 was 2.9:1), and the
+  contrast gate now checks Quiet's `input` against the page and the popover.
