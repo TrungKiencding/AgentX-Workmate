@@ -34,8 +34,8 @@ speed of use > consistency > minimalism > aesthetics.**
 
 Where the code departs from the spec on purpose, the departure is named here
 with its reason: the focus ring paints the accent at full strength
-(§ Affordances), the composer keeps its 44px single line (§ Chat), and the
-dark sidebar hairline seed sits one rung firmer (§ Surfaces).
+(§ Affordances), and the dark sidebar hairline seed sits one rung firmer
+(§ Surfaces).
 
 **Three token tiers** (`src/tokens.css`, imported at the top of `styles.css`):
 
@@ -1141,9 +1141,10 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   Hover and `:focus-within` firm the edge to `--border-strong` — never the
   accent — at `--dur-micro`. The message field is 14px (`text-body`). The
   composer sits **16px above the window's bottom edge**
-  (`--composer-shell-pad-block-end`). **Its height is deliberately left at its
-  44px single line**, not the spec's 48px — a larger chat bar was tried and
-  rejected. The cards docked to it (status stack, queue) share the opaque fill
+  (`--composer-shell-pad-block-end`). One input line is **48px** (the spec's
+  min-height): `--composer-surface-pad-y` (7px) around the 32px control row,
+  inside the 1px border — still a single line; it grows only as the text
+  wraps (to `--composer-input-max-height`). The cards docked to it (status stack, queue) share the opaque fill
   and a `--border-default` edge; the completion drawers and the `+` menu are
   the level-1 popover surface (`composerPanelCard`: `--bg-raised`,
   `shadow-md`, 12px corners, 13px type); the floating micro-action pills are

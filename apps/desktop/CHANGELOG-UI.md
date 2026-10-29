@@ -553,7 +553,8 @@ in 46 strings and the system called itself "tôi".
   field is a nav row; a 52px account row sits at the foot. The composer is
   opaque, 16px corners, hairline firming to `--border-strong` on hover and
   focus, a 28px inverse send circle and a ghost mic when empty, 16px above the
-  window edge — its 44px single-line height deliberately kept.
+  window edge, one input line 48px tall (the spec's min-height; it was first
+  left at 44px and raised on review).
 - **Transcript.** The code card is `--bg-subtle` under a subtle hairline with a
   32px header; inline code 0.92em; tables framed at 12px with 36px rows; an
   opened tool step hangs behind a 1px rule instead of a box; a "↓ Mới nhất"
