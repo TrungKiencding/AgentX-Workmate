@@ -1,19 +1,21 @@
 import { useStore } from '@nanostores/react'
 import { useEffect, useRef, useState } from 'react'
 
-import { BrandGlyph } from '@/components/brand-glyph'
-import { ActivityIndicator } from '@/components/ui/activity-indicator'
 import { useI18n } from '@/i18n'
+import { BRAND_MARK_PATHS, BRAND_MARK_VIEWBOX } from '@/lib/brand-mark-path'
 import { cn } from '@/lib/utils'
 import { $desktopBoot } from '@/store/boot'
 import { $gatewaySwitching } from '@/store/gateway-switch'
 import { $gatewayState } from '@/store/session'
 
-// The connect screen, the platform way: the AgentX mark, and under it the
-// system's activity indicator beside one plain line from the catalog
-// (`boot.connecting`) — it says what it is doing, in the app's language, and
-// nothing scrambles. The group fades in after a short beat (a fast connect
-// never flashes it) and settles out with a fade and a slight scale.
+// The connect screen, the way a Mac starts up: the AgentX mark large in the
+// middle, one plain line from the catalog (`boot.connecting`) under it, and a
+// slim progress track below that. The mark draws itself in one pen stroke as
+// the screen arrives, then breathes slowly while the track's bar glides
+// across (indeterminate — the gateway gives no honest percentage). All three
+// motions are transform/opacity/dash only, and reduced motion holds them
+// still. The group fades in after a short beat (a fast connect never flashes
+// it) and settles out with a fade and a slight lift.
 
 // Exit choreography (ms): text fades down + out, hold, then the overlay fades.
 const TEXT_OUT_MS = 360
@@ -157,16 +159,32 @@ export function GatewayConnectingOverlay() {
       <div className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both delay-150 duration-(--dur-long) ease-(--ease-out)">
         <div
           className={cn(
-            'flex flex-col items-center gap-5 transition-[opacity,scale] duration-(--dur-long) ease-(--ease-in)',
-            leaving ? 'scale-[0.98] opacity-0' : 'scale-100 opacity-100'
+            'flex flex-col items-center transition-[opacity,scale] duration-(--dur-long) ease-(--ease-in)',
+            leaving ? 'scale-[1.02] opacity-0' : 'scale-100 opacity-100'
           )}
           data-slot="connecting-splash"
           role="status"
         >
-          <BrandGlyph className="size-11 text-(--text-primary)" />
-          <div className="flex items-center gap-2.5 text-base text-(--text-secondary)">
-            <ActivityIndicator className="size-4 text-(--text-tertiary)" />
-            <span>{text}</span>
+          <svg
+            aria-hidden="true"
+            className="connect-mark size-22 text-(--text-primary)"
+            data-slot="connect-mark"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            viewBox={BRAND_MARK_VIEWBOX}
+          >
+            {/* Same inset as BrandGlyph; the stroke is in box units (≈3px at 88px). */}
+            <g strokeWidth={3.9} transform="translate(6 6) scale(0.88)">
+              {BRAND_MARK_PATHS.map(d => (
+                <path className="connect-mark-stroke" d={d} key={d} pathLength={1} />
+              ))}
+            </g>
+          </svg>
+          <p className="m-0 mt-7 text-lg text-(--text-secondary)">{text}</p>
+          <div aria-hidden="true" className="connect-track" data-slot="connect-track">
+            <div className="connect-track-bar" />
           </div>
         </div>
       </div>

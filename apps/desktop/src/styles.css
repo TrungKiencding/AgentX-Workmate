@@ -1102,10 +1102,98 @@
   }
 }
 
-/* ActivityIndicator: one full turn, stepped twelve times (see the component). */
-@keyframes activity-spin {
+/* Connect screen (gateway-connecting-overlay.tsx). The mark's two strokes
+   draw on in sequence (pathLength=1, so the dash is the whole path), then the
+   mark breathes — a 3% swell and back every 3.2s. Under it, a 180×4 track
+   whose bar glides across and wraps. Reduced motion: drawn, still, the bar
+   parked at the start. */
+.connect-mark {
+  animation: connect-mark-breathe 3.2s var(--ease-in-out) 1.5s infinite;
+}
+
+.connect-mark-stroke {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: connect-mark-draw 900ms var(--ease-out) 200ms both;
+}
+
+.connect-mark-stroke:nth-child(2) {
+  animation-duration: 500ms;
+  animation-delay: 950ms;
+}
+
+/* Opacity steps on at the first frame: a round cap on a zero-length dash
+   still paints a dot, which would mark the tail before its turn. */
+@keyframes connect-mark-draw {
+  0% {
+    opacity: 0;
+    stroke-dashoffset: 1;
+  }
+
+  1% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes connect-mark-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+.connect-track {
+  position: relative;
+  width: 11.25rem;
+  height: 0.25rem;
+  margin-top: 1.25rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--bg-selected);
+  animation: connect-fade-in var(--dur-long) var(--ease-out) 600ms both;
+}
+
+.connect-track-bar {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--accent);
+  animation: connect-track-glide 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes connect-track-glide {
+  from {
+    transform: translateX(-100%);
+  }
+
   to {
-    transform: rotate(360deg);
+    transform: translateX(250%);
+  }
+}
+
+@keyframes connect-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connect-mark,
+  .connect-mark-stroke,
+  .connect-track,
+  .connect-track-bar {
+    animation: none;
   }
 }
 

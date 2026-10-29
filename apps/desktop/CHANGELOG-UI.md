@@ -664,3 +664,10 @@ in the app — popper, dialog and toast entrances — did nothing.
   `useKeycloakAccount()`, which re-reads once the gateway opens (a launch-time
   read happens before the backend knows the realm). The account row drops the
   plan name.
+- Connect screen, larger and livelier: an 88px mark that draws itself in one
+  pen stroke and then breathes, a 17px status line, and a slim accent
+  progress track gliding underneath (replacing the 16px spinner, whose
+  `ActivityIndicator` component is removed). The overlay test's "is it
+  shown?" helper never matched the line (it lacked the "…"), so every
+  assertion passed vacuously; it now matches, and a positive case covers the
+  screen during first boot.

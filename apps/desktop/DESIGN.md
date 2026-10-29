@@ -1346,25 +1346,25 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   left — an archive — and it offers the same ways out rather than "preview
   anyway".
 - **The connect splash** (`components/gateway-connecting-overlay.tsx`,
-  `data-slot="connecting-splash"`, `role="status"`) is the platform's way of
-  saying "working": the AgentX mark (`BrandGlyph`, 44px, primary ink) and
-  under it, 20px down, the `ActivityIndicator` (16px, tertiary ink) beside one
-  plain 15px line in secondary ink — the catalog's `boot.connecting` `word` +
-  `target` + "…" ("Connecting to AgentX server…" in English). Nothing
-  scrambles: the old `DecodeText` decode is gone from this screen (the
-  primitive lives on elsewhere). The group arrives after a 150ms beat (a fade
-  with a 4px rise, `animate-in fade-in-0 slide-in-from-bottom-1`), so a warm
-  connect shows nothing at all, and leaves with a fade and a slight scale to
-  .98. Cold boot only: a post-boot socket drop reconnects behind the shell,
-  never behind this overlay. The onboarding title sits at the 26px
+  `data-slot="connecting-splash"`, `role="status"`) is how a Mac starts up:
+  the AgentX mark large in the middle (88px, primary ink, ≈3px stroke, drawn
+  from `lib/brand-mark-path.ts`), 28px under it one plain 17px line in
+  secondary ink — the catalog's `boot.connecting` `word` + `target` + "…"
+  ("Connecting to AgentX server…" in English) — and 20px under that a slim
+  180×4 track (`--bg-selected`) whose `--accent` bar glides across and wraps.
+  The bar is indeterminate on purpose: the gateway reports no honest
+  percentage. Review (29/10): the earlier 44px mark beside a 16px spinner read
+  as small and flat on low-density screens, so the spinner
+  (`ActivityIndicator`) is gone. The mark draws itself as the screen arrives
+  — its two strokes in sequence via `pathLength=1` dashes (the loop over
+  900ms, then the tail over 500ms) — then breathes, a 3% swell every 3.2s;
+  the track fades in at 600ms. Every motion is dash/transform/opacity, and
+  reduced motion shows the finished mark and a parked bar. The group arrives
+  after a 150ms beat (`animate-in fade-in-0 slide-in-from-bottom-1`), so a
+  warm connect shows nothing at all, and leaves with a fade and a slight lift
+  to 1.02. Cold boot only: a post-boot socket drop reconnects behind the
+  shell, never behind this overlay. The onboarding title sits at the 26px
   `text-2xl` rung, medium, sans, with no colour block behind it.
-- **`ActivityIndicator`** (`components/ui/activity-indicator.tsx`) is the
-  platform's indeterminate activity indicator: twelve rounded spokes in
-  `currentColor` whose opacity falls off around the dial, the dial turning in
-  twelve discrete steps per second (`activity-spin`, `steps(12)` — the system
-  indicator's own rhythm, never a smooth spin). Reduced motion holds it still;
-  the falloff alone still reads as "working". Pass `label` when it stands
-  alone (it becomes `role="img"`); beside a sentence it is `aria-hidden`.
 - **Inference belongs to AgentX AI Gateway.** Sign-in, onboarding, model
   pickers and Settings never offer another inference provider or endpoint.
   Gateway failure offers retry or Skip; Skip opens the shell without claiming
@@ -1470,7 +1470,8 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   decorative star/sparkle icons.
 - **`BrandGlyph`** (`src/components/brand-glyph.tsx`) is the mark as a 20px
   (`size="md"`) or 14px (`size="sm"`) `currentColor` line-art glyph — the
-  connect screen, the sign-in art and the `EmptyFigure`s — built from
+  sign-in art and the `EmptyFigure`s (the connect screen draws the same paths
+  itself, large, so it can animate each stroke) — built from
   `lib/brand-mark-path.ts`, the one geometry every drawing of the mark
   shares: re-fit the numbers there and they all follow. It no longer heads
   replies or traces itself (the one-stroke route and its pen were removed).
@@ -1518,8 +1519,8 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 | Disclosure caret / group open | `rotate` (90°) | `--dur-collapse` · `--ease-in-out` |
 | Scaffolding lifting out of its fade | `opacity` | `--dur-micro` · `--ease-out` |
 | Overlay / boot surface arriving | `opacity` (+ the surface's own stagger) | `--dur-long` · `--ease-out` |
-| Connect splash group | `opacity` + a 4px rise in, after a 150ms beat; `opacity` + scale → .98 out | in: 500ms · `--ease-out`; out: `--dur-long` · `--ease-in` |
-| `ActivityIndicator` | `transform` (rotate), twelve discrete steps | 1s per turn, `steps(12)`, infinite; reduced motion → still |
+| Connect splash group | `opacity` + a 4px rise in, after a 150ms beat; `opacity` + scale → 1.02 out | in: 500ms · `--ease-out`; out: `--dur-long` · `--ease-in` |
+| Connect mark / track | `stroke-dashoffset` draw-on, then `transform` breathe; bar `transform` glide | draw 900ms + 500ms · `--ease-out`; breathe 3.2s · `--ease-in-out`; glide 1.6s, infinite; reduced motion → still |
 | Anything leaving | the property it entered on | the paired `--dur-*-exit` · `--ease-in` |
 | Reaction / particle / reorder settle | `transform`, `opacity` | `--dur-long-exit` · `--spring-pop` (no overshoot) |
 | Page-tab underline sliding (`PageTabs`) | `transform`, `opacity` (its width snaps) | `--dur-short` · `--ease-in-out`; reduced motion → a jump |
