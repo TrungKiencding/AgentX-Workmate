@@ -10,14 +10,14 @@ export const MENU_MOTION =
 
 /** The floating surface itself (add z-index, max-height and origin per primitive). */
 export const MENU_SURFACE =
-  'min-w-50 overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg bg-(--bg-raised) p-1 text-base text-(--text-primary) shadow-md outline-hidden'
+  'min-w-56 overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg bg-(--bg-raised) p-1 text-base text-(--text-primary) shadow-md outline-hidden'
 
 /**
- * A row: 32px, 8px corners, 16px glyph in the muted icon ink, 14px label.
+ * A row: 36px, 8px corners, 18px glyph in the muted icon ink, 15px label.
  * Hover/keyboard focus paints --bg-hover; a destructive row reads in --danger.
  */
 export const MENU_ITEM =
-  "relative flex h-8 cursor-default items-center gap-2 rounded-md px-2 text-base text-(--text-primary) outline-hidden select-none focus:bg-(--bg-hover) data-[highlighted]:bg-(--bg-hover) data-[disabled]:pointer-events-none data-[disabled]:text-(--text-disabled) data-[inset]:pl-8 data-[variant=destructive]:text-(--danger) data-[variant=destructive]:focus:bg-(--danger-bg) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-(--icon-muted) data-[variant=destructive]:*:[svg]:text-(--danger)!"
+  "relative flex h-9 cursor-default items-center gap-2.5 rounded-md px-2.5 text-base text-(--text-primary) outline-hidden select-none focus:bg-(--bg-hover) data-[highlighted]:bg-(--bg-hover) data-[disabled]:pointer-events-none data-[disabled]:text-(--text-disabled) data-[inset]:pl-8 data-[variant=destructive]:text-(--danger) data-[variant=destructive]:focus:bg-(--danger-bg) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4.5 [&_svg:not([class*='text-'])]:text-(--icon-muted) data-[variant=destructive]:*:[svg]:text-(--danger)!"
 
 /** A sub-menu trigger also keeps its fill while its sub-menu is open. */
 export const MENU_SUB_TRIGGER = `${MENU_ITEM} data-[state=open]:bg-(--bg-hover)`

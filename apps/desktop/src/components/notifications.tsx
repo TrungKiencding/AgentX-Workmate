@@ -47,11 +47,83 @@ const TOAST_SURFACE = 'pointer-events-auto w-full rounded-lg bg-(--bg-raised) px
 // "+N" row so an unhandled error is never silently dropped.
 const VISIBLE_TOASTS = 2
 
+// Gap between the toast stack and what it sits above (spec §5.15: "ngay trên
+// composer", never covering it).
+const TOAST_GAP_PX = 12
+
+interface ToastAnchor {
+  bottom: number
+  centerX: number | null
+}
+
+/**
+ * Where the stack sits: just above the foreground composer, centred on it.
+ * The composer's height lives as a per-surface CSS var (surface-vars.ts), which
+ * a body-level portal cannot read, so the toast measures the docked composer
+ * itself — the lowest visible one, i.e. the main chat — and follows it as it
+ * grows. Off a chat page there is no composer, and the stack sits on the
+ * window's bottom edge.
+ */
+function useToastAnchor(active: boolean): ToastAnchor {
+  const [anchor, setAnchor] = useState<ToastAnchor>({ bottom: TOAST_GAP_PX + 16, centerX: null })
+
+  useEffect(() => {
+    if (!active) {
+      return
+    }
+
+    let frame = 0
+
+    const measure = () => {
+      frame = 0
+
+      const docks = [...document.querySelectorAll<HTMLElement>('[data-chat-surface] [data-slot="composer-dock"]')]
+        .map(dock => dock.getBoundingClientRect())
+        .filter(rect => rect.width > 0 && rect.height > 0)
+        .sort((a, b) => b.bottom - a.bottom || b.width - a.width)
+
+      const dock = docks[0]
+
+      setAnchor(
+        dock
+          ? { bottom: Math.max(0, window.innerHeight - dock.top) + TOAST_GAP_PX, centerX: dock.left + dock.width / 2 }
+          : { bottom: TOAST_GAP_PX + 16, centerX: null }
+      )
+    }
+
+    const schedule = () => {
+      frame ||= requestAnimationFrame(measure)
+    }
+
+    measure()
+
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule)
+
+    for (const dock of document.querySelectorAll('[data-chat-surface] [data-slot="composer-dock"]')) {
+      resize?.observe(dock)
+    }
+
+    window.addEventListener('resize', schedule)
+
+    return () => {
+      resize?.disconnect()
+      window.removeEventListener('resize', schedule)
+
+      if (frame) {
+        cancelAnimationFrame(frame)
+      }
+    }
+  }, [active])
+
+  return anchor
+}
+
 export function NotificationStack() {
   const notifications = useStore($notifications)
   const { t } = useI18n()
   const lastNotificationIdRef = useRef<string | null>(null)
   const [expanded, setExpanded] = useState(false)
+  const anchor = useToastAnchor(notifications.length > 0)
   const copy = t.notifications
 
   useEffect(() => {
@@ -95,12 +167,12 @@ export function NotificationStack() {
 
   // Portaled to <body> on the over-modal rung so a toast clears an open dialog
   // (inside the React root, any body-level dialog portal paints over it).
-  // Bottom-centre, just above the composer: the measured dock height plus a
-  // 12px gap, and the safe-area inset where a device has one.
+  // Just above the foreground composer and centred on it (useToastAnchor),
+  // plus the safe-area inset where a device has one.
   return createPortal(
     <div
       aria-label={copy.region}
-      className="pointer-events-none fixed bottom-[calc(var(--composer-measured-height)+0.75rem+env(safe-area-inset-bottom))] left-1/2 z-(--z-over-modal) flex w-[min(26.25rem,calc(100%-2rem))] -translate-x-1/2 flex-col-reverse gap-2"
+      className="pointer-events-none fixed z-(--z-over-modal) flex w-[min(26.25rem,calc(100%-2rem))] -translate-x-1/2 flex-col-reverse gap-2"
       onBlur={event => {
         if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
           releaseNotificationTimers()
@@ -110,6 +182,10 @@ export function NotificationStack() {
       onPointerEnter={holdNotificationTimers}
       onPointerLeave={releaseNotificationTimers}
       role="region"
+      style={{
+        bottom: `calc(${anchor.bottom}px + env(safe-area-inset-bottom))`,
+        left: anchor.centerX === null ? '50%' : `${anchor.centerX}px`
+      }}
     >
       {visible.map(n => (
         <NotificationItem key={n.id} notification={n} />

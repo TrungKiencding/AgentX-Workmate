@@ -145,34 +145,35 @@
   --font-sans: var(--dt-font-sans);
   --font-mono: var(--dt-font-mono);
 
-  /* Type ramp — the app's only font sizes (spec §3.6). Hierarchy comes from
-     contrast, not size: the ramp is nearly flat through the chrome and only
-     steps up for titles. Every multi-line rung keeps line-height ≥ 1.4 for
-     Vietnamese stacked diacritics. No widened tracking anywhere.
-       xs   12 caption   · sm 13 meta      · base 14 body (default chrome)
-       md   15 reading   · lg 16 title     · xl  20 page title (rare)
-       2xl  24 section display · 3xl 28 display (the greeting, the connect
+  /* Type ramp — the app's only font sizes. The spec's ramp (§3.6) raised one
+     step on review, so the app stays legible on older, lower-density displays;
+     the structure is the spec's: hierarchy comes from contrast, the ramp is
+     nearly flat through the chrome and only steps up for titles. Every
+     multi-line rung keeps line-height ≥ 1.4 for Vietnamese stacked
+     diacritics. No widened tracking anywhere.
+       xs   13 caption   · sm 14 meta      · base 15 body (default chrome)
+       md   16 reading   · lg 17 title     · xl  21 page title (rare)
+       2xl  26 section display · 3xl 30 display (the greeting, the connect
        screen and onboarding: 600 weight, tracking-display)
-     `2xs` survives as an alias of the 12px caption: the spec floor is 12px,
-     nothing in the app renders at 11px any more. */
-  --text-2xs: 0.75rem;
+     `2xs` survives as an alias of the caption — nothing renders below it. */
+  --text-2xs: 0.8125rem;
   --text-2xs--line-height: 1.4;
-  --text-xs: 0.75rem;
+  --text-xs: 0.8125rem;
   --text-xs--line-height: 1.4;
-  --text-sm: 0.8125rem;
-  --text-sm--line-height: 1.4;
-  --text-base: 0.875rem;
-  --text-base--line-height: 1.43;
-  --text-md: 0.9375rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.43;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.47;
+  --text-md: 1rem;
   --text-md--line-height: 1.6;
-  --text-lg: 1rem;
-  --text-lg--line-height: 1.5;
-  --text-xl: 1.25rem;
-  --text-xl--line-height: 1.4;
-  --text-2xl: 1.5rem;
-  --text-2xl--line-height: 1.33;
-  --text-3xl: 1.75rem;
-  --text-3xl--line-height: 1.3;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.47;
+  --text-xl: 1.3125rem;
+  --text-xl--line-height: 1.38;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 1.27;
 
   /* The one tracking token: display type (28px) is drawn slightly tighter,
      the way the platform's own large titles are (SF Pro Display spacing).
@@ -553,15 +554,17 @@
 
     /* Control heights — one ramp shared by Button, Input, Select and friends,
        so controls on the same row always line up. */
-    --control-h-sm: 1.75rem; /* 28px — dense rows, secondary actions */
-    --control-h-md: 2rem; /* 32px — the default control height */
-    --control-h-lg: 2.5rem; /* 40px — spec size lg (prominent buttons, lg inputs) */
-    --control-h-xl: 2.5rem; /* 40px — alias of lg; the spec ramp tops out at 40 */
+    /* One step above the spec's 28/32/40 (review: legibility on older
+       displays) — the same three rungs, scaled with the type ramp. */
+    --control-h-sm: 1.875rem; /* 30px — dense rows, secondary actions */
+    --control-h-md: 2.25rem; /* 36px — the default control height */
+    --control-h-lg: 2.75rem; /* 44px — prominent buttons, lg inputs */
+    --control-h-xl: 2.75rem; /* 44px — alias of lg */
 
     /* Chrome row heights (spec §5.1). Navigation rows and conversation rows
        share the comfortable 32px rung. */
-    --sidebar-nav-row-height: 2rem; /* 32px — nav rows ("Trò chuyện mới", Tiện ích, …) */
-    --sidebar-row-height: 2rem; /* 32px — session / project rows */
+    --sidebar-nav-row-height: 2.25rem; /* 36px — nav rows ("Trò chuyện mới", Tiện ích, …) */
+    --sidebar-row-height: 2.25rem; /* 36px — session / project rows */
     --statusbar-height: 1.625rem; /* 26px — the bottom status band */
     /* StatusPill heights — sm sits under the control ramp (a pill beside a
        row title), md rides --control-h-sm so it lines up with a small button. */
@@ -569,9 +572,9 @@
     --status-pill-h-md: var(--control-h-sm); /* 28px */
     /* Switch md — the default toggle for every enable/disable row in a page:
        a 22×38 track with an 18px thumb. (xs stays for menus and dense rows.) */
-    --switch-md-track-width: 1.75rem; /* 28px — spec §5.6 */
-    --switch-md-track-height: 1rem; /* 16px */
-    --switch-md-thumb: 0.75rem; /* 12px */
+    --switch-md-track-width: 2rem; /* 32px — spec §5.6, one step up */
+    --switch-md-track-height: 1.125rem; /* 18px */
+    --switch-md-thumb: 0.875rem; /* 14px */
     /* Home-surface task cards: the minimum height of one card, so a row of
        cards with and without a description still lines up. */
     --intro-card-min-height: 3.5rem; /* 56px */
@@ -625,9 +628,9 @@
     /* The reading surface: prose 15px, tool/caption a step behind — the chat
        column is the app's primary content and reads at content size, not
        chrome size. User-adjustable through the existing pipeline. */
-    --conversation-text-font-size: 0.9375rem;
-    --conversation-tool-font-size: 0.8125rem; /* 13px — text-meta: tool meta, step detail */
-    --conversation-caption-font-size: 0.8125rem;
+    --conversation-text-font-size: 1rem; /* 16px — the reading size */
+    --conversation-tool-font-size: 0.875rem; /* 14px — text-meta: tool meta, step detail */
+    --conversation-caption-font-size: 0.875rem;
     --conversation-line-height: 1.125rem;
     --conversation-caption-line-height: 1rem;
     /* Prose runs looser than chrome — a reply is read in paragraphs, not
@@ -638,12 +641,12 @@
     --conversation-measure: 72ch;
     /* Markdown headings inside a reply. A chat heading is a section break in a
        message, not a page title — it tops out one rung above the prose. */
-    --conversation-h1-font-size: 1rem; /* 16px — never above a page/dialog title */
-    --conversation-h2-font-size: 0.9375rem; /* 15px */
-    --conversation-h3-font-size: 0.9375rem; /* 15px — prose size, weight carries it */
-    --conversation-h4-font-size: 0.875rem; /* 14px — the content floor */
+    --conversation-h1-font-size: 1.0625rem; /* 17px — never above a page/dialog title */
+    --conversation-h2-font-size: 1rem; /* 16px */
+    --conversation-h3-font-size: 1rem; /* 16px — prose size, weight carries it */
+    --conversation-h4-font-size: 0.9375rem; /* 15px — the content floor */
     /* Fenced code and any mono payload in the transcript. */
-    --conversation-code-font-size: 0.8125rem; /* 13px — text-code (spec §3.6) */
+    --conversation-code-font-size: 0.875rem; /* 14px — text-code */
     --conversation-code-line-height: 1.54; /* 20px */
     --conversation-turn-gap: 0.375rem;
     /* Gap between top-level turn blocks (prose ↔ tools ↔ thinking) — enough air
@@ -691,19 +694,19 @@
     --composer-width: 48.75rem;
     /* Composer control row — 32px controls matching --control-h-md, so the
        send button (the app's most important control) reads as a real target. */
-    --composer-control-size: 2rem;
-    /* Send/Stop: the spec's 28px circle (§5.7). */
-    --composer-control-primary-size: 1.75rem;
+    --composer-control-size: 2.25rem;
+    /* Send/Stop: the inverse circle (spec §5.7, one step up). */
+    --composer-control-primary-size: 2rem;
     --composer-control-gap: 0.375rem;
     --composer-row-gap: 0.25rem;
     --composer-surface-pad-x: 0.5rem;
-    /* One input line is 48px tall (spec §5.7 min-height): 7px + the 32px
-       control row + 7px, inside the 1px border. */
-    --composer-surface-pad-y: 0.4375rem;
+    /* One input line is 50px tall: 6px + the 36px control row + 6px, inside
+       the 1px border (the spec's 48px min-height, scaled with the ramp). */
+    --composer-surface-pad-y: 0.375rem;
     --composer-input-min-height: 1.625rem;
     --composer-input-max-height: 9.375rem;
     --composer-input-inline-min-width: 8rem;
-    --composer-fallback-height: 3rem;
+    --composer-fallback-height: 3.125rem;
     --composer-measured-height: calc(0.5rem + var(--composer-shell-pad-block-end) + var(--composer-fallback-height));
     --composer-surface-measured-height: var(--composer-fallback-height);
     --thread-viewport-height: max(
@@ -829,15 +832,16 @@
     background: var(--ui-chat-surface-background);
     color: var(--dt-foreground);
     font-family: var(--dt-font-sans);
-    /* text-body (spec §3.6): 14px is the chrome default — nav labels, lists,
-       the composer, forms. Meta drops to 13px by colour as much as size. */
-    font-size: 0.875rem;
+    /* text-body: 15px is the chrome default — nav labels, lists, the
+       composer, forms. Meta drops to 14px by colour as much as size. No
+       forced `antialiased`: on lower-density displays it thins every stem and
+       the UI reads washed out (review) — the platform's default rendering
+       keeps strokes at their designed weight. */
+    font-size: 0.9375rem;
     line-height: var(--dt-line-height, 1.55);
-    -moz-osx-font-smoothing: grayscale;
     letter-spacing: var(--dt-letter-spacing, 0);
     -webkit-user-select: none;
     user-select: none;
-    -webkit-font-smoothing: antialiased;
   }
 
   button,
@@ -1818,7 +1822,7 @@ code {
 }
 
 .intro-body {
-  max-width: 34rem;
+  max-width: 38rem;
   margin: 0.5rem auto 0;
   color: var(--ui-text-tertiary);
   font-size: var(--text-md);
@@ -1864,7 +1868,7 @@ code {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
   width: 100%;
-  max-width: 34rem;
+  max-width: 40rem;
   margin: 1.25rem auto 0;
 }
 
@@ -2047,7 +2051,7 @@ code {
 
 [data-slot='composer-rich-input'] {
   color: var(--ui-text-primary);
-  font-size: 0.875rem;
+  font-size: 0.9375rem;
 }
 
 /* Hallmark · component: composer-bar · theme: project tokens · P4 H5 E4 S4 R5 V4

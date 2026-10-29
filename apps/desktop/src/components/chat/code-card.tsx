@@ -38,13 +38,13 @@ function CodeCardIcon({ className, ...props }: CodiconProps) {
 
 /**
  * The fence's header row: what language this is on the left (a caption in the
- * UI face), the copy control on the right. 32px; the language is a proper
+ * UI face), the copy control on the right. 36px; the language is a proper
  * name, so it keeps its own casing.
  */
 function CodeCardHeader({ children, className, label, ...props }: React.ComponentProps<'div'> & { label?: string }) {
   return (
     <div
-      className={cn('flex h-8 items-center justify-between gap-2 pr-1.5 pl-4', className)}
+      className={cn('flex h-9 items-center justify-between gap-2 pr-1.5 pl-4', className)}
       data-slot="code-card-header"
       {...props}
     >

@@ -19,8 +19,8 @@ const badgeVariants = cva(
         outline: 'border border-(--border-default) text-(--text-secondary)'
       },
       size: {
-        default: 'h-4 px-1.5 text-xs [&_svg]:size-3',
-        xs: 'h-4 px-1 text-xs [&_svg]:size-2.5'
+        default: 'h-5 px-1.5 text-xs [&_svg]:size-3.5',
+        xs: 'h-5 px-1 text-xs [&_svg]:size-3'
       }
     },
     defaultVariants: { variant: 'default', size: 'default' }

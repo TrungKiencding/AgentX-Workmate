@@ -59,6 +59,7 @@ const WARM = {
   500: '#8b8b86',
   600: '#646460',
   700: '#4f4f4c',
+  750: '#3f3f3d',
   800: '#333331',
   850: '#2a2a29',
   900: '#232322',
@@ -76,7 +77,8 @@ const WARM = {
  * `[data-agentx-theme='quiet']` block in tokens.css; the seeds below exist so
  * the pipeline (title bar, boot paint, contrast gate) sees the same numbers.
  *
- * Deliberate deviations: the sidebar sits on its own surface (gray-50 light,
+ * Deliberate deviations (review, for older lower-density displays): text,
+ * icon and line greys sit one rung firmer than §3.3/§3.4; the sidebar sits on its own surface (gray-50 light,
  * gray-1000 dark — asked for in review so the column stands apart), and its
  * edge is the default hairline (gray-200 / gray-800); the spec's subtle rung
  * vanishes against a tinted sidebar (1.12:1, under the gate's 1.2 floor).
@@ -94,7 +96,7 @@ export const quietTheme: DesktopTheme = {
     card: WARM[0],
     cardForeground: WARM[950],
     muted: WARM[50],
-    mutedForeground: WARM[600], // 5.9:1 on the page, 5.5:1 on muted
+    mutedForeground: WARM[700], // 8.2:1 on the page, 7.7:1 on muted
     popover: WARM[0],
     popoverForeground: WARM[950],
     primary: '#2563eb', // 5.2:1 under a white label
@@ -103,15 +105,15 @@ export const quietTheme: DesktopTheme = {
     secondaryForeground: WARM[950],
     accent: WARM[100],
     accentForeground: WARM[950],
-    border: WARM[200],
-    input: WARM[400],
+    border: WARM[300],
+    input: WARM[500],
     ring: '#2563eb',
     midground: '#2563eb',
-    composerRing: WARM[300],
+    composerRing: WARM[400],
     destructive: '#c8372d', // 5.2:1 under white
     destructiveForeground: '#ffffff',
     sidebarBackground: WARM[50],
-    sidebarBorder: WARM[200],
+    sidebarBorder: WARM[300],
     userBubble: WARM[50],
     userBubbleBorder: WARM[50]
   },
@@ -121,7 +123,7 @@ export const quietTheme: DesktopTheme = {
     card: WARM[950],
     cardForeground: WARM[100],
     muted: WARM[900],
-    mutedForeground: WARM[400], // 8.1:1 on the page
+    mutedForeground: WARM[300], // 10.8:1 on the page
     popover: WARM[850],
     popoverForeground: WARM[100],
     // A step lighter than the spec's blue-400 so a dark label on the fill
@@ -133,8 +135,8 @@ export const quietTheme: DesktopTheme = {
     secondaryForeground: WARM[100],
     accent: WARM[850],
     accentForeground: WARM[100],
-    border: WARM[800],
-    input: WARM[700],
+    border: WARM[750],
+    input: WARM[600],
     ring: '#6b9bf7',
     midground: '#6b9bf7',
     composerRing: WARM[700],

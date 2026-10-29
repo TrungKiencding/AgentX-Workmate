@@ -17,7 +17,7 @@ function TextTab({ active = false, children, className, type = 'button', ...prop
   return (
     <button
       className={cn(
-        'inline-flex h-8 items-center gap-1.5 bg-transparent px-0.5 text-sm text-(--text-secondary) transition-colors duration-(--dur-micro) hover:text-(--text-primary) disabled:pointer-events-none disabled:text-(--text-disabled)',
+        'inline-flex h-9 items-center gap-1.5 bg-transparent px-0.5 text-sm text-(--text-secondary) transition-colors duration-(--dur-micro) hover:text-(--text-primary) disabled:pointer-events-none disabled:text-(--text-disabled)',
         active && 'text-(--text-primary) shadow-[inset_0_-2px_0_var(--text-primary)]',
         className
       )}

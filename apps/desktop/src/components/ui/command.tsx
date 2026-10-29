@@ -23,13 +23,13 @@ interface CommandInputProps extends React.ComponentProps<typeof CommandPrimitive
 function CommandInput({ className, right, ...props }: CommandInputProps) {
   return (
     <div
-      className="flex h-12 items-center gap-2.5 border-b border-(--border-subtle) px-4"
+      className="flex h-13 items-center gap-2.5 border-b border-(--border-subtle) px-4"
       data-slot="command-input-wrapper"
     >
       <SearchIcon className="size-4 shrink-0 text-(--icon-muted)" />
       <CommandPrimitive.Input
         className={cn(
-          'flex h-12 w-full bg-transparent text-base outline-none placeholder:text-(--text-tertiary) disabled:cursor-not-allowed disabled:text-(--text-disabled)',
+          'flex h-13 w-full bg-transparent text-md outline-none placeholder:text-(--text-tertiary) disabled:cursor-not-allowed disabled:text-(--text-disabled)',
           className
         )}
         data-slot="command-input"
@@ -184,7 +184,7 @@ function CommandItem({ className, ...props }: React.ComponentProps<typeof Comman
   return (
     <CommandPrimitive.Item
       className={cn(
-        "relative flex h-9 cursor-default select-none items-center gap-2.5 rounded-md px-2 text-base outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-(--bg-selected) data-[disabled=true]:text-(--text-disabled) [&_svg:not([class*='size-'])]:size-4 [&_svg:not([class*='text-'])]:text-(--icon-muted)",
+        "relative flex h-10 cursor-default select-none items-center gap-2.5 rounded-md px-2.5 text-base outline-none data-[disabled=true]:pointer-events-none data-[selected=true]:bg-(--bg-selected) data-[disabled=true]:text-(--text-disabled) [&_svg:not([class*='size-'])]:size-4.5 [&_svg:not([class*='text-'])]:text-(--icon-muted)",
         className
       )}
       data-slot="command-item"

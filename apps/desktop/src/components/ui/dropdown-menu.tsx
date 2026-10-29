@@ -20,7 +20,7 @@ import {
 // full-width, square, and compact so the highlight spans the whole surface.
 // Reuse these instead of re-deriving per menu so every searchable/compact menu
 // reads identically.
-export const dropdownMenuRow = 'h-8 gap-2 rounded-none px-3 text-base'
+export const dropdownMenuRow = 'h-9 gap-2.5 rounded-none px-3 text-base'
 export const dropdownMenuSectionLabel = 'px-3 pt-2 pb-1 text-xs text-(--text-tertiary)'
 
 // Keys that must reach Radix's menu handler (navigation/close). Everything else

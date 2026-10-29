@@ -60,11 +60,11 @@ function SidebarSectionHeader({
     </>
   )
 
-  // Group header (spec §5.2): a 32px row whose whole width toggles the group,
+  // Group header (spec §5.2): a 36px row whose whole width toggles the group,
   // the ▸ on the LEFT of the title (it turns 90° when open), the title in
   // secondary ink. Trailing actions sit outside the toggle.
   return (
-    <div className="group/section flex h-8 shrink-0 items-center justify-between gap-1">
+    <div className="group/section flex h-9 shrink-0 items-center justify-between gap-1">
       {collapsible ? (
         <button
           aria-expanded={open}

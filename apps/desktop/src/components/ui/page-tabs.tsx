@@ -107,7 +107,7 @@ export function PageTabs({
     <div
       className={cn(
         // The indicator is the FIRST child, so the relative tabs after it paint on top in DOM order.
-        'relative inline-flex h-10 w-fit max-w-full items-stretch gap-5 border-b border-(--border-subtle)',
+        'relative inline-flex h-11 w-fit max-w-full items-stretch gap-6 border-b border-(--border-subtle)',
         className
       )}
       data-slot="page-tabs"

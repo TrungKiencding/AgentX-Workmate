@@ -159,7 +159,7 @@ export function SearchField({
         data-slot="search-field"
         data-variant="field"
       >
-        <Search className="pointer-events-none size-4.5 shrink-0 text-(--icon-default)" />
+        <Search className="pointer-events-none size-5 shrink-0 text-(--icon-default)" />
         {inputElement}
         {trailing}
       </label>

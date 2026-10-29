@@ -38,11 +38,11 @@ const kbdVariants = cva(
   }
 )
 
-// Every key is the spec's 18px cap (`sm` and `md` share it — `md` remains so
+// Every key is a 20px cap (the spec's 18px, one step up) (`sm` and `md` share it — `md` remains so
 // call sites that ask for the roomier look keep compiling). A single glyph is
 // a square; a word gets 4px of padding each side.
 function kbdShapeClass(label: string): string {
-  return COMPACT_KEY.test(label) ? 'size-4.5 px-0' : 'h-4.5 min-w-4.5 px-1'
+  return COMPACT_KEY.test(label) ? 'size-5 px-0' : 'h-5 min-w-5 px-1'
 }
 
 interface KbdProps extends React.ComponentProps<'kbd'>, VariantProps<typeof kbdVariants> {}

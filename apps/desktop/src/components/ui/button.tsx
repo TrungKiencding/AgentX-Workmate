@@ -9,14 +9,14 @@ import { cn } from '@/lib/utils'
 const TEXT_ACTION_ICON = '[&_.codicon]:no-underline [&_svg]:no-underline'
 
 // Quiet Tool buttons (spec §5.5). Every boxed button shares the 8px control
-// radius and the --control-h-* ramp: sm 28 · md 32 (default) · lg 40. Labels
-// are 14px (13px at sm), 500 only at lg. Width always follows the label —
+// radius and the --control-h-* ramp: sm 30 · md 36 (default) · lg 44. Labels
+// are 15px (14px at sm), 500 only at lg. Width always follows the label —
 // Vietnamese runs 20–35% longer than English, so never a fixed width.
 // Transitions name their properties (never transition-all). Pressed is a fill
 // (--bg-pressed), not a transform. Buttons keep the default arrow cursor; the
 // keyboard ring comes from the app-wide :focus-visible rule in styles.css.
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-(--radius-control) text-base leading-5 font-normal whitespace-nowrap shadow-none transition-[background-color,border-color,color,opacity] duration-(--dur-micro) outline-none disabled:pointer-events-none disabled:text-(--text-disabled) aria-invalid:border-(--danger) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-(--radius-control) text-base leading-5 font-normal whitespace-nowrap shadow-none transition-[background-color,border-color,color,opacity] duration-(--dur-micro) outline-none disabled:pointer-events-none disabled:text-(--text-disabled) aria-invalid:border-(--danger) [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4.5",
   {
     variants: {
       variant: {

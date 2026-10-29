@@ -48,7 +48,7 @@ export function SidebarRowNest({ className, ...props }: React.ComponentProps<'di
  */
 export function SidebarDateDivider({ className, label, ...props }: React.ComponentProps<'div'> & { label: string }) {
   return (
-    <div className={cn('flex h-8 select-none items-end px-3 pb-1.5', className)} {...props}>
+    <div className={cn('flex h-9 select-none items-end px-3 pb-1.5', className)} {...props}>
       <span className="truncate text-sm text-(--text-secondary)">{label}</span>
     </div>
   )

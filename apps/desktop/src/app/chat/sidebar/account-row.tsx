@@ -69,12 +69,12 @@ export function SidebarAccountRow() {
         <DropdownMenuTrigger asChild>
           <button
             aria-label={copy.menuLabel}
-            className="flex h-9 w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-(--radius-control) px-3 text-left transition-colors duration-(--dur-micro) hover:bg-(--bg-hover) data-[state=open]:bg-(--bg-hover) [-webkit-app-region:no-drag]"
+            className="flex h-11 w-full min-w-0 cursor-pointer items-center gap-2.5 rounded-(--radius-control) px-3 text-left transition-colors duration-(--dur-micro) hover:bg-(--bg-hover) data-[state=open]:bg-(--bg-hover) [-webkit-app-region:no-drag]"
             type="button"
           >
             <span
               aria-hidden="true"
-              className="grid size-6 shrink-0 place-items-center rounded-full bg-(--bg-selected) text-xs font-medium text-(--text-primary)"
+              className="grid size-7 shrink-0 place-items-center rounded-full bg-(--bg-selected) text-xs font-medium text-(--text-primary)"
             >
               {initials}
             </span>

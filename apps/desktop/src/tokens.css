@@ -144,19 +144,23 @@
   --bg-pressed: var(--gray-200);
   --bg-inverse: var(--gray-950);
 
-  --border-subtle: var(--gray-150);
-  --border-default: var(--gray-200);
-  --border-strong: var(--gray-300);
-  --border-input: var(--gray-400);
+  /* Secondary ink, icons and lines sit one rung firmer than the spec's §3.3
+     (review: on older, lower-density displays the spec's greys washed out).
+     Secondary text 8.2:1, tertiary 5.9:1 — every text tier now clears AA;
+     the input edge 3.4:1 clears the 3:1 boundary floor. */
+  --border-subtle: var(--gray-200);
+  --border-default: var(--gray-300);
+  --border-strong: var(--gray-400);
+  --border-input: var(--gray-500);
 
   --text-primary: var(--gray-950);
-  --text-secondary: var(--gray-600);
-  --text-tertiary: var(--gray-500);
-  --text-disabled: var(--gray-400);
+  --text-secondary: var(--gray-700);
+  --text-tertiary: var(--gray-600);
+  --text-disabled: var(--gray-500);
   --text-inverse: var(--gray-0);
 
-  --icon-default: var(--gray-700);
-  --icon-muted: var(--gray-500);
+  --icon-default: var(--gray-800);
+  --icon-muted: var(--gray-600);
 
   --accent: var(--blue-500);
   --accent-hover: var(--blue-600);
@@ -229,19 +233,20 @@
   --bg-pressed: var(--gray-750);
   --bg-inverse: var(--gray-100);
 
-  --border-subtle: var(--gray-850);
-  --border-default: var(--gray-800);
+  /* One rung firmer than §3.4, as in light. */
+  --border-subtle: var(--gray-800);
+  --border-default: var(--gray-750);
   --border-strong: var(--gray-700);
-  --border-input: var(--gray-700);
+  --border-input: var(--gray-600);
 
   --text-primary: var(--gray-100);
-  --text-secondary: var(--gray-400);
-  --text-tertiary: var(--gray-500);
-  --text-disabled: var(--gray-700);
+  --text-secondary: var(--gray-300);
+  --text-tertiary: var(--gray-400);
+  --text-disabled: var(--gray-600);
   --text-inverse: var(--gray-950);
 
-  --icon-default: var(--gray-300);
-  --icon-muted: var(--gray-500);
+  --icon-default: var(--gray-200);
+  --icon-muted: var(--gray-400);
 
   --accent: var(--blue-400);
   --accent-hover: var(--blue-300);
