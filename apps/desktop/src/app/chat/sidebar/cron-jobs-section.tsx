@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { usePaneVisible } from '@/components/pane-shell/pane-visibility'
 import { ActionsContextMenu, type MenuKit, renderActionItem } from '@/components/ui/actions-menu'
+import { requestConfirm } from '@/components/ui/confirm-request'
 import { DisclosureCaret } from '@/components/ui/disclosure-caret'
 import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { SidebarGroup, SidebarGroupContent } from '@/components/ui/sidebar'
@@ -215,7 +216,13 @@ function CronJobSidebarRow({
   }
 
   const remove = async () => {
-    if (!window.confirm(`${c.deleteDescPrefix}${label}${c.deleteDescSuffix}`)) {
+    if (
+      !(await requestConfirm({
+        confirmLabel: t.common.delete,
+        destructive: true,
+        title: `${c.deleteDescPrefix}${label}${c.deleteDescSuffix}`
+      }))
+    ) {
       return
     }
 

@@ -247,3 +247,37 @@
   /* In dark, a code block or bubble reads as a step UP from the page. */
   --ui-widget-surface-background: var(--bg-app);
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   High-contrast mode (spec §10: `forced-colors: active` must lose neither
+   edges nor focus). The OS forces box-shadow to none, and every elevation
+   level and the input focus ring here are box-shadows — so floating and
+   bordered surfaces get a real CanvasText border, and focus a Highlight
+   outline. Icons already paint with currentColor.
+   ───────────────────────────────────────────────────────────────────────── */
+@media (forced-colors: active) {
+  :where(
+    [data-slot='dropdown-menu-content'],
+    [data-slot='dropdown-menu-sub-content'],
+    [data-slot='context-menu-content'],
+    [data-slot='select-content'],
+    [data-slot='popover-content'],
+    [data-slot='dialog-content'],
+    [data-slot='toast'],
+    [data-slot='tooltip-content'] > span,
+    [data-slot='composer-surface'],
+    [data-slot='code-card'],
+    [data-slot='store-card']
+  ) {
+    border: 1px solid CanvasText;
+  }
+
+  .desktop-input-chrome:is(:focus, :focus-within, [data-state='open']) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  :where([data-slot='switch'], [data-slot='checkbox']) {
+    border: 1px solid CanvasText;
+  }
+}

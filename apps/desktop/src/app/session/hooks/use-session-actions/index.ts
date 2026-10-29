@@ -1588,7 +1588,33 @@ export function useSessionActions({
           dropSessionState(tiledRuntimeId)
         }
 
-        notify({ durationMs: 2_000, kind: 'success', message: copy.archived })
+        // Archiving is reversible, so it acts at once and offers Undo rather
+        // than asking first (spec §2.3 / §6.4). Undo un-archives on the
+        // backend, then puts the row and its pin back.
+        const title = archived?.title?.trim()
+
+        notify({
+          action: {
+            label: copy.undo,
+            onClick: () => {
+              void setSessionArchived(storedSessionId, false, archived?.profile)
+                .then(() => {
+                  if (archived) {
+                    setSessions(prev => [
+                      archived,
+                      ...prev.filter(session => !sessionMatchesStoredId(session, storedSessionId))
+                    ])
+                  }
+
+                  untombstoneSessions(archivedIds)
+                  $pinnedSessionIds.set(previousPinned)
+                })
+                .catch(err => notifyError(err, copy.unarchiveFailed))
+            }
+          },
+          kind: 'success',
+          message: title ? copy.archivedTitled(title) : copy.archived
+        })
       } catch (err) {
         if (archived) {
           setSessions(prev => [archived, ...prev.filter(session => !sessionMatchesStoredId(session, storedSessionId))])

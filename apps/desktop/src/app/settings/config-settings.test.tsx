@@ -60,7 +60,7 @@ function renderWorkspace() {
   return { ...view, client }
 }
 
-const skeletonCount = (container: HTMLElement) => container.querySelectorAll('.animate-pulse').length
+const skeletonCount = (container: HTMLElement) => container.querySelectorAll('[data-slot="skeleton"]').length
 
 const cwdInput = (container: HTMLElement) =>
   Array.from(container.querySelectorAll('input')).find(input => input.value.startsWith('/tmp/'))

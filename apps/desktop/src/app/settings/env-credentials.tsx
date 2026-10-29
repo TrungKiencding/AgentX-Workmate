@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 
+import { requestConfirm } from '@/components/ui/confirm-request'
 import { deleteEnvVar, getEnvVars, revealEnvVar, setEnvVar } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { type IconComponent } from '@/lib/icons'
@@ -138,7 +139,9 @@ export function useEnvCredentials(): UseEnvCredentials {
   }
 
   async function handleClear(key: string) {
-    if (!window.confirm(toolsets.removeConfirm(key))) {
+    if (
+      !(await requestConfirm({ confirmLabel: t.common.remove, destructive: true, title: toolsets.removeConfirm(key) }))
+    ) {
       return
     }
 

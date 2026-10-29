@@ -2271,6 +2271,9 @@ export interface Translations {
       newWindow: string
       hideTabBar: string
       openInNewTab: string
+      deleteConfirmTitle: (title: string) => string
+      deleteConfirmBody: string
+      deleteConfirmAction: string
       openInSplit: string
       splitRight: string
       splitDown: string
@@ -3564,6 +3567,9 @@ export interface Translations {
     branchFailed: string
     deleteFailed: string
     archived: string
+    archivedTitled: (title: string) => string
+    undo: string
+    unarchiveFailed: string
     archiveFailed: string
     cwdChangeFailed: string
     cwdStagedTitle: string

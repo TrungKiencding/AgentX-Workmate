@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { PageLoader } from '@/components/page-loader'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { requestConfirm } from '@/components/ui/confirm-request'
 import { CopyButton } from '@/components/ui/copy-button'
 import {
   type ActionResponse,
@@ -170,7 +171,7 @@ export function MaintenancePanel() {
 
   const doResetMemory = useCallback(
     async (target: 'all' | 'memory' | 'user', label: string) => {
-      if (!window.confirm(mm.resetConfirm(label))) {
+      if (!(await requestConfirm({ destructive: true, title: mm.resetConfirm(label) }))) {
         return
       }
 

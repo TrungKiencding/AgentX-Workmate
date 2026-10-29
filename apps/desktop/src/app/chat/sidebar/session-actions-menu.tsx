@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/actions-menu'
 import { Button } from '@/components/ui/button'
 import { ColorSwatches } from '@/components/ui/color-swatches'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { CopyButton } from '@/components/ui/copy-button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
@@ -273,6 +274,7 @@ function useSessionActions({
   const { t } = useI18n()
   const r = t.sidebar.row
   const [renameOpen, setRenameOpen] = useState(false)
+  const [deleteOpen, setDeleteOpen] = useState(false)
   const tiles = useStore($sessionTiles)
   const selectedStoredSessionId = useStore($selectedStoredSessionId)
 
@@ -383,9 +385,11 @@ function useSessionActions({
       disabled: !onDelete,
       icon: 'trash',
       label: t.common.delete,
+      // Deleting is permanent, so it asks first (spec §6.4) — the dialog
+      // names the chat and offers Archive as the reversible way out.
       onSelect: () => {
         triggerHaptic('warning')
-        onDelete?.()
+        setDeleteOpen(true)
       },
       variant: 'destructive'
     }
@@ -443,17 +447,31 @@ function useSessionActions({
     </>
   )
 
-  const renameDialog = (
-    <RenameSessionDialog
-      currentTitle={title}
-      onOpenChange={setRenameOpen}
-      open={renameOpen}
-      profile={profile}
-      sessionId={sessionId}
-    />
+  const dialogs = (
+    <>
+      <RenameSessionDialog
+        currentTitle={title}
+        onOpenChange={setRenameOpen}
+        open={renameOpen}
+        profile={profile}
+        sessionId={sessionId}
+      />
+      {onDelete && (
+        <ConfirmDialog
+          confirmLabel={r.deleteConfirmAction}
+          description={r.deleteConfirmBody}
+          destructive
+          dismissOnConfirm
+          onClose={() => setDeleteOpen(false)}
+          onConfirm={onDelete}
+          open={deleteOpen}
+          title={r.deleteConfirmTitle(title?.trim() || r.untitledPlaceholder)}
+        />
+      )}
+    </>
   )
 
-  return { renameDialog, renderItems }
+  return { dialogs, renderItems }
 }
 
 interface SessionActionsMenuProps
@@ -463,7 +481,7 @@ interface SessionActionsMenuProps
 
 export function SessionActionsMenu({ children, align = 'end', sideOffset = 6, ...actions }: SessionActionsMenuProps) {
   const { t } = useI18n()
-  const { renameDialog, renderItems } = useSessionActions(actions)
+  const { dialogs, renderItems } = useSessionActions(actions)
 
   return (
     <>
@@ -476,7 +494,7 @@ export function SessionActionsMenu({ children, align = 'end', sideOffset = 6, ..
       >
         {children}
       </ActionsMenu>
-      {renameDialog}
+      {dialogs}
     </>
   )
 }
@@ -576,14 +594,14 @@ interface SessionContextMenuProps extends SessionActions {
 
 export function SessionContextMenu({ children, ...actions }: SessionContextMenuProps) {
   const { t } = useI18n()
-  const { renameDialog, renderItems } = useSessionActions(actions)
+  const { dialogs, renderItems } = useSessionActions(actions)
 
   return (
     <>
       <ActionsContextMenu ariaLabel={t.sidebar.row.sessionActions} contentClassName="w-40" items={renderItems}>
         {children}
       </ActionsContextMenu>
-      {renameDialog}
+      {dialogs}
     </>
   )
 }

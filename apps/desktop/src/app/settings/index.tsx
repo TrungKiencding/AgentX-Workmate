@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
+import { requestConfirm } from '@/components/ui/confirm-request'
 import { Tip } from '@/components/ui/tooltip'
 import { getHermesConfigDefaults, getHermesConfigRecord, saveHermesConfig } from '@/hermes'
 import { useI18n } from '@/i18n'
@@ -134,7 +135,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
   }
 
   const resetConfig = async () => {
-    if (!window.confirm(t.settings.resetConfirm)) {
+    if (!(await requestConfirm({ destructive: true, title: t.settings.resetConfirm }))) {
       return
     }
 

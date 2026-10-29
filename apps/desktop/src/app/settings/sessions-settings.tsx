@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
+import { requestConfirm } from '@/components/ui/confirm-request'
 import { Input } from '@/components/ui/input'
 import { Tip } from '@/components/ui/tooltip'
 import {
@@ -75,7 +76,13 @@ export function SessionsSettings() {
 
   const remove = useCallback(
     async (session: SessionInfo) => {
-      if (!window.confirm(s.deleteConfirm(sessionTitle(session)))) {
+      if (
+        !(await requestConfirm({
+          confirmLabel: t.common.delete,
+          destructive: true,
+          title: s.deleteConfirm(sessionTitle(session))
+        }))
+      ) {
         return
       }
 

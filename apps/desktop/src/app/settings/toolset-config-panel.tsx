@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 
 import { SETTINGS_ROUTE } from '@/app/routes'
 import { Button } from '@/components/ui/button'
+import { requestConfirm } from '@/components/ui/confirm-request'
 import { Input } from '@/components/ui/input'
 import {
   deleteEnvVar,
@@ -115,7 +116,9 @@ function EnvVarField({ envVar, isSet, onSaved, onCleared }: EnvVarFieldProps) {
   }
 
   async function handleClear() {
-    if (!window.confirm(copy.removeConfirm(envVar.key))) {
+    if (
+      !(await requestConfirm({ confirmLabel: t.common.remove, destructive: true, title: copy.removeConfirm(envVar.key) }))
+    ) {
       return
     }
 
