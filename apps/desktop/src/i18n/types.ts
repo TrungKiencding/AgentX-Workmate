@@ -1591,6 +1591,7 @@ export interface Translations {
   commandCenter: {
     close: string
     paletteTitle: string
+    paletteFooter: { move: string; select: string; close: string }
     back: string
     searchPlaceholder: string
     goTo: string
@@ -2936,6 +2937,7 @@ export interface Translations {
   }
 
   shell: {
+    skipToContent: string
     windowControls: string
     paneControls: string
     appControls: string
@@ -3321,6 +3323,7 @@ export interface Translations {
       expandMessage: string
       scrollToBottom: string
       jumpToLatest: string
+      turnDone: string
       stop: string
       restorePrevious: string
       restoreCheckpoint: string

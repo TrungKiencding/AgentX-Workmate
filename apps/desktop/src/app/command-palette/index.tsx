@@ -1378,6 +1378,17 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
               />
             )}
           </CommandList>
+          {/* Spec §5.12 footer: the three keys the palette runs on. */}
+          <div
+            aria-hidden="true"
+            className="flex h-9 shrink-0 items-center gap-1.5 border-t border-(--border-subtle) px-4 text-xs text-(--text-tertiary)"
+          >
+            <span>↑↓ {t.commandCenter.paletteFooter.move}</span>
+            <span>·</span>
+            <span>↵ {t.commandCenter.paletteFooter.select}</span>
+            <span>·</span>
+            <span>esc {t.commandCenter.paletteFooter.close}</span>
+          </div>
         </Command>
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>

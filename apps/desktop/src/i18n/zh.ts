@@ -1918,6 +1918,7 @@ export const zh: Translations = {
   commandCenter: {
     close: '关闭命令中心',
     paletteTitle: '命令面板',
+    paletteFooter: { move: '移动', select: '选择', close: '关闭' },
     back: '返回',
     searchPlaceholder: '搜索会话、视图与操作',
     goTo: '前往',
@@ -3528,6 +3529,7 @@ export const zh: Translations = {
   },
 
   shell: {
+    skipToContent: '跳到内容',
     windowControls: '窗口控件',
     paneControls: '面板控件',
     appControls: '应用控件',
@@ -3915,6 +3917,7 @@ export const zh: Translations = {
       expandMessage: '展开消息',
       scrollToBottom: '滚动到底部',
       jumpToLatest: '最新',
+      turnDone: 'AgentX 已完成回复',
       stop: '停止',
       restorePrevious: '恢复上一个检查点',
       restoreCheckpoint: '恢复检查点',

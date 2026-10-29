@@ -2029,6 +2029,7 @@ export const vi: Translations = {
   commandCenter: {
     close: 'Đóng trung tâm điều khiển',
     paletteTitle: 'Bảng lệnh',
+    paletteFooter: { move: 'di chuyển', select: 'chọn', close: 'đóng' },
     back: 'Quay lại',
     searchPlaceholder: 'Tìm cuộc trò chuyện, khung nhìn và thao tác',
     goTo: 'Đi tới',
@@ -3718,6 +3719,7 @@ export const vi: Translations = {
   },
 
   shell: {
+    skipToContent: 'Bỏ qua đến nội dung',
     windowControls: 'Điều khiển cửa sổ',
     paneControls: 'Điều khiển khung',
     appControls: 'Điều khiển ứng dụng',
@@ -4112,6 +4114,7 @@ export const vi: Translations = {
       expandMessage: 'Mở rộng tin nhắn',
       scrollToBottom: 'Cuộn xuống cuối',
       jumpToLatest: 'Mới nhất',
+      turnDone: 'AgentX đã trả lời xong',
       stop: 'Dừng',
       restorePrevious: 'Khôi phục checkpoint trước đó',
       restoreCheckpoint: 'Khôi phục checkpoint',

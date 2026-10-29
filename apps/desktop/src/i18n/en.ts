@@ -1786,6 +1786,7 @@ export const en: Translations = {
   commandCenter: {
     close: 'Close command center',
     paletteTitle: 'Command palette',
+    paletteFooter: { move: 'move', select: 'select', close: 'close' },
     back: 'Back',
     searchPlaceholder: 'Search sessions, views, and actions',
     goTo: 'Go to',
@@ -3484,6 +3485,7 @@ export const en: Translations = {
   },
 
   shell: {
+    skipToContent: 'Skip to content',
     windowControls: 'Window controls',
     paneControls: 'Pane controls',
     appControls: 'App controls',
@@ -3880,6 +3882,7 @@ export const en: Translations = {
       expandMessage: 'Expand message',
       scrollToBottom: 'Scroll to bottom',
       jumpToLatest: 'Latest',
+      turnDone: 'AgentX has finished replying',
       stop: 'Stop',
       restorePrevious: 'Restore previous checkpoint',
       restoreCheckpoint: 'Restore checkpoint',
