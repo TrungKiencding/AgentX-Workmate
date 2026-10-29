@@ -15,6 +15,9 @@ import {
   installZoomReassertOnNavigation,
   installZoomReassertOnWindowEvents,
   percentToZoomLevel,
+  resolveSavedZoomLevel,
+  RETIRED_DEFAULT_ZOOM_LEVEL,
+  ZOOM_DEFAULT_PERCENT,
   ZOOM_RESIZE_REASSERT_DELAY_MS,
   ZOOM_STEP,
   ZOOM_STORAGE_KEY,
@@ -249,4 +252,27 @@ test('applyZoomLevel clamps garbage before applying and notifying', () => {
     ['setZoomLevel', clamped],
     ['send', 'agentx:zoom:changed', { level: clamped, percent: zoomLevelToPercent(clamped) }]
   ])
+})
+
+test('moves an install still on the retired 125% default to 100%, once', () => {
+  // A file from before the move: no defaultPercent stamp, exactly 125%.
+  assert.equal(zoomLevelToPercent(RETIRED_DEFAULT_ZOOM_LEVEL), 125)
+  assert.deepEqual(resolveSavedZoomLevel(RETIRED_DEFAULT_ZOOM_LEVEL, undefined), {
+    level: DEFAULT_ZOOM_LEVEL,
+    migrated: true
+  })
+
+  // Stamped after the move: a chosen 125% stays.
+  assert.deepEqual(resolveSavedZoomLevel(RETIRED_DEFAULT_ZOOM_LEVEL, ZOOM_DEFAULT_PERCENT), {
+    level: RETIRED_DEFAULT_ZOOM_LEVEL,
+    migrated: false
+  })
+})
+
+test('keeps any other saved scale, restamping an old file', () => {
+  const level110 = percentToZoomLevel(110)
+
+  assert.deepEqual(resolveSavedZoomLevel(level110, undefined), { level: level110, migrated: true })
+  assert.deepEqual(resolveSavedZoomLevel(level110, ZOOM_DEFAULT_PERCENT), { level: level110, migrated: false })
+  assert.deepEqual(resolveSavedZoomLevel(NaN, undefined), { level: null, migrated: false })
 })

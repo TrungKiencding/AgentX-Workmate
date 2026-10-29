@@ -2475,9 +2475,16 @@ const DESKTOP_ZOOM_STATE_PATH = path.join(app.getPath('userData'), 'zoom-state.j
 function readZoomState() {
   try {
     const raw = JSON.parse(fs.readFileSync(DESKTOP_ZOOM_STATE_PATH, 'utf8'))
-    const level = Number(raw?.zoomLevel)
+    // A file from before the default moved to 100% that still holds the old
+    // 125% default is moved once (resolveSavedZoomLevel); restamp it so the
+    // move never repeats.
+    const { level, migrated } = resolveSavedZoomLevel(Number(raw?.zoomLevel), raw?.defaultPercent)
 
-    return Number.isFinite(level) ? level : null
+    if (level != null && migrated) {
+      writeZoomState(level)
+    }
+
+    return level
   } catch {
     return null
   }
@@ -2486,7 +2493,10 @@ function readZoomState() {
 function writeZoomState(zoomLevel) {
   try {
     fs.mkdirSync(path.dirname(DESKTOP_ZOOM_STATE_PATH), { recursive: true })
-    writeFileAtomic(DESKTOP_ZOOM_STATE_PATH, JSON.stringify({ zoomLevel }, null, 2))
+    writeFileAtomic(
+      DESKTOP_ZOOM_STATE_PATH,
+      JSON.stringify({ zoomLevel, defaultPercent: ZOOM_DEFAULT_PERCENT }, null, 2)
+    )
   } catch (error) {
     rememberLog(`[zoom] json persist failed: ${error?.message || error}`)
   }
@@ -5091,6 +5101,8 @@ import {
   installZoomReassertOnNavigation,
   installZoomReassertOnWindowEvents,
   percentToZoomLevel,
+  resolveSavedZoomLevel,
+  ZOOM_DEFAULT_PERCENT,
   ZOOM_STEP,
   ZOOM_STORAGE_KEY,
   zoomLevelToPercent,
@@ -5160,7 +5172,11 @@ function restorePersistedZoomLevel(window) {
         return
       }
 
-      const level = stored == null ? DEFAULT_ZOOM_LEVEL : Number(stored)
+      // A pre-JSON install's legacy value takes the same one-time move off the
+      // retired 125% default.
+      const level =
+        stored == null ? DEFAULT_ZOOM_LEVEL : (resolveSavedZoomLevel(Number(stored), undefined).level ?? DEFAULT_ZOOM_LEVEL)
+
       const applied = applyZoomLevel(window.webContents, level)
       writeZoomState(applied)
     })
@@ -10453,6 +10469,7 @@ ipcMain.handle('agentx:usage:event', (_event, signal) => {
   if (signal.profile != null && (typeof signal.profile !== 'string' || signal.profile.length > 255)) {
     return false
   }
+
   const key = `${signal.profile || 'default'}:${signal.key}`
 
   if (signal.phase === 'start') {

@@ -23,6 +23,34 @@ export const ZOOM_STEP = 0.1
 /** Appearance 100% preset (Chromium level 0). Fresh installs + Actual Size / Ctrl+0. */
 export const DEFAULT_ZOOM_LEVEL = 0
 
+/** The default that shipped before (125%). Saved at exactly this level, an
+ *  install almost certainly never chose it — it was simply the default. */
+export const RETIRED_DEFAULT_ZOOM_LEVEL = Math.log(1.25) / Math.log(ZOOM_FACTOR_BASE)
+
+/** Written beside the level once the default moved to 100%; its absence marks
+ *  a zoom-state file from before the move. */
+export const ZOOM_DEFAULT_PERCENT = 100
+
+/**
+ * The level to restore from a saved zoom state, moving installs off the
+ * retired 125% default once. A file written before the move (`defaultPercent`
+ * absent) that still holds exactly 125% is taken to the new default; anything
+ * else someone picked is kept. Every later write stamps `defaultPercent`, so a
+ * person who chooses 125% again keeps it. `migrated` says the state must be
+ * rewritten.
+ */
+export function resolveSavedZoomLevel(level, defaultPercent) {
+  if (!Number.isFinite(level)) {
+    return { level: null, migrated: false }
+  }
+
+  if (defaultPercent !== ZOOM_DEFAULT_PERCENT && Math.abs(level - RETIRED_DEFAULT_ZOOM_LEVEL) < 1e-6) {
+    return { level: DEFAULT_ZOOM_LEVEL, migrated: true }
+  }
+
+  return { level, migrated: defaultPercent !== ZOOM_DEFAULT_PERCENT }
+}
+
 export function clampZoomLevel(value) {
   if (!Number.isFinite(value)) {
     return DEFAULT_ZOOM_LEVEL

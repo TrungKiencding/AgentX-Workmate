@@ -656,4 +656,7 @@ in the app — popper, dialog and toast entrances — did nothing.
   serif line in the app, by request; `greetingName()` is removed.
 - Default UI scale for fresh installs is 100% (was 125%): the type and control
   ramps are now sized for legibility on their own. Ctrl/Cmd+0 and View →
-  Actual Size return to 100%. Installs that already saved a scale keep it.
+  Actual Size return to 100%. Existing installs still on exactly 125% (the
+  old default) move to 100% once; any other saved scale is kept, and a 125%
+  chosen after the move sticks (`zoom-state.json` now carries
+  `defaultPercent`).
