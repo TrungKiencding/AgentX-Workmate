@@ -2,8 +2,11 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
+// In-pane text tab (spec §5.18): 13px secondary ink; the current tab reads in
+// primary ink over a 2px underline (an inset shadow, so it costs no layout).
+// The host row draws the --border-subtle divider beneath the tabs.
 function TextTabMeta({ className, ...props }: React.ComponentProps<'span'>) {
-  return <span className={cn('text-2xs font-normal text-(--ui-text-tertiary)', className)} {...props} />
+  return <span className={cn('text-xs tabular-nums text-(--text-tertiary)', className)} {...props} />
 }
 
 interface TextTabProps extends React.ComponentProps<'button'> {
@@ -14,28 +17,15 @@ function TextTab({ active = false, children, className, type = 'button', ...prop
   return (
     <button
       className={cn(
-        'group/text-tab inline-flex h-7 items-center gap-1 bg-transparent px-1 text-[length:var(--conversation-caption-font-size)] font-medium text-(--ui-text-tertiary) transition-colors hover:bg-transparent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring disabled:pointer-events-none disabled:opacity-50',
-        active && 'text-foreground',
+        'inline-flex h-8 items-center gap-1.5 bg-transparent px-0.5 text-sm text-(--text-secondary) transition-colors duration-(--dur-micro) hover:text-(--text-primary) disabled:pointer-events-none disabled:text-(--text-disabled)',
+        active && 'text-(--text-primary) shadow-[inset_0_-2px_0_var(--text-primary)]',
         className
       )}
       data-active={active}
       type={type}
       {...props}
     >
-      {React.Children.map(children, child =>
-        React.isValidElement(child) && child.type === TextTabMeta ? (
-          child
-        ) : (
-          <span
-            className={cn(
-              'underline-offset-4 decoration-current/25',
-              active ? 'underline' : 'group-hover/text-tab:underline'
-            )}
-          >
-            {child}
-          </span>
-        )
-      )}
+      {children}
     </button>
   )
 }

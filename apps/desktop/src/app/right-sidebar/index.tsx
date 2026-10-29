@@ -6,7 +6,6 @@ import { ErrorBoundary } from '@/components/error-boundary'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import { Tip } from '@/components/ui/tooltip'
-import { useDelayedTrue } from '@/hooks/use-delayed-true'
 import { useI18n } from '@/i18n'
 import { normalizeOrLocalPreviewTarget } from '@/lib/local-preview'
 import { cn } from '@/lib/utils'
@@ -238,7 +237,9 @@ function FileTreeBody({
   const r = t.rightSidebar
   // Stay blank for a beat, then skeleton — so a fast project switch doesn't
   // flash a jarring loading state.
-  const showSkeleton = useDelayedTrue(loading && data.length === 0)
+  // The skeleton itself stays invisible for its first 300ms (animate-skeleton),
+  // so a fast listing never flashes one.
+  const showSkeleton = loading && data.length === 0
 
   if (!cwd) {
     return <EmptyState body={r.noProjectBody} title={r.noProjectTitle} />

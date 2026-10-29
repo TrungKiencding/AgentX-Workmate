@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { OverlayPageHeader } from './overlays/overlay-split-layout'
 
 // Tabs are data, not nodes: the shell owns their presentation so every page
-// gets the same behavior — a centered PillTabs track on wide viewports that
+// gets the same behavior — a centered PageTabs row on wide viewports that
 // collapses into a dropdown when the header can't fit both search and tabs.
 export interface PageShellTab {
   id: string
@@ -54,7 +54,7 @@ function ShellTabs({
       onChange={id => onTabChange?.(id)}
       tabs={tabs}
       value={activeTab ?? tabs[0]?.id ?? ''}
-      variant="pill"
+      variant="page"
       wideClassName="justify-center"
     />
   )

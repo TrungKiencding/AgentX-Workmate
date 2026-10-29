@@ -7,7 +7,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { PillTabs } from '@/components/ui/pill-tabs'
+import { PageTabs } from '@/components/ui/page-tabs'
 import { CountSkeleton } from '@/components/ui/skeleton'
 import { TextTab, TextTabMeta } from '@/components/ui/text-tab'
 import { compactNumber } from '@/lib/format'
@@ -108,16 +108,16 @@ export function ResponsiveTabs({
   onChange: (id: string) => void
   tabs: ResponsiveTab[]
   value: string
-  /** `text` = the underlined TextTab row; `pill` = the PillTabs track. Both collapse to the dropdown when narrow. */
-  variant?: 'pill' | 'text'
+  /** `text` = the in-pane TextTab row; `page` = the PageTabs row. Both collapse to the dropdown when narrow. */
+  variant?: 'page' | 'text'
   /** Extra classes for the wide row (e.g. `justify-center`). */
   wideClassName?: string
 }) {
   return (
     <>
-      {variant === 'pill' ? (
+      {variant === 'page' ? (
         <div className={cn('hidden min-w-0 items-center md:flex', wideClassName)}>
-          <PillTabs onChange={onChange} tabs={tabs} value={value} />
+          <PageTabs onChange={onChange} tabs={tabs} value={value} />
         </div>
       ) : (
         <div className={cn('hidden min-w-0 flex-wrap items-center gap-x-2 gap-y-1 md:flex', wideClassName)}>

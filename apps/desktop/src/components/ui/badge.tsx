@@ -7,19 +7,22 @@ import { cn } from '@/lib/utils'
 // Small status/metadata tag. App radius (not a full pill); tones map to the
 // shared accent/muted/destructive surfaces so badges read consistently.
 const badgeVariants = cva(
-  'inline-flex w-fit shrink-0 items-center gap-1 rounded-[3px] font-medium leading-none whitespace-nowrap [&_svg]:pointer-events-none',
+  // Spec §5.14: a 16px caption badge, 500 weight, tabular figures, full
+  // radius. Neutral on --bg-selected; a signal tone only ever tints its soft
+  // background token, never a solid fill.
+  'inline-flex w-fit shrink-0 items-center gap-1 rounded-full font-medium leading-none whitespace-nowrap tabular-nums [&_svg]:pointer-events-none',
   {
     variants: {
       variant: {
-        default: 'bg-primary/10 text-primary',
-        muted: 'bg-muted text-muted-foreground',
-        warn: 'bg-(--ui-yellow)/10 text-(--ui-yellow)',
-        destructive: 'bg-destructive/10 text-destructive',
-        outline: 'border border-(--ui-stroke-secondary) text-muted-foreground'
+        default: 'bg-(--bg-selected) text-(--text-secondary)',
+        muted: 'bg-(--bg-subtle) text-(--text-tertiary)',
+        warn: 'bg-(--warning-bg) text-(--warning)',
+        destructive: 'bg-(--danger-bg) text-(--danger)',
+        outline: 'border border-(--border-default) text-(--text-secondary)'
       },
       size: {
-        default: 'px-1.5 py-0.5 text-2xs [&_svg]:size-3',
-        xs: 'px-1 py-px text-2xs [&_svg]:size-2.5'
+        default: 'h-4 px-1.5 text-xs [&_svg]:size-3',
+        xs: 'h-4 px-1 text-xs [&_svg]:size-2.5'
       }
     },
     defaultVariants: { variant: 'default', size: 'default' }

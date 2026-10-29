@@ -30,8 +30,8 @@ export function EmptyState({
     <div className={cn('grid min-h-48 place-items-center text-center', className)}>
       <div className="flex flex-col items-center gap-2">
         {figure && <EmptyFigure className="mb-1" figure={figure} />}
-        <div className="text-base font-medium text-foreground">{title}</div>
-        {description && <div className="max-w-sm text-sm text-(--ui-text-tertiary)">{description}</div>}
+        <div className="text-base font-medium text-balance text-(--text-primary)">{title}</div>
+        {description && <div className="max-w-sm text-base text-pretty text-(--text-secondary)">{description}</div>}
         {action && <div className="mt-2">{action}</div>}
       </div>
     </div>

@@ -6,12 +6,9 @@ import { cn } from '@/lib/utils'
 
 const COMPACT_KEY = /^[\p{L}\p{N}⌘⌥⇧⌃↵⇥⌫↑↓←→@/?]$/u
 
-const kbdSurface = [
-  'border-[color-mix(in_srgb,var(--ui-stroke-secondary)_75%,transparent)]',
-  'bg-[color-mix(in_srgb,var(--ui-bg-elevated)_94%,var(--dt-foreground)_6%)]',
-  'text-[color-mix(in_srgb,var(--dt-foreground)_58%,transparent)]',
-  'shadow-[0_1px_0_0_color-mix(in_srgb,var(--ui-stroke-tertiary)_85%,transparent),0_1px_2px_0_color-mix(in_srgb,var(--dt-foreground)_7%,transparent)]'
-]
+// Spec §5.20: caption text in the UI face, --bg-subtle under a --border-default
+// edge, 6px corners, 18px tall. Flat — no key-cap shadow.
+const kbdSurface = ['border-(--border-default)', 'bg-(--bg-subtle)', 'text-(--text-secondary)']
 
 const kbdVariants = cva(
   'inline-flex shrink-0 items-center justify-center border [font-family:var(--dt-font-kbd)] font-normal leading-none select-none',
@@ -19,28 +16,19 @@ const kbdVariants = cva(
     variants: {
       variant: {
         default: kbdSurface,
-        ghost: [
-          ...kbdSurface,
-          'text-[color-mix(in_srgb,var(--dt-foreground)_38%,transparent)]',
-          'bg-[color-mix(in_srgb,var(--ui-bg-elevated)_72%,var(--dt-foreground)_3%)]',
-          'border-[color-mix(in_srgb,var(--ui-stroke-tertiary)_80%,transparent)]'
-        ],
-        capturing: [
-          'border-[color-mix(in_srgb,var(--theme-primary)_50%,var(--ui-stroke-secondary))]',
-          'bg-[color-mix(in_srgb,var(--theme-primary)_10%,var(--ui-bg-elevated))]',
-          'text-[color-mix(in_srgb,var(--theme-primary)_88%,transparent)]',
-          'shadow-none'
-        ],
+        ghost: ['border-(--border-subtle)', 'bg-transparent', 'text-(--text-tertiary)'],
+        // Recording a new combo: the one signal state, in the accent.
+        capturing: ['border-(--accent)', 'bg-(--bg-app)', 'text-(--accent)'],
+        // On an inverse surface (a tooltip): currentColor at reduced strength.
         inverted: [
-          'border-[color-mix(in_srgb,currentColor_22%,transparent)]',
-          'bg-[color-mix(in_srgb,currentColor_12%,transparent)]',
-          'text-[color-mix(in_srgb,currentColor_88%,transparent)]',
-          'shadow-[0_1px_0_0_color-mix(in_srgb,currentColor_18%,transparent)]'
+          'border-[color-mix(in_srgb,currentColor_24%,transparent)]',
+          'bg-[color-mix(in_srgb,currentColor_10%,transparent)]',
+          'text-[color-mix(in_srgb,currentColor_80%,transparent)]'
         ]
       },
       size: {
-        sm: 'rounded-[0.2rem] text-2xs',
-        md: 'rounded-[0.25rem] text-2xs'
+        sm: 'rounded-sm text-xs',
+        md: 'rounded-sm text-xs'
       }
     },
     defaultVariants: {
@@ -50,14 +38,11 @@ const kbdVariants = cva(
   }
 )
 
-function kbdShapeClass(label: string, size: 'sm' | 'md' | null | undefined): string {
-  const compact = COMPACT_KEY.test(label)
-
-  if (size === 'sm') {
-    return compact ? 'size-[1.125rem] px-0' : 'h-[1.125rem] min-w-[1.125rem] px-1'
-  }
-
-  return compact ? 'size-[1.375rem] px-0' : 'h-[1.375rem] min-w-[1.375rem] px-1.5'
+// Every key is the spec's 18px cap (`sm` and `md` share it — `md` remains so
+// call sites that ask for the roomier look keep compiling). A single glyph is
+// a square; a word gets 4px of padding each side.
+function kbdShapeClass(label: string): string {
+  return COMPACT_KEY.test(label) ? 'size-4.5 px-0' : 'h-4.5 min-w-4.5 px-1'
 }
 
 interface KbdProps extends React.ComponentProps<'kbd'>, VariantProps<typeof kbdVariants> {}
@@ -67,7 +52,7 @@ function Kbd({ children, className, size, variant, ...props }: KbdProps) {
 
   return (
     <kbd
-      className={cn(kbdVariants({ size, variant }), kbdShapeClass(label, size), className)}
+      className={cn(kbdVariants({ size, variant }), kbdShapeClass(label), className)}
       data-slot="kbd"
       {...props}
     >

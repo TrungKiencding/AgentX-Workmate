@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dialog'
 import { DiffCount } from '@/components/ui/diff-count'
 import { Tip } from '@/components/ui/tooltip'
-import { useDelayedTrue } from '@/hooks/use-delayed-true'
 import { useI18n } from '@/i18n'
 import { displayPath } from '@/lib/display-path'
 import { cn } from '@/lib/utils'
@@ -69,8 +68,10 @@ export function ReviewPane() {
   const revertingAll = revertTarget?.path == null
   // Delay the skeletons so fast loads (most project switches) just blank → content
   // instead of flashing a jarring loading state.
-  const showTreeSkeleton = useDelayedTrue(loading && !hasFiles)
-  const showDiffSkeleton = useDelayedTrue(diffLoading)
+  // Skeletons hold themselves invisible for 300ms (animate-skeleton), so a
+  // fast load never flashes one.
+  const showTreeSkeleton = loading && !hasFiles
+  const showDiffSkeleton = diffLoading
 
   return (
     <aside

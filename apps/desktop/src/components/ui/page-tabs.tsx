@@ -5,31 +5,30 @@ import { compactNumber } from '@/lib/format'
 import { cn } from '@/lib/utils'
 
 /**
- * A row of pill tabs — the page-level tab control for people who read a tab
- * bar the way an app store draws one: a soft track, one raised pill on the
- * current tab, a count beside the label.
+ * Page tabs (Quiet Tool spec §5.18) — the page-level tab row: 13px text tabs
+ * 20px apart, secondary ink, the current tab in primary ink over a 2px
+ * underline, one --border-subtle divider under the whole row. No boxes, no
+ * fills. A count sits beside a label as a tertiary caption.
  *
- * The highlight is ONE element that slides to the active tab. It is placed by
+ * The underline is ONE element that slides to the active tab. It is placed by
  * a MutationObserver watching `data-active` (the same mechanism as
  * `CommandSelectionIndicator`), never by React state, so switching tabs moves
  * a transform and re-renders nothing else. `transform` is the only property
- * that animates; the pill's size snaps so no layout geometry is tweened.
+ * that animates; the bar's width snaps so no layout geometry is tweened.
  * Reduced motion collapses the slide to a jump through the global kill-switch.
- *
- * 32px track (`--control-h-md`), 13px medium labels, 12px tabular counts.
  */
-export interface PillTab {
+export interface PageTab {
   id: string
   label: string
   /** Count badge. `null` = still loading (skeleton); `undefined` = no badge. */
   meta?: number | string | null
 }
 
-function pillMeta(meta: number | string | null) {
+function tabMeta(meta: number | string | null) {
   return meta === null ? <CountSkeleton /> : typeof meta === 'number' ? compactNumber(meta) : meta
 }
 
-function PillTabsIndicator() {
+function PageTabsIndicator() {
   const ref = useRef<HTMLSpanElement>(null)
 
   useEffect(() => {
@@ -45,7 +44,7 @@ function PillTabsIndicator() {
     const place = () => {
       frame = 0
 
-      const tab = list.querySelector<HTMLElement>('[data-slot="pill-tab"][data-active="true"]')
+      const tab = list.querySelector<HTMLElement>('[data-slot="page-tab"][data-active="true"]')
 
       if (!tab) {
         node.style.opacity = '0'
@@ -56,9 +55,8 @@ function PillTabsIndicator() {
       const listBox = list.getBoundingClientRect()
       const tabBox = tab.getBoundingClientRect()
 
-      node.style.height = `${tabBox.height}px`
       node.style.width = `${tabBox.width}px`
-      node.style.transform = `translate3d(${tabBox.left - listBox.left}px, ${tabBox.top - listBox.top}px, 0)`
+      node.style.transform = `translate3d(${tabBox.left - listBox.left}px, 0, 0)`
       node.style.opacity = '1'
     }
 
@@ -87,14 +85,14 @@ function PillTabsIndicator() {
   return (
     <span
       aria-hidden
-      className="pointer-events-none absolute left-0 top-0 rounded-full bg-background opacity-0 shadow-xs transition-[transform,opacity] duration-(--dur-short-exit) ease-out"
-      data-slot="pill-tabs-indicator"
+      className="pointer-events-none absolute bottom-[-1px] left-0 h-0.5 rounded-full bg-(--text-primary) opacity-0 transition-[transform,opacity] duration-(--dur-short) ease-(--ease-in-out)"
+      data-slot="page-tabs-indicator"
       ref={ref}
     />
   )
 }
 
-export function PillTabs({
+export function PageTabs({
   className,
   onChange,
   tabs,
@@ -102,21 +100,21 @@ export function PillTabs({
   ...props
 }: Omit<React.ComponentProps<'div'>, 'onChange'> & {
   onChange: (id: string) => void
-  tabs: readonly PillTab[]
+  tabs: readonly PageTab[]
   value: string
 }) {
   return (
     <div
       className={cn(
         // The indicator is the FIRST child, so the relative tabs after it paint on top in DOM order.
-        'relative inline-flex h-(--control-h-md) w-fit max-w-full items-center gap-0.5 rounded-full bg-(--ui-bg-tertiary) p-0.5',
+        'relative inline-flex h-10 w-fit max-w-full items-stretch gap-5 border-b border-(--border-subtle)',
         className
       )}
-      data-slot="pill-tabs"
+      data-slot="page-tabs"
       role="tablist"
       {...props}
     >
-      <PillTabsIndicator />
+      <PageTabsIndicator />
       {tabs.map(tab => {
         const active = tab.id === value
 
@@ -124,11 +122,11 @@ export function PillTabs({
           <button
             aria-selected={active}
             className={cn(
-              'relative inline-flex h-full min-w-0 cursor-pointer items-center gap-1.5 rounded-full px-3 text-sm font-medium whitespace-nowrap transition-colors duration-(--dur-micro)',
-              active ? 'text-foreground' : 'text-(--ui-text-secondary) hover:text-foreground'
+              'relative inline-flex min-w-0 items-center gap-1.5 text-sm whitespace-nowrap transition-colors duration-(--dur-micro)',
+              active ? 'text-(--text-primary)' : 'text-(--text-secondary) hover:text-(--text-primary)'
             )}
             data-active={active}
-            data-slot="pill-tab"
+            data-slot="page-tab"
             key={tab.id}
             onClick={() => onChange(tab.id)}
             role="tab"
@@ -139,10 +137,10 @@ export function PillTabs({
               <span
                 className={cn(
                   'text-xs tabular-nums',
-                  active ? 'text-(--ui-text-secondary)' : 'text-(--ui-text-tertiary)'
+                  'text-(--text-tertiary)'
                 )}
               >
-                {pillMeta(tab.meta)}
+                {tabMeta(tab.meta)}
               </span>
             )}
           </button>

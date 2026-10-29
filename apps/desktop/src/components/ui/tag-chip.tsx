@@ -12,7 +12,7 @@ export function TagChip({ children, className, ...props }: React.ComponentProps<
   return (
     <span
       className={cn(
-        'inline-flex w-fit shrink-0 items-center gap-1 rounded-full bg-(--ui-bg-tertiary) px-2 py-0.5 text-xs text-(--ui-text-secondary)',
+        'inline-flex w-fit shrink-0 items-center gap-1 rounded-full bg-(--bg-subtle) px-2 py-0.5 text-xs text-(--text-secondary)',
         className
       )}
       data-slot="tag-chip"
