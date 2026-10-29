@@ -137,10 +137,12 @@ export function ComposerControls({
         </Tip>
       ) : null}
       {showVoicePrimary ? (
+        // An empty composer offers voice in the send slot — as a ghost mic
+        // (spec §5.7): nothing to send yet, so nothing in the row is filled.
         <Tip label={c.startVoice}>
           <Button
             aria-label={c.startVoice}
-            className={PRIMARY_ICON_BTN}
+            className={cn(GHOST_ICON_BTN, 'rounded-full')}
             disabled={disabled}
             onClick={() => {
               triggerHaptic('open')
@@ -148,6 +150,7 @@ export function ComposerControls({
             }}
             size="icon"
             type="button"
+            variant="ghost"
           >
             <Mic className={iconSize.md} />
           </Button>

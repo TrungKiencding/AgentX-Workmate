@@ -1290,8 +1290,9 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
 
   return (
     <DialogPrimitive.Portal>
-      {/* Transparent overlay: keeps click-away + focus trap, but no dim/blur. */}
-      <DialogPrimitive.Overlay className="fixed inset-0 z-(--z-over-modal)" />
+      {/* A light scrim (spec §5.12): keeps click-away + the focus trap and
+          sets the palette apart from the page without blurring it. */}
+      <DialogPrimitive.Overlay className="fixed inset-0 z-(--z-over-modal) bg-(--scrim-light)" />
       <DialogPrimitive.Content
         aria-describedby={undefined}
         className={cn(
@@ -1300,7 +1301,7 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
           // Opens in the frame it is asked for — no entry animation at all. The
           // CLOSE animation stays: `onAnimationEnd` below is what retires the
           // subtree, so removing it would strand the palette mounted.
-          'z-(--z-over-modal-content) w-[min(34rem,calc(100vw-2rem))] overflow-hidden duration-(--dur-short-exit) data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95'
+          'z-(--z-over-modal-content) w-[min(40rem,calc(100vw-2rem))] overflow-hidden duration-(--dur-long-exit) data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-98'
         )}
         // The close animation finishing is what retires this whole subtree —
         // the CSS owns the duration, not a hardcoded timer. Guarded on the
@@ -1316,14 +1317,14 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
         <Command className="bg-transparent" loop shouldFilter={false}>
           {activePage && (
             <button
-              className="flex w-full items-center gap-1.5 border-b border-border px-3 py-1.5 text-left text-2xs text-muted-foreground transition-colors hover:text-foreground"
+              className="flex w-full items-center gap-1.5 border-b border-(--border-subtle) px-4 py-2 text-left text-xs text-(--text-tertiary) transition-colors hover:text-(--text-primary)"
               onClick={goBack}
               type="button"
             >
               <ChevronLeft className="size-3.5" />
               <span>{t.commandCenter.back}</span>
-              <span className="text-muted-foreground/50">/</span>
-              <span className="font-medium text-foreground">{activePage.title}</span>
+              <span className="text-(--text-disabled)">/</span>
+              <span className="text-(--text-primary)">{activePage.title}</span>
             </button>
           )}
           <CommandInput

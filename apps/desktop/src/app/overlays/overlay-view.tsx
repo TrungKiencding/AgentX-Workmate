@@ -65,7 +65,9 @@ export function OverlayView({
   return (
     <div
       className={cn(
-        'fixed inset-0 z-50 bg-black/22 backdrop-blur-[0.125rem]',
+        // The spec scrim (§5.17): --scrim, no blur — the page behind dims, it
+        // doesn't fog.
+        'fixed inset-0 z-50 bg-(--scrim) animate-in fade-in-0 duration-(--dur-long)',
         // Equidistant inset on every side. The top value is driven by the
         // titlebar height so the card clears the OS traffic-lights vertically;
         // since the card top already sits below them, the left needs no extra
@@ -95,7 +97,8 @@ export function OverlayView({
     >
       <div
         className={cn(
-          'relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl border border-(--ui-stroke-secondary) bg-(--ui-chat-surface-background) shadow-md',
+          // Level 2 (spec §3.9): a route overlay is a dialog-sized task.
+          'relative flex h-full min-h-0 flex-col overflow-hidden rounded-xl bg-(--bg-app) shadow-nous',
           rootClassName
         )}
       >
@@ -114,7 +117,7 @@ export function OverlayView({
           <span className="pointer-events-auto absolute right-3 top-[calc(0.1875rem+var(--titlebar-height)/2)] flex -translate-y-1/2 [-webkit-app-region:no-drag]">
             <Button
               aria-label={closeLabel}
-              className="text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground"
+              className="text-(--icon-muted) hover:bg-(--bg-hover) hover:text-(--text-primary)"
               onClick={closeOverlay}
               size="icon-titlebar"
               variant="ghost"

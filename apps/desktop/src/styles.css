@@ -616,7 +616,8 @@
        This is the default; each chat surface re-declares the calc against its own measurement (see below). */
     --thread-last-message-clearance: calc(var(--composer-measured-height) + 2rem);
 
-    --composer-shell-pad-block-end: 0.625rem;
+    /* 16px between the composer and the window's bottom edge (spec §4.1). */
+    --composer-shell-pad-block-end: 1rem;
     --message-text-indent: 0.75rem;
     /* The reading surface: prose 15px, tool/caption a step behind — the chat
        column is the app's primary content and reads at content size, not

@@ -96,7 +96,7 @@ export const vi: Translations = {
     steps: {
       connectingGateway: 'Đang kết nối gateway desktop',
       loadingSettings: 'Đang tải cài đặt AgentX',
-      loadingSessions: 'Đang tải các phiên gần đây',
+      loadingSessions: 'Đang tải các cuộc trò chuyện gần đây',
       startingDesktopConnection: 'Đang mở kết nối desktop',
       startingAgentxDesktop: 'Đang khởi động AgentX Workmate Desktop…'
     },
@@ -668,7 +668,7 @@ export const vi: Translations = {
       gateway: 'Kết nối gateway...',
       keys: 'Tìm API key...',
       mcp: 'Tìm MCP server...',
-      sessions: 'Tìm phiên đã lưu trữ...'
+      sessions: 'Tìm cuộc trò chuyện đã lưu trữ...'
     },
     modeOptions: {
       light: { label: 'Sáng', description: 'Nền sáng, rõ ràng' },
@@ -983,7 +983,7 @@ export const vi: Translations = {
       modelContextLength: 'Để 0 để dùng cửa sổ ngữ cảnh mà hệ thống tự nhận ra của model đang chọn.',
       fallbackProviders: 'Các mục provider:model dự phòng, sẽ thử khi model mặc định thất bại.',
       display: {
-        personality: 'Phong cách trợ lý mặc định cho phiên mới.',
+        personality: 'Phong cách trợ lý mặc định cho cuộc trò chuyện mới.',
         showReasoning: 'Hiện phần suy luận khi backend có cung cấp.'
       },
       desktop: {
@@ -1020,7 +1020,7 @@ export const vi: Translations = {
         enabled: 'Tạo bản chụp để hoàn tác trước khi sửa tệp.'
       },
       memory: {
-        memoryEnabled: 'Lưu lại những ghi nhớ lâu dài có ích cho các phiên sau.',
+        memoryEnabled: 'Lưu lại những ghi nhớ lâu dài có ích cho các cuộc trò chuyện sau.',
         userProfileEnabled: 'Duy trì một hồ sơ ngắn gọn về sở thích của người dùng.'
       },
       context: {
@@ -1297,7 +1297,7 @@ export const vi: Translations = {
       sshErrAuth:
         'Xác thực SSH thất bại. Hãy nạp key vào ssh-agent (ssh-add) hoặc khai báo IdentityFile trong ~/.ssh/config — AgentX chạy ssh ở chế độ không tương tác.',
       sshErrHostKey:
-        'Host key ĐÃ THAY ĐỔI so với lần kết nối trước. Hãy xác nhận đây là thay đổi có chủ đích, chạy ssh-keygen -R <host> rồi kết nối lại.',
+        'Host key đã thay đổi so với lần kết nối trước. Hãy xác nhận đây là thay đổi có chủ đích, chạy ssh-keygen -R <host> rồi kết nối lại.',
       sshErrNotInstalled:
         'Máy từ xa chưa cài AgentX. Hãy cài trên máy đó (curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | sh) hoặc khai báo đường dẫn AgentX.',
       sshErrPlatform:
@@ -1487,7 +1487,7 @@ export const vi: Translations = {
     model: {
       loading: 'Đang tải cấu hình model...',
       appliesDesc:
-        'Áp dụng cho các phiên mới. Dùng bộ chọn model trong khung soạn để đổi model ngay cho cuộc trò chuyện đang mở.',
+        'Áp dụng cho các cuộc trò chuyện mới. Dùng bộ chọn model trong khung soạn để đổi model ngay cho cuộc trò chuyện đang mở.',
       provider: 'Nhà cung cấp',
       model: 'Model',
       applying: 'Đang áp dụng...',
@@ -1512,7 +1512,7 @@ export const vi: Translations = {
         skills_hub: { label: 'Kho kỹ năng', hint: 'Tìm kỹ năng' },
         approval: { label: 'Phê duyệt', hint: 'Tự duyệt thông minh' },
         mcp: { label: 'MCP', hint: 'Định tuyến công cụ MCP' },
-        title_generation: { label: 'Đặt tiêu đề', hint: 'Tiêu đề phiên' },
+        title_generation: { label: 'Đặt tiêu đề', hint: 'Tiêu đề cuộc trò chuyện' },
         curator: { label: 'Curator', hint: 'Xem lại việc dùng kỹ năng' }
       }
     },
@@ -1546,8 +1546,8 @@ export const vi: Translations = {
       loading: 'Đang tải danh sách nhà cung cấp...'
     },
     sessions: {
-      loading: 'Đang tải các phiên đã lưu trữ…',
-      archivedTitle: 'Phiên đã lưu trữ',
+      loading: 'Đang tải các cuộc trò chuyện đã lưu trữ…',
+      archivedTitle: 'Trò chuyện đã lưu trữ',
       archivedIntro:
         'Cuộc trò chuyện đã lưu trữ được ẩn khỏi thanh bên nhưng vẫn giữ nguyên tin nhắn. Ctrl/⌘-nhấp vào một cuộc trò chuyện ở thanh bên để lưu trữ nó.',
       emptyArchivedTitle: 'Chưa lưu trữ gì',
@@ -1565,7 +1565,7 @@ export const vi: Translations = {
       autoArchiveFailed: 'Không cập nhật được thiết lập tự lưu trữ',
       defaultDirTitle: 'Thư mục dự án mặc định',
       defaultDirDesc:
-        'Phiên mới sẽ bắt đầu trong thư mục này, trừ khi bạn chọn thư mục khác. Để trống thì dùng thư mục home của bạn.',
+        'Cuộc trò chuyện mới sẽ bắt đầu trong thư mục này, trừ khi bạn chọn thư mục khác. Để trống thì dùng thư mục home của bạn.',
       defaultDirUpdated:
         'Đã cập nhật thư mục dự án mặc định — hãy mở một cuộc trò chuyện mới (Ctrl/⌘+N) để nó có hiệu lực',
       defaultsTo: label => `Mặc định là ${label}.`,
@@ -1573,7 +1573,7 @@ export const vi: Translations = {
       choose: 'Chọn',
       clear: 'Xoá',
       notSet: 'Chưa đặt',
-      failedLoad: 'Không tải được các phiên đã lưu trữ',
+      failedLoad: 'Không tải được các cuộc trò chuyện đã lưu trữ',
       unarchiveFailed: 'Bỏ lưu trữ thất bại',
       deleteFailed: 'Xoá thất bại',
       updateDirFailed: 'Không cập nhật được thư mục mặc định',
@@ -1634,7 +1634,7 @@ export const vi: Translations = {
       modelDefault: 'mặc định',
       modelInactiveHint: 'Hãy chọn backend này trước, rồi mới đổi được model của nó.',
       modelSelectedTitle: 'Đã chọn model',
-      modelSelectedMessage: model => `${model} sẽ áp dụng cho các phiên mới.`,
+      modelSelectedMessage: model => `${model} sẽ áp dụng cho các cuộc trò chuyện mới.`,
       failedSelectModel: model => `Chọn ${model} thất bại`,
       terminalBackend: {
         sectionTitle: 'Backend thực thi',
@@ -1645,7 +1645,7 @@ export const vi: Translations = {
         unavailable: 'Không khả dụng',
         inUse: 'Đang dùng',
         selectedTitle: 'Đã chọn backend',
-        selectedMessage: backend => `Lệnh terminal giờ chạy qua ${backend}. Áp dụng cho các phiên mới.`,
+        selectedMessage: backend => `Lệnh terminal giờ chạy qua ${backend}. Áp dụng cho các cuộc trò chuyện mới.`,
         failedSelect: backend => `Chọn ${backend} thất bại`,
         needsSetupHint: 'Bạn có thể chọn backend này ngay — nhưng lệnh sẽ lỗi cho tới khi thiết lập xong.'
       }
@@ -1969,7 +1969,7 @@ export const vi: Translations = {
     shareTitle: 'Nhập / xuất bản đồ',
     sharePlaceholder: 'Dán mã bản đồ…',
     copy: 'Sao chép mã bản đồ',
-    copied: 'Đã sao chép!',
+    copied: 'Đã chép',
     importMap: 'Nhập một bản đồ',
     importBtn: 'Tải',
     importEmpty: 'Dán mã bản đồ vào để tải.',
@@ -2030,14 +2030,14 @@ export const vi: Translations = {
     close: 'Đóng trung tâm điều khiển',
     paletteTitle: 'Bảng lệnh',
     back: 'Quay lại',
-    searchPlaceholder: 'Tìm phiên, khung nhìn và thao tác',
+    searchPlaceholder: 'Tìm cuộc trò chuyện, khung nhìn và thao tác',
     goTo: 'Đi tới',
-    goToSession: 'Đi tới phiên',
+    goToSession: 'Đi tới cuộc trò chuyện',
     branches: 'Nhánh',
     projects: 'Dự án',
     openFolder: 'Mở thư mục như một dự án…',
     openFolderAt: path => `Mở thư mục như một dự án — ${path}`,
-    newSessionInProject: project => `Phiên mới trong ${project}`,
+    newSessionInProject: project => `Cuộc trò chuyện mới trong ${project}`,
     commands: 'Lệnh',
     startInBranch: branch => `Cuộc trò chuyện mới trong ${branch}`,
     commandCenter: 'Trung tâm điều khiển',
@@ -2072,7 +2072,7 @@ export const vi: Translations = {
       spawning: 'Đang tạo…',
       hatching: 'Đang cho thú cưng của bạn nở…',
       hatchingSub: 'Đang thổi hồn cho nó…',
-      hatched: 'Nở rồi!',
+      hatched: 'Đã nở',
       hatchRow: (_state, done, total) => `Đang phác khung hình ${done} / ${total}…`,
       hatchComposing: 'Đang ghép lại…',
       hatchSaving: 'Sắp xong rồi…',
@@ -2104,10 +2104,10 @@ export const vi: Translations = {
     settingsFields: 'Các mục cài đặt',
     mcpServers: 'MCP server',
     archivedChats: 'Trò chuyện đã lưu trữ',
-    sections: { maintenance: 'Bảo trì', sessions: 'Phiên', system: 'Hệ thống', usage: 'Mức sử dụng' },
+    sections: { maintenance: 'Bảo trì', sessions: 'Trò chuyện', system: 'Hệ thống', usage: 'Mức sử dụng' },
     sectionDescriptions: {
       maintenance: 'Chẩn đoán, sao lưu, curator và dữ liệu bộ nhớ',
-      sessions: 'Tìm và quản lý các phiên',
+      sessions: 'Tìm và quản lý các cuộc trò chuyện',
       system: 'Trạng thái, log và thao tác hệ thống',
       usage: 'Token, chi phí và hoạt động kỹ năng theo thời gian'
     },
@@ -2119,23 +2119,23 @@ export const vi: Translations = {
       artifacts: { title: 'Artifact', detail: 'Duyệt các kết quả đã tạo' }
     },
     sectionEntries: {
-      sessions: { title: 'Bảng phiên', detail: 'Tìm, ghim và quản lý các phiên' },
+      sessions: { title: 'Bảng trò chuyện', detail: 'Tìm, ghim và quản lý các cuộc trò chuyện' },
       system: { title: 'Bảng hệ thống', detail: 'Trạng thái gateway, log, khởi động lại / cập nhật' },
       usage: { title: 'Bảng mức sử dụng', detail: 'Token, chi phí và hoạt động kỹ năng' }
     },
     providerNavigate: 'Điều hướng',
-    providerSessions: 'Phiên',
+    providerSessions: 'Cuộc trò chuyện',
     refresh: 'Làm mới',
     refreshing: 'Đang làm mới...',
     noResults: 'Không tìm thấy kết quả nào khớp.',
-    pinSession: 'Ghim phiên',
-    unpinSession: 'Bỏ ghim phiên',
-    exportSession: 'Xuất phiên',
-    deleteSession: 'Xoá phiên',
-    noSessions: 'Chưa có phiên nào.',
+    pinSession: 'Ghim cuộc trò chuyện',
+    unpinSession: 'Bỏ ghim cuộc trò chuyện',
+    exportSession: 'Xuất cuộc trò chuyện',
+    deleteSession: 'Xoá cuộc trò chuyện',
+    noSessions: 'Chưa có cuộc trò chuyện nào.',
     gatewayRunning: 'Gateway tin nhắn đang chạy',
     gatewayStopped: 'Gateway tin nhắn đã dừng',
-    hermesActiveSessions: (version, count) => `AgentX ${version} · Phiên đang chạy ${count}`,
+    hermesActiveSessions: (version, count) => `AgentX ${version} · Cuộc trò chuyện đang chạy ${count}`,
     restartGateway: 'Khởi động lại gateway',
     gatewayRestartFailed: 'Khởi động lại gateway thất bại.',
     updateHermes: 'Cập nhật AgentX',
@@ -2147,7 +2147,7 @@ export const vi: Translations = {
     recentLogs: 'Log gần đây',
     noLogs: 'Chưa nạp log nào.',
     days: count => `${count} ngày`,
-    statSessions: 'Phiên',
+    statSessions: 'Cuộc trò chuyện',
     statApiCalls: 'Lượt gọi API',
     statTokens: 'Token vào/ra',
     statCost: 'Chi phí ước tính',
@@ -2174,7 +2174,7 @@ export const vi: Translations = {
       securityAudit: 'Rà soát bảo mật',
       securityAuditDesc: 'Quét cấu hình và kỹ năng để tìm thiết lập rủi ro',
       backup: 'Tạo bản sao lưu',
-      backupDesc: 'Nén cấu hình, bộ nhớ, kỹ năng và các phiên thành tệp zip',
+      backupDesc: 'Nén cấu hình, bộ nhớ, kỹ năng và các cuộc trò chuyện thành tệp zip',
       debugShare: 'Chia sẻ gói gỡ lỗi',
       debugShareDesc: 'Tải lên báo cáo đã che thông tin nhạy cảm kèm log, nhận link chia sẻ (tự xoá sau 6 giờ)',
       debugShareRunning: 'Đang tải báo cáo gỡ lỗi lên...',
@@ -2193,7 +2193,7 @@ export const vi: Translations = {
       resume: 'Tiếp tục',
       runNow: 'Chạy ngay',
       memoryData: 'Dữ liệu bộ nhớ',
-      memoryDataDesc: 'Các tệp bộ nhớ có sẵn được chèn vào mọi phiên',
+      memoryDataDesc: 'Các tệp bộ nhớ có sẵn được chèn vào mọi cuộc trò chuyện',
       memoryProvider: name => `Nhà cung cấp đang dùng: ${name}`,
       builtinMemory: 'có sẵn',
       memoryFile: 'Bộ nhớ của agent (MEMORY.md)',
@@ -3359,7 +3359,7 @@ export const vi: Translations = {
     cancelling: 'Đang huỷ...',
     cancelInstall: 'Huỷ cài đặt',
     transcriptSaved: 'Toàn bộ nội dung của trình cài đặt đã được lưu vào thư mục log của AgentX.',
-    copiedOutput: 'Đã sao chép!',
+    copiedOutput: 'Đã chép',
     copyOutput: 'Sao chép kết quả',
     reloadRetry: 'Tải lại và thử lại'
   },
@@ -3457,19 +3457,19 @@ export const vi: Translations = {
     signInFailed: 'Đăng nhập thất bại. Hãy thử lại.',
     pickDifferentProvider: 'Chọn nhà cung cấp khác',
     signInWith: provider => `Đăng nhập bằng ${provider}`,
-    openedBrowser: provider => `Chúng tôi đã mở ${provider} trên trình duyệt của bạn.`,
+    openedBrowser: provider => `Đã mở ${provider} trên trình duyệt của bạn.`,
     authorizeThere: 'Hãy cấp quyền cho AgentX ở đó.',
     copyAuthCode: 'Sao chép mã uỷ quyền rồi dán vào bên dưới.',
     pasteAuthCode: 'Dán mã uỷ quyền',
     reopenAuthPage: 'Mở lại trang uỷ quyền',
     autoBrowser: provider =>
-      `Chúng tôi đã mở ${provider} trên trình duyệt của bạn. Cấp quyền cho AgentX ở đó là bạn sẽ được kết nối tự động — không phải sao chép hay dán gì cả.`,
+      `Đã mở ${provider} trên trình duyệt của bạn. Cấp quyền cho AgentX ở đó là bạn sẽ được kết nối tự động — không phải sao chép hay dán gì cả.`,
     reopenSignInPage: 'Mở lại trang đăng nhập',
     waitingAuthorize: 'Đang chờ bạn cấp quyền...',
     externalPending: provider =>
       `${provider} đăng nhập qua CLI riêng của nó. Hãy chạy lệnh này trong terminal, rồi quay lại đây và chọn "Tôi đã đăng nhập":`,
     signedIn: 'Tôi đã đăng nhập',
-    deviceCodeOpened: provider => `Chúng tôi đã mở ${provider} trên trình duyệt của bạn. Hãy nhập mã này ở đó:`,
+    deviceCodeOpened: provider => `Đã mở ${provider} trên trình duyệt của bạn. Hãy nhập mã này ở đó:`,
     reopenVerification: 'Mở lại trang xác minh',
     copy: 'Sao chép',
     defaultModel: 'Model mặc định',
@@ -3802,7 +3802,7 @@ export const vi: Translations = {
       toggleCommandCenter: 'Trung tâm điều khiển',
       toggleContextUsage: 'Thước ngữ cảnh',
       toggleRunningTimer: 'Đồng hồ lượt chạy',
-      toggleSessionTimer: 'Đồng hồ phiên',
+      toggleSessionTimer: 'Đồng hồ trò chuyện',
       toggleTerminal: 'Terminal',
       toggleVersion: 'Phiên bản & cập nhật',
       toggleWorkspace: 'Workspace',
@@ -3837,7 +3837,7 @@ export const vi: Translations = {
         title: 'Mức dùng ngữ cảnh',
         tokenSummary: (used, max) => `${used} / ${max} token`
       },
-      session: 'Phiên',
+      session: 'Trò chuyện',
       yoloOn: 'YOLO đang bật — tự duyệt cả những lệnh nguy hiểm. Shift+nhấp để bật tắt toàn cục.',
       yoloOff: 'YOLO đang tắt. Shift+nhấp để bật tắt toàn cục.',
       modelNone: 'không có',
@@ -4049,11 +4049,11 @@ export const vi: Translations = {
       greetingAfternoon: name => (name ? `Chào buổi chiều, ${name}` : 'Chào buổi chiều'),
       greetingEvening: name => (name ? `Chào buổi tối, ${name}` : 'Chào buổi tối'),
       bodyVariants: [
-        'Hỏi một câu, dán một lỗi, hoặc chỉ cho tôi một thư mục. Tôi đọc tài liệu lẫn code, chạy công cụ và cùng bạn đưa việc về đích.',
-        'Mô tả việc cần làm theo cách của bạn: tóm tắt tài liệu, soạn email, sửa một đoạn code. Tôi chọn đúng công cụ và hỏi lại trước những bước rủi ro.',
-        'Thả vào một tệp, một bảng số liệu hay một ý tưởng còn thô. Tôi sẽ tìm hiểu, gợi ý bước tiếp theo và giữ mọi thứ có thể hoàn tác.',
-        'Tìm trong thư mục mã nguồn, sửa tệp, chạy kiểm thử. Bạn nêu mục tiêu, phần việc máy móc để tôi lo.',
-        'Từ báo cáo tuần tới kế hoạch dự án: gõ một việc hay một câu hỏi. Tôi nhớ cuộc trò chuyện, dẫn nguồn rõ ràng và dừng lại hỏi khi chưa chắc.'
+        'Hỏi một câu, dán một lỗi hoặc chỉ một thư mục. AgentX đọc tài liệu lẫn code, chạy công cụ và cùng bạn đưa việc về đích.',
+        'Mô tả việc cần làm theo cách của bạn: tóm tắt tài liệu, soạn email, sửa một đoạn code. AgentX chọn đúng công cụ và hỏi lại trước những bước rủi ro.',
+        'Thả vào một tệp, một bảng số liệu hay một ý tưởng còn thô. AgentX tìm hiểu, gợi ý bước tiếp theo và giữ mọi thứ có thể hoàn tác.',
+        'Tìm trong thư mục mã nguồn, sửa tệp, chạy kiểm thử. Bạn nêu mục tiêu, phần việc máy móc để AgentX lo.',
+        'Từ báo cáo tuần tới kế hoạch dự án: gõ một việc hay một câu hỏi. AgentX nhớ cuộc trò chuyện, dẫn nguồn rõ ràng và dừng lại hỏi khi chưa chắc.'
       ],
       quickStart: 'Bắt đầu nhanh',
       resume: title => `Tiếp tục “${title}”`,

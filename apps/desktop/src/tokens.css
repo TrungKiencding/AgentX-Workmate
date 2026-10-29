@@ -100,6 +100,8 @@
 
     --selection: color-mix(in srgb, var(--accent) 18%, transparent);
     --scrim: rgb(0 0 0 / 0.32);
+    /* The command palette's lighter dim (spec §5.12 "scrim nhẹ"). */
+    --scrim-light: rgb(0 0 0 / 0.12);
     /* The spec states the ring at 60% of the accent; at that strength a 2px
        blue ring on white lands at 2.6:1, under the WCAG 1.4.11 floor for a
        focus indicator, so the ring paints the accent at full strength
@@ -116,6 +118,7 @@
   :root.dark {
     --brand: var(--clay-400);
     --scrim: rgb(0 0 0 / 0.56);
+    --scrim-light: rgb(0 0 0 / 0.32);
     --warning-bg: color-mix(in srgb, var(--ui-yellow) 14%, var(--bg-app));
     --danger-bg: color-mix(in srgb, var(--ui-red) 14%, var(--bg-app));
   }

@@ -122,8 +122,8 @@ export function OverlayPageHeader({ actions, className, description, title }: Ov
           Center on narrow, where the nav dropdown already names the section)
           targets this block by name instead of by DOM position. */}
       <div className="min-w-0" data-slot="overlay-page-title">
-        <h2 className="truncate text-xl font-semibold text-foreground">{title}</h2>
-        {description ? <p className="mt-1 text-sm text-(--ui-text-tertiary)">{description}</p> : null}
+        <h2 className="truncate text-lg font-semibold text-(--text-primary)">{title}</h2>
+        {description ? <p className="mt-0.5 text-sm text-pretty text-(--text-secondary)">{description}</p> : null}
       </div>
       {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </header>
@@ -141,16 +141,11 @@ export const OverlayNavItem = memo(function OverlayNavItem({
   return (
     <button
       className={cn(
-        // A nav row is a control: it rides --control-h-md (32px) at the chrome
-        // text size, so the rail lines up with the buttons and fields beside it.
-        'flex h-(--control-h-md) w-full items-center justify-start gap-2 rounded-(--radius-control) border px-2 text-left text-sm font-normal transition-[background-color,border-color,color] duration-(--dur-micro)',
-        nested
-          ? active
-            ? 'border-transparent bg-(--chrome-action-hover) font-medium text-foreground'
-            : 'border-transparent bg-transparent text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground'
-          : active
-            ? 'border-(--ui-stroke-tertiary) bg-(--ui-bg-tertiary) text-foreground'
-            : 'border-transparent bg-transparent text-(--ui-text-secondary) hover:bg-(--chrome-action-hover) hover:text-foreground'
+        // A nav row (spec §5.1): 32px, 14px label, 10px glyph gap, 8px
+        // corners. Selected is --bg-selected only — no border, no ink change.
+        'flex h-(--control-h-md) w-full cursor-pointer items-center justify-start gap-2.5 rounded-(--radius-control) px-3 text-left text-base font-normal text-(--text-primary) transition-[background-color,color] duration-(--dur-micro)',
+        nested && 'pl-6 text-sm',
+        active ? 'bg-(--bg-selected)' : 'bg-transparent hover:bg-(--bg-hover)'
       )}
       onClick={onClick}
       type="button"
@@ -159,7 +154,7 @@ export const OverlayNavItem = memo(function OverlayNavItem({
         className={cn(
           'shrink-0',
           nested ? 'size-3.5' : 'size-4',
-          active ? 'text-foreground/80' : 'text-muted-foreground/80'
+          'text-(--icon-default)'
         )}
       />
       <span className="min-w-0 flex-1 truncate">{label}</span>
