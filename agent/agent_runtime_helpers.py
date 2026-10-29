@@ -3141,13 +3141,6 @@ def switch_model(agent, new_model, new_provider, api_key='', base_url='', api_mo
             )
 
 
-def _data_hub_session_disabled(agent):
-    """The session's disabled toolsets with the Data Hub entries the config has now."""
-    from hermes_cli.tools_config import session_disabled_toolsets
-
-    return session_disabled_toolsets(agent)
-
-
 def invoke_tool(agent, function_name: str, function_args: dict, effective_task_id: str,
                  tool_call_id: Optional[str] = None, messages: list = None,
                  pre_tool_block_checked: bool = False,
@@ -3341,7 +3334,7 @@ def invoke_tool(agent, function_name: str, function_args: dict, effective_task_i
                 skip_pre_tool_call_hook=True,
                 skip_tool_request_middleware=True,
                 enabled_toolsets=getattr(agent, "enabled_toolsets", None),
-                disabled_toolsets=_data_hub_session_disabled(agent),
+                disabled_toolsets=getattr(agent, "disabled_toolsets", None),
                 tool_request_middleware_trace=list(_tool_middleware_trace),
             )
             if skip_tool_execution_middleware:

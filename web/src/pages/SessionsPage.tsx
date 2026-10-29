@@ -1475,19 +1475,6 @@ export default function SessionsPage() {
                 .__AGENTX_SESSION_TOKEN__ ?? "",
           },
         });
-        if (res.status === 403) {
-          // A session holding Data Hub results: the server says why it refuses.
-          const body = (await res.json().catch(() => null)) as {
-            detail?: unknown;
-          } | null;
-          showToast(
-            typeof body?.detail === "string"
-              ? body.detail
-              : "Failed to export session",
-            "error",
-          );
-          return;
-        }
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);

@@ -46,7 +46,6 @@ import { $toolRowDismissed, dismissToolRow } from '@/store/tool-dismiss'
 import { $anyToolDisclosureOpen, $toolDisclosureOpen, $toolViewMode, setToolDisclosureOpen } from '@/store/tool-view'
 
 import { APPROVAL_TOOLS, PendingToolApproval } from './approval'
-import { isDataHubSourceTool } from './data-hub-sources-model'
 import {
   buildToolView,
   clampForDisplay,
@@ -787,9 +786,7 @@ function TerminalTranscript({ command, exitCode }: TerminalTranscriptProps) {
 const CARD_TOOLS = new Set(['clarify', 'delegate_task', 'deliver_file', 'image_generate'])
 
 export function isCardTool(toolName: string): boolean {
-  // A Data Hub search's sources are what the answer cites: they stay on
-  // screen rather than fold into a run's summary line.
-  return CARD_TOOLS.has(toolName) || isFileEditTool(toolName) || isDataHubSourceTool(toolName)
+  return CARD_TOOLS.has(toolName) || isFileEditTool(toolName)
 }
 
 export type RunItem = { end: number; kind: 'run'; start: number } | { index: number; kind: 'card' }

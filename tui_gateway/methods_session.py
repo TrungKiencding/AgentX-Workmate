@@ -2676,16 +2676,6 @@ def _(rid, params: dict) -> dict:
     with session["history_lock"]:
         messages = list(session.get("history", []))
 
-    from hermes_cli.session_export import (
-        data_hub_export_refusal,
-        session_has_data_hub_result,
-        store_flags_data_hub,
-    )
-
-    stored_id = getattr(agent, "session_id", None)
-    if store_flags_data_hub(getattr(agent, "_session_db", None), stored_id) or session_has_data_hub_result(messages):
-        return _err(rid, 5011, data_hub_export_refusal())
-
     session_id = getattr(agent, "session_id", None) or session.get("session_key") or ""
     # Prefer the agent's session_start datetime (matches the classic CLI export);
     # fall back to the gateway session's created_at timestamp.

@@ -375,11 +375,6 @@ def upload_session_trace(
     if not messages:
         return "No transcript to upload for this session yet."
 
-    from hermes_cli.session_export import data_hub_export_refusal, session_has_data_hub_result
-
-    if session_has_data_hub_result({**(meta or {}), "messages": messages}):
-        return data_hub_export_refusal()
-
     resolved_model = model or meta.get("model") or ""
     try:
         jsonl = build_trace_jsonl(

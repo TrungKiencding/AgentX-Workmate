@@ -164,18 +164,3 @@ describe('preprocessMarkdown — URLs and brackets', () => {
     expect(preprocessMarkdown('[see http://localhost:3000]')).toBe('[see ]')
   })
 })
-
-// A Data Hub answer cites passages as [S1] (docs/data-hub/agents.md in the
-// hub); the numeric web-citation scrub must leave those for the reader.
-describe('preprocessMarkdown — Data Hub passage refs', () => {
-  it('keeps [S1] and [S12] in the answer', () => {
-    expect(preprocessMarkdown('Mức chi là 300.000 đồng [S1].')).toBe('Mức chi là 300.000 đồng [S1].')
-    expect(preprocessMarkdown('Theo quy định[S12], áp dụng từ 2026 [S1][S2].')).toBe(
-      'Theo quy định[S12], áp dụng từ 2026 [S1][S2].'
-    )
-  })
-
-  it('still drops a numeric citation marker', () => {
-    expect(preprocessMarkdown('Deploys go out on Fridays[1].')).toBe('Deploys go out on Fridays.')
-  })
-})

@@ -4065,30 +4065,6 @@ export const en: Translations = {
         moreItems: n => `… ${n} more ${n === 1 ? 'item' : 'items'}`,
         moreFields: n => `… ${n} more ${n === 1 ? 'field' : 'fields'}`
       },
-      dataHub: {
-        sources: 'Sources',
-        sourceCount: count => `${count} ${count === 1 ? 'source' : 'sources'}`,
-        noEvidence: 'Not found in the data',
-        knowledgeBaseCount: count => `${count} ${count === 1 ? 'knowledge base' : 'knowledge bases'}`,
-        untitled: 'Untitled document',
-        open: 'Open',
-        openSource: title => `Open “${title}” in the browser`,
-        location: {
-          page: (page, end) => (end ? `pages ${page}–${end}` : `page ${page}`),
-          slide: slide => `slide ${slide}`,
-          sheet: (sheet, rows) => (rows ? `sheet ${sheet} · rows ${rows}` : `sheet ${sheet}`),
-          section: path => `section ${path}`,
-          message: (author, date) => ['message', author, date].filter(Boolean).join(' · '),
-          none: 'no detailed location'
-        },
-        version: version => `version ${version}`,
-        updated: date => `updated ${date}`,
-        flags: {
-          instruction_like: 'Reads like an instruction',
-          ocr_low_confidence: 'Uncertain text recognition',
-          truncated: 'Truncated'
-        }
-      },
       truncatedNotice: omitted => `… ${omitted} more characters truncated — use Copy for the full output.`,
       payload: {
         toggle: 'Tool payload',
@@ -4249,8 +4225,6 @@ export const en: Translations = {
     modelSwitchFailed: 'Model switch failed',
     sessionExported: 'Chat exported',
     sessionExportFailed: 'Could not export chat',
-    sessionExportDataHubBlocked:
-      'This chat contains Data Hub results, which may only be read in Workmate; exporting is blocked.',
     imageSaved: 'Image saved',
     downloadStarted: 'Download started',
     restartToUseSaveImage: 'Restart AgentX Workmate Desktop to use Save Image.',

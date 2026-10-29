@@ -1595,9 +1595,6 @@ def _build_child_agent(
                 ephemeral_system_prompt=child_prompt,
                 log_prefix=f"[subagent-{task_index}]",
                 platform="subagent",
-                # Decides whether the child keeps the Data Hub tools: a nested
-                # child carries its root session's platform on.
-                delegated_from_platform=getattr(parent_agent, "_data_hub_platform", None),
                 skip_context_files=True,
                 skip_memory=True,
                 clarify_callback=None,
@@ -2058,25 +2055,6 @@ def _apply_summary_budget(results: List[Dict[str, Any]], parent_agent) -> None:
         )
 
 
-def _report_data_hub_to_parent(messages: Any, parent_agent: Any) -> None:
-    """Flag the parent's session as holding a Data Hub result when the child's
-    *messages* hold one (never raises)."""
-    try:
-        from hermes_cli.session_export import session_has_data_hub_result
-
-        if not session_has_data_hub_result(messages):
-            return
-        # An AsyncSessionDB (gateway) offloads every call; write to the store it wraps.
-        db = getattr(parent_agent, "_session_db", None)
-        store = getattr(db, "_db", None) or db
-        session_id = getattr(parent_agent, "session_id", None)
-        mark = getattr(store, "mark_session_data_hub", None)
-        if callable(mark) and session_id:
-            mark(session_id)
-    except Exception:
-        logger.debug("subagent: could not report a Data Hub result to the parent", exc_info=True)
-
-
 def _run_single_child(
     task_index: int,
     goal: str,
@@ -2457,12 +2435,6 @@ def _run_single_child(
             status = "completed"
         else:
             status = "failed"
-
-        # A child that read Data Hub hands its findings to the parent's
-        # transcript (the delegate_task result): the parent session holds them
-        # too. Its own session row reports up already; this covers a child
-        # that kept no transcript.
-        _report_data_hub_to_parent(result.get("messages"), parent_agent)
 
         # Build tool trace from conversation messages (already in memory).
         # Uses tool_call_id to correctly pair parallel tool calls with results.

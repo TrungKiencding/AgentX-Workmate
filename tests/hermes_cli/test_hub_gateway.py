@@ -34,7 +34,6 @@ from hermes_cli.hub_sync import (
     add_gateway_endpoint,
     gateway_entry,
     gateway_entry_name,
-    mark_data_client_entries,
     migrate_gateway_token_env,
 )
 from hermes_cli.web_server import app
@@ -44,9 +43,6 @@ DEVICE = "8f2b1c3d-0000-4000-8000-000000000001"
 SESSION = HubCredentials(bearer="id-token", device_id=DEVICE, device_name="Ada's laptop", source="mailbox")
 PERSONAL = HubCredentials(bearer="hub_personal", device_id=DEVICE, device_name="Ada's laptop", source="token")
 SETTINGS = HubSyncSettings(base_url=HUB, realtime=False)
-#: The headers of this build's gateway entries: this machine's token, and the Data Hub client contract (AgentHub
-#: docs/data-hub/agents.md §4a — without it the hub never serves agentx-data to this Workmate).
-ENTRY_HEADERS = {"Authorization": "Bearer ${AGENTX_HUB_GATEWAY_TOKEN}", "X-AgentX-Data-Client": "1"}
 ENDPOINTS = {"gateway": {"enabled": True, "url": f"{HUB}/gw"}, "endpoints": [
     {"kind": "server", "ref": "tracker", "label": "Tracker", "url": f"{HUB}/gw/s/tracker", "status": "ready", "tools": 4},
     {"kind": "toolset", "ref": "ts_abcdefghij", "label": "Dự án", "url": f"{HUB}/gw/t/ts_abcdefghij", "status": "needs_connection", "tools": 2},
@@ -148,7 +144,7 @@ def test_the_token_is_kept_in_env_its_expiry_beside_it_and_never_the_token_itsel
 
 def test_entries_send_the_token_by_reference_and_are_named_for_their_endpoint():
     entry = gateway_entry(ENDPOINTS["endpoints"][1])
-    assert entry == {"url": f"{HUB}/gw/t/ts_abcdefghij", "headers": ENTRY_HEADERS, "protocol": "auto", "enabled": True,
+    assert entry == {"url": f"{HUB}/gw/t/ts_abcdefghij", "headers": {"Authorization": "Bearer ${AGENTX_HUB_GATEWAY_TOKEN}"}, "protocol": "auto", "enabled": True,
                      "source": GATEWAY_SOURCE, "gateway": {"kind": "toolset", "ref": "ts_abcdefghij", "label": "Dự án"}}
     assert "hub" not in entry  # the tool-hash lock of a feed server: it would block every tool of the gateway
     assert gateway_entry_name("ts_abcdefghij") == "agentx-ts_abcdefghij" and gateway_entry_name("Tracker.Pro") == "agentx-tracker-pro"
@@ -306,7 +302,7 @@ def test_the_tab_lists_my_endpoints_and_adds_one_in_a_click(client, gateway):
     from hermes_cli import mcp_catalog
 
     raw = mcp_catalog.raw_servers()["agentx-ts_abcdefghij"]
-    assert raw["headers"] == ENTRY_HEADERS and raw["source"] == GATEWAY_SOURCE and raw["protocol"] == "auto"
+    assert raw["headers"] == {"Authorization": "Bearer ${AGENTX_HUB_GATEWAY_TOKEN}"} and raw["source"] == GATEWAY_SOURCE and raw["protocol"] == "auto"
     assert load_config()["mcp_servers"]["agentx-ts_abcdefghij"]["url"] == f"{HUB}/gw/t/ts_abcdefghij"
     # A second endpoint reuses the token (it has 90 days): one token for the machine. A server's is an install of it,
     # told to the hub (the hub's decision §9.1 #17); a toolset's is not.
@@ -441,7 +437,7 @@ def test_a_renewal_switches_off_an_entry_off_the_gateway_before_the_token_is_wri
     assert outcome.gateway["renewed"] is True and len(hub.issued) == 2
     assert written[-1] == ("hub_secret-2", False)  # switched off before the fresh token was written
     assert _enabled("agentx-tracker") is True and [r["name"] for r in outcome.gateway["refused"]] == ["agentx-leak"] and outcome.mcp_changed
-    assert mcp_catalog.raw_servers()["agentx-leak"]["headers"] == ENTRY_HEADERS  # never the token itself
+    assert mcp_catalog.raw_servers()["agentx-leak"]["headers"] == {"Authorization": "Bearer ${AGENTX_HUB_GATEWAY_TOKEN}"}  # never the token itself
     assert sync.changes()["history"][1]["slug"] == "mcp:agentx-leak"
 
 
@@ -478,9 +474,6 @@ OPENCLAW_TOKEN = "oc-gateway-7d2c1e9a4b3f5a60"
 #: The tracker's entry as this build writes it, and as the build before v38 wrote it.
 TRACKER = gateway_entry({"kind": "server", "ref": "tracker", "label": "Tracker", "url": f"{HUB}/gw/s/tracker"})
 LEGACY_TRACKER = {**TRACKER, "headers": {"Authorization": "Bearer ${AGENTX_GATEWAY_TOKEN}"}}
-#: The build before v38's entry once its token moved: the header of the Data Hub client contract is not the move's
-#: to add — the next tick's (:func:`mark_data_client_entries`).
-MOVED_TRACKER = {**TRACKER, "headers": {"Authorization": "Bearer ${AGENTX_HUB_GATEWAY_TOKEN}"}}
 #: A server of the person's own that reads the old key on purpose: never the gateway's to rewrite.
 RELAY = {"url": "https://relay.example.com/mcp", "headers": {"X-Relay-Token": "${AGENTX_GATEWAY_TOKEN}"}}
 
@@ -565,7 +558,7 @@ def test_the_hubs_token_moves_to_its_own_key_when_the_state_proves_it_and_the_en
     assert _env() == {GATEWAY_TOKEN_ENV: HUB_TOKEN}
     assert os.environ.get(GATEWAY_TOKEN_ENV) == HUB_TOKEN and LEGACY_GATEWAY_TOKEN_ENV not in os.environ
     # The entry is the one this build writes; the person's own server reads what it read.
-    assert _servers()["agentx-tracker"] == MOVED_TRACKER and _servers()["relay"] == RELAY
+    assert _servers()["agentx-tracker"] == TRACKER and _servers()["relay"] == RELAY
     assert held.status(1)["state"] == "ok" and not held.needs_rotation()  # the same token: nothing to renew
     # Nothing left to move, nothing touched again.
     assert migrate_gateway_token_env(held) == {"entries": [], "moved": False, "expired": False}
@@ -581,7 +574,7 @@ def test_a_value_that_is_not_the_hubs_token_stays_where_it_is_and_no_entry_sends
     assert held.status(1)["state"] == "ok"  # what the tab said until now
     assert migrate_gateway_token_env(held) == {"entries": ["agentx-tracker"], "moved": False, "expired": True}
     assert _env() == {LEGACY_GATEWAY_TOKEN_ENV: OPENCLAW_TOKEN}
-    assert _servers()["agentx-tracker"] == MOVED_TRACKER and _servers()["relay"] == RELAY
+    assert _servers()["agentx-tracker"] == TRACKER and _servers()["relay"] == RELAY
     assert held.status(1)["state"] == "expired" and held.needs_rotation()
     assert migrate_gateway_token_env(held) == {"entries": [], "moved": False, "expired": False}  # said once
 
@@ -607,7 +600,7 @@ def test_a_move_cut_short_is_finished_by_the_next_one(tmp_path, cut):
         assert _save_mcp_server("agentx-tracker", dict(TRACKER))
     renamed = ["agentx-tracker"] if cut == "after-the-new-key" else []
     assert migrate_gateway_token_env(held) == {"entries": renamed, "moved": True, "expired": False}
-    assert _env() == {GATEWAY_TOKEN_ENV: HUB_TOKEN} and _servers()["agentx-tracker"] == (MOVED_TRACKER if cut == "after-the-new-key" else TRACKER)
+    assert _env() == {GATEWAY_TOKEN_ENV: HUB_TOKEN} and _servers()["agentx-tracker"] == TRACKER
 
 
 @pytest.mark.parametrize("legacy_value", [HUB_TOKEN, OPENCLAW_TOKEN], ids=["hub-token", "openclaw-token"])
@@ -645,8 +638,7 @@ def test_adding_an_endpoint_where_the_build_before_v38_left_its_token_moves_it_f
     assert added.status_code == 200 and added.json()["ok"] is True, added.text
     assert gateway.issued == [] and _env() == {GATEWAY_TOKEN_ENV: HUB_TOKEN}  # the token it had, under its own key
     reads = {name: cfg["headers"] for name, cfg in _servers().items() if cfg.get("source") == GATEWAY_SOURCE}
-    # The new entry says the Data Hub client contract; the moved one does at the next tick (mark_data_client_entries).
-    assert reads == {"agentx-tracker": MOVED_TRACKER["headers"], "agentx-ts_abcdefghij": ENTRY_HEADERS}
+    assert reads == {name: {"Authorization": "Bearer ${AGENTX_HUB_GATEWAY_TOKEN}"} for name in ("agentx-tracker", "agentx-ts_abcdefghij")}
 
 
 def _run_ladder(current_ver: int) -> dict:
@@ -702,7 +694,7 @@ class TestConfigV38:
         migrate_config(interactive=False, quiet=True)
         current, latest = check_config_version()
         assert current == latest >= 38 and _env() == {GATEWAY_TOKEN_ENV: HUB_TOKEN}
-        assert _servers()["agentx-tracker"] == MOVED_TRACKER and _servers()["relay"] == RELAY
+        assert _servers()["agentx-tracker"] == TRACKER and _servers()["relay"] == RELAY
 
     def test_is_registered_in_the_ladder(self):
         from hermes_cli.config import check_config_version
@@ -710,34 +702,3 @@ class TestConfigV38:
 
         targets = [target for target, _ in MIGRATIONS]
         assert 38 in targets and targets == sorted(targets) and check_config_version()[1] >= 38
-
-
-def test_an_entry_an_older_build_wrote_says_the_data_hub_client_contract_once(tmp_path):
-    """An entry from before the Data Hub client contract gains the header on the next tick (and only it: a server
-    of the person's own is never the gateway's to rewrite); a second tick finds nothing to do."""
-    from hermes_cli.mcp_config import _save_mcp_server
-
-    held = _left_before_v38(tmp_path / "gateway.json")
-    assert migrate_gateway_token_env(held)["moved"]
-    assert _servers()["agentx-tracker"] == MOVED_TRACKER
-    assert _save_mcp_server("agentx-data", {**gateway_entry({"kind": "server", "ref": "agentx-data", "url": f"{HUB}/gw/s/agentx-data"}),
-                                             "headers": {"Authorization": "Bearer ${AGENTX_HUB_GATEWAY_TOKEN}"}})
-    assert sorted(mark_data_client_entries()) == ["agentx-data", "agentx-tracker"]
-    assert _servers()["agentx-tracker"] == TRACKER and _servers()["agentx-data"]["headers"] == ENTRY_HEADERS
-    assert _servers()["relay"] == RELAY
-    assert mark_data_client_entries() == []
-
-
-def test_the_tick_says_it_for_the_entries_and_the_desktop_reloads_them(tmp_path):
-    from hermes_cli.mcp_config import _save_mcp_server
-
-    hub = FakeHub()
-    held = _left_before_v38(tmp_path / "gateway.json", None, state={"token_id": "0b1d6a4e-token", "prefix": HUB_TOKEN[:12],
-                                                                     "expires_at": _in(80), "device_id": DEVICE, "gateway_url": f"{HUB}/gw",
-                                                                     "issued_at": _in(-10)})
-    assert _save_mcp_server("agentx-tracker", dict(MOVED_TRACKER))
-    sync = HubSyncEngine(credentials=lambda: SESSION, settings=SETTINGS, client=hub, installer=_NoSkills(), mcp_installer=_NoMcp(), gateway=held)
-    outcome = sync.tick()
-    assert outcome.ok and outcome.gateway["renamed"] == ["agentx-tracker"] and outcome.mcp_changed
-    assert _servers()["agentx-tracker"] == TRACKER
-

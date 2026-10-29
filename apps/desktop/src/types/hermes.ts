@@ -595,8 +595,6 @@ export interface SessionMessage {
 }
 
 export interface SessionMessagesResponse {
-  /** The session holds a Data Hub result (the store's sticky flag): it is never exported. */
-  data_hub?: boolean
   messages: SessionMessage[]
   session_id: string
 }

@@ -297,21 +297,17 @@ def _merge_mcp_into_per_job_toolsets(per_job: list[str], cfg: dict) -> list[str]
       * one or more MCP server names already listed -> treat as an allowlist,
         add nothing further (the user named exactly the servers they want)
       * otherwise -> union in every globally-enabled MCP server
-
-    A Data Hub server never joins a cron job, even when the job names it: its
-    passages may only be read in the owner's own Workmate.
     """
+    result = [t for t in per_job if t != "no_mcp"]
+    if "no_mcp" in per_job:
+        return result
     # lazy import: avoid heavy hermes_cli import at cron module load (matches
     # _resolve_cron_enabled_toolsets' fallback) and share one MCP-membership
     # computation with the gateway/CLI platform resolver.
-    from hermes_cli.tools_config import data_hub_toolset_names, enabled_mcp_server_names
-    data_hub = data_hub_toolset_names(cfg)
-    result = [t for t in per_job if t != "no_mcp" and t not in data_hub]
-    if "no_mcp" in per_job:
+    from hermes_cli.tools_config import enabled_mcp_server_names
+    enabled_mcp = enabled_mcp_server_names(cfg)
+    if set(result) & enabled_mcp:
         return result
-    if set(per_job) & (enabled_mcp_server_names(cfg) | data_hub):
-        return result
-    enabled_mcp = enabled_mcp_server_names(cfg, platform="cron")
     for name in sorted(enabled_mcp):
         if name not in result:
             result.append(name)

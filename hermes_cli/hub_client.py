@@ -7,7 +7,7 @@ hub must keep working with the skills it already holds — an outage is never
 a revocation — and callers can only honour that if the client tells them
 which failure they are looking at.
 
-Three headers travel on every request:
+Two headers travel on every request:
 
 ``Authorization``      the person's Keycloak bearer (the ID token the desktop
                        signed in with), or a personal hub token (``hub_…``)
@@ -18,10 +18,6 @@ Three headers travel on every request:
                        keys service gets (``device.json`` / Electron's
                        ``device-id.ts``), so an Install clicked on the web for
                        "máy A" reaches máy A and the web can say it landed.
-``X-AgentX-Data-Client``  the Data Hub client contract this Workmate keeps
-                       (sources, sessions holding Data Hub results kept from
-                       export — AgentHub ``docs/data-hub/agents.md`` §4a): the
-                       hub serves ``agentx-data`` to a Workmate that says so.
 
 Read-only helpers for the catalog live in ``tools/skills_hub.py``
 (``AgentXHubSource``); this module is the *account* side: desired installs,
@@ -43,10 +39,6 @@ _RETRY_DELAY_SECONDS = 0.75
 
 DEVICE_ID_HEADER = "X-AgentX-Device"
 DEVICE_NAME_HEADER = "X-AgentX-Device-Name"
-#: The Data Hub client contract this Workmate keeps (AgentHub ``docs/data-hub/agents.md`` §4a, Data Hub plan §9.1 #21):
-#: sent to the hub and in every gateway entry, so ``agentx-data`` reaches it — and never an older Workmate.
-DATA_CLIENT_HEADER = "X-AgentX-Data-Client"
-DATA_CLIENT_CONTRACT = "1"
 PRODUCT = "workmate"
 #: The code of the refusal to send anything to a hub not reached over https
 #: (``tools/hub_trust.py``): this machine's refusal, not an outage.
@@ -137,8 +129,7 @@ class HubClient:
 
     @staticmethod
     def headers(bearer: str, device_id: str = "", device_name: str = "") -> Dict[str, str]:
-        headers = {"Authorization": f"Bearer {bearer}", "Accept": "application/json", "User-Agent": "agentx-workmate-hub-client",
-                   DATA_CLIENT_HEADER: DATA_CLIENT_CONTRACT}
+        headers = {"Authorization": f"Bearer {bearer}", "Accept": "application/json", "User-Agent": "agentx-workmate-hub-client"}
         if device_id:
             headers[DEVICE_ID_HEADER] = device_id
         if device_name:

@@ -4096,30 +4096,6 @@ export const zh: Translations = {
         moreItems: n => `… 还有 ${n} 项`,
         moreFields: n => `… 还有 ${n} 个字段`
       },
-      dataHub: {
-        sources: '来源',
-        sourceCount: count => `${count} 个来源`,
-        noEvidence: '数据中未找到',
-        knowledgeBaseCount: count => `${count} 个知识库`,
-        untitled: '无标题文档',
-        open: '打开',
-        openSource: title => `在浏览器中打开“${title}”`,
-        location: {
-          page: (page, end) => (end ? `第 ${page}–${end} 页` : `第 ${page} 页`),
-          slide: slide => `第 ${slide} 张幻灯片`,
-          sheet: (sheet, rows) => (rows ? `工作表 ${sheet} · 第 ${rows} 行` : `工作表 ${sheet}`),
-          section: path => `章节 ${path}`,
-          message: (author, date) => ['消息', author, date].filter(Boolean).join(' · '),
-          none: '无详细位置'
-        },
-        version: version => `版本 ${version}`,
-        updated: date => `更新于 ${date}`,
-        flags: {
-          instruction_like: '类似指令',
-          ocr_low_confidence: '文字识别不确定',
-          truncated: '已截断'
-        }
-      },
       truncatedNotice: omitted => `… 已截断 ${omitted} 个字符 — 使用“复制”获取完整输出。`,
       payload: {
         toggle: '工具原始数据',
@@ -4266,7 +4242,6 @@ export const zh: Translations = {
     modelSwitchFailed: '模型切换失败',
     sessionExported: '对话已导出',
     sessionExportFailed: '无法导出对话',
-    sessionExportDataHubBlocked: '此对话包含 Data Hub 结果，只能在 Workmate 中阅读，因此无法导出。',
     imageSaved: '图片已保存',
     downloadStarted: '下载已开始',
     restartToUseSaveImage: '重启 AgentX 桌面版后可使用保存图片。',

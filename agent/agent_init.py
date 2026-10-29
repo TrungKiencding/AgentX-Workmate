@@ -531,7 +531,6 @@ def init_agent(
     checkpoint_max_file_size_mb: int = 10,
     pass_session_id: bool = False,
     requested_provider: str = None,
-    delegated_from_platform: str = None,
 ):
     """
     Initialize the AI Agent.
@@ -574,9 +573,6 @@ def init_agent(
             output_config.format instead of a trailing-assistant prefill.
         platform (str): The interface platform the user is on (e.g. "cli", "telegram", "discord", "whatsapp").
             Used to inject platform-specific formatting hints into the system prompt.
-        delegated_from_platform (str): For a delegate_task child (``platform="subagent"``), the
-            platform its parent session acts on — a subagent of the owner's desktop/TUI/CLI
-            session keeps the Data Hub tools, any other (or an unknown parent) does not.
         skip_context_files (bool): If True, skip auto-injection of project context files
             (SOUL.md, .agentx.md, AGENTS.md, CLAUDE.md, .cursorrules) from the cwd / AGENTX_HOME
             into the system prompt. Use this for batch processing and data generation to avoid
@@ -840,20 +836,7 @@ def init_agent(
     agent.provider_data_collection = provider_data_collection
     agent.openrouter_min_coding_score = openrouter_min_coding_score
 
-    # Store toolset filtering options. A Data Hub server's tools stay on the
-    # owner's own desktop/TUI/CLI: any other session (messaging platform, API,
-    # cron — also one built with every toolset) has its toolsets disabled, and
-    # every later assembly of this session's tools honours that.
-    # A delegate_task child acts for its parent's person and machine, so it
-    # answers to the parent's platform here (unknown parent: blocked). A
-    # Kanban worker runs as `agentx chat` (platform cli) but its summaries go
-    # back to the board's chats: it answers to "kanban", which is not allowed.
-    from hermes_cli.tools_config import data_hub_disabled_toolsets
-
-    agent._data_hub_platform = delegated_from_platform if platform == "subagent" else platform
-    if platform != "subagent" and os.environ.get("AGENTX_KANBAN_TASK"):
-        agent._data_hub_platform = "kanban"
-    disabled_toolsets = data_hub_disabled_toolsets(disabled_toolsets, agent._data_hub_platform)
+    # Store toolset filtering options
     agent.enabled_toolsets = enabled_toolsets
     agent.disabled_toolsets = disabled_toolsets
     
@@ -1485,9 +1468,6 @@ def init_agent(
         disabled_toolsets=disabled_toolsets,
         quiet_mode=agent.quiet_mode,
     )
-    from hermes_cli.tools_config import drop_data_hub_tools
-
-    agent.tools = drop_data_hub_tools(agent.tools, agent._data_hub_platform)
     
     # Show tool configuration and store valid tool names for validation
     agent.valid_tool_names = set()

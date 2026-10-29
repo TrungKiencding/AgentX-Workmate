@@ -1419,12 +1419,6 @@ def _sessions_export(_engine: HermesConsoleEngine, args: list[str]) -> str:
     ns = parser.parse_args(args)
 
     def _run() -> None:
-        from hermes_cli.session_export import (
-            data_hub_export_refusal,
-            data_hub_export_skipped,
-            partition_exportable_sessions,
-            session_has_data_hub_result,
-        )
         from hermes_state import SessionDB
 
         db = SessionDB()
@@ -1436,13 +1430,9 @@ def _sessions_export(_engine: HermesConsoleEngine, args: list[str]) -> str:
                 data = db.export_session(resolved_session_id)
                 if not data:
                     raise ConsoleCommandError(f"Session '{ns.session_id}' not found.")
-                if session_has_data_hub_result(data):
-                    raise ConsoleCommandError(data_hub_export_refusal())
                 rows = [data]
             else:
-                rows, left_out = partition_exportable_sessions(db.export_all(source=ns.source))
-                if left_out:
-                    print(data_hub_export_skipped(left_out), file=sys.stderr)
+                rows = db.export_all(source=ns.source)
 
             lines = [json.dumps(row, ensure_ascii=False) for row in rows]
             text = "\n".join(lines)

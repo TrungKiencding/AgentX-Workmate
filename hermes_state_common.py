@@ -317,9 +317,6 @@ CREATE TABLE IF NOT EXISTS sessions (
     archived INTEGER NOT NULL DEFAULT 0,
     pinned INTEGER NOT NULL DEFAULT 0,
     last_read_at REAL,
-    -- Sticky: the session holds a Data Hub result (or reported one up from a
-    -- subagent, or continues one that does) — it is never exported.
-    data_hub INTEGER NOT NULL DEFAULT 0,
     -- Last synced edit, stamped by the retired conversation sync (v26). Kept
     -- because existing rows hold it; nothing writes it any more.
     updated_at REAL,
