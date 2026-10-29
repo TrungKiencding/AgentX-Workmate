@@ -36,19 +36,16 @@ import type { ChatBarState, VoiceStatus } from './types'
 export const ICON_BTN = 'size-(--composer-control-size) shrink-0'
 export const GHOST_ICON_BTN = cn(
   ICON_BTN,
-  'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground'
+  'text-(--icon-muted) hover:bg-(--bg-hover) hover:text-(--text-primary)'
 )
-// Send/voice-conversation primary: the ONE accent-filled control in the row.
-// primary/primary-foreground (the contrast-gated pair every skin ships) rather
-// than raw foreground-on-background, so the CTA carries the theme's accent —
-// the same thread as the focus ring, the composer ring, and the voice pill's
-// End button, which already wore bg-primary. Disabled drops to the quiet
-// secondary fill instead of a ghost of the accent: grey reads "not ready",
-// faded blue reads "broken".
+// Send (spec §5.7): a 28px circle on --bg-inverse once there is something to
+// send — the one filled control in the row, and never the accent. Empty, it is
+// a bare muted glyph and disabled. While a turn runs the same circle becomes
+// Stop (■) in the same place.
 export const PRIMARY_ICON_BTN = cn(
   'size-(--composer-control-primary-size,var(--composer-control-size)) shrink-0 rounded-full p-0',
-  'bg-primary text-primary-foreground hover:bg-primary/90',
-  'disabled:bg-(--ui-bg-quaternary) disabled:text-(--ui-text-tertiary) disabled:opacity-100'
+  'bg-(--bg-inverse) text-(--text-inverse) hover:opacity-88',
+  'disabled:bg-transparent disabled:text-(--icon-muted) disabled:opacity-100'
 )
 
 interface ConversationProps {

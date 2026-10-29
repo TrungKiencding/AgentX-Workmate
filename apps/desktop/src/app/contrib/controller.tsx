@@ -49,13 +49,14 @@ import {
   $fileBrowserOpen,
   $panesFlipped,
   $sidebarOpen,
+  defaultSidebarWidth,
   FILE_BROWSER_DEFAULT_WIDTH,
   FILE_BROWSER_MAX_WIDTH,
   FILE_BROWSER_MIN_WIDTH,
   setFileBrowserOpen,
   setSidebarOpen,
-  SIDEBAR_DEFAULT_WIDTH,
-  SIDEBAR_MAX_WIDTH
+  SIDEBAR_MAX_WIDTH,
+  SIDEBAR_MIN_WIDTH
 } from '@/store/layout'
 import { $previewOpenRequest, $previewTabs, closeRightRail } from '@/store/preview'
 import { runExportProfileFlow, runImportProfileFlow } from '@/store/profile-share'
@@ -151,8 +152,8 @@ registry.registerMany([
       collapsible: true,
       dock: { pane: 'workspace', pos: 'left' },
       revealAliases: ['chat-sidebar'],
-      width: `${SIDEBAR_DEFAULT_WIDTH}px`,
-      minWidth: `${SIDEBAR_DEFAULT_WIDTH}px`,
+      width: `${defaultSidebarWidth()}px`,
+      minWidth: `${SIDEBAR_MIN_WIDTH}px`,
       maxWidth: `${SIDEBAR_MAX_WIDTH}px`
     },
     render: () => <WiredPane part="sidebar" />

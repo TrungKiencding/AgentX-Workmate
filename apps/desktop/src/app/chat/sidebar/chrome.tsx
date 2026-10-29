@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils'
 
 /** The muted slot beside a section label (loading glyph, status hint). */
 export function SidebarSectionMeta({ children }: { children: React.ReactNode }) {
-  return <span className="shrink-0 text-xs font-medium text-(--ui-text-quaternary)">{children}</span>
+  return <span className="shrink-0 text-xs text-(--text-tertiary)">{children}</span>
 }
 
 // ── Row geometry (session row is canonical — everything composes these) ─────
@@ -20,37 +20,36 @@ export function SidebarSectionMeta({ children }: { children: React.ReactNode }) 
 // on the shell grid, or short clusters (projects) float 1–2px off sessions.
 
 const rowMinH = 'min-h-(--sidebar-row-height)'
-const rowPadX = 'pl-2 pr-1'
+const rowPadX = 'pl-3 pr-1'
 const rowGap = 'gap-1.5'
 const rowLead = 'grid size-3.5 shrink-0 place-items-center'
 const rowInset = cn(rowPadX, rowGap, 'flex h-full min-w-0 items-center self-stretch py-0.5')
-// A conversation title reads at 14px — the row is a list of conversations,
-// not a file tree, so it takes the content size rather than the chrome size.
-const rowLabel = 'min-w-0 truncate text-base leading-none text-(--ui-text-secondary)'
+// A conversation title reads at text-body (14px, spec §5.1) in primary ink —
+// the row is a list of conversations, not a file tree.
+const rowLabel = 'min-w-0 truncate text-base leading-5 text-(--text-primary)'
 
 /** Codicon size in sidebar row leads — matches the file tree (`tree.tsx`). */
 export const SIDEBAR_LEAD_ICON_SIZE = '0.875rem' as const
 
-/** Vertical stack of rows (gap-px, single column). */
+/** Vertical stack of rows (2px apart — spec §3.7, single column). */
 export function SidebarRowStack({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('grid grid-cols-[minmax(0,1fr)] gap-px', className)} {...props} />
+  return <div className={cn('grid grid-cols-[minmax(0,1fr)] gap-0.5', className)} {...props} />
 }
 
-/** Nested rows (session previews, worktree bodies). */
+/** Nested rows (session previews, worktree bodies) — indented 12px (spec §5.2). */
 export function SidebarRowNest({ className, ...props }: React.ComponentProps<'div'>) {
-  return <SidebarRowStack className={cn('pb-1 pl-4', className)} {...props} />
+  return <SidebarRowStack className={cn('pb-1 pl-3', className)} {...props} />
 }
 
 /**
- * Chronological date-bucket separator ("Yesterday" / "Last week" / "June") for
- * the session list. One flat row — a small caption plus a hairline rule — so it
- * groups sessions by recency without adding a level of indentation.
+ * Chronological date-bucket heading ("Hôm qua" / "7 ngày qua" / "Tháng 6") for
+ * the session list (spec §5.2): a 13px group title in secondary ink, its own
+ * casing — whitespace separates the groups, not a rule.
  */
 export function SidebarDateDivider({ className, label, ...props }: React.ComponentProps<'div'> & { label: string }) {
   return (
-    <div className={cn('flex select-none items-center gap-2 px-2 pb-0.5 pt-2', className)} {...props}>
-      <span className="shrink-0 text-xs font-semibold text-(--ui-text-tertiary)">{label}</span>
-      <span aria-hidden="true" className="h-px flex-1 bg-(--ui-stroke-tertiary)" />
+    <div className={cn('flex h-8 select-none items-end px-3 pb-1.5', className)} {...props}>
+      <span className="truncate text-sm text-(--text-secondary)">{label}</span>
     </div>
   )
 }
@@ -63,7 +62,10 @@ export function SidebarRowShell({
   ...props
 }: React.ComponentProps<'div'> & { actions?: React.ReactNode }) {
   return (
-    <div className={cn(rowMinH, 'grid grid-cols-[minmax(0,1fr)_auto] items-stretch rounded-md', className)} {...props}>
+    <div
+      className={cn(rowMinH, 'grid grid-cols-[minmax(0,1fr)_auto] items-stretch rounded-(--radius-control)', className)}
+      {...props}
+    >
       {children}
       {actions ? <div className="flex shrink-0 items-center self-center">{actions}</div> : null}
     </div>

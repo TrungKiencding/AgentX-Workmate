@@ -2573,6 +2573,12 @@ export const en: Translations = {
       messaging: 'Message channels',
       artifacts: 'Artifacts'
     },
+    account: {
+      menuLabel: 'Account menu',
+      accountSettings: 'Account',
+      settings: 'Settings',
+      shortcuts: 'Keyboard shortcuts'
+    },
     searchAria: 'Search chats',
     searchPlaceholder: 'Search chats…',
     clearSearch: 'Clear search',

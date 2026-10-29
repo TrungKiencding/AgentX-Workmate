@@ -2818,6 +2818,12 @@ export const vi: Translations = {
       messaging: 'Kênh tin nhắn',
       artifacts: 'Artifact'
     },
+    account: {
+      menuLabel: 'Menu tài khoản',
+      accountSettings: 'Tài khoản',
+      settings: 'Cài đặt',
+      shortcuts: 'Phím tắt'
+    },
     searchAria: 'Tìm trong các cuộc trò chuyện',
     searchPlaceholder: 'Tìm cuộc trò chuyện…',
     clearSearch: 'Xoá từ khoá',
@@ -3073,7 +3079,7 @@ export const vi: Translations = {
     tipPost: ' để nhắc tới tệp ngay trong câu.',
     snippetsTitle: 'Mẫu prompt',
     snippetsDesc: 'Chọn một prompt khởi đầu để chèn vào khung soạn.',
-    dropFiles: 'Thả tệp vào đây để đính kèm',
+    dropFiles: 'Thả để đính kèm',
     dropSession: 'Thả vào đây để liên kết cuộc trò chuyện này',
     snippets: {
       codeReview: {

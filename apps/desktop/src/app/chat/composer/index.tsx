@@ -1053,19 +1053,13 @@ export function ChatBar({
           aria-hidden
           // `absolute`, not `fixed`: anchor to the chat-column root (the same
           // `relative isolate` container the docked composer centers in) so the
-          // glow spans the thread area only — never the full viewport / under the
-          // sidebar. The dock target IS the docked position, so they must share
-          // a containing block.
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-20 h-32"
-          style={{
-            // A bottom-centered radial glow — soft on every side by construction,
-            // so it reads as the dock target without any hard band edges. Its
-            // intensity tracks how close the composer is to the dock (1 = peak).
-            background:
-              'radial-gradient(64% 130% at 50% 100%, color-mix(in srgb, var(--color-primary) 26%, transparent) 0%, transparent 70%)',
-            // Scaled by --dock-glow-scale (lower in light mode — see styles.css).
-            opacity: `calc(${0.1 + dockProximity * 0.57} * var(--dock-glow-scale, 1))`
-          }}
+          // target spans the thread area only — never the full viewport / under
+          // the sidebar. The dock target IS the docked position, so they must
+          // share a containing block. The drop zone (spec §6.6): --bg-subtle
+          // under a 2px dashed --border-strong edge, firming as the composer
+          // nears the dock (1 = peak).
+          className="pointer-events-none absolute inset-x-4 bottom-2 z-20 h-24 rounded-xl border-2 border-dashed border-(--border-strong) bg-(--bg-subtle)"
+          style={{ opacity: 0.25 + dockProximity * 0.75 }}
         />
       )}
       <ComposerPrimitive.Unstable_TriggerPopoverRoot>
@@ -1151,7 +1145,7 @@ export function ChatBar({
           />
           <ComposerPrimitive.Root
             className={cn(
-              'group/composer relative w-full overflow-visible rounded-2xl',
+              'group/composer relative w-full overflow-visible rounded-xl',
               poppedOut && 'bg-transparent',
               dragging && 'cursor-grabbing select-none touch-none'
             )}
@@ -1211,7 +1205,7 @@ export function ChatBar({
             <div className="relative w-full rounded-[inherit]">
               <div
                 className={cn(
-                  'group/composer-surface relative z-4 isolate grid grid-rows-[auto_1fr] overflow-hidden rounded-[inherit] border border-[color-mix(in_srgb,var(--dt-composer-ring)_calc(18%*var(--composer-ring-strength)),var(--dt-input))]',
+                  'group/composer-surface relative z-4 isolate grid grid-rows-[auto_1fr] overflow-hidden rounded-[inherit] border',
                   COMPOSER_DROP_FADE_CLASS,
                   dragActive && COMPOSER_DROP_ACTIVE_CLASS
                 )}

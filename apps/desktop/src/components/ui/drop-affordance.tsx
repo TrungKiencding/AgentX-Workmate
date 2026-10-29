@@ -1,11 +1,7 @@
 /**
- * Shared drag-and-drop visual language — ONE dashed accent sheet, used by every
- * drop affordance (the composer file/session overlay, the layout zone targets)
- * so "you can drop here" reads identically everywhere.
+ * Shared drag-and-drop visual language (spec §6.6 / §7 "Drag-over") — ONE
+ * dashed sheet, used by every drop affordance (the composer file/session
+ * overlay, the layout zone targets) so "you can drop here" reads identically
+ * everywhere: a 2px dashed --border-strong edge on --bg-subtle. Flat — no blur.
  */
-
-/** The sheet: a dashed region marking where a drop would land. */
-export const DROP_SHEET_CLASS = 'rounded-2xl border-2 border-dashed'
-
-/** Soft blur for the LIVE sheet only — idle outlines must not fog the app. */
-export const DROP_SHEET_BLUR_CLASS = 'backdrop-blur-[2px] [-webkit-backdrop-filter:blur(2px)]'
+export const DROP_SHEET_CLASS = 'rounded-xl border-2 border-dashed border-(--border-strong) bg-(--bg-subtle)'

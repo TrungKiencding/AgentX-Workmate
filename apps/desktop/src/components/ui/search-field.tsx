@@ -96,13 +96,13 @@ export function SearchField({
       aria-label={ariaLabel ?? placeholder}
       className={cn(
         field
-          ? 'h-full min-w-0 flex-1 bg-transparent text-base text-(--ui-text-primary) placeholder:text-(--ui-text-tertiary) focus:outline-none'
+          ? 'h-full min-w-0 flex-1 bg-transparent text-base text-(--text-primary) placeholder:text-(--text-secondary) focus:outline-none'
           : // `field-sizing: content` grows the input to fit the placeholder/typed
             // text; min-w-0 lets it shrink back below content size when the
             // context is narrower — long queries scroll inside the field.
             // text-sm + --control-h-sm match the form controls (Input/Select via
             // controlVariants) while the field keeps its borderless language.
-            'h-(--control-h-sm) min-w-0 max-w-full bg-transparent text-sm text-foreground [field-sizing:content] placeholder:text-muted-foreground focus:outline-none',
+            'h-(--control-h-sm) min-w-0 max-w-full bg-transparent text-sm text-(--text-primary) [field-sizing:content] placeholder:text-(--text-tertiary) focus:outline-none',
         inputClassName
       )}
       onChange={event => onChange(event.target.value)}
@@ -121,7 +121,7 @@ export function SearchField({
       {loading ? (
         <Loader2
           className={cn(
-            'pointer-events-none shrink-0 animate-spin text-muted-foreground/70',
+            'pointer-events-none shrink-0 animate-spin text-(--text-tertiary)',
             field ? 'mr-1 size-4' : 'size-3.5'
           )}
         />
@@ -129,7 +129,7 @@ export function SearchField({
         <Tip label={t.ui.search.clear}>
           <Button
             aria-label={t.ui.search.clear}
-            className="shrink-0 text-muted-foreground/85 hover:bg-accent/60 hover:text-foreground"
+            className="shrink-0 text-(--icon-muted) hover:text-(--text-primary)"
             onClick={clear}
             size="icon-xs"
             variant="ghost"
@@ -146,20 +146,20 @@ export function SearchField({
   if (field) {
     // A <label>, so the whole well is the target: a click on the glyph or the
     // padding lands in the input, while the clear button — interactive
-    // content — keeps its own click. Border, recess, hover and the focus
-    // outline come from the shared `desktop-input-chrome`, so the well wears
-    // the look of every other text field in the app; the one addition is the
-    // dark-mode fill in styles.css (`[data-slot='search-field']`).
+    // content — keeps its own click. It sits in the sidebar's navigation band
+    // as one of its rows (spec §4.1 "⌕ Tìm kiếm"): the nav row's 32px height,
+    // 12px padding, 18px glyph and hover fill. Focused, it becomes a field —
+    // the page colour under a --border-strong edge.
     return (
       <label
         className={cn(
-          'desktop-input-chrome group/search flex h-(--control-h-lg) w-full min-w-0 cursor-text items-center gap-2.5 rounded-(--radius-control) border pl-2.5 pr-1.5',
+          'group/search flex h-(--sidebar-nav-row-height) w-full min-w-0 cursor-text items-center gap-2.5 rounded-(--radius-control) pl-3 pr-1 transition-colors duration-(--dur-micro) hover:bg-(--bg-hover) focus-within:bg-(--bg-app) focus-within:shadow-[inset_0_0_0_1px_var(--border-strong)]',
           containerClassName
         )}
         data-slot="search-field"
         data-variant="field"
       >
-        <Search className="pointer-events-none size-4 shrink-0 text-(--ui-text-tertiary) group-focus-within/search:text-(--ui-text-secondary)" />
+        <Search className="pointer-events-none size-4.5 shrink-0 text-(--icon-default)" />
         {inputElement}
         {trailing}
       </label>
@@ -180,7 +180,7 @@ export function SearchField({
       data-slot="search-field"
       data-variant="inline"
     >
-      <Search className="pointer-events-none size-3.5 shrink-0 text-muted-foreground/70" />
+      <Search className="pointer-events-none size-4 shrink-0 text-(--icon-muted)" />
       {inputElement}
       {trailing}
     </div>

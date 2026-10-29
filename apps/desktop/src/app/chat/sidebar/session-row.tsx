@@ -165,7 +165,7 @@ function SidebarSessionRowImpl({
         // bar on the leading edge (drawn in the row's own padding, so it
         // costs no layout and never nudges the label).
         isSelected &&
-          'bg-(--ui-row-active-background) before:absolute before:inset-y-1 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""]',
+          'bg-(--bg-selected)',
         isWorking && 'text-foreground',
         // Opaque surface while lifted so the dragged row erases what's under
         // it (translucency let the rows below bleed through).

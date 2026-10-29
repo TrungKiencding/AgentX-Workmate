@@ -55,29 +55,30 @@ function SidebarSectionHeader({
   const labelBody = (
     <>
       {icon}
-      <SidebarPanelLabel>{label}</SidebarPanelLabel>
+      <SidebarPanelLabel className="pl-0">{label}</SidebarPanelLabel>
       {meta && <SidebarSectionMeta>{meta}</SidebarSectionMeta>}
     </>
   )
 
+  // Group header (spec §5.2): a 32px row whose whole width toggles the group,
+  // the ▸ on the LEFT of the title (it turns 90° when open), the title in
+  // secondary ink. Trailing actions sit outside the toggle.
   return (
-    <div className="group/section flex shrink-0 items-center justify-between gap-1 pb-1 pt-1.5">
+    <div className="group/section flex h-8 shrink-0 items-center justify-between gap-1">
       {collapsible ? (
         <button
+          aria-expanded={open}
           // min-w-0 lets the label truncate at narrow sidebar widths instead of
           // pushing the header's trailing action icons out of view.
-          className="group/section-label -my-1.5 flex w-fit min-w-0 items-center gap-1 bg-transparent py-1.5 text-left leading-none"
+          className="flex h-full min-w-0 flex-1 cursor-pointer items-center gap-1.5 rounded-(--radius-control) bg-transparent pl-2 pr-1 text-left transition-colors duration-(--dur-micro) hover:bg-(--bg-hover)"
           onClick={onToggle}
           type="button"
         >
+          <DisclosureCaret className="text-(--icon-muted)" open={open} />
           {labelBody}
-          <DisclosureCaret
-            className="text-(--ui-text-tertiary) opacity-0 transition group-hover/section-label:opacity-100"
-            open={open}
-          />
         </button>
       ) : (
-        <div className="flex w-fit min-w-0 items-center gap-1 leading-none">{labelBody}</div>
+        <div className="flex min-w-0 items-center gap-1.5 pl-3">{labelBody}</div>
       )}
       {action}
     </div>

@@ -2662,6 +2662,12 @@ export const zh: Translations = {
       messaging: '消息平台',
       artifacts: '产物'
     },
+    account: {
+      menuLabel: '账户菜单',
+      accountSettings: '账户',
+      settings: '设置',
+      shortcuts: '键盘快捷键'
+    },
     searchAria: '搜索对话',
     searchPlaceholder: '搜索对话…',
     clearSearch: '清除搜索',

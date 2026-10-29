@@ -2160,6 +2160,12 @@ export interface Translations {
 
   sidebar: {
     nav: Record<string, string>
+    account: {
+      menuLabel: string
+      accountSettings: string
+      settings: string
+      shortcuts: string
+    }
     searchAria: string
     searchPlaceholder: string
     clearSearch: string

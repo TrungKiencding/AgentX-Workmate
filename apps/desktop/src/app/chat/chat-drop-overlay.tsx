@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 
 import type { DragKind } from '@/app/chat/hooks/use-file-drop-zone'
-import { DROP_SHEET_BLUR_CLASS, DROP_SHEET_CLASS } from '@/components/ui/drop-affordance'
+import { DROP_SHEET_CLASS } from '@/components/ui/drop-affordance'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 
@@ -32,14 +32,10 @@ export function ChatDropOverlay({ kind }: { kind: DragKind }) {
       data-slot="chat-drop-overlay"
     >
       <div
-        className={cn(
-          DROP_SHEET_CLASS,
-          DROP_SHEET_BLUR_CLASS,
-          'absolute inset-2 border-[color-mix(in_srgb,var(--dt-composer-ring)_55%,transparent)] bg-[color-mix(in_srgb,var(--dt-card)_55%,transparent)]'
-        )}
+        className={cn(DROP_SHEET_CLASS, 'absolute inset-2 opacity-95')}
       />
       {shown && (
-        <span className="relative text-2xs font-medium uppercase tracking-wide text-foreground">
+        <span className="relative text-base text-(--text-secondary)">
           {shown === 'session' ? t.composer.dropSession : t.composer.dropFiles}
         </span>
       )}

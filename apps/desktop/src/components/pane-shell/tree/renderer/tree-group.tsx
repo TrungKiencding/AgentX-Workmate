@@ -15,7 +15,7 @@ import { type CSSProperties, Fragment, type ReactNode, type RefObject, useEffect
 import { ActionsContextMenu, type MenuKit, renderActionItem } from '@/components/ui/actions-menu'
 import { Codicon } from '@/components/ui/codicon'
 import { DecodeText } from '@/components/ui/decode-text'
-import { DROP_SHEET_BLUR_CLASS, DROP_SHEET_CLASS } from '@/components/ui/drop-affordance'
+import { DROP_SHEET_CLASS } from '@/components/ui/drop-affordance'
 import { PANE_TAB_STRIP_LINE_LEFT, PANE_TAB_STRIP_LINE_RIGHT, PaneTab, PaneTabLabel } from '@/components/ui/pane-tab'
 import { ContribBoundary } from '@/contrib/react/boundary'
 import { useContributions } from '@/contrib/react/use-contributions'
@@ -837,23 +837,16 @@ function ZoneDropOverlay({ node }: { node: GroupNode }) {
       <div
         className={cn(
           DROP_SHEET_CLASS,
-          // Transition ONLY the box + colors. `transition-all` also animated
-          // backdrop-filter, and a blur interpolating while the insets glide
-          // re-blurs half a zone every frame — the single most expensive
-          // paint in the whole drag.
+          // Transition ONLY the box + colors — never `transition-all`.
           'absolute transition-[top,right,bottom,left,background-color,border-color,opacity] duration-(--dur-short-exit) ease-out',
-          // Blur only the live target — idle outlines must not fog the app.
-          active && !centerLink && DROP_SHEET_BLUR_CLASS,
           centerLink && 'opacity-0'
         )}
         style={{
           ...REGION[pos],
-          // Accent over a card wash so the fill dims content on dark themes
-          // (a bare accent alpha disappears there).
-          background: active
-            ? 'color-mix(in srgb, var(--ui-accent) 18%, color-mix(in srgb, var(--dt-card) 55%, transparent))'
-            : 'color-mix(in srgb, var(--ui-accent) 5%, color-mix(in srgb, var(--dt-card) 25%, transparent))',
-          borderColor: `color-mix(in srgb, var(--ui-accent) ${active ? 75 : 28}%, transparent)`
+          // The live target is the one place the accent appears (spec §6.6:
+          // the drop position is drawn in --accent); idle outlines stay quiet.
+          background: active ? 'var(--bg-subtle)' : 'transparent',
+          borderColor: active ? 'var(--accent)' : 'var(--border-default)'
         }}
       />
     </div>
