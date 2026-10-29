@@ -654,3 +654,6 @@ in the app — popper, dialog and toast entrances — did nothing.
 - Home greeting: back to the Newsreader serif at regular weight with the
   account's full display name ("Chào buổi chiều, Lê Trung Kiên") — the one
   serif line in the app, by request; `greetingName()` is removed.
+- Default UI scale for fresh installs is 100% (was 125%): the type and control
+  ramps are now sized for legibility on their own. Ctrl/Cmd+0 and View →
+  Actual Size return to 100%. Installs that already saved a scale keep it.

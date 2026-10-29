@@ -5,8 +5,10 @@
  * Chromium actual-size baseline); Chromium's internal unit is the zoom level,
  * where factor = 1.2 ^ level.
  *
- * Our shipped default is the Appearance 125% preset, selected in the UI Scale
- * control on first run.
+ * Our shipped default is 100% — the actual-size baseline, selected in the UI
+ * Scale control on first run. The type and control ramps are already sized
+ * for legibility (see styles.css), so the window no longer needs an enlarging
+ * zoom on top.
  */
 
 export const ZOOM_STORAGE_KEY = 'agentx:desktop:zoomLevel'
@@ -18,8 +20,8 @@ const MAX_ZOOM_LEVEL = 9
 /** Half Chromium's default step; matching the shortcuts and View menu. */
 export const ZOOM_STEP = 0.1
 
-/** Appearance 125% preset. Fresh installs + Actual Size / Ctrl+0. */
-export const DEFAULT_ZOOM_LEVEL = Math.log(1.25) / Math.log(ZOOM_FACTOR_BASE)
+/** Appearance 100% preset (Chromium level 0). Fresh installs + Actual Size / Ctrl+0. */
+export const DEFAULT_ZOOM_LEVEL = 0
 
 export function clampZoomLevel(value) {
   if (!Number.isFinite(value)) {
