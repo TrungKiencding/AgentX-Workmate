@@ -33,17 +33,41 @@ size. Its priority order settles every conflict in this file: **clarity >
 speed of use > consistency > minimalism > aesthetics.**
 
 Where the code departs from the spec on purpose, the departure is named here
-with its reason: the focus ring paints the accent at full strength
-(§ Affordances), and the dark sidebar hairline seed sits one rung firmer
-(§ Surfaces).
+with its reason. The focus ring paints the accent at full strength
+(§ Affordances). The rest came out of the review round of 29/10, where the
+app was read on real machines — on older, lower-density displays the spec's
+sizes read small and its greys washed out, and the all-black, all-grey UI
+read heavy in some places and too faded in others:
+
+- **One size step up** (§ Typography, § Control & radius tokens) — every
+  rung of the type ramp, the control ramp and the chrome rows moves up one
+  step (body 15px, reading 16px, controls 30/36/44, rows 36), and the forced
+  `antialiased` smoothing is dropped. Reason: legibility on older,
+  lower-density displays.
+- **Firmer greys** (§ Surfaces) — secondary, tertiary and disabled ink, both
+  icon inks and all four hairlines sit one grey rung firmer than spec
+  §3.3 / §3.4. Reason: the spec's greys read too faded on the same displays.
+- **The sidebar surface** (§ Surfaces, § Navigation chrome) — the sidebar
+  sits on its own `--sidebar-bg` (gray-50 / gray-1000) instead of the page
+  colour, with its own row-fill rungs and a `--border-default` edge. Reason:
+  on one flat page the navigation did not read as a place of its own.
+- **Charcoal inverse** (§ Surfaces) — `--bg-inverse` is gray-700 in light
+  (gray-200 in dark), not near-black. Reason: an all-black UI read heavy.
+- **Accent switches and checkboxes** (§ Form controls) — on / checked paint
+  `--accent` under a white thumb or glyph, as the platform's own controls
+  do, instead of `--bg-inverse`. Reason: an all-black UI read heavy.
+- **Tile colours** (§ Iconography & brand) — a `--tint-*` palette and
+  `IconTile` colour the settings rail, store-card glyphs and the sidebar's
+  destination glyphs. Reason: an all-grey UI read flat and heavy; colour
+  here marks *which place*, never a state.
 
 **Three token tiers** (`src/tokens.css`, imported at the top of `styles.css`):
 
 | Tier | Examples | Read by |
 | --- | --- | --- |
 | Primitive | `--gray-0 … --gray-1000` (the warm-gray ladder), `--blue-300…600`, `--amber-*`, `--red-*`, `--green-*`, `--clay-*` | the semantic tier only |
-| Semantic | `--bg-app / -subtle / -raised / -hover / -selected / -pressed / -inverse`, `--border-subtle / -default / -strong / -input`, `--text-primary / -secondary / -tertiary / -disabled / -inverse`, `--icon-default / -muted`, `--accent / -hover`, `--warning(-bg)`, `--danger(-bg)`, `--success`, `--brand`, `--selection`, `--scrim`, `--scrim-light`, `--focus-ring`, `--elevation-1 / -2 / -drawer` | components |
-| Component | `--ui-row-active-background`, `--composer-fill`, `--switch-md-*`, `--sidebar-nav-row-height`, … | the one component that owns it |
+| Semantic | `--bg-app / -subtle / -raised / -hover / -selected / -pressed / -inverse`, `--border-subtle / -default / -strong / -input`, `--text-primary / -secondary / -tertiary / -disabled / -inverse`, `--icon-default / -muted`, `--accent / -hover`, `--warning(-bg)`, `--danger(-bg)`, `--success`, `--brand`, `--selection`, `--scrim`, `--scrim-light`, `--focus-ring`, `--elevation-1 / -2 / -drawer`, `--tint-blue … -graphite` (tile colours only) | components |
+| Component | `--ui-row-active-background`, `--composer-fill`, `--switch-md-*`, `--sidebar-nav-row-height`, `--sidebar-bg`, `--sidebar-row-hover / -selected`, … | the one component that owns it |
 
 A component consumes the semantic tier (or a component token built on it) —
 never a primitive, never a hex. Two paths feed the semantic tier:
@@ -128,42 +152,67 @@ replace the foreground transcript or steal focus.
 
 **Quiet is the default skin** (`DEFAULT_SKIN_NAME = 'quiet'`, `quietTheme` in
 `themes/presets.ts`). Light is a white page, dark is `--gray-950`
-(`#1c1c1b`). The sidebar, titlebar, page and editor are all the page colour —
-regions separate by whitespace and one 1px `--border-subtle` line, never by a
-tinted band. `chromeBackground()` in `themes/context.tsx` passes a Quiet
-background through unmixed (pulling it toward the Paper/Graphite rungs would
-tint the title bar and the boot paint blue).
+(`#1c1c1b`). The titlebar over the main pane, the page and the editor are the
+page colour — regions separate by whitespace and one 1px line. **The sidebar
+is the one tinted column** (a deliberate deviation, see the top of this file):
+it sits on `--sidebar-bg` — a warm off-white (gray-50) in light; in dark it
+steps *down* from the page to gray-1000 (`#141413`), the macOS source-list
+way — edged by `--sidebar-edge-border` (= `--border-default`; the subtle rung
+vanishes against a tinted column). Every element marked `data-sidebar-surface`
+(`ChatSidebar`, `OverlaySidebar`) re-points the row fills it reads —
+`--bg-hover`, `--bg-selected`, `--ui-row-hover/-active-background`,
+`--ui-control-hover/-active-background` — to `--sidebar-row-hover` /
+`--sidebar-row-selected`, one rung stronger than the page's, so hover and
+selection still land on the tinted surface (custom properties substitute
+where they are declared, so every token a row reads is re-pointed, not only
+the semantic pair). The titlebar band paints the column under it: a gradient
+split at the tree-published `--workspace-left` / `--workspace-right`
+(`contrib/controller.tsx`) lays the sidebar surface over the side rails and
+the page over the main pane, so the sidebar reads as one column from the
+traffic lights down. `chromeBackground()` in `themes/context.tsx` passes a
+Quiet background through unmixed (pulling it toward the Paper/Graphite rungs
+would tint the title bar and the boot paint blue).
 
 | Semantic token | Light | Dark |
 | --- | --- | --- |
-| `--bg-app` — page, sidebar, editor, cards, the composer | gray-0 `#ffffff` | gray-950 `#1c1c1b` |
+| `--bg-app` — page, editor, cards, the composer | gray-0 `#ffffff` | gray-950 `#1c1c1b` |
+| `--sidebar-bg` — the sidebar, overlay rails, the titlebar band over them | gray-50 | gray-1000 `#141413` |
+| `--sidebar-row-hover / -selected` — row fills inside `[data-sidebar-surface]` | gray-150 / gray-200 | gray-900 / gray-800 |
 | `--bg-subtle` — code block, segmented track, user bubble, kbd | gray-50 | gray-900 |
 | `--bg-raised` — popover, menu, toast, dialog | gray-0 | gray-850 |
 | `--bg-hover` | gray-100 | gray-850 |
 | `--bg-selected` | gray-150 | gray-800 |
 | `--bg-pressed` | gray-200 | gray-750 |
-| `--bg-inverse` — primary button, tooltip, checked switch/checkbox | gray-950 | gray-100 |
-| `--border-subtle / -default / -strong / -input` | 150 / 200 / 300 / 400 | 850 / 800 / 700 / 700 |
-| `--text-primary / -secondary / -tertiary / -disabled` | 950 / 600 / 500 / 400 | 100 / 400 / 500 / 700 |
-| `--icon-default / -muted` | 700 / 500 | 300 / 500 |
+| `--bg-inverse` — primary button, the send circle, tooltip, skip link | gray-700 (charcoal) | gray-200 |
+| `--border-subtle / -default / -strong / -input` | 200 / 300 / 400 / 500 | 800 / 750 / 700 / 600 |
+| `--text-primary / -secondary / -tertiary / -disabled` | 950 / 700 / 600 / 500 | 100 / 300 / 400 / 600 |
+| `--icon-default / -muted` | 800 / 600 | 200 / 400 |
 | `--accent / -hover` | blue-500 / blue-600 | blue-400 / blue-300 |
 | `--warning-bg / --danger-bg` | amber-50 / red-50 | amber-950 / red-950 |
 
-`--text-tertiary` measures 3.4:1 on white: captions and icons only, never text
-a person must read. `--brand` (clay) is for the mascot and the logo only, never
-text (3.1:1). `--scrim` is 32% black (56% in dark) behind a dialog;
+**The greys sit one rung firmer than spec §3.3 / §3.4** (review: on older,
+lower-density displays the spec's greys read too faded). On white, secondary
+text measures 8.2:1 and tertiary 5.9:1 — every text tier now clears AA, so
+tertiary may carry a caption a person reads — and the `--border-input` edge
+measures 3.4:1, clearing the 3:1 boundary floor. **`--bg-inverse` is
+charcoal, not black** (review: an all-black UI read heavy): white on gray-700
+is 8.2:1. `--brand` (clay) is for the mascot and the logo only, never text
+(3.1:1). `--scrim` is 32% black (56% in dark) behind a dialog;
 `--scrim-light` (12% / 32%) is the palette's lighter dim. In dark, elevation is
 `--bg-raised` (lighter than the page) plus the level's edge, not a shadow.
 
 **The `quietTheme` seeds mirror these values** as flat hex (the pipeline
 parses `#rrggbb` only) so the title bar, the boot paint and the contrast gate
-see the same numbers as `tokens.css`. Change one, change both. Three seeds
-are deliberate: the dark `primary` fill is `#8db3f9` (a step past blue-400) so
-a dark label on it clears APCA Lc 60; the danger *fill* keeps red-600 in dark
-so its white label still reads (danger *text* in dark is `--ui-red`, the 400
-rung); and the dark `sidebarBorder` seed is gray-800, not the spec's 850, which
-measures 1.19:1 on the page — just under the gate's 1.2:1 floor. `primary` is
-the signal blue; the primary *button* never reads it (§ Buttons).
+see the same numbers as `tokens.css`. Change one, change both — the firmer
+greys moved the seeds with them (`mutedForeground` gray-700 / gray-300,
+`border` gray-300 / gray-750, `input` gray-500 / gray-600, the light
+`composerRing` gray-400; the `WARM` ladder gained the 750 rung), and the
+sidebar seeds carry its surface (`sidebarBackground` gray-50 / `#141413`,
+light `sidebarBorder` gray-300). Two seeds are deliberate: the dark `primary`
+fill is `#8db3f9` (a step past blue-400) so a dark label on it clears APCA Lc
+60; and the danger *fill* keeps red-600 in dark so its white label still reads
+(danger *text* in dark is `--ui-red`, the 400 rung). `primary` is the signal
+blue; the primary *button* never reads it (§ Buttons).
 
 **A fresh install follows the OS** (`normalizeMode` falls back to `'system'`,
 spec §11). The first frame agrees before any module runs: `index.html` paints
@@ -234,8 +283,8 @@ list (spec §5.11):
 
 | Export | What it is |
 | --- | --- |
-| `MENU_SURFACE` | level 1: `--bg-raised` under `shadow-md`, 12px corners, 4px padding, 200px min width, `overscroll-contain`; each primitive adds its z-index and a 60vh max height |
-| `MENU_ITEM` | a 32px row, 8px corners (the nesting rule: 12px outer − 4px padding), a 16px glyph in `--icon-muted`, a 14px label; `--bg-hover` on hover and keyboard highlight; `data-variant=destructive` reads in `--danger` on `--danger-bg` |
+| `MENU_SURFACE` | level 1: `--bg-raised` under `shadow-md`, 12px corners, 4px padding, 224px min width, `overscroll-contain`; each primitive adds its z-index and a 60vh max height |
+| `MENU_ITEM` | a 36px row, 8px corners (the nesting rule: 12px outer − 4px padding), 10px inline padding, an 18px glyph in `--icon-muted` 10px from a 15px label; `--bg-hover` on hover and keyboard highlight; `data-variant=destructive` reads in `--danger` on `--danger-bg`. `dropdownMenuRow` (the compact searchable menus in `dropdown-menu.tsx`) is the same 36px pitch |
 | `MENU_SUB_TRIGGER` | an item that keeps its fill while its sub-menu is open |
 | `MENU_LABEL` | group heading: caption size, tertiary ink, never uppercase |
 | `MENU_SEPARATOR` | a `--border-subtle` line |
@@ -256,8 +305,10 @@ them back to the semantic tier — so older surfaces keep working:
 
 | Token | Use |
 | --- | --- |
-| `--border-default` | the default hairline: cards, the composer, table frames, docked composer cards |
-| `--border-subtle` | dividers: tab rows, menu separators, the sidebar edge (`--sidebar-edge-border`), the account row, the code card edge, the titlebar rule |
+| `--border-default` | the default hairline: cards, the composer, table frames, docked composer cards, the sidebar edge (`--sidebar-edge-border`) |
+| `--border-subtle` | dividers: tab rows, menu separators, the account row, the code card edge, the titlebar rule |
+| `--sidebar-bg` · `--sidebar-row-hover / -selected` | the sidebar's own surface and its row fills (Quiet only; `[data-sidebar-surface]` re-points `--bg-hover` / `--bg-selected` and the legacy row/control fills to them) |
+| `--tint-blue / -green / -orange / -red / -purple / -pink / -teal / -indigo / -yellow / -graphite` | tile colours for `IconTile` only (§ Iconography & brand) — never text, never a state; one set per mode, on every skin |
 | `--border-strong` | the firmer edge: composer hover / focus-within, card hover, the dashed drop sheet, a switch's off track |
 | `--border-input` | a form field's edge |
 | `--ui-stroke-primary…quaternary` | legacy hairline ramp; on Quiet = strong / default / default / subtle |
@@ -286,7 +337,7 @@ glyph or a word as well as a hue.
 
 **`TagChip`** (`components/ui/tag-chip.tsx`) is the quiet metadata tag the
 store surfaces share — a category on a skill detail, "Desktop / Trình duyệt"
-on a store card, a transport on a catalog entry: a 12px full pill on
+on a store card, a transport on a catalog entry: a 13px (`text-xs`) full pill on
 `--bg-subtle` in secondary ink, sentence case as written. It labels; it never
 signals state — state belongs to `StatusPill`, which always brings its dot.
 
@@ -295,16 +346,22 @@ signals state — state belongs to `StatusPill`, which always brings its dot.
 — **never a coloured fill**. The dot carries the hue, the word carries the
 meaning, so a status never rests on colour alone. `tone` = `good | warn | bad
 | info | muted` (dot from `--ui-green / -yellow / -red / -info`, tertiary ink
-for a resting state), `size` = `sm` (24px, 12px text — beside a row title) or
-`md` (28px, 13px — level with a `size="sm"` button). Never a raw Tailwind ramp
+for a resting state), `size` = `sm` (24px, 13px text — beside a row title) or
+`md` (30px, `--control-h-sm`, 14px — level with a `size="sm"` button). Never a raw Tailwind ramp
 (`emerald-*`/`amber-*` are gone from the pages). `StatusDot`
 (`components/status-dot.tsx`) is the bare dot for a row, on the same tones.
 
-**`Badge`** (`components/ui/badge.tsx`) is the count / metadata badge: 16px
-tall, caption at 500 weight, tabular figures, full radius. `default` is
+**`Badge`** (`components/ui/badge.tsx`) is the count / metadata badge: 20px
+tall (the spec's 16px, one step up), caption at 500 weight with a 14px glyph
+(12px at `xs`), tabular figures, full radius. `default` is
 `--bg-selected` under secondary ink; `muted` `--bg-subtle`; `warn` and
 `destructive` use the signal's soft background (`--warning-bg` /
 `--danger-bg`) — never a solid fill; `outline` a `--border-default` ring.
+
+**`Kbd`** (`components/ui/kbd.tsx`) is a 20px flat key cap (the spec's 18px,
+one step up; `sm` and `md` share it): a single glyph is a square, a word gets
+4px of padding each side; caption text in secondary ink on `--bg-subtle`
+under a `--border-default` edge, 6px corners.
 
 Never hardcode `border-gray-*`, `bg-white`, `text-black`, etc. The white tile in
 `BrandMark` is the one sanctioned literal (the mark needs a fixed backdrop).
@@ -316,6 +373,8 @@ hex) so palette tuning happens on perceptual axes.
 **No serif, no all-caps, no widened tracking** (spec §3.6). Hierarchy comes
 from contrast, not size: the ramp is nearly flat through the chrome, and
 metadata steps down by ink (secondary, tertiary) rather than by shrinking.
+**Every rung sits one step above the spec's** (review: legibility on older,
+lower-density displays) — the structure is the spec's, only the sizes moved.
 
 Faces — themes override sans/mono through the existing pipeline:
 
@@ -332,45 +391,53 @@ Faces — themes override sans/mono through the existing pipeline:
 - **The display serif is gone.** Newsreader (its three `@font-face` subsets,
   `--dt-font-serif-display`, the `font-serif-display` utility,
   `DEFAULT_SERIF_DISPLAY` and the theme field `fontSerifDisplay`) was removed.
-  The home greeting, the connect splash and the onboarding title — its three
-  old slots — now set the 24px display rung in the sans.
+  Of its three old slots, the home greeting now sets the 30px display rung and
+  the onboarding title the 26px one, both in the sans; the connect screen
+  carries no display type at all (§ Chat, tools & boot surfaces).
 - `--dt-font-kbd` keeps the native UI face. No pixel face survives in the app;
   `BrandMark` is a bitmap plate, not type.
 
-`body` sets 14px (`text-base`, the spec's `text-body`) with
-`-webkit-font-smoothing: antialiased` / `-moz-osx-font-smoothing: grayscale`.
+`body` sets 15px (`text-base`, the spec's `text-body` one step up) and **no
+forced font smoothing**: `-webkit-font-smoothing: antialiased` /
+`-moz-osx-font-smoothing: grayscale` were dropped in review — on
+lower-density displays they thin every stem and the UI reads washed out; the
+platform's default rendering keeps strokes at their designed weight.
 
 **Type ramp** (`--text-*` in `@theme inline`; these are the app's only font
 sizes — no ad-hoc `text-[…]`. One sanctioned exception sizes in `em`, not on
 the ramp: inline code at `0.92em` of its sentence, plus the onboarding glyph's
 ASCII art, which is drawing, not text):
 
-| Utility | Size / line-height | Spec rung | Use |
+| Utility | Size / line-height | Spec rung (spec size) | Use |
 | --- | --- | --- | --- |
-| `text-xs` | 12 / 1.4 | caption | timestamps, keybind hints, counts, captions |
-| `text-2xs` | 12 / 1.4 | — | **alias of `text-xs`**, kept so old call sites compile; write `text-xs` |
-| `text-sm` | 13 / 1.4 | meta | group titles, tabs, inline controls, small buttons, store-shelf names |
-| `text-base` | 14 / 1.43 | body | **default chrome**: nav rows, lists, menus, buttons, inputs, the composer, dialog descriptions |
-| `text-md` | 15 / 1.6 | reading | chat prose, the user bubble |
-| `text-lg` | 16 / 1.5 | title | dialog titles, page / overlay titles |
-| `text-xl` | 20 / 1.4 | — | a rare page title |
-| `text-2xl` | 24 / 1.33 | display | home greeting, connect splash, onboarding title |
-| `text-3xl` | 28 / 1.3 | — | onboarding / update hero only |
+| `text-xs` | 13 / 1.4 | caption (12) | timestamps, keybind hints, counts, captions |
+| `text-2xs` | 13 / 1.4 | — | **alias of `text-xs`**, kept so old call sites compile; write `text-xs` |
+| `text-sm` | 14 / 1.43 | meta (13) | group titles, tabs, inline controls, small buttons, store-shelf names |
+| `text-base` | 15 / 1.47 | body (14) | **default chrome**: nav rows, lists, menus, buttons, inputs, the composer, dialog descriptions |
+| `text-md` | 16 / 1.6 | reading (15) | chat prose, the user bubble, the palette's search input |
+| `text-lg` | 17 / 1.47 | title (16) | dialog titles, page / overlay titles |
+| `text-xl` | 21 / 1.38 | — (20) | a rare page title |
+| `text-2xl` | 26 / 1.3 | section display (24) | onboarding title, sign-in title |
+| `text-3xl` | 30 / 1.27 | display (28) | **the home greeting** — 600 weight, `tracking-display`; the sign-in headline |
 
-The floor is **12px** — nothing in the app renders at 11px any more. Every
-multi-line rung keeps line-height ≥ 1.4 (1.33 only at the 24px display rung,
-one line) so Vietnamese stacked diacritics (ỗ, ữ, Ặ) never clip. The ramp
-carries no letter-spacing; `--tracking-label` is retired at `0` (a stale
-`tracking-label` renders as plain text), `uppercase` is gone from every label,
-and a `tracking-[…]` literal is a bug. Columnar numbers use `tabular-nums` —
+The floor is **13px** (the spec's 12px caption, one step up) — nothing
+renders below the caption. Every multi-line rung keeps line-height ≥ 1.4 so
+Vietnamese stacked diacritics (ỗ, ữ, Ặ) never clip; only the single-line
+title and display rungs run tighter (1.38 / 1.3 / 1.27). The ramp carries no
+letter-spacing, with one exception: **`--tracking-display`** (−0.022em, the
+`tracking-display` utility) draws display type slightly tighter, the way the
+platform's own large titles are set. Nothing is ever tracked *wider*;
+`--tracking-label` is gone (it was retired at `0`, and the token is now
+deleted), `uppercase` is gone from every label, and a `tracking-[…]` literal
+is a bug. Columnar numbers use `tabular-nums` —
 every counter in the statusbar, every stat tile, every timestamp in a list,
 every table. Headings get `text-balance`, paragraphs `text-pretty`.
 
 **Group labels are sentences, not stamps.** The sidebar's `SidebarPanelLabel`
-and `SidebarDateDivider` are 13px (`text-sm`) regular in `--text-secondary`,
+and `SidebarDateDivider` are 14px (`text-sm`) regular in `--text-secondary`,
 their own casing. Menu, select and palette group headings are a caption
 (`text-xs`) in `--text-tertiary`. `PanelSectionLabel` and Messaging's
-section titles keep their 12px semibold tertiary look; the small labels in
+section titles keep their caption-size (13px) semibold tertiary look; the small labels in
 Command Center, the model picker and onboarding kept their caption size and
 lost their uppercase and tracking.
 
@@ -380,37 +447,39 @@ all in `rem`, so they ride `--dt-base-size` like everything else:
 
 | Token | Value | Use |
 | --- | --- | --- |
-| `--conversation-text-font-size` | 15px | prose (the `text-md` rung) |
-| `--conversation-caption-font-size` | 13px | scaffold labels |
-| `--conversation-tool-font-size` | 13px | tool meta, step detail (`text-meta`) |
-| `--conversation-code-font-size` · `-line-height` | 13px · 1.54 (20px) | every mono payload in the thread: fences, diffs, stdout, terminal tails (`text-code`) |
+| `--conversation-text-font-size` | 16px | prose (the `text-md` reading rung) |
+| `--conversation-caption-font-size` | 14px | scaffold labels |
+| `--conversation-tool-font-size` | 14px | tool meta, step detail (`text-meta`) |
+| `--conversation-code-font-size` · `-line-height` | 14px · 1.54 | every mono payload in the thread: fences, diffs, stdout, terminal tails (`text-code`) |
 | `--conversation-prose-line-height` | 1.6 | prose only — chrome keeps `--dt-line-height` (1.5) |
 | `--conversation-measure` | 72ch | the reading measure (see Chat) |
-| `--conversation-h1…h4-font-size` | 16 / 15 / 15 / 14px | markdown headings inside a reply |
+| `--conversation-h1…h4-font-size` | 17 / 16 / 16 / 15px | markdown headings inside a reply |
 
 A heading in a reply is a section break in a message, not a page title: it
-tops out at the 16px title rung — never above a dialog or page title — and
-bottoms out at the 14px body size. It never reaches the 24px display rung — that belongs to the home greeting, the
-connect splash and onboarding.
+tops out at the 17px title rung — never above a dialog or page title — and
+bottoms out at the 15px body size. It never reaches the display rungs — those
+belong to the home greeting and onboarding.
 
 ## Control & radius tokens
 
-- `--control-h-sm/md/lg/xl` (28/32/40/40px) — one height ramp for every
+- `--control-h-sm/md/lg/xl` (30/36/44/44px) — one height ramp for every
   control; an input and a button on the same row are the same height. The
-  spec ramp tops out at 40px, so `xl` is an alias of `lg`.
-- `--sidebar-nav-row-height` (32px) · `--sidebar-row-height` (32px) ·
+  spec's 28/32/40 ramp, one step up with the type (review: legibility on
+  older displays) — the same three rungs, so `xl` stays an alias of `lg`.
+- `--sidebar-nav-row-height` (36px) · `--sidebar-row-height` (36px) ·
   `--statusbar-height` (26px) — the navigation
-  band's own heights. Nav rows and conversation rows share the spec's
-  comfortable 32px rung; compact density (dense lists) drops to 28px; the
-  statusbar keeps its shorter band.
+  band's own heights. Nav rows and conversation rows share one comfortable
+  36px rung (the spec's 32px, one step up); the statusbar keeps its shorter
+  band.
 - `--cap-row-height` (48px) — the advanced-connections rows on the Tiện ích
-  page: a 14px title over a 13px one-line status with an `md` switch (the
+  page: a 15px title over a 14px one-line status with an `md` switch (the
   skills and tools tabs are card grids, see `StoreCard` under § Layout).
   `--artifact-row-height` (52px) — the Artifact library's file/link rows,
   roomy enough for a 24px type icon plus two lines. Both deliberately sit
-  above the sidebar's 32px: these rows carry controls, not just a title.
-- `--switch-md-track-width/-height` (28×16px) · `--switch-md-thumb` (12px) —
-  the spec Switch. `--status-pill-h-sm/-md` (24/28px) — the `StatusPill`.
+  above the sidebar's 36px: these rows carry controls, not just a title.
+- `--switch-md-track-width/-height` (32×18px) · `--switch-md-thumb` (14px) —
+  the Switch (spec §5.6's 28×16 / 12, one step up). `--status-pill-h-sm/-md`
+  (24/30px; `md` rides `--control-h-sm`) — the `StatusPill`.
   `--intro-card-min-height` (56px) — the home surface's task card.
 - **Radius rungs are fixed** (spec §3.8) — `--radius-scalar` is gone, and the
   `rounded-*` utilities no longer ride it:
@@ -444,31 +513,31 @@ overrides.
 
 | Variant | Look | Use |
 | --- | --- | --- |
-| `default` (primary) | `--bg-inverse` fill, `--text-inverse` label **on every skin** — never the brand, never the accent; hover opacity .88, pressed .80; disabled drops to `--bg-pressed` under `--text-disabled` | the **one** confirming action in a context, rightmost in its group |
+| `default` (primary) | `--bg-inverse` fill (charcoal on Quiet), `--text-inverse` label **on every skin** — never the brand, never the accent; hover opacity .88, pressed .80; disabled drops to `--bg-pressed` under `--text-disabled` | the **one** confirming action in a context, rightmost in its group |
 | `destructive` | the danger fill, white label; hover .88 | the final confirm of an irreversible action only |
 | `secondary` / `outline` | transparent, 1px `--border-default`, hover `--bg-hover`, pressed `--bg-pressed` — two names, one look | Cancel, the alternative path |
 | `ghost` | no fill, no border, secondary ink → primary on hover over `--bg-hover` | icon buttons, quiet actions |
 | `link` | `--accent` text, underline only on hover (`--accent-hover`) | navigation, "Có gì mới" |
 | `text` | boxless secondary ink, underline on hover | inline "Huỷ", "Xoá bộ lọc" |
 | `textStrong` | medium primary ink, underlined in `--border-strong` | the actionable word in a row ("Đổi", "Mở log") |
-| `chip` | the spec's **inline control**: 13px secondary label + 16px glyph, a `--bg-hover` frame only on hover; pair with `size="chip"` | context-bar items, in-row pickers, "Thêm" |
+| `chip` | the spec's **inline control**: 14px (`text-sm`) secondary label + 18px glyph, a `--bg-hover` frame only on hover; pair with `size="chip"` | context-bar items, in-row pickers, "Thêm" |
 | `card` | an **interactive card**: a flat `--bg-app` tile under `--border-default`; hover firms the edge to `--border-strong`, pressed `--bg-subtle` — never a lift, never a shadow; pair with `size="card"` | the home surface's ways in |
 
-**Sizes** ride the `--control-h-*` ramp. Labels are 14px (`text-base`), 13px
+**Sizes** ride the `--control-h-*` ramp. Labels are 15px (`text-base`), 14px
 at `sm`, weight 500 only at `lg`:
 
 | Size | Box | Use |
 | --- | --- | --- |
-| `default` | 32px, 14px padding (12 beside a glyph) | the standard button |
-| `sm` | 28px, 13px text, 10px padding | dense rows, secondary actions |
-| `lg` | 40px, 14px/500, 18px glyph | prominent forms, the primary dialog action when it needs weight |
-| `xl` | alias of `lg` (40px) | kept for call sites that predate the spec |
-| `xs` | 24px, 12px text | genuinely dense chrome (statusbar) |
+| `default` | 36px, 14px padding (12 beside a glyph) | the standard button |
+| `sm` | 30px, 14px text, 10px padding | dense rows, secondary actions |
+| `lg` | 44px, 15px/500, 18px glyph | prominent forms, the primary dialog action when it needs weight |
+| `xl` | alias of `lg` (44px) | kept for call sites that predate the spec |
+| `xs` | 24px, 13px text, 14px glyph | genuinely dense chrome (statusbar) |
 | `inline` | flush, zero box | buttons inside a heading/sentence |
-| `micro` | flush, 12px text | status-stack headers, table footers, the toast stack's row |
+| `micro` | flush, 13px text, 14px glyph | status-stack headers, table footers, the toast stack's row |
 | `chip` | 28px, 8px padding | the `chip` variant's size |
 | `card` | padding-driven (12×16), 56px floor, left-aligned, 18px glyph | the `card` variant's size |
-| `icon` / `icon-sm` / `icon-lg` | 32/28/40px square; 20/16/20px glyph | icon-only actions |
+| `icon` / `icon-sm` / `icon-lg` | 36/30/44px square; 20/18/20px glyph | icon-only actions |
 | `icon-xs` | 24px square, 14px glyph | inline icon actions and pane-header chrome (`ICON_BUTTON` in `master-detail.tsx` pairs with it) — the hit-target floor |
 | `icon-titlebar` | 24px (`--titlebar-control-size` / `-height`) | the titlebar's own controls — off the ramp, never under the 24px floor |
 
@@ -494,8 +563,8 @@ Notes:
   in a positioned element and let the wrapper hold the transform.
   `components/ui/__tests__/no-button-transform.test.ts` fails on any
   `<Button>` carrying one.
-- SVGs inherit 16px (`size-4`; 14px at `xs`, 18px at `lg`). Don't re-set icon
-  size.
+- SVGs inherit 18px (`size-4.5`; 14px at `xs` / `micro` / `icon-xs`, 20px at
+  `icon` / `icon-lg`). Don't re-set icon size.
 - Polymorph with `asChild` when the button must render as a link/Slot.
 
 **Tooltips only when hover teaches something new.** `<Tip>` is for discovery,
@@ -515,8 +584,8 @@ Do **not** tip:
 - Controls whose visible label already says what the tip would ("click to…",
   paraphrases of the same words, timer labels restating "Running").
 
-**The tooltip itself** (`TooltipContent`, spec §5.13) is a `--bg-inverse` chip
-with a `--text-inverse` 12/16 caption, 4×8 padding, 6px corners, no arrow, at
+**The tooltip itself** (`TooltipContent`, spec §5.13) is a `--bg-inverse`
+(charcoal) chip with a `--text-inverse` 13/16 caption, 4×8 padding, 6px corners, no arrow, at
 most 256px wide, never interactive (`pointer-events-none`). A keybind hint
 trails the label at reduced opacity (`TipHintLabel`).
 
@@ -534,8 +603,8 @@ context-dependent (e.g. "Show" / "Hide"). Never hardcode combos; always use
 
 - **`controlVariants`** (`src/components/ui/control.ts`) is the shared shape for
   `Input` / `Textarea` / `SelectTrigger` (spec §5.6). New text-entry controls
-  compose it. 32px (`sm` 28, `lg` 40, `xs` 24), 10px inline padding (12 at
-  `lg`), 14px text, placeholder in `--text-tertiary`, `--radius-control`.
+  compose it. 36px (`sm` 30, `lg` 44, `xs` 24), 10px inline padding (12 at
+  `lg`), 15px text (14 at `sm`, 13 at `xs`), placeholder in `--text-tertiary`, `--radius-control`.
   The chrome is `.desktop-input-chrome` in `styles.css`: a 1px `--border-input`
   edge on `--bg-app`, no inset shadow. On focus the edge turns `--accent` and
   the two-layer `--focus-ring` box-shadow (a 2px page-colour gap, then 2px of
@@ -546,11 +615,11 @@ context-dependent (e.g. "Show" / "Hide"). Never hardcode combos; always use
   for a min-height so it can grow. The select's chevron is a 14px muted ⌄; its
   list is the `menu-styles` surface.
 - **`SearchField`** — the only search input. The default `inline` variant is
-  borderless, auto-width, 13px text at `--control-h-sm`, placeholder tertiary —
-  the filter beside a page or overlay title. `variant="field"` is a list's
-  standing finder, the chat sidebar's: it sits in the navigation band **as one
-  of its rows** (spec §4.1 "⌕ Tìm kiếm") — the nav row's 32px height, 12px
-  padding and 18px glyph in `--icon-default`, `--bg-hover` on hover — and
+  borderless, auto-width, 14px text at `--control-h-sm` (30px), placeholder
+  tertiary — the filter beside a page or overlay title. `variant="field"` is a
+  list's standing finder, the chat sidebar's: it sits in the navigation band
+  **as one of its rows** (spec §4.1 "⌕ Tìm kiếm") — the nav row's 36px height,
+  12px padding and 20px glyph in `--icon-default`, `--bg-hover` on hover — and
   becomes a field when focused: `--bg-app` under an inset `--border-strong`
   edge. The whole well is a `<label>`. Don't build other boxed search bars;
   don't wrap either variant in a bordered tile. Escape clears a query, then
@@ -561,25 +630,31 @@ context-dependent (e.g. "Show" / "Hide"). Never hardcode combos; always use
   `--radius-control` with a 2px pad; the active segment is the page colour
   edged by `shadow-sm`'s 1px `--border-default` ring (dark: `--bg-selected`,
   no edge); inactive segments read in secondary ink. `sm` (default) is a 28px
-  track of 24px segments, 13px labels; `size="md"` (32px track, 28px
+  track of 24px segments, 14px labels; `size="md"` (32px track, 28px
   segments, 16px glyphs) is the one view switch *inside* a page tab — Kho tiện
   ích's "Kỹ năng · MCP" — so it reads as a switch at a glance without becoming
   a second page-tab row. It renders `role="group"`; pass an `aria-label` that
   names what is being switched.
-- **`Switch`** (spec §5.6) — a 28×16 track with a 12px thumb: off is
-  `--border-strong`, on is `--bg-inverse` — never the accent. Bare, with
-  `aria-label`, no bordered text wrapper. **Only for settings that apply
-  immediately**; a setting that waits for "Lưu" is a checkbox. `default` and
-  `md` are the same spec size (`md` stays so page rows say what they mean);
-  `xs` (24×14) is for menus and dense rows. An invisible pad extends the hit
-  target to ≥ 24px on every size.
-- **`Checkbox`** — 16×16, 6px corners, a `--border-input` edge on `--bg-app`;
-  checked and indeterminate fill `--bg-inverse` with a `--text-inverse` ✓ / –.
+- **`Switch`** (spec §5.6, one step up) — a 32×18 track with a 14px thumb:
+  off is `--border-strong`; **on is `--accent`** under a white thumb with a
+  1px drop shadow (`0 1px 2px rgb(0 0 0 / .2)`), the way the platform's own
+  settings switch reads — a deliberate deviation from the spec's
+  `--bg-inverse` (review: an all-black UI read heavy). The thumb is white in
+  both modes and both states. Bare, with `aria-label`, no bordered text
+  wrapper. **Only for settings that apply immediately**; a setting that waits
+  for "Lưu" is a checkbox. `default` and `md` are the same size (`md` stays so
+  page rows say what they mean); `xs` (24×14, 10px thumb) is for menus and
+  dense rows. An invisible pad extends the hit target to ≥ 24px on every
+  size.
+- **`Checkbox`** — 18×18 (the spec's 16, one step up), 6px corners, a
+  `--border-input` edge on `--bg-app`; checked and indeterminate fill
+  **`--accent`** (edge and fill) with a 14px `--text-inverse` ✓ / –, like
+  the platform's own checkbox — the same deviation and reason as the switch.
 - **`PageTabs`** (`components/ui/page-tabs.tsx`, renamed from `PillTabs`;
-  spec §5.18) — the page-level tab row: 13px text tabs 20px apart in
+  spec §5.18) — the page-level tab row: 14px text tabs 24px apart in
   secondary ink; the current tab reads in primary ink over a 2px
   `--text-primary` underline; one `--border-subtle` divider under the whole
-  40px row; a count sits beside its label as a tertiary tabular caption (a
+  44px row; a count sits beside its label as a tertiary tabular caption (a
   `CountSkeleton` while it loads). No boxes, no fills. The underline is ONE
   element that slides to the active tab — a MutationObserver on `data-active`,
   like `CommandSelectionIndicator`, never React state; `transform` and
@@ -587,7 +662,7 @@ context-dependent (e.g. "Show" / "Hide"). Never hardcode combos; always use
   `ResponsiveTabs variant="page"` renders it on wide viewports and still folds
   into `TabDropdown` when the header is narrow.
 - **`TextTab`** (`components/ui/text-tab.tsx`) — the in-pane tab (log sources,
-  editor panes): the same voice at 32px — 13px secondary ink, the current tab
+  editor panes): the same voice at 36px — 14px secondary ink, the current tab
   in primary ink over a 2px inset underline that costs no layout. The host row
   draws the `--border-subtle` divider. Two to four views of the same data are
   a `SegmentedControl`, not tabs.
@@ -603,17 +678,21 @@ running — while staying quieter than the content they frame.
   opens under 1280px wide (`defaultSidebarWidth()` → `SIDEBAR_COMPACT_WIDTH`),
   user-resizable within 240–400px (`SIDEBAR_MIN_WIDTH` / `SIDEBAR_MAX_WIDTH`)
   and persisted as the pane's width override (`store/layout.ts`). The
-  sidebar is the page colour, its content inset 8px from the edge, separated
-  from the main area by one `--sidebar-edge-border` line (`--border-subtle`
-  on Quiet). `⌘\` collapses it (§ Keyboard).
+  sidebar sits on its own surface, `--sidebar-bg` (gray-50 light, gray-1000
+  dark — see § Surfaces), marked `data-sidebar-surface` so its hover and
+  selected fills use the sidebar's own `--sidebar-row-hover` /
+  `--sidebar-row-selected` rungs; the titlebar band above it paints the same
+  surface. Its content is inset 8px from the edge, separated from the main
+  area by one `--sidebar-edge-border` line (`--border-default` on Quiet).
+  `⌘\` collapses it (§ Keyboard).
 - **Group labels** (`SidebarPanelLabel`, `SidebarDateDivider`) are one look:
-  13px regular in `--text-secondary`, their own casing, no tracking (see
-  § Typography). A date divider is a 32px heading with whitespace above it —
+  14px regular in `--text-secondary`, their own casing, no tracking (see
+  § Typography). A date divider is a 36px heading with whitespace above it —
   no rule. `SidebarPanelLabel` draws a 6px round dot only when a
   `dotClassName` asks for one; the dither square is gone. Not brand-tinted —
   colour is for signals, not for labelling.
 - **Group headers** (`SidebarSectionHeader` in `sessions-section.tsx`, spec
-  §5.2): a 32px row whose whole width toggles the group (`aria-expanded`), the
+  §5.2): a 36px row whose whole width toggles the group (`aria-expanded`), the
   ▸ (`DisclosureCaret`, muted) on the **left** of the title, turning 90° at
   `--dur-collapse`; `--bg-hover` on hover; trailing actions sit outside the
   toggle. 24px of air separates the nav block from the first group; rows
@@ -621,16 +700,21 @@ running — while staying quieter than the content they frame.
   (`SidebarRowNest`).
 - **"Trò chuyện mới" heads the nav rows, as one of them.** Same row, same
   type, same glyph treatment as the destinations under it (`NAV_ROW` /
-  `NAV_ROW_GLYPH` in the sidebar), led by Tabler's `CirclePlus` — the band
+  `navGlyphClass()` in the sidebar), led by Tabler's `CirclePlus` — the band
   reads as one list of ways to go, not a button stacked on a menu. The `⌘N`
   chip shows on hover / focus-within only — a hint for people who want one,
   not a label everyone reads. Right-click still opens "Mở ở khung chia đôi".
-- **Nav rows** (spec §5.1) — Trò chuyện mới · Tiện ích · Kênh tin nhắn ·
-  Artifact, then the search row — are `--sidebar-nav-row-height` (32px): an
-  18px Tabler glyph in `--icon-default`, 10px from a 14px regular label in
+- **Nav rows** (spec §5.1, one step up) — Trò chuyện mới · Tiện ích · Kênh
+  tin nhắn · Artifact, then the search row — are `--sidebar-nav-row-height`
+  (36px): a 20px Tabler glyph, 10px from a 15px regular label in
   `--text-primary`, 12px padding, 8px corners, 2px apart, `--bg-hover` on
-  hover, `cursor-pointer`. **Selected is `--bg-selected` and nothing else** —
-  no ink change, no leading bar.
+  hover, `cursor-pointer`. **Each destination's glyph carries its own tint**
+  (`NAV_GLYPH_TINT`): Trò chuyện mới `--tint-blue`, Tiện ích `--tint-orange`,
+  Kênh tin nhắn `--tint-green`, Artifact `--tint-purple` — the way the
+  platform's sidebars colour their glyphs (review: an all-grey band read
+  flat). The label stays primary ink; a contributed row, and the search row,
+  keep `--icon-default` (`NAV_ROW_GLYPH`). **Selected is `--bg-selected` and
+  nothing else** — no ink change, no leading bar.
 - **Connected messaging channels stay under the Messaging destination.** Show
   only adapters whose live state is connected, one compact row per platform:
   platform avatar, platform name, and its public bot/channel identity when the
@@ -638,8 +722,8 @@ running — while staying quieter than the content they frame.
   (never a duplicate configuration popover); selected is the standard
   `--bg-selected` fill.
 - **Sidebar rows** own their height only on `SidebarRowShell`
-  (`--sidebar-row-height`, 32px, `--radius-control`). The session title is
-  `text-base` (14px) regular in `--text-primary`, 12px from the row's left
+  (`--sidebar-row-height`, 36px, `--radius-control`). The session title is
+  `text-base` (15px) regular in `--text-primary`, 12px from the row's left
   edge; meta and timestamps `text-xs tabular-nums` in tertiary. Selected is
   `--bg-selected` alone. Hover-revealed row actions use `size="icon-xs"` (24px)
   — the hit-target floor. The pinned
@@ -652,8 +736,9 @@ running — while staying quieter than the content they frame.
   `--radius-control`, whatever glyph it carries.
 - **The account row** (`SidebarAccountRow`, `app/chat/sidebar/account-row.tsx`,
   spec §5.3) is pinned to the sidebar's foot under a `--border-subtle`
-  divider, a 52px band: a 24px round initials avatar on `--bg-selected`
-  (12px/500, `accountInitials()` — two initials from the display name, else
+  divider, a 60px band (a 44px row with 8px above and below): a 28px round initials
+  avatar on `--bg-selected` (13px/500, `accountInitials()` — two initials
+  from the display name, else
   the email's first letter), the name in primary ink · the plan in tertiary,
   and a ⌄. The whole row opens the account menu upward (Tài khoản · Cài đặt ·
   Phím tắt, with their keybind hints). It renders nothing until someone is
@@ -668,7 +753,7 @@ running — while staying quieter than the content they frame.
   cluster is layout · ⋯ · settings · right-sidebar toggle; the ⋯
   (`titlebar.moreTools`) holds sound and the keyboard-shortcut panel. Both
   keep their shortcuts — the menu is only where their buttons live.
-- **Statusbar:** `--statusbar-height`, `text-2xs` (12px, the ramp floor) with
+- **Statusbar:** `--statusbar-height`, `text-2xs` (13px, the ramp floor) with
   `tabular-nums` on every item — the bar is counters that tick in place. Warning
   and failure states use `--ui-yellow` / `destructive`, never a raw palette ramp,
   and always pair the colour with a glyph.
@@ -695,7 +780,7 @@ running — while staying quieter than the content they frame.
   16px corners, `shadow-nous`, over the `--scrim` (no blur — the page dims, it
   doesn't fog), fading in at `--dur-long`.
 - **Page titles:** `OverlayPageHeader` (`overlays/overlay-split-layout.tsx`) is
-  the one page-title block — `text-lg` (16px, the spec's `text-title`)
+  the one page-title block — `text-lg` (17px, the spec's `text-title`)
   semibold over a `text-sm` secondary line, actions right. Command Center,
   every `Panel` (`PanelHeader` composes it), **and the full pages** —
   `PageSearchShell` takes `title`/`description` and renders them through it,
@@ -718,13 +803,29 @@ running — while staying quieter than the content they frame.
   the session sidebar), with a sentence-case header per shelf and month names
   formatted in the app locale, not the OS locale (the shared `fmtMonth` /
   `fmtMonthYear` do that for every surface — see § i18n).
+- **The overlay rail** (`OverlaySplitLayout`'s first column) is 15.5rem
+  (248px) wide — widened from 13rem so the larger labels fit — and
+  `OverlaySidebar` sits on the sidebar surface (`--sidebar-bg`,
+  `data-sidebar-surface`), like the chat sidebar.
 - **Overlay nav rows** (`OverlayNavItem`, settings `NavLink`) are nav rows
-  (spec §5.1): `--control-h-md` (32px), a 16px glyph in `--icon-default` 10px
-  from a 14px regular label in primary ink, 12px padding, `--radius-control`;
+  (spec §5.1, one step up): `--control-h-md` (36px), the glyph 10px from a
+  15px regular label in primary ink, 12px padding, `--radius-control`;
   `--bg-hover` on hover, `--bg-selected` when current — no border, no ink
-  change. A nested `OverlayNavItem` indents to 24px at 13px.
+  change. A top-level row whose `OverlayNavLink` carries a `tint` wears its
+  glyph in a **solid `IconTile`** (`size="sm"`: a 24px tile, 6px corners, a
+  14px white glyph) — the platform Settings look; an untinted row keeps an
+  18px glyph in `--icon-default`. **The settings rail tints every pane**
+  (`SETTINGS_TINTS` in `app/settings/index.tsx`), curated so related panes
+  share a family and none is chosen by chance (by pane id: `config:model`
+  purple, `config:chat` blue, `config:appearance` pink, `config:workspace`
+  indigo, `config:safety` green, `config:memory` orange, `config:voice` red,
+  `config:advanced` graphite, `notifications` red, `browser` teal, `billing`
+  green, `gateway` indigo, `account` blue, `keybinds` graphite, `keys`
+  yellow, `plugins` purple, `sessions` orange, `about` graphite). A
+  nested `OverlayNavItem` is never tiled: it indents to 24px at 14px with a
+  14px glyph.
 - **Rows:** `ListRow` (settings `primitives.tsx`) for label/description/action
-  rows — `min-h-11` (44px), title `text-base`, description `text-sm` tertiary,
+  rows — `min-h-11` (44px), title `text-base` (15px), description `text-sm` (14px) tertiary,
   mono hint `text-xs`. Flat, flush-left; no per-row indentation that fights
   flush headers.
 - **Section rhythm:** `SectionHeading` is `text-md` semibold with an 18px icon,
@@ -771,14 +872,14 @@ running — while staying quieter than the content they frame.
   `?tab=` id, `hub` / `mcp`). Each "have" tab's strip leads with the doorway
   to its kind in the store ("＋ Thêm từ kho", "＋ Kết nối phần mềm khác"). Every
   surface lays the same card on the same `StoreCardGrid` (`auto-fill
-  minmax(18rem,1fr)`, gap 12), grouped by `StoreCardShelf` — a 13px group
+  minmax(18rem,1fr)`, gap 12), grouped by `StoreCardShelf` — a 14px group
   title in secondary ink, a tabular caption count, at most one caption note
   line, an optional verb at the far end, and an `empty` line when the shelf
   must stay to say it is empty. A card is a flat content card (spec §5.10): the
   page colour under a `--border-default` hairline, 16px padding, and a hover
   that only firms the edge to `--border-strong`. It is glanceable, not
   exhaustive, and reads top to bottom in one order: `StoreCardHeader` (a 32px
-  `StoreCardGlyph` tile on `--bg-subtle` or `McpAvatar` · 14px semibold name ·
+  `StoreCardGlyph` tile or `McpAvatar` · 15px semibold name ·
   at most one pill — "Tự học", a version, "Cần thiết lập", "Đang tắt", "Cần
   đăng nhập", "Lỗi kết nối" · the `md` switch), a two-line
   `StoreCardDescription`, an optional `StoreCardTags` row (a newer version sits
@@ -796,6 +897,12 @@ running — while staying quieter than the content they frame.
   edit/share/archive for a learned skill — lives in the card's detail
   `Dialog`, never on the tile. The Công cụ tab offers only providers the
   person configures themselves (subscription-only rows are not rendered).
+- **`StoreCardGlyph` takes a `tint`.** With one it renders a *soft*
+  `IconTile` (32px, 8px corners, an 18px glyph in the tint on a wash of it —
+  § Iconography & brand), so a grid reads each card's kind at a glance;
+  without one it stays the neutral `--bg-subtle` tile in `--icon-default`. A
+  skill card is tinted by its category (`skillCategoryTint()`), a tool card
+  by `tintFor(toolset.name)`, the browser card in Settings blue.
 - **`McpAvatar`** is a connection's glyph: the brand mark on a 16% brand tint
   (Messaging's treatment), a letter monogram otherwise, and the live status
   dot. A brand whose mark is black (GitHub, Notion, Vercel) draws in the ink
@@ -812,7 +919,7 @@ running — while staying quieter than the content they frame.
   dialog (pass it as the width), or `fitContent` to size to the content. It
   opens in 200ms (fade + `zoom-in-98`, `--ease-out`) and closes in 150ms. The
   close ✕ is a ghost `icon-sm` in `--icon-muted`, top-right, untipped.
-- **A dialog names itself at `text-lg`** (16px, the spec's `text-title`)
+- **A dialog names itself at `text-lg`** (17px, the spec's `text-title`)
   semibold in primary ink — a dialog is a task, not a page — optionally led by
   an 18px glyph in `--icon-default` (`DialogTitle icon=`). The description is
   `text-base` secondary. The footer is right-aligned with the primary action
@@ -867,7 +974,7 @@ running — while staying quieter than the content they frame.
 - **Empty:** `EmptyState` for plain page bodies; `PanelEmpty` for overlay
   master/detail empties. Don't hand-roll a third centered empty.
 - **`DisclosureRow`** (`components/ui/disclosure-row.tsx`) — the page-chrome
-  disclosure: one sentence-case 13px medium row with a Tabler caret that
+  disclosure: one sentence-case 14px medium row with a Tabler caret that
   rotates in place ("Chi tiết kỹ thuật", "Nâng cao (3)", "Xem thêm 8 nền
   tảng"). It is how a page folds its technical tail behind one click; the
   content renders under it when open, indented `pl-5`. The transcript keeps
@@ -875,7 +982,7 @@ running — while staying quieter than the content they frame.
 - **Banners** (`Alert`, `components/ui/alert.tsx`; `InlineNotice` in
   `components/notifications.tsx`; spec §5.16) — an in-flow notice tied to a
   region: connection lost, a quota running out, an update. Flat — no border,
-  no shadow — 12px corners, 10×12 padding, 14px text. The fill is the signal's
+  no shadow — 12px corners, 10×12 padding, 15px text. The fill is the signal's
   soft background (`destructive` → `--danger-bg`, `warning` → `--warning-bg`;
   `default` and `success` → `--bg-subtle`) and the 16px glyph carries the hue;
   the title is primary ink, the description secondary. One banner per region.
@@ -904,14 +1011,19 @@ running — while staying quieter than the content they frame.
 **Toasts** (`components/notifications.tsx` + `store/notifications.ts`, spec
 §5.15):
 
-- **One stack, bottom-centre, just above the composer** — the measured dock
-  height (`--composer-measured-height`) plus 12px and the safe-area inset —
-  portaled to `<body>` on `--z-over-modal` so a toast clears an open dialog,
-  at most 420px wide. There is **no placement API** any more: the old
-  top-centre stack, the bottom-right stack and `placement: 'bottom-right'` are
-  gone.
+- **One stack, 12px above the foreground composer and centred on it**
+  (`TOAST_GAP_PX`), plus the safe-area inset — portaled to `<body>` on
+  `--z-over-modal` so a toast clears an open dialog, at most 420px wide. The
+  composer's height is a per-surface CSS var a body-level portal cannot read,
+  so `useToastAnchor()` measures the docked composer itself — the lowest
+  visible `[data-chat-surface] [data-slot="composer-dock"]`, i.e. the main
+  chat — and follows it through a `ResizeObserver` and window resizes; it
+  never covers the composer's top edge. Off a chat page there is no composer,
+  and the stack sits 28px above the window's bottom edge, centred on the
+  window. There is **no placement API** any more: the old top-centre stack,
+  the bottom-right stack and `placement: 'bottom-right'` are gone.
 - **Level-1 surface:** `--bg-raised` under `shadow-md`, 12px corners, 10×12
-  padding, 14px text, rising 8px into place at `--dur-long`.
+  padding, 15px text, rising 8px into place at `--dur-long`.
 - **Structure:** a *filled* status glyph (`AlertCircleFilled` /
   `AlertTriangleFilled` / `CheckCircleFilled` in `--danger` / `--warning` /
   `--success`, `InfoFilled` muted) · the message (an optional title, meta line
@@ -951,15 +1063,16 @@ command-palette geometry (§5.12):
 - `HUD_SURFACE` — elevation level 2: `--bg-raised` under `shadow-nous`
   (whose ring is the edge), 16px corners, `[-webkit-app-region:no-drag]` so a
   short window's titlebar drag band can't swallow clicks.
-- `HUD_TEXT` — `text-base` (14px): a palette is read at speed under a moving
+- `HUD_TEXT` — `text-base` (15px): a palette is read at speed under a moving
   selection and gets no discount.
-- `HUD_ITEM` — a 36px **floor**, not a fixed height, so two-line rows still
-  grow. `HUD_HEADING` — a caption in tertiary ink, own casing.
+- `HUD_ITEM` — a 36px **floor** (`min-h-9`) layered on `CommandItem`'s own
+  40px row. `HUD_HEADING` — a caption in tertiary ink, own casing.
 
 The command palette is **640px** wide (`min(40rem, 100vw − 2rem)`) over a
-light scrim (`--scrim-light`). Its search row (`CommandInput`) is 48px,
-borderless, with a `--border-subtle` divider below; rows are 36px and the
-selected one sits on `--bg-selected`; a 36px caption footer names the three
+light scrim (`--scrim-light`). Its search row (`CommandInput`) is 52px with a
+16px (`text-md`) input, borderless, with a `--border-subtle` divider below;
+rows (`CommandItem`) are 40px with 10px inline padding and an 18px glyph in
+`--icon-muted`, and the selected one sits on `--bg-selected`; a 36px caption footer names the three
 keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 (`commandCenter.paletteFooter`).
 
@@ -976,12 +1089,18 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 ## Chat, tools & boot surfaces
 
 - **The home surface is the empty transcript** (`components/chat/intro.tsx`):
-  a greeting at the 24px display rung (`text-2xl`, sans — the serif is gone),
-  one muted 15px line (the catalog's `bodyVariants`; `intro-copy.jsonl` only
-  in English with a personality), then **at most four task cards**
-  (`Button variant="card"` on the `.intro-cards` two-column grid): an 18px
-  Tabler glyph before a 14px title over a 13px one-line description. The
-  composer stays the only CTA; the block leads the eye down to it. It fronts
+  a greeting at the 30px display rung (`text-3xl`, semibold,
+  `tracking-display`, `text-balance`; sans — the serif is gone), one muted
+  16px line (`text-md`, the catalog's `bodyVariants`; `intro-copy.jsonl` only
+  in English with a personality) capped at 38rem, then **at most four task
+  cards** (`Button variant="card"` on the `.intro-cards` two-column grid,
+  capped at 40rem): an 18px Tabler glyph before a 15px medium title over a
+  14px one-line description. The composer stays the only CTA; the block leads
+  the eye down to it. **The block centres with `justify-content: safe
+  center`**: centred while it fits, and once a short window can't hold the
+  greeting, the line and the cards it starts at the top and overflows *down*
+  into the scroller — never split above the top edge and under the composer,
+  which cut the first line and hid the last card. It fronts
   the fresh draft *and* a routed conversation that exists but has no messages
   yet (a new chat in a project) once it has resumed and nothing is running.
   - Every card is grounded in something the app already knows — the session you
@@ -1000,7 +1119,11 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
     one *existing* action (`openSession`, `requestStartWorkSession`,
     `requestComposerInsert`) — the home surface owns no navigation of its own.
   - The greeting names the user only when the account store actually has a
-    display name. No name, no comma, no invented placeholder.
+    display name, and then by the name a person is addressed by —
+    `greetingName()` in `intro-chips.ts`: Vietnamese names run family-first,
+    so a `vi` locale takes the last word ("Lê Trung Kiên" → "Kiên"); other
+    locales take the first ("Jane Doe" → "Jane"); a one-word or CJK name is
+    used whole. No name, no comma, no invented placeholder.
   - **One entrance, once per app launch** — not once per empty state. The
     greeting rises at `--dur-long`; the body and each card follow on a 40ms
     step at `--dur-short`, all settled by 400ms. `prefers-reduced-motion`
@@ -1046,7 +1169,7 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   "click to edit" has to be a fill move, not a border move. **Nothing is
   reserved inside it**: stop and restore hang off the rail to its left, on
   hover, so a two-word prompt is a two-word pill. Its meta (process notices,
-  checkpoints, timestamps) sits at the 12px caption — the ramp floor.
+  checkpoints, timestamps) sits at the 13px caption — the ramp floor.
 - **A long prompt clamps, and the fade is a promise.** `.sticky-human-clamp`
   cuts the body at four lines; the soft bottom mask paints *only* when
   something is genuinely hidden behind it, measured against that clamp's own
@@ -1058,13 +1181,13 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   `--ui-widget-surface-background` fill under a `--border-default` hairline
   (the card voice — on the Quiet page the fill alone is invisible). Its actions sit *outside*
   the panel, below it, on the normal control ramp (a widget's primary action is
-  a real 32px button, not statusbar-dense chrome). Don't give one widget its own
+  a real 36px button, not statusbar-dense chrome). Don't give one widget its own
   radius or fill.
 - **Fenced code** rides `CodeCard` (`src/components/chat/code-card.tsx`, spec
   §5.19): `--bg-subtle` under a `--border-subtle` hairline, 12px corners
-  (`rounded-lg`), 13/20 mono at `--conversation-code-font-size`/`-line-height`,
+  (`rounded-lg`), 14px mono at 1.54 (`--conversation-code-font-size`/`-line-height`),
   12×16 padding, scrolling sideways inside the block. `CodeCardHeader` is one
-  32px row — the language on the left as a caption in the UI face, tertiary (a
+  36px row — the language on the left as a caption in the UI face, tertiary (a
   language is a proper name: its own casing), the copy control on the right at
   `size="icon-sm"`. No divider under it; the padding is the separation. Copy
   answers in place — the glyph becomes a check and the label becomes "Đã chép"
@@ -1074,37 +1197,32 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   (`--ui-inline-code-background`), 1×5px padding, 6px corners.
 - **Tables in a reply** (`markdown-text.tsx`): a `--border-default` frame with
   12px corners that scrolls sideways inside itself; a `--bg-subtle` header row
-  in 14px medium primary ink; 36px rows at 14px, split by `--border-subtle`,
+  in 15px medium primary ink; 36px rows at 15px, split by `--border-subtle`,
   `tabular-nums`.
 - **A fence that is still streaming gets exactly one motion primitive:** it
   rises into place at `--dur-short-exit`, and its body carries a soft bottom
   mask. No pulsing halo — a coloured glow around a card is banned on any
   surface, and a second loop would compete with the text actually arriving.
-- **A reply says who is speaking, once.** `BrandGlyph` (20px, the mark's
-  shared geometry from `lib/brand-mark-path.ts`, tertiary ink) heads
-  the first assistant message of a turn on the prose column's left edge;
-  interim messages in the same turn wear none, and it never sits in a bubble.
-- **A wait is the mark writing itself.** Before the first token the thinking
-  row *is* the reply's head: the same `BrandGlyph` (`size="md"`, 20px, in the
-  head's own spot — the steady head is held back until content exists, so
-  one mark is on screen at a time) with `tracing` on — a stroke of ink runs
-  the mark's one-stroke route (`BRAND_MARK_ROUTE`: out of the fork, round the
-  loop, down the tail) over a 45% copy of the mark, swelling to two-thirds of
-  it and draining into the tail's tip, one 2.2s lap at a time. Beside it the
-  13px "Đang nghĩ" (`assistant.thread.thinking`, or the named wait when there
-  is one) shimmers on the same lap — the stock `shimmer`, its band narrowed
-  to 5ch so it passes through the word instead of dimming all of it — and
-  the elapsed timer counts. When the stream goes quiet mid-turn the same row
-  returns at the tail a rung smaller (`size="sm"`, 14px) under the prose.
-  The motion runs only while it can be seen (`useAmbientMotion`: window
-  focused and on screen, pane visible, no reduced motion); otherwise the row
-  rests as the plain mark and plain text, the timer still ticking. No dither
-  block, no spinner: the mark that heads the reply is the mark that waits for
-  it. `.dither` no longer marks the sidebar's group labels; the timeline's
-  idle dots keep it.
+- **A reply carries no badge.** The assistant's prose starts on the column's
+  left edge with nothing above it — no brand mark heading the turn, before,
+  during or after the reply (review: a logo over every answer was noise).
+  Who is speaking is already clear from the layout: the user's bubble on the
+  right, the unbubbled reply full width.
+- **A wait is three typing dots.** Before the first token the thinking row
+  (`ResponseLoadingIndicator`) is `TypingDots` (`components/chat/typing-dots.tsx`:
+  three 5px dots in tertiary ink, each rising 2px and brightening in turn —
+  a message app's "typing" wave, transform and opacity only) beside
+  "Đang suy nghĩ…" (`assistant.thread.thinking`, or the named wait when there
+  is one) and the elapsed timer. The label shimmers on the same 1.4s lap
+  (`--thinking-lap-ms`) — the stock `shimmer`, its band narrowed to 5ch so it
+  passes through the phrase instead of dimming it. When the stream goes quiet
+  mid-turn the same row returns at the tail (`StreamStallIndicator`). The
+  motion runs only while it can be seen (`useAmbientMotion`: window focused
+  and on screen, pane visible, no reduced motion); otherwise the dots rest
+  even and half-bright and the label is plain, the timer still ticking.
 - **Tool rows are scaffolding, not cards.** They stay transparent and faded
   (`data-conversation-scaffold`) so the prose column reads first. One voice
-  for all of them: `SCAFFOLD_LABEL_CLASS` (13px regular at
+  for all of them: `SCAFFOLD_LABEL_CLASS` (14px regular at
   `--conversation-scaffold-text`, secondary ink on Quiet) for the name,
   `SCAFFOLD_META_CLASS` (`text-xs tabular-nums`) for counts, durations and
   diff stats. The name is the human one from the catalog's
@@ -1114,7 +1232,7 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   12px behind a 1px `--border-default` rule on its left — no box around the
   step, no rule under the row. Field labels above a payload ("stdout", "Search
   results") are a caption in tertiary ink, their own casing; raw payload dumps
-  are 12px mono.
+  are caption-size (13px) mono.
 - **Tool state is a glyph *and* a colour, from the semantic tokens.** Running
   is the breathing spinner, error `destructive`, recovered `--ui-yellow`,
   delegate-done `--ui-green`, diff counts `--ui-diff-add-foreground` /
@@ -1139,15 +1257,16 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   every state — the transcript never shows through, no backdrop blur) under a
   `--border-default` hairline, **16px corners** (`rounded-xl`), **no shadow**.
   Hover and `:focus-within` firm the edge to `--border-strong` — never the
-  accent — at `--dur-micro`. The message field is 14px (`text-body`). The
+  accent — at `--dur-micro`. The message field is 15px (`text-body`). The
   composer sits **16px above the window's bottom edge**
-  (`--composer-shell-pad-block-end`). One input line is **48px** (the spec's
-  min-height): `--composer-surface-pad-y` (7px) around the 32px control row,
-  inside the 1px border — still a single line; it grows only as the text
+  (`--composer-shell-pad-block-end`). One input line is **50px** (the spec's
+  48px min-height, scaled with the ramp): `--composer-surface-pad-y` (6px)
+  around the 36px control row (`--composer-control-size`), inside the 1px
+  border — still a single line; it grows only as the text
   wraps (to `--composer-input-max-height`). The cards docked to it (status stack, queue) share the opaque fill
   and a `--border-default` edge; the completion drawers and the `+` menu are
   the level-1 popover surface (`composerPanelCard`: `--bg-raised`,
-  `shadow-md`, 12px corners, 13px type); the floating micro-action pills are
+  `shadow-md`, 12px corners, 14px type); the floating micro-action pills are
   28px, `--bg-app` under a hairline. The drag-to-dock target is the shared
   drop sheet (a 2px dashed `--border-strong` edge on `--bg-subtle`) firming as
   the composer nears it — no coloured glow.
@@ -1178,7 +1297,8 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   probe, `repoStatusForCwd`, decides all three, so they never disagree.
 - **The control row is three stops** — model pill · voice ⋯ · send. The send
   slot is one place that says one of three things: with something to send,
-  a **28px round `--bg-inverse` button** with an up arrow
+  a **32px round `--bg-inverse` button** (`--composer-control-primary-size`)
+  with an up arrow
   (`PRIMARY_ICON_BTN` — the one filled control in the row, never the accent;
   disabled it is a bare muted glyph); with an empty box, a **ghost
   microphone** (start a voice conversation) — nothing to send yet, so nothing
@@ -1217,14 +1337,26 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   `media` to the same seekable player the transcript uses. `binary` is what is
   left — an archive — and it offers the same ways out rather than "preview
   anyway".
-- **The connect splash** (`components/gateway-connecting-overlay.tsx`) is one
-  centred line — the catalog's `boot.connecting` ("Connecting to AgentX
-  server" in English) at the 24px display rung, medium, primary ink — its
-  `word` legible from the first frame while the `target` decodes under it,
-  then a fade that hands off to the home greeting at the same size. Cold boot
-  only: a post-boot socket drop reconnects behind the shell, never behind this
-  overlay. The onboarding title takes the same rung, sans, with no colour
-  block behind it.
+- **The connect splash** (`components/gateway-connecting-overlay.tsx`,
+  `data-slot="connecting-splash"`, `role="status"`) is the platform's way of
+  saying "working": the AgentX mark (`BrandGlyph`, 44px, primary ink) and
+  under it, 20px down, the `ActivityIndicator` (16px, tertiary ink) beside one
+  plain 15px line in secondary ink — the catalog's `boot.connecting` `word` +
+  `target` + "…" ("Connecting to AgentX server…" in English). Nothing
+  scrambles: the old `DecodeText` decode is gone from this screen (the
+  primitive lives on elsewhere). The group arrives after a 150ms beat (a fade
+  with a 4px rise, `animate-in fade-in-0 slide-in-from-bottom-1`), so a warm
+  connect shows nothing at all, and leaves with a fade and a slight scale to
+  .98. Cold boot only: a post-boot socket drop reconnects behind the shell,
+  never behind this overlay. The onboarding title sits at the 26px
+  `text-2xl` rung, medium, sans, with no colour block behind it.
+- **`ActivityIndicator`** (`components/ui/activity-indicator.tsx`) is the
+  platform's indeterminate activity indicator: twelve rounded spokes in
+  `currentColor` whose opacity falls off around the dial, the dial turning in
+  twelve discrete steps per second (`activity-spin`, `steps(12)` — the system
+  indicator's own rhythm, never a smooth spin). Reduced motion holds it still;
+  the falloff alone still reads as "working". Pass `label` when it stands
+  alone (it becomes `role="img"`); beside a sentence it is `aria-hidden`.
 - **Inference belongs to AgentX AI Gateway.** Sign-in, onboarding, model
   pickers and Settings never offer another inference provider or endpoint.
   Gateway failure offers retry or Skip; Skip opens the shell without claiming
@@ -1274,8 +1406,9 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 - **Tabler** is the page chrome's only icon set — sidebar nav and rows,
   titlebar, tabs, page buttons, empty states, the master/detail chrome. Import
   its curated aliases and `iconSize` scale from `src/lib/icons.ts`; do not
-  import icon packages directly in feature code. Nav glyphs sit at 18px
-  (`size-4.5`), buttons and menu rows at 16px, header icon buttons at 20px.
+  import icon packages directly in feature code. Sidebar nav glyphs sit at
+  20px (`size-5`), buttons, menu and palette rows at 18px (`size-4.5`), icon
+  buttons at 20px — one step above the spec's 18/16/20 with the type.
 - **One outline weight** (spec §3.10): `svg.tabler-icon { stroke-width: 1.5 }`
   in the base layer of `styles.css`, set once rather than per call site — a
   deliberate `stroke-[…]` utility (a 12px check that needs more weight) still
@@ -1290,10 +1423,35 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   file rows lead with `FileTypeIcon` — a file-type icon is the file-tree
   vocabulary, and a per-extension Tabler duplicate would fork the mapping.
 - **Skill categories have one glyph table.** `lib/skill-categories.ts` maps a
-  normalized category slug to a Tabler icon and an i18n label
+  normalized category slug to a Tabler icon, a tile tint and an i18n label
   (`skills.category.*`); `skillDisplayName` turns a kebab slug into the
   human name (the raw slug stays under "Chi tiết kỹ thuật"). Unknown
   categories fall back to the "general" box + `prettyName`.
+  `skillCategoryTint()` reads the curated `CATEGORY_TINTS` — chosen, not
+  hashed, so a colour means something and neighbouring shelves never collide
+  (email and social-media blue, note-taking yellow, smart-home green,
+  productivity orange, research teal, media red, creative pink,
+  autonomous-ai-agents purple, mlops and software-development indigo; apple,
+  github and general graphite); an unknown category gets a stable hashed one.
+- **Tile colours** (`components/ui/icon-tile.tsx`) — a deliberate deviation
+  from the spec's colour-only-as-a-signal rule, from the review (an all-grey,
+  all-black UI read flat and heavy). The `--tint-*` palette is the platform's
+  system colours a shade quieter, one set per mode in `tokens.css`: `blue`,
+  `green`, `orange`, `red`, `purple`, `pink`, `teal`, `indigo`, `yellow`,
+  `graphite` (`TINTS`, type `Tint`). **Tints mark which place or which kind —
+  never text, never a state** (state stays with `StatusPill` and the signal
+  trio). `IconTile` puts a glyph in a rounded colour tile: `variant="solid"`
+  is the Settings look — the full tint under a white glyph — kept to small,
+  scannable rails (the overlay rail); `variant="soft"` (the default) is the
+  quiet form for grids of cards — the glyph in the tint on a 13% wash of it
+  over `--bg-app` (22% in dark) — so a page of forty cards reads calm. Sizes:
+  `sm` 24px tile, 6px corners, 14px glyph; `md` 32px, 8px corners, 18px
+  glyph. `tintFor(seed)` gives a stable tint for a name (FNV-1a over the
+  lowercased string, so short similar names spread across the palette) and
+  never returns `graphite`, which stays for "system" things chosen on
+  purpose. Where colour appears: the overlay rail (solid, `OverlayNavLink.tint`),
+  `StoreCardGlyph tint` (soft), and the sidebar's four destination glyphs
+  (bare tinted glyphs, no tile — § Navigation chrome).
 - Pick the vocabulary by semantic context and reuse the existing icon for an
   action. Do not introduce a third icon set or mix styles within one control
   group.
@@ -1303,12 +1461,11 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   onboarding / about. Use it for hero/brand moments; don't reintroduce
   decorative star/sparkle icons.
 - **`BrandGlyph`** (`src/components/brand-glyph.tsx`) is the mark as a 20px
-  (`size="md"`, the reply head and the empty figures) or 14px (`size="sm"`,
-  the thinking row's stall) `currentColor` line-art glyph, built from
-  `lib/brand-mark-path.ts` — the same geometry the `EmptyFigure`s carry. One
-  path for every drawing of the mark: re-fit the numbers there and they all
-  follow. `tracing` is the thinking row's mark writing itself; off, the
-  glyph is exactly the plain mark, so a paused wait never changes shape.
+  (`size="md"`) or 14px (`size="sm"`) `currentColor` line-art glyph — the
+  connect screen, the sign-in art and the `EmptyFigure`s — built from
+  `lib/brand-mark-path.ts`, the one geometry every drawing of the mark
+  shares: re-fit the numbers there and they all follow. It no longer heads
+  replies or traces itself (the one-stroke route and its pen were removed).
 
 ## Motion
 
@@ -1323,6 +1480,13 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   `cubic-bezier(0.4, 0, 1, 1)` (exit, close), `--ease-in-out`
   `cubic-bezier(0.4, 0, 0.2, 1)` (move, resize, in-place morph). Focus rings
   appear instantly — never transitioned.
+- **Enter/exit utilities come from `tw-animate-css`** — a direct dependency
+  (`package.json`), imported in `styles.css` right after Tailwind:
+  `animate-in` / `animate-out`, `fade-in-0`, `slide-in-from-*`, `zoom-in-*`,
+  `fill-mode-*`. Every popper, dialog and toast entrance in this file rides
+  them. Until the review round it was never imported, so every
+  `animate-in/out` class in the app was silently inert — if an entrance stops
+  playing, check the import first.
 - **No bounce, no overshoot, no parallax.** `--spring-pop` and
   `--spring-reveal` survive as names so the physical call sites (reaction pop,
   particle burst, drag-reorder settle, the pet hatching) stay distinguishable,
@@ -1346,13 +1510,15 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 | Disclosure caret / group open | `rotate` (90°) | `--dur-collapse` · `--ease-in-out` |
 | Scaffolding lifting out of its fade | `opacity` | `--dur-micro` · `--ease-out` |
 | Overlay / boot surface arriving | `opacity` (+ the surface's own stagger) | `--dur-long` · `--ease-out` |
+| Connect splash group | `opacity` + a 4px rise in, after a 150ms beat; `opacity` + scale → .98 out | in: 500ms · `--ease-out`; out: `--dur-long` · `--ease-in` |
+| `ActivityIndicator` | `transform` (rotate), twelve discrete steps | 1s per turn, `steps(12)`, infinite; reduced motion → still |
 | Anything leaving | the property it entered on | the paired `--dur-*-exit` · `--ease-in` |
 | Reaction / particle / reorder settle | `transform`, `opacity` | `--dur-long-exit` · `--spring-pop` (no overshoot) |
 | Page-tab underline sliding (`PageTabs`) | `transform`, `opacity` (its width snaps) | `--dur-short` · `--ease-in-out`; reduced motion → a jump |
 | Card hover (`Button variant="card"`, `StoreCard`) | `border-color` (`--border-default` → `--border-strong`) | `--dur-micro` · `--ease-out` — never translate, never scale, never a shadow |
 | Skeleton (`animate-skeleton`) | `opacity` 1 ↔ 0.6 | 1.6s · `--ease-in-out`, starting after 300ms; reduced motion → shown, still |
 | Glyph field ring (canvas, see § Chat) | each character's alpha and tint, every frame while a ring flashes; the trace's fade as the canvas's `opacity` | edge eases out over 2.4s; flash 420ms and trace 3.2s time constants (`lib/glyph-field.ts`); reduced motion → no ring |
-| Thinking row (`BrandGlyph tracing` + the label's `shimmer`) | the pen's head and tail along the route (two registered numbers driving `stroke-dasharray`/`-dashoffset`); the shimmer band | 2.2s lap (`--thinking-lap-ms`): head over the first 70%, tail 20–90%, both `--ease-in-out`; shimmer sweeps 90% and rests 10%; unfocused, hidden or reduced motion → the plain mark |
+| Thinking row (`TypingDots` + the label's `shimmer`) | each dot's `opacity` and `translateY` (2px), a beat apart; the shimmer band | 1.4s lap (`--thinking-lap-ms`), `--ease-in-out`, dots 15% apart; shimmer 1.8s with a 0.4s rest; unfocused, hidden or reduced motion → still dots, plain label |
 
 - **The command palette opens in the frame it is asked for** — no entry
   animation at all; only its close animates. A command surface is used at
@@ -1561,7 +1727,7 @@ The detailed state contract lives in the scoped
       accent or the brand?
 - [ ] Cards and the composer carry a border, not a shadow; a floating surface
       takes `shadow-md` (level 1) or `shadow-nous` (level 2) and nothing else?
-- [ ] Hierarchy by ink, not by size — nothing under 12px, no uppercase, no
+- [ ] Hierarchy by ink, not by size — nothing under 13px, no uppercase, no
       tracking?
 - [ ] Tips only where hover teaches something new (no kebab / menu-trigger
       tips; unlabeled chrome that needs discovery gets `<Tip>` + `aria-label`)?

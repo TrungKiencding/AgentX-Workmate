@@ -4,10 +4,10 @@ import { type FC, type ReactNode, useEffect, useMemo, useState } from 'react'
 
 import { useSessionView } from '@/app/chat/session-view'
 import { toolPresentVerb } from '@/components/assistant-ui/tool/run-summary'
-import { BrandGlyph } from '@/components/brand-glyph'
 import { useElapsedSeconds } from '@/components/chat/activity-timer'
 import { ActivityTimerText } from '@/components/chat/activity-timer-text'
 import { SCAFFOLD_LABEL_CLASS } from '@/components/chat/scaffold-row'
+import { TypingDots } from '@/components/chat/typing-dots'
 import { Codicon } from '@/components/ui/codicon'
 import { Loader } from '@/components/ui/loader'
 import { useAmbientMotion } from '@/hooks/use-ambient-motion'
@@ -45,17 +45,17 @@ const StatusRow: FC<{ children: ReactNode; label: string } & React.ComponentProp
   </div>
 )
 
-/** The row itself: the mark writing itself, the wait's name — "Đang nghĩ", or
- *  the named wait — and the timer. The name shimmers on the pen's own lap
- *  (`--thinking-lap-ms` in styles.css), the way every live label in the
- *  transcript shimmers while its work runs; both rest, as the plain mark and
- *  plain text, whenever the motion would be wasted or unwelcome. */
-const ThinkingStatus: FC<{ label: string; seconds: number; size: 'md' | 'sm' }> = ({ label, seconds, size }) => {
+/** The row itself: three typing dots, the wait's name — "Đang suy nghĩ…", or
+ *  the named wait — and the timer. The dots wave and the name shimmers on one
+ *  lap (`--thinking-lap-ms` in styles.css); both rest, as still dots and plain
+ *  text, whenever the motion would be wasted or unwelcome. No brand mark: the
+ *  reply needs no badge, before or after it lands. */
+const ThinkingStatus: FC<{ label: string; seconds: number }> = ({ label, seconds }) => {
   const live = useAmbientMotion()
 
   return (
     <>
-      <BrandGlyph className="text-midground/80" size={size} tracing={live} />
+      <TypingDots className="text-(--text-tertiary)" live={live} />
       <span className={cn(SCAFFOLD_LABEL_CLASS, 'min-w-0 truncate', live && 'shimmer')} data-slot="aui_status-label">
         {label}
       </span>
@@ -154,9 +154,7 @@ export const ResponseLoadingIndicator: FC = () => {
 
   return (
     <StatusRow data-slot="aui_response-loading" label={hint || t.assistant.thread.loadingResponse}>
-      {/* Head position: this is the reply's own mark, writing itself until the
-          first token lands and the steady head takes over — same size, same spot. */}
-      <ThinkingStatus label={hint || t.assistant.thread.thinking} seconds={elapsed} size="md" />
+      <ThinkingStatus label={hint || t.assistant.thread.thinking} seconds={elapsed} />
     </StatusRow>
   )
 }
@@ -261,7 +259,7 @@ export const StreamStallIndicator: FC = () => {
 
   return (
     <StatusRow data-slot="aui_stream-stall" label={hint || t.assistant.thread.thinking}>
-      <ThinkingStatus label={hint || t.assistant.thread.thinking} seconds={elapsed} size="sm" />
+      <ThinkingStatus label={hint || t.assistant.thread.thinking} seconds={elapsed} />
     </StatusRow>
   )
 }

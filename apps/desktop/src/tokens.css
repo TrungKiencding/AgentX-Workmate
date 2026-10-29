@@ -110,7 +110,8 @@
 
     /* Tile tints (components/ui/icon-tile.tsx) — the platform's system
        colours a shade quieter, for icon tiles only: never text, never a
-       state. White glyphs on the solid tiles clear 3:1 (icons). */
+       state. White glyphs on the solid tiles clear 3:1 (icons); in dark the
+       lifted tints are pulled back for solid tiles (see IconTile). */
     --tint-blue: #2f6fe4;
     --tint-green: #2e9a58;
     --tint-orange: #e0761c;
@@ -285,8 +286,7 @@
   --sidebar-row-selected: var(--gray-800);
   --ui-bg-sidebar: var(--sidebar-bg);
 
-  /* gray-850 on the gray-950 page measures 1.19:1 — the sidebar edge in dark
-     takes the default hairline so it still exists (see presets.ts). */
+  /* The sidebar edge is the default hairline in both modes (see presets.ts). */
   --sidebar-edge-border: var(--border-default);
 
   --ui-scrollbar-thumb: var(--gray-700);

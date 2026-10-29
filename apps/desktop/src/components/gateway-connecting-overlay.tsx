@@ -147,24 +147,27 @@ export function GatewayConnectingOverlay() {
   return (
     <div
       className={cn(
-        'fixed inset-0 z-(--z-connecting) grid place-items-center bg-(--ui-chat-surface-background) transition-opacity duration-500 ease-out',
+        'fixed inset-0 z-(--z-connecting) grid place-items-center bg-(--ui-chat-surface-background) transition-opacity duration-(--dur-long) ease-(--ease-in)',
         overlayHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
       )}
     >
-      <div
-        className={cn(
-          'flex flex-col items-center gap-5 transition-[opacity,scale] duration-(--dur-long) ease-(--ease-in)',
-          // Arrives after a 150ms beat, so a warm connect shows nothing at all.
-          'animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-500 delay-150 ease-(--ease-out)',
-          leaving ? 'scale-[0.98] opacity-0' : 'scale-100 opacity-100'
-        )}
-        data-slot="connecting-splash"
-        role="status"
-      >
-        <BrandGlyph className="size-11 text-(--text-primary)" />
-        <div className="flex items-center gap-2.5 text-base text-(--text-secondary)">
-          <ActivityIndicator className="size-4 text-(--text-tertiary)" />
-          <span>{text}</span>
+      {/* Two layers so the two motions keep their own timing: the outer one
+          arrives (a 150ms beat first, so a warm connect shows nothing), the
+          inner one settles out (fade + slight scale on the exit curve). */}
+      <div className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both delay-150 duration-(--dur-long) ease-(--ease-out)">
+        <div
+          className={cn(
+            'flex flex-col items-center gap-5 transition-[opacity,scale] duration-(--dur-long) ease-(--ease-in)',
+            leaving ? 'scale-[0.98] opacity-0' : 'scale-100 opacity-100'
+          )}
+          data-slot="connecting-splash"
+          role="status"
+        >
+          <BrandGlyph className="size-11 text-(--text-primary)" />
+          <div className="flex items-center gap-2.5 text-base text-(--text-secondary)">
+            <ActivityIndicator className="size-4 text-(--text-tertiary)" />
+            <span>{text}</span>
+          </div>
         </div>
       </div>
     </div>

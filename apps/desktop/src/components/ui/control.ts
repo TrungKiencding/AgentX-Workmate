@@ -11,7 +11,7 @@ import { cva, type VariantProps } from 'class-variance-authority'
 export const controlVariants = cva(
   'desktop-input-chrome w-full min-w-0 rounded-(--radius-control) border text-base leading-5 text-(--text-primary) outline-none placeholder:text-(--text-tertiary) disabled:pointer-events-none disabled:cursor-not-allowed disabled:text-(--text-disabled)',
   {
-    // Spec §5.6: 32px (lg 40px), 10px inline padding, 14px text.
+    // Spec §5.6, one step up: 36px (lg 44px), 10px inline padding, 15px text.
     variants: {
       size: {
         xs: 'h-6 px-2 text-xs',

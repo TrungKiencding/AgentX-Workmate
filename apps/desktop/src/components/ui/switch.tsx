@@ -32,7 +32,7 @@ const switchThumbVariants = cva(
   {
     variants: {
       size: {
-        // Track 28 − 2×2px inset − 12px thumb = a 12px throw.
+        // Track 32 − 2×2px inset − 14px thumb = a 14px throw.
         default: 'size-(--switch-md-thumb) data-[state=checked]:translate-x-(--switch-md-thumb)',
         md: 'size-(--switch-md-thumb) data-[state=checked]:translate-x-(--switch-md-thumb)',
         xs: 'size-2.5 data-[state=checked]:translate-x-2.5'

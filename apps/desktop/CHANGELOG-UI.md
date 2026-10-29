@@ -571,3 +571,83 @@ in 46 strings and the system called itself "tôi".
   phiên" for `session_id`); the system never says "tôi"
   (30 → 21 matches, every one left the user's own words); no exclamation
   marks or all-caps emphasis in system copy.
+
+## Review round (29/10)
+
+The Quiet Tool pass, read on real machines. Three commits on `ui/quiet-tool`
+(`e59f40e669`…`e1bb23a878`), 35 files under `src/`. Two complaints drove
+nearly all of it: on older, lower-density displays the spec's sizes read small
+and its greys washed out, and an all-black, all-grey UI read heavy in some
+places and too faded in others. Each change is named in
+[`DESIGN.md`](./DESIGN.md) as a deliberate deviation from the spec, with that
+reason.
+
+**Before.** Body chrome was 14px and prose 15px; controls 28/32/40px, sidebar
+and menu rows 32px, the composer line 48px. Secondary ink was gray-600,
+tertiary gray-500 (3.4:1 — captions only), hairlines gray-150…400, and `body`
+forced `antialiased` smoothing. The sidebar was the page colour. The primary
+button, send circle, tooltip, checked switch and checkbox were near-black
+(gray-950). Every glyph in the chrome was grey. The greeting was a 24px medium
+line that addressed "Lê Trung Kiên" by the full name; the connect screen
+scrambled its line with `DecodeText`. Toasts placed themselves from a root
+`--composer-measured-height` default that let them cover the composer's top
+edge. And `tw-animate-css` was never imported, so every `animate-in/out` class
+in the app — popper, dialog and toast entrances — did nothing.
+
+**After.**
+- **One size step up.** The type ramp is 13 · 14 · 15 · 16 · 17 · 21 · 26 ·
+  30px (caption · meta · body · reading · title · page title · section display
+  · display); controls 30/36/44; sidebar nav, conversation and group-header
+  rows 36px; menu rows 36px with 18px glyphs and a 224px minimum; palette rows
+  40px under a 52px search row; page tabs 44px, 24px apart; text tabs, code
+  headers and date dividers 36px; switch 32×18 with a 14px thumb; checkbox
+  18px; kbd and badge 20px; the account row 44px with a 28px avatar; the
+  composer line 50px (6px + a 36px control row + 6px, a 32px send circle).
+  The reply's own scale moved with it: prose 16px, tool meta and code 14px,
+  headings 17 / 16 / 16 / 15px. `body` no longer forces `antialiased` — it
+  thinned every stem on low-density screens.
+- **Firmer greys.** Light: secondary gray-700 (8.2:1), tertiary gray-600
+  (5.9:1 — every text tier now clears AA), disabled gray-500, icons
+  gray-800 / gray-600, hairlines subtle · default · strong · input = gray-200 ·
+  300 · 400 · 500 (the input edge 3.4:1). Dark: secondary gray-300, tertiary
+  gray-400, disabled gray-600, icons gray-200 / gray-400, hairlines gray-800 ·
+  750 · 700 · 600. The `quietTheme` seeds followed (`WARM` gained a 750 rung).
+- **The sidebar is a place.** It sits on `--sidebar-bg` — gray-50 in light,
+  gray-1000 in dark (stepping *down* from the page) — edged by
+  `--border-default`, with row fills one rung stronger
+  (`--sidebar-row-hover` / `-selected`) wherever `data-sidebar-surface` is
+  set, the overlay rails included. The titlebar band paints the column under
+  it (split at `--workspace-left/right`), so the sidebar reads as one column
+  from the traffic lights down.
+- **Charcoal, blue and a little colour.** `--bg-inverse` is charcoal gray-700
+  in light (white on it 8.2:1) and gray-200 in dark. Switches and checkboxes
+  take `--accent` when on / checked, under a white thumb, like the
+  platform's own. A new `--tint-*` palette (blue, green, orange, red, purple,
+  pink, teal, indigo, yellow, graphite — the system colours a shade quieter,
+  per mode) feeds `IconTile`: solid Settings-style tiles on the settings rail
+  (a curated tint per pane; the rail widened from 13rem to 15.5rem so the
+  larger labels fit), soft washes behind skill, tool and browser card glyphs
+  (`StoreCardGlyph tint` — skills by a curated category map, tools by a
+  stable FNV hash, `tintFor()`), and tinted glyphs on the sidebar's four
+  destinations (new chat blue, Tiện ích orange, Kênh tin nhắn green,
+  Artifact purple). Tints mark places and kinds, never text or state.
+- **A greeting that knows your name.** 30px semibold, drawn slightly tighter
+  (`--tracking-display`, −0.022em — the token that replaced the retired
+  `--tracking-label`), addressing the given name: `greetingName()` takes the
+  last word of a Vietnamese name ("Kiên"), the first word elsewhere. The
+  intro block centres with `justify-content: safe center`, so a short window
+  scrolls it instead of cutting the first line and hiding the last card; its
+  line and cards widen to 38 / 40rem.
+- **A calmer connect screen.** The AgentX mark over a new `ActivityIndicator`
+  — twelve spokes turning in twelve steps, the platform's own rhythm, still
+  under reduced motion — beside one plain line. It fades in after a 150ms
+  beat, so a warm connect shows nothing at all.
+- **Toasts sit above the composer, not on it.** `useToastAnchor()` measures
+  the foreground composer dock and places the stack 12px above it, centred on
+  it, following it as it grows.
+- **Kept honest.** `tw-animate-css` is a direct dependency and imported in
+  `styles.css`; the `--tracking-label` token is deleted, not parked at 0.
+- Thinking row: the self-tracing brand mark is replaced by three typing dots
+  beside "Đang suy nghĩ…"; replies no longer carry a brand mark at their head,
+  so a finished answer starts with its first line. The pen-trace CSS, the
+  one-stroke `BRAND_MARK_ROUTE` and `BrandGlyph`'s `tracing` mode are removed.

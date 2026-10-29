@@ -80,7 +80,7 @@ const WARM = {
  * Deliberate deviations (review, for older lower-density displays): text,
  * icon and line greys sit one rung firmer than §3.3/§3.4; the sidebar sits on its own surface (gray-50 light,
  * gray-1000 dark — asked for in review so the column stands apart), and its
- * edge is the default hairline (gray-200 / gray-800); the spec's subtle rung
+ * edge is the default hairline (gray-300 / gray-750); the spec's subtle rung
  * vanishes against a tinted sidebar (1.12:1, under the gate's 1.2 floor).
  *
  * Axes — band: warm gray, white / oklch(22% 0.002 106) dark · display: system
@@ -145,7 +145,7 @@ export const quietTheme: DesktopTheme = {
     destructive: '#c8372d',
     destructiveForeground: '#ffffff',
     sidebarBackground: '#141413', // gray-1000 — the sidebar steps down from the page
-    sidebarBorder: WARM[800],
+    sidebarBorder: WARM[750],
     userBubble: WARM[900],
     userBubbleBorder: WARM[900]
   },

@@ -10,15 +10,15 @@ export const HUD_POSITION = 'fixed left-1/2 top-[20vh] -translate-x-1/2'
 // without it the search input would swallow clicks.
 export const HUD_SURFACE = 'rounded-(--radius-dialog) bg-(--bg-raised) shadow-nous [-webkit-app-region:no-drag]'
 
-// One row/text size for both HUDs — text-body (14px). A palette is something
+// One row/text size for both HUDs — text-body (15px). A palette is something
 // you read at speed under a moving selection; it gets no discount.
 export const HUD_TEXT = 'text-base'
 
 // Shared item layout for both HUDs: a 36px row, the Linear/Raycast pitch — big
 // enough to aim at, tight enough that a dozen fit on screen. A FLOOR, not a
 // fixed height, so the two-line rows on the pet/theme sub-pages still grow.
-// Overrides the shadcn `CommandItem` default (`px-2 py-1.5`).
-export const HUD_ITEM = 'min-h-9 gap-2 px-2.5 py-1'
+// Overrides the `CommandItem` default.
+export const HUD_ITEM = 'min-h-10 gap-2 px-2.5 py-1'
 
 // Group headings (spec §5.12): a caption in tertiary ink, its own casing —
 // plain text, no sticky chrome bar. Targets the cmdk group heading via the

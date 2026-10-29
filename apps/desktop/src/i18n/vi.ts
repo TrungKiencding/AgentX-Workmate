@@ -4095,7 +4095,7 @@ export const vi: Translations = {
       loadingResponse: 'AgentX đang tải phản hồi',
       resumeWhenBackgroundDone: count =>
         count === 1 ? 'Sẽ tiếp tục khi tác vụ nền chạy xong' : `Sẽ tiếp tục khi ${count} tác vụ nền chạy xong`,
-      thinking: 'Đang nghĩ',
+      thinking: 'Đang suy nghĩ…',
       startingAgent: 'Đang khởi động trợ lý',
       thought: 'Đã nghĩ',
       thoughtBriefly: 'Nghĩ một lát',

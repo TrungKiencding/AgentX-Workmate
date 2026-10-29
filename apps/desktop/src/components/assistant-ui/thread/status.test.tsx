@@ -70,12 +70,12 @@ describe('status line', () => {
   })
 })
 
-// The wait is the reply's own mark writing itself, its name shimmering on the
-// same lap — and both rest, as the plain mark and plain text, when the motion
-// would be unwelcome or unseen.
+// The wait is three typing dots in a wave, its name shimmering on the same lap
+// — and both rest, as still dots and plain text, when the motion would be
+// unwelcome or unseen.
 describe('thinking row motion', () => {
   const parts = (container: HTMLElement) => ({
-    glyph: container.querySelector('[data-slot="aui_response-loading"] [data-slot="brand-glyph"]'),
+    glyph: container.querySelector('[data-slot="aui_response-loading"] [data-slot="typing-dots"]'),
     label: container.querySelector('[data-slot="aui_response-loading"] [data-slot="aui_status-label"]')
   })
 
@@ -90,12 +90,12 @@ describe('thinking row motion', () => {
     vi.restoreAllMocks()
   })
 
-  it('writes the mark at the head and shimmers the label while on screen', () => {
+  it('waves the dots and shimmers the label while on screen', () => {
     const { glyph, label } = parts(renderIndicator().container)
 
-    expect(glyph?.hasAttribute('data-tracing')).toBe(true)
-    expect(glyph?.getAttribute('class')).toContain('size-5')
-    expect(label?.textContent).toBe('Thinking')
+    expect(glyph?.hasAttribute('data-live')).toBe(true)
+    expect(glyph?.querySelectorAll('.typing-dot')).toHaveLength(3)
+    expect(label?.textContent).toBe('Thinking…')
     expect(label?.classList.contains('shimmer')).toBe(true)
   })
 
@@ -112,8 +112,8 @@ describe('thinking row motion', () => {
 
     const { glyph, label } = parts(renderIndicator().container)
 
-    expect(glyph?.hasAttribute('data-tracing')).toBe(false)
-    expect(label?.textContent).toBe('Thinking')
+    expect(glyph?.hasAttribute('data-live')).toBe(false)
+    expect(label?.textContent).toBe('Thinking…')
     expect(label?.classList.contains('shimmer')).toBe(false)
   })
 
@@ -122,7 +122,7 @@ describe('thinking row motion', () => {
 
     const { glyph, label } = parts(renderIndicator().container)
 
-    expect(glyph?.hasAttribute('data-tracing')).toBe(false)
+    expect(glyph?.hasAttribute('data-live')).toBe(false)
     expect(label?.classList.contains('shimmer')).toBe(false)
   })
 
@@ -131,7 +131,7 @@ describe('thinking row motion', () => {
 
     const { glyph, label } = parts(renderIndicator().container)
 
-    expect(glyph?.hasAttribute('data-tracing')).toBe(false)
+    expect(glyph?.hasAttribute('data-live')).toBe(false)
     expect(label?.classList.contains('shimmer')).toBe(false)
   })
 })

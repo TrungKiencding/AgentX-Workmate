@@ -63,7 +63,9 @@ export function IconTile({
         'inline-grid shrink-0 place-items-center',
         SIZES[size],
         variant === 'solid'
-          ? 'bg-(--tile-tint) text-white'
+          ? // Dark-mode tints are lifted for washes and glyphs; a solid tile
+            // pulls its own back so the white glyph keeps ≥ 3:1.
+            'bg-(--tile-tint) text-white dark:bg-[color-mix(in_srgb,var(--tile-tint)_78%,black)]'
           : 'bg-[color-mix(in_srgb,var(--tile-tint)_13%,var(--bg-app))] text-(--tile-tint) dark:bg-[color-mix(in_srgb,var(--tile-tint)_22%,var(--bg-app))]',
         className
       )}

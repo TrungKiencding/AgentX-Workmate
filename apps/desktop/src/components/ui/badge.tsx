@@ -5,7 +5,7 @@ import type * as React from 'react'
 import { cn } from '@/lib/utils'
 
 const badgeVariants = cva(
-  // Spec §5.14: a 16px caption badge, 500 weight, tabular figures, full
+  // Spec §5.14 (one step up): a 20px caption badge, 500 weight, tabular figures, full
   // radius. Neutral on --bg-selected; a signal tone only ever tints its soft
   // background token, never a solid fill.
   'inline-flex w-fit shrink-0 items-center gap-1 rounded-full font-medium leading-none whitespace-nowrap tabular-nums [&_svg]:pointer-events-none',
