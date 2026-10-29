@@ -76,9 +76,10 @@ const WARM = {
  * `[data-agentx-theme='quiet']` block in tokens.css; the seeds below exist so
  * the pipeline (title bar, boot paint, contrast gate) sees the same numbers.
  *
- * One deliberate deviation, dark only: the sidebar hairline is gray-800, not
- * the spec's gray-850 — 850 on the 950 page measures 1.19:1, just under the
- * gate's 1.2:1 "the line still exists" floor.
+ * Deliberate deviations: the sidebar sits on its own surface (gray-50 light,
+ * gray-1000 dark — asked for in review so the column stands apart), and its
+ * edge is the default hairline (gray-200 / gray-800); the spec's subtle rung
+ * vanishes against a tinted sidebar (1.12:1, under the gate's 1.2 floor).
  *
  * Axes — band: warm gray, white / oklch(22% 0.002 106) dark · display: system
  * UI + SF Mono · accent: blue #2563eb light, #6b9bf7 dark.
@@ -109,8 +110,8 @@ export const quietTheme: DesktopTheme = {
     composerRing: WARM[300],
     destructive: '#c8372d', // 5.2:1 under white
     destructiveForeground: '#ffffff',
-    sidebarBackground: WARM[0],
-    sidebarBorder: WARM[150],
+    sidebarBackground: WARM[50],
+    sidebarBorder: WARM[200],
     userBubble: WARM[50],
     userBubbleBorder: WARM[50]
   },
@@ -141,7 +142,7 @@ export const quietTheme: DesktopTheme = {
     // TEXT in dark is --ui-red (red-400) from styles.css.
     destructive: '#c8372d',
     destructiveForeground: '#ffffff',
-    sidebarBackground: WARM[950],
+    sidebarBackground: '#141413', // gray-1000 — the sidebar steps down from the page
     sidebarBorder: WARM[800],
     userBubble: WARM[900],
     userBubbleBorder: WARM[900]

@@ -2,6 +2,9 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import 'tw-shimmer';
+/* Enter/exit motion utilities (animate-in, fade-in-0, slide-in-from-*, zoom-in-*)
+   that every popper, dialog and toast uses for the spec's §3.11 timings. */
+@import 'tw-animate-css';
 @import 'katex/dist/katex.min.css';
 @import '@vscode/codicons/dist/codicon.css';
 @import './tokens.css';
@@ -148,7 +151,8 @@
      Vietnamese stacked diacritics. No widened tracking anywhere.
        xs   12 caption   · sm 13 meta      · base 14 body (default chrome)
        md   15 reading   · lg 16 title     · xl  20 page title (rare)
-       2xl  24 display   · 3xl 28 hero (onboarding only)
+       2xl  24 section display · 3xl 28 display (the greeting, the connect
+       screen and onboarding: 600 weight, tracking-display)
      `2xs` survives as an alias of the 12px caption: the spec floor is 12px,
      nothing in the app renders at 11px any more. */
   --text-2xs: 0.75rem;
@@ -170,9 +174,10 @@
   --text-3xl: 1.75rem;
   --text-3xl--line-height: 1.3;
 
-  /* Retired: the spec forbids widened tracking. Kept at 0 so a stale
-     `tracking-label` utility renders as plain text instead of failing. */
-  --tracking-label: 0;
+  /* The one tracking token: display type (28px) is drawn slightly tighter,
+     the way the platform's own large titles are (SF Pro Display spacing).
+     Nothing is ever tracked WIDER (spec §3.6). */
+  --tracking-display: -0.022em;
 
   /* Motion easing (spec §3.11) — the only curves allowed. Enter = ease-out,
      exit = ease-in, move/resize = in-out. No bounce, no spring overshoot: the
@@ -1052,6 +1057,13 @@
   }
 }
 
+/* ActivityIndicator: one full turn, stepped twelve times (see the component). */
+@keyframes activity-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Skeleton (spec §2.1 + §3.11): an opacity pulse 1 ↔ 0.6 over 1.6s — never a
    shimmer sweep — that stays invisible for its first 300ms, so a load that
    finishes quickly never flashes a skeleton at all. The base opacity is 0 and
@@ -1749,9 +1761,13 @@ code {
   padding-inline: 1.5rem;
 }
 
+/* `safe center`: centred while it fits; once a short window can't hold the
+   greeting, the line and the cards, the block starts at the top and the
+   overflow goes DOWN into the scroller — never split above the top edge and
+   under the composer, which left the first line cut and the last card hidden. */
 [data-slot='aui_intro'] {
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   padding-bottom: var(--composer-measured-height);
   text-align: center;
 }

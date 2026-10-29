@@ -163,9 +163,17 @@
   --warning-bg: var(--amber-50);
   --danger-bg: var(--red-50);
 
+  /* The sidebar sits on its own warm off-white so the navigation column reads
+     as a place, not as more page (a deliberate step past the spec's single
+     --bg-app surface, asked for in review). Its rows get one rung more
+     contrast than the page's, so hover and selection still land on it. */
+  --sidebar-bg: var(--gray-50);
+  --sidebar-row-hover: var(--gray-150);
+  --sidebar-row-selected: var(--gray-200);
+
   /* Legacy component tokens → semantic tier. */
   --ui-bg-chrome: var(--bg-app);
-  --ui-bg-sidebar: var(--bg-app);
+  --ui-bg-sidebar: var(--sidebar-bg);
   --ui-bg-editor: var(--bg-app);
   --ui-bg-elevated: var(--bg-raised);
   --ui-bg-card: var(--bg-app);
@@ -191,7 +199,7 @@
   --ui-stroke-secondary: var(--border-default);
   --ui-stroke-tertiary: var(--border-default);
   --ui-stroke-quaternary: var(--border-subtle);
-  --sidebar-edge-border: var(--border-subtle);
+  --sidebar-edge-border: var(--border-default);
   --ui-sash-hover-border: var(--border-strong);
   --ui-sash-hover-background: var(--bg-hover);
 
@@ -240,6 +248,12 @@
   --warning-bg: var(--amber-950);
   --danger-bg: var(--red-950);
 
+  /* In dark the sidebar steps DOWN from the page, the macOS source-list way. */
+  --sidebar-bg: var(--gray-1000);
+  --sidebar-row-hover: var(--gray-900);
+  --sidebar-row-selected: var(--gray-800);
+  --ui-bg-sidebar: var(--sidebar-bg);
+
   /* gray-850 on the gray-950 page measures 1.19:1 — the sidebar edge in dark
      takes the default hairline so it still exists (see presets.ts). */
   --sidebar-edge-border: var(--border-default);
@@ -282,4 +296,16 @@
   :where([data-slot='switch'], [data-slot='checkbox']) {
     border: 1px solid CanvasText;
   }
+}
+
+/* Inside the sidebar the row fills use the sidebar's own rungs. Custom
+   properties substitute where they are declared, so every token a row reads
+   is re-pointed here, not only the semantic pair. */
+:root[data-agentx-theme='quiet'] [data-sidebar-surface] {
+  --bg-hover: var(--sidebar-row-hover);
+  --bg-selected: var(--sidebar-row-selected);
+  --ui-row-hover-background: var(--sidebar-row-hover);
+  --ui-row-active-background: var(--sidebar-row-selected);
+  --ui-control-hover-background: var(--sidebar-row-hover);
+  --ui-control-active-background: var(--sidebar-row-selected);
 }

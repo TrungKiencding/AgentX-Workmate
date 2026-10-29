@@ -142,3 +142,19 @@ export function introChipSources({
 
   return chips.slice(0, MAX_CHIPS)
 }
+
+/**
+ * The name a greeting speaks to: the given name, the way a person is
+ * addressed. Vietnamese names run family-first, so it is the last word
+ * ("Lê Trung Kiên" → "Kiên"); a name written without spaces (CJK) is used
+ * whole; everyone else is addressed by the first word ("Jane Doe" → "Jane").
+ */
+export function greetingName(displayName: string, locale: string): string {
+  const words = displayName.trim().split(/\s+/).filter(Boolean)
+
+  if (words.length <= 1) {
+    return words[0] ?? ''
+  }
+
+  return locale === 'vi' ? words.at(-1)! : words[0]!
+}

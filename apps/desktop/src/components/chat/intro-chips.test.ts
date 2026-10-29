@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import type { SidebarProjectTree } from '@/app/chat/sidebar/projects/workspace-groups'
 import type { SessionInfo } from '@/types/hermes'
 
-import { introCardSpan, introChipSources, introGreetingSlot } from './intro-chips'
+import { greetingName, introCardSpan, introChipSources, introGreetingSlot } from './intro-chips'
 
 const session = (over: Partial<SessionInfo> & { id: string }): SessionInfo =>
   ({
@@ -189,5 +189,21 @@ describe('introChipSources', () => {
 
     expect(kinds(chips)).toEqual(['resume', 'project', 'starter', 'starter'])
     expect(chips).toHaveLength(4)
+  })
+})
+
+describe('greetingName', () => {
+  it('addresses a Vietnamese name by its given name — the last word', () => {
+    expect(greetingName('Lê Trung Kiên', 'vi')).toBe('Kiên')
+  })
+
+  it('addresses other locales by the first word', () => {
+    expect(greetingName('Jane Doe', 'en')).toBe('Jane')
+  })
+
+  it('uses a single-word or CJK name whole, and an empty one as empty', () => {
+    expect(greetingName('王小明', 'zh')).toBe('王小明')
+    expect(greetingName('  Kiên ', 'vi')).toBe('Kiên')
+    expect(greetingName('', 'vi')).toBe('')
   })
 })

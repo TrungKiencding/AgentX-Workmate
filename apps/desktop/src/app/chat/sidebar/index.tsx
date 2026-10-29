@@ -1236,6 +1236,7 @@ export function ChatSidebar({
         'border-(--sidebar-edge-border) bg-(--ui-sidebar-surface-background) opacity-100'
       )}
       collapsible="none"
+      data-sidebar-surface=""
     >
       <SidebarContent className="gap-0 overflow-hidden bg-transparent px-2">
         <SidebarGroup className="shrink-0 p-0 pb-2 pt-[calc(var(--titlebar-height)+0.375rem)]">

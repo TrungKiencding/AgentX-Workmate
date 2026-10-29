@@ -67,6 +67,7 @@ export function OverlaySidebar({ children, className }: OverlaySidebarProps) {
         OVERLAY_TOP_CLEARANCE,
         className
       )}
+      data-sidebar-surface=""
     >
       {children}
     </aside>

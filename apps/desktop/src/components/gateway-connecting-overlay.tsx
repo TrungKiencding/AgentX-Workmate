@@ -1,17 +1,19 @@
 import { useStore } from '@nanostores/react'
 import { useEffect, useRef, useState } from 'react'
 
-import { DecodeText } from '@/components/ui/decode-text'
+import { BrandGlyph } from '@/components/brand-glyph'
+import { ActivityIndicator } from '@/components/ui/activity-indicator'
 import { useI18n } from '@/i18n'
 import { cn } from '@/lib/utils'
 import { $desktopBoot } from '@/store/boot'
 import { $gatewaySwitching } from '@/store/gateway-switch'
 import { $gatewayState } from '@/store/session'
 
-// Decode mechanics live in the shared <DecodeText> primitive
-// (components/ui/decode-text.tsx). The line comes from the catalog
-// (`boot.connecting`): its `word` stays legible throughout — only the `target`
-// decodes — so the splash always says what it's doing, in the app's language.
+// The connect screen, the platform way: the AgentX mark, and under it the
+// system's activity indicator beside one plain line from the catalog
+// (`boot.connecting`) — it says what it is doing, in the app's language, and
+// nothing scrambles. The group fades in after a short beat (a fast connect
+// never flashes it) and settles out with a fade and a slight scale.
 
 // Exit choreography (ms): text fades down + out, hold, then the overlay fades.
 const TEXT_OUT_MS = 360
@@ -46,8 +48,7 @@ export function GatewayConnectingOverlay() {
   const boot = useStore($desktopBoot)
   const gatewaySwitching = useStore($gatewaySwitching)
   const { t } = useI18n()
-  const text = `${t.boot.connecting.word}${t.boot.connecting.target}`
-  const prefix = t.boot.connecting.word.length
+  const text = `${t.boot.connecting.word}${t.boot.connecting.target}…`
   const [previewing] = useState(forcedPreview)
   const reduce = prefersReducedMotion()
   // Under reduced motion, skip the multi-phase exit choreography (text-out →
@@ -150,19 +151,22 @@ export function GatewayConnectingOverlay() {
         overlayHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
       )}
     >
-      <DecodeText
-        active={phase === 'live' && (previewing || connecting)}
+      <div
         className={cn(
-          // text-display — the same face and size as the home greeting, so
-          // boot hands off to a room it matches.
-          'text-2xl font-medium text-(--text-primary) transition duration-(--dur-long) ease-out',
-          leaving ? 'translate-y-2 opacity-0 saturate-0' : 'translate-y-0 opacity-100 saturate-100'
+          'flex flex-col items-center gap-5 transition-[opacity,scale] duration-(--dur-long) ease-(--ease-in)',
+          // Arrives after a 150ms beat, so a warm connect shows nothing at all.
+          'animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both duration-500 delay-150 ease-(--ease-out)',
+          leaving ? 'scale-[0.98] opacity-0' : 'scale-100 opacity-100'
         )}
-        cursor
-        mono={false}
-        prefix={prefix}
-        text={text}
-      />
+        data-slot="connecting-splash"
+        role="status"
+      >
+        <BrandGlyph className="size-11 text-(--text-primary)" />
+        <div className="flex items-center gap-2.5 text-base text-(--text-secondary)">
+          <ActivityIndicator className="size-4 text-(--text-tertiary)" />
+          <span>{text}</span>
+        </div>
+      </div>
     </div>
   )
 }

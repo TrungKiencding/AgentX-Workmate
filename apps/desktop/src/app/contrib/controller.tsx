@@ -773,7 +773,11 @@ export function ContribController() {
                   tree-published --workspace-left/right vars (pure CSS, no rect
                   threading), clamped to clear the REAL TitlebarControls
                   clusters (fixed, z-70); center is truly window-centered. */}
-          <div className="relative flex h-[34px] shrink-0 items-center bg-(--ui-sidebar-surface-background) text-xs">
+          {/* The band paints the column under it: the sidebar's surface over
+              the side rails, the page over the main pane (split at the
+              tree-published --workspace-left/right), so the sidebar reads as
+              one column from the traffic lights down. */}
+          <div className="relative flex h-[34px] shrink-0 items-center bg-[linear-gradient(to_right,var(--ui-sidebar-surface-background)_var(--workspace-left,0px),var(--ui-chat-surface-background)_var(--workspace-left,0px),var(--ui-chat-surface-background)_calc(100%-var(--workspace-right,0px)),var(--ui-sidebar-surface-background)_calc(100%-var(--workspace-right,0px)))] text-xs">
             {/* Drag strips, AppShell-style: cut to AVOID the fixed control
                 clusters instead of overlapping them — Electron's no-drag
                 carve-out of fixed/transformed elements is unreliable, so a

@@ -13,6 +13,7 @@ import { $projectTree, requestStartWorkSession } from '@/store/projects'
 import { $currentCwd, $sessions } from '@/store/session'
 
 import {
+  greetingName,
   introCardSpan,
   type IntroChipSource,
   introChipSources,
@@ -108,7 +109,7 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
     seed: mountSeed + (seed ?? 0)
   })
 
-  const name = account.displayName?.trim() ?? ''
+  const name = greetingName(account.displayName ?? '', locale)
   const slot = introGreetingSlot(new Date().getHours())
 
   const greeting =
@@ -182,13 +183,15 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
 
   return (
     <div
-      className="pointer-events-none flex w-full min-w-0 flex-col items-center justify-center px-0.5 py-6 text-center text-muted-foreground sm:px-6 lg:px-8"
+      className="pointer-events-none flex w-full min-w-0 flex-col items-center justify-[safe_center] px-0.5 py-6 text-center text-muted-foreground sm:px-6 lg:px-8"
       data-entrance={playEntrance ? '' : undefined}
       data-slot="aui_intro"
     >
       <div className="w-full min-w-0">
         <div className="intro-head">
-          <h2 className="intro-greeting intro-enter text-2xl font-medium text-(--text-primary)">{greeting}</h2>
+          <h2 className="intro-greeting intro-enter text-3xl font-semibold tracking-display text-balance text-(--text-primary)">
+            {greeting}
+          </h2>
 
           <p className="intro-body intro-enter" style={{ '--intro-step': 1 } as React.CSSProperties}>
             {body}
