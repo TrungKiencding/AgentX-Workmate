@@ -31,9 +31,7 @@ export function ChatDropOverlay({ kind }: { kind: DragKind }) {
       )}
       data-slot="chat-drop-overlay"
     >
-      <div
-        className={cn(DROP_SHEET_CLASS, 'absolute inset-2 opacity-95')}
-      />
+      <div className={cn(DROP_SHEET_CLASS, 'absolute inset-2 opacity-95')} />
       {shown && (
         <span className="relative text-base text-(--text-secondary)">
           {shown === 'session' ? t.composer.dropSession : t.composer.dropFiles}

@@ -154,7 +154,10 @@ export function ConfirmDialog({
         </DialogHeader>
 
         {error && (
-          <div className="flex items-start gap-2 rounded-lg bg-(--danger-bg) px-3 py-2.5 text-sm text-(--danger)" role="alert">
+          <div
+            className="flex items-start gap-2 rounded-lg bg-(--danger-bg) px-3 py-2.5 text-sm text-(--danger)"
+            role="alert"
+          >
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
             <span>{error}</span>
           </div>

@@ -51,11 +51,7 @@ function Kbd({ children, className, size, variant, ...props }: KbdProps) {
   const label = typeof children === 'string' ? children : ''
 
   return (
-    <kbd
-      className={cn(kbdVariants({ size, variant }), kbdShapeClass(label), className)}
-      data-slot="kbd"
-      {...props}
-    >
+    <kbd className={cn(kbdVariants({ size, variant }), kbdShapeClass(label), className)} data-slot="kbd" {...props}>
       {children}
     </kbd>
   )

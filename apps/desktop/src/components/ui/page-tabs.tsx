@@ -134,14 +134,7 @@ export function PageTabs({
           >
             <span className="truncate">{tab.label}</span>
             {tab.meta !== undefined && (
-              <span
-                className={cn(
-                  'text-xs tabular-nums',
-                  'text-(--text-tertiary)'
-                )}
-              >
-                {tabMeta(tab.meta)}
-              </span>
+              <span className={cn('text-xs tabular-nums', 'text-(--text-tertiary)')}>{tabMeta(tab.meta)}</span>
             )}
           </button>
         )

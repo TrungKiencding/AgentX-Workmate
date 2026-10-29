@@ -227,7 +227,7 @@ function ModelResults({
                   <span className="min-w-0 flex-1 truncate">
                     <HighlightMatches query={search} text={model} />
                   </span>
-                  {locked && <span className="shrink-0 text-2xs uppercase tracking-wide opacity-80">{copy.pro}</span>}
+                  {locked && <span className="shrink-0 text-2xs opacity-80">{copy.pro}</span>}
                   <ModelPrice isCurrent={isCurrent} price={price} />
                 </CommandItem>
               )
@@ -269,7 +269,7 @@ function ModelPrice({ price, isCurrent }: { price?: ModelPricing; isCurrent: boo
         ) : null}
         <span
           className={cn(
-            'shrink-0 rounded-sm px-1 py-0.5 text-2xs font-semibold uppercase tracking-wide',
+            'shrink-0 rounded-sm px-1 py-0.5 text-2xs font-semibold',
             isCurrent ? 'bg-primary-foreground/20' : 'bg-(--ui-green)/15 text-(--ui-green)'
           )}
         >
@@ -335,13 +335,11 @@ function ProviderHeading({ provider }: { provider: ModelOptionProvider }) {
   // free_tier is only set for Nous. true → "Free tier", false → "Pro".
   const tierBadge =
     provider.free_tier === true ? (
-      <span className="rounded-sm bg-(--ui-green)/15 px-1 py-0.5 text-2xs font-semibold uppercase tracking-label text-(--ui-green)">
+      <span className="rounded-sm bg-(--ui-green)/15 px-1 py-0.5 text-2xs font-semibold text-(--ui-green)">
         {copy.freeTier}
       </span>
     ) : provider.free_tier === false ? (
-      <span className="rounded-sm bg-primary/15 px-1 py-0.5 text-2xs font-semibold uppercase tracking-wide text-primary">
-        {copy.pro}
-      </span>
+      <span className="rounded-sm bg-primary/15 px-1 py-0.5 text-2xs font-semibold text-primary">{copy.pro}</span>
     ) : null
 
   return (

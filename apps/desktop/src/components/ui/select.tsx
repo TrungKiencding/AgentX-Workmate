@@ -82,25 +82,12 @@ function SelectGroup({ ...props }: React.ComponentProps<typeof SelectPrimitive.G
 }
 
 function SelectLabel({ className, ...props }: React.ComponentProps<typeof SelectPrimitive.Label>) {
-  return (
-    <SelectPrimitive.Label
-      className={cn(MENU_LABEL, className)}
-      data-slot="select-label"
-      {...props}
-    />
-  )
+  return <SelectPrimitive.Label className={cn(MENU_LABEL, className)} data-slot="select-label" {...props} />
 }
 
 function SelectItem({ className, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Item>) {
   return (
-    <SelectPrimitive.Item
-      className={cn(
-        `${MENU_ITEM} w-full pr-8`,
-        className
-      )}
-      data-slot="select-item"
-      {...props}
-    >
+    <SelectPrimitive.Item className={cn(`${MENU_ITEM} w-full pr-8`, className)} data-slot="select-item" {...props}>
       <span className={cn(MENU_INDICATOR, 'absolute right-2 pl-0')}>
         <SelectPrimitive.ItemIndicator>
           <Check className="size-4" />

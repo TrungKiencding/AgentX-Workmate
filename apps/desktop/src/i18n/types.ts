@@ -3320,6 +3320,7 @@ export interface Translations {
       editMessage: string
       expandMessage: string
       scrollToBottom: string
+      jumpToLatest: string
       stop: string
       restorePrevious: string
       restoreCheckpoint: string

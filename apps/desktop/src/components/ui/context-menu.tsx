@@ -56,10 +56,7 @@ function ContextMenuItem({
 }) {
   return (
     <ContextMenuPrimitive.Item
-      className={cn(
-        MENU_ITEM,
-        className
-      )}
+      className={cn(MENU_ITEM, className)}
       data-inset={inset}
       data-slot="context-menu-item"
       data-variant={variant}
@@ -77,10 +74,7 @@ function ContextMenuCheckboxItem({
   return (
     <ContextMenuPrimitive.CheckboxItem
       checked={checked}
-      className={cn(
-        MENU_ITEM,
-        className
-      )}
+      className={cn(MENU_ITEM, className)}
       data-slot="context-menu-checkbox-item"
       {...props}
     >
@@ -133,10 +127,7 @@ function ContextMenuSubTrigger({
 }) {
   return (
     <ContextMenuPrimitive.SubTrigger
-      className={cn(
-        MENU_SUB_TRIGGER,
-        className
-      )}
+      className={cn(MENU_SUB_TRIGGER, className)}
       data-inset={inset}
       data-slot="context-menu-sub-trigger"
       {...props}

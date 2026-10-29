@@ -83,27 +83,28 @@ const TOOL_HEADER_SUBTITLE_CLASS =
 
 const TOOL_HEADER_GLYPH_WRAP_CLASS = 'grid size-3.5 shrink-0 place-items-center self-center'
 
-// Glass-style section label that sits above any pre/JSON/output block.
-// Lowercase tracking + tiny size so it reads as a quiet field label rather
-// than a chrome heading. Used for "stdout", "stderr", "Search results", etc.
-const TOOL_SECTION_LABEL_CLASS = 'mb-1 text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)'
+// The quiet field label above any pre/JSON/output block ("stdout", "stderr",
+// "Search results"…): a caption in tertiary ink, its own casing.
+const TOOL_SECTION_LABEL_CLASS = 'mb-1 text-xs text-(--text-tertiary)'
 
 // Inset scroll surface for any detail body. The expanded tool row owns the
 // border; the payload itself is just clipped raw text.
 const TOOL_SECTION_SURFACE_CLASS =
   'max-h-20 max-w-full overflow-auto bg-transparent px-2 py-1.5 text-(--ui-text-secondary)'
 
-const TOOL_EXPANDED_SHELL_CLASS = 'rounded-(--radius-control) border border-(--ui-stroke-tertiary)'
+// An opened step (spec §5.19): its detail hangs under the row, indented 12px
+// behind a 1px --border-default rule — no box around the step.
+const TOOL_EXPANDED_BODY_CLASS = 'ml-[0.4375rem] mt-1 border-l border-(--border-default) pl-3'
 
 const TOOL_SECTION_PRE_CLASS = cn(
   TOOL_SECTION_SURFACE_CLASS,
   'font-mono text-[length:var(--conversation-code-font-size)] leading-(--conversation-code-line-height)'
 )
 
-// Raw args/result dump — reference material, so a notch smaller than a body.
+// Raw args/result dump — reference material, at caption size.
 const TOOL_PAYLOAD_PRE_CLASS = cn(
   TOOL_SECTION_SURFACE_CLASS,
-  'font-mono text-2xs leading-(--conversation-code-line-height)'
+  'font-mono text-xs leading-(--conversation-code-line-height)'
 )
 
 /**
@@ -552,8 +553,7 @@ function ToolEntry({ part }: ToolEntryProps) {
   return (
     <div
       className={cn(
-        'group/tool-block min-w-0 max-w-full overflow-hidden text-[length:var(--conversation-tool-font-size)] text-(--ui-text-tertiary)',
-        open && TOOL_EXPANDED_SHELL_CLASS
+        'group/tool-block min-w-0 max-w-full overflow-hidden text-[length:var(--conversation-tool-font-size)] text-(--text-tertiary)'
       )}
       data-conversation-scaffold=""
       data-file-edit={isFileEdit && open ? '' : undefined}
@@ -562,7 +562,7 @@ function ToolEntry({ part }: ToolEntryProps) {
       data-tool-row=""
       ref={enterRef}
     >
-      <div className={cn(open && 'border-b border-(--ui-stroke-tertiary) px-2 py-1.5')}>
+      <div>
         <DisclosureRow
           action={dismissAction}
           onToggle={hasExpandableContent ? () => setToolDisclosureOpen(disclosureId, !open) : undefined}
@@ -608,7 +608,12 @@ function ToolEntry({ part }: ToolEntryProps) {
       </div>
       {isPending && <PendingToolApproval part={part} />}
       {open && (
-        <div className="relative grid w-full min-w-0 max-w-full gap-1.5 overflow-hidden p-1.5">
+        <div
+          className={cn(
+            'relative grid w-full min-w-0 max-w-full gap-1.5 overflow-hidden py-1',
+            TOOL_EXPANDED_BODY_CLASS
+          )}
+        >
           {copyAction.text && (
             <CopyButton
               appearance="inline"
@@ -625,7 +630,7 @@ function ToolEntry({ part }: ToolEntryProps) {
             <TerminalTranscript command={view.terminalCommand} exitCode={view.terminalExitCode} />
           )}
           {view.imageUrl && (
-            <div className="max-w-72 overflow-hidden rounded-[0.25rem] border border-(--ui-stroke-tertiary)">
+            <div className="max-w-72 overflow-hidden rounded-md border border-(--border-default)">
               <ZoomableImage alt={copy.outputAlt} className="h-auto w-full object-cover" src={view.imageUrl} />
             </div>
           )}

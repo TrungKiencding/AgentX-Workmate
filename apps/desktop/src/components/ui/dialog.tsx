@@ -150,7 +150,9 @@ function DialogContent({
           <DialogPortalContainerContext.Provider value={contentNode}>
             {/* Scroll lives on an inner box so this shell keeps a painted bottom radius. */}
             <div className="relative z-10 overflow-hidden bg-(--bg-raised)">
-              <div className="grid max-h-[calc(85vh-5rem)] min-h-0 gap-4 overflow-y-auto overscroll-contain p-6">{children}</div>
+              <div className="grid max-h-[calc(85vh-5rem)] min-h-0 gap-4 overflow-y-auto overscroll-contain p-6">
+                {children}
+              </div>
             </div>
             <div
               className={cn(
@@ -198,13 +200,7 @@ function DialogContent({
 }
 
 function DialogHeader({ className, ...props }: React.ComponentProps<'div'>) {
-  return (
-    <div
-      className={cn('flex flex-col gap-1.5 pr-8 text-left', className)}
-      data-slot="dialog-header"
-      {...props}
-    />
-  )
+  return <div className={cn('flex flex-col gap-1.5 pr-8 text-left', className)} data-slot="dialog-header" {...props} />
 }
 
 function DialogFooter({ className, ...props }: React.ComponentProps<'div'>) {

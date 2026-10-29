@@ -125,10 +125,7 @@ function DropdownMenuItem({
 }) {
   return (
     <DropdownMenuPrimitive.Item
-      className={cn(
-        MENU_ITEM,
-        className
-      )}
+      className={cn(MENU_ITEM, className)}
       data-inset={inset}
       data-slot="dropdown-menu-item"
       data-variant={variant}
@@ -146,10 +143,7 @@ function DropdownMenuCheckboxItem({
   return (
     <DropdownMenuPrimitive.CheckboxItem
       checked={checked}
-      className={cn(
-        MENU_ITEM,
-        className
-      )}
+      className={cn(MENU_ITEM, className)}
       data-slot="dropdown-menu-checkbox-item"
       {...props}
     >
@@ -172,10 +166,7 @@ function DropdownMenuRadioItem({
 }: React.ComponentProps<typeof DropdownMenuPrimitive.RadioItem>) {
   return (
     <DropdownMenuPrimitive.RadioItem
-      className={cn(
-        MENU_ITEM,
-        className
-      )}
+      className={cn(MENU_ITEM, className)}
       data-slot="dropdown-menu-radio-item"
       {...props}
     >
@@ -215,13 +206,7 @@ function DropdownMenuSeparator({ className, ...props }: React.ComponentProps<typ
 }
 
 function DropdownMenuShortcut({ className, ...props }: React.ComponentProps<'span'>) {
-  return (
-    <span
-      className={cn(MENU_SHORTCUT, className)}
-      data-slot="dropdown-menu-shortcut"
-      {...props}
-    />
-  )
+  return <span className={cn(MENU_SHORTCUT, className)} data-slot="dropdown-menu-shortcut" {...props} />
 }
 
 function DropdownMenuSub({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Sub>) {
@@ -241,10 +226,7 @@ function DropdownMenuSubTrigger({
 }) {
   return (
     <DropdownMenuPrimitive.SubTrigger
-      className={cn(
-        MENU_SUB_TRIGGER,
-        className
-      )}
+      className={cn(MENU_SUB_TRIGGER, className)}
       data-inset={inset}
       data-slot="dropdown-menu-sub-trigger"
       {...props}

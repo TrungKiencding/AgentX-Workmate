@@ -156,7 +156,7 @@ const InlineSegmentView: FC<{ text: string }> = ({ text }) => {
       {nodes.map((node, nodeIndex) =>
         node.kind === 'inline-code' ? (
           <code
-            className="mx-px rounded bg-[color-mix(in_srgb,currentColor_8%,transparent)] px-1 py-px font-mono text-[0.9em]"
+            className="mx-px rounded-sm bg-(--bg-hover) px-[5px] py-px font-mono text-[0.92em]"
             data-slot="aui_user-inline-code"
             key={`code-${nodeIndex}`}
           >

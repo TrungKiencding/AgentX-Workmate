@@ -3914,6 +3914,7 @@ export const zh: Translations = {
       editMessage: '编辑消息',
       expandMessage: '展开消息',
       scrollToBottom: '滚动到底部',
+      jumpToLatest: '最新',
       stop: '停止',
       restorePrevious: '恢复上一个检查点',
       restoreCheckpoint: '恢复检查点',

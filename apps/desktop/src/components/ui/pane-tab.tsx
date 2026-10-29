@@ -37,8 +37,7 @@ const TAB_IDLE =
 // A tab riding a multi-tab selection: an accent wash over whatever surface the
 // tab sits on. A background-image gradient (not a shadow) so it stacks cleanly
 // over `--tab-bg` without fighting the active underline / hover shadows.
-const TAB_SELECTED =
-  '[--tab-bg:var(--bg-selected)] text-(--text-primary)'
+const TAB_SELECTED = '[--tab-bg:var(--bg-selected)] text-(--text-primary)'
 
 interface PaneTabProps extends React.ComponentProps<'div'> {
   active?: boolean

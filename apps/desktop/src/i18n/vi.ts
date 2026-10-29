@@ -4111,6 +4111,7 @@ export const vi: Translations = {
       editMessage: 'Sửa tin nhắn',
       expandMessage: 'Mở rộng tin nhắn',
       scrollToBottom: 'Cuộn xuống cuối',
+      jumpToLatest: 'Mới nhất',
       stop: 'Dừng',
       restorePrevious: 'Khôi phục checkpoint trước đó',
       restoreCheckpoint: 'Khôi phục checkpoint',

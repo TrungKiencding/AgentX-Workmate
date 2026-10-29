@@ -8,10 +8,7 @@ import { cn } from '@/lib/utils'
 function Command({ className, ...props }: React.ComponentProps<typeof CommandPrimitive>) {
   return (
     <CommandPrimitive
-      className={cn(
-        'flex h-full w-full flex-col overflow-hidden bg-(--bg-raised) text-(--text-primary)',
-        className
-      )}
+      className={cn('flex h-full w-full flex-col overflow-hidden bg-(--bg-raised) text-(--text-primary)', className)}
       data-slot="command"
       {...props}
     />
@@ -25,7 +22,10 @@ interface CommandInputProps extends React.ComponentProps<typeof CommandPrimitive
 
 function CommandInput({ className, right, ...props }: CommandInputProps) {
   return (
-    <div className="flex h-12 items-center gap-2.5 border-b border-(--border-subtle) px-4" data-slot="command-input-wrapper">
+    <div
+      className="flex h-12 items-center gap-2.5 border-b border-(--border-subtle) px-4"
+      data-slot="command-input-wrapper"
+    >
       <SearchIcon className="size-4 shrink-0 text-(--icon-muted)" />
       <CommandPrimitive.Input
         className={cn(

@@ -327,9 +327,7 @@ export function PaneEmptyState({ label }: { label: string }) {
 export function EmptyState({ body, title }: { body: string; title?: string }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 px-4 text-center">
-      {title && (
-        <div className="text-2xs font-semibold uppercase tracking-[0.07em] text-muted-foreground/75">{title}</div>
-      )}
+      {title && <div className="text-2xs font-semibold text-muted-foreground/75">{title}</div>}
       <div className="text-2xs leading-relaxed text-muted-foreground/65">{body}</div>
     </div>
   )

@@ -164,8 +164,7 @@ function SidebarSessionRowImpl({
         // Selected reads at a glance: the tinted row fill PLUS a 2px accent
         // bar on the leading edge (drawn in the row's own padding, so it
         // costs no layout and never nudges the label).
-        isSelected &&
-          'bg-(--bg-selected)',
+        isSelected && 'bg-(--bg-selected)',
         isWorking && 'text-foreground',
         // Opaque surface while lifted so the dragged row erases what's under
         // it (translucency let the rows below bleed through).

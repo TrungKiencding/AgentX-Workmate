@@ -247,7 +247,7 @@ function DelegationGroup({ group, nowMs }: { group: RootGroup; nowMs: number }) 
 
   return (
     <section className="grid min-w-0 gap-3">
-      <p className="text-2xs font-medium uppercase tracking-wider text-muted-foreground/70">
+      <p className="text-2xs font-medium text-muted-foreground/70">
         {group.delegationIndex > 0 ? t.agents.delegation(group.delegationIndex) : ''}{' '}
         <span className="text-muted-foreground/50">·</span> {t.agents.workers(group.nodes.length)}
         {activeWorkers > 0 ? <span className="text-primary/85"> · {t.agents.workersActive(activeWorkers)}</span> : null}
@@ -363,7 +363,7 @@ function SubagentRow({ node, depth = 0, nowMs }: { node: SubagentNode; depth?: n
 
       {open && fileLines.length > 0 ? (
         <div className="grid min-w-0 gap-0.5 pl-6" data-selectable-text="true">
-          <p className="text-2xs font-medium tracking-wider text-muted-foreground/60 uppercase">{t.agents.files}</p>
+          <p className="text-2xs font-medium text-muted-foreground/60">{t.agents.files}</p>
           {fileLines.slice(0, 8).map(line => (
             <p className="wrap-break-word font-mono text-2xs leading-relaxed text-muted-foreground/80" key={line}>
               {line}

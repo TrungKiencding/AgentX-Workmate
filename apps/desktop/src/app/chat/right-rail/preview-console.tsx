@@ -88,7 +88,7 @@ function ConsoleRow({ copyText, log, onSend, onToggleSelect, selected }: Console
       <Tip label={selected ? copy.deselect : copy.select}>
         <button
           className={cn(
-            'mt-0.5 text-left uppercase opacity-70 transition-colors hover:opacity-100',
+            'mt-0.5 text-left opacity-70 transition-colors hover:opacity-100',
             consoleLevelClass[log.level] ?? consoleLevelClass[0]
           )}
           onClick={onToggleSelect}

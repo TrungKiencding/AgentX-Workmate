@@ -1,7 +1,9 @@
 import { cn } from '@/lib/utils'
 
 function Skeleton({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div className={cn('animate-skeleton rounded-md bg-(--bg-hover)', className)} data-slot="skeleton" {...props} />
+  return (
+    <div className={cn('animate-skeleton rounded-md bg-(--bg-hover)', className)} data-slot="skeleton" {...props} />
+  )
 }
 
 /** Inline pulsing chip standing in for a small count/badge while it loads. */

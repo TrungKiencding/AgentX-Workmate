@@ -34,10 +34,7 @@ import { ModelPill } from './model-pill'
 import type { ChatBarState, VoiceStatus } from './types'
 
 export const ICON_BTN = 'size-(--composer-control-size) shrink-0'
-export const GHOST_ICON_BTN = cn(
-  ICON_BTN,
-  'text-(--icon-muted) hover:bg-(--bg-hover) hover:text-(--text-primary)'
-)
+export const GHOST_ICON_BTN = cn(ICON_BTN, 'text-(--icon-muted) hover:bg-(--bg-hover) hover:text-(--text-primary)')
 // Send (spec §5.7): a 28px circle on --bg-inverse once there is something to
 // send — the one filled control in the row, and never the accent. Empty, it is
 // a bare muted glyph and disabled. While a turn runs the same circle becomes

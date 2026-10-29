@@ -188,9 +188,7 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
     >
       <div className="w-full min-w-0">
         <div className="intro-head">
-          <h2 className="intro-greeting intro-enter text-2xl font-medium text-(--text-primary)">
-            {greeting}
-          </h2>
+          <h2 className="intro-greeting intro-enter text-2xl font-medium text-(--text-primary)">{greeting}</h2>
 
           <p className="intro-body intro-enter" style={{ '--intro-step': 1 } as React.CSSProperties}>
             {body}

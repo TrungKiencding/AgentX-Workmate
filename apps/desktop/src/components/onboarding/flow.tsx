@@ -137,16 +137,14 @@ function ConfirmingModelPanel({
         )}
       >
         <div className="flex items-center gap-2">
-          <span className="font-mono text-2xs uppercase tracking-label text-(--ui-text-tertiary)">
-            {t.onboarding.defaultModel}
-          </span>
+          <span className="font-mono text-2xs text-(--ui-text-tertiary)">{t.onboarding.defaultModel}</span>
           {freeTier === true && (
-            <span className="rounded-sm bg-(--ui-green)/15 px-1 py-0.5 text-2xs font-semibold uppercase tracking-label text-(--ui-green)">
+            <span className="rounded-sm bg-(--ui-green)/15 px-1 py-0.5 text-2xs font-semibold text-(--ui-green)">
               {t.onboarding.freeTier}
             </span>
           )}
           {freeTier === false && (
-            <span className="rounded-sm bg-primary/15 px-1 py-0.5 text-2xs font-semibold uppercase tracking-label text-primary">
+            <span className="rounded-sm bg-primary/15 px-1 py-0.5 text-2xs font-semibold text-primary">
               {t.onboarding.pro}
             </span>
           )}

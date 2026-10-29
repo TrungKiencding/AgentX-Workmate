@@ -48,8 +48,7 @@ const ROW_CLASS = [
   'data-[highlighted]:bg-(--ui-bg-tertiary) data-[highlighted]:text-foreground'
 ].join(' ')
 
-const GROUP_HEADER_CLASS =
-  'select-none px-2 pb-0.5 text-2xs font-semibold uppercase tracking-wider text-(--ui-text-tertiary)'
+const GROUP_HEADER_CLASS = 'select-none px-2 pb-0.5 text-2xs font-semibold text-(--ui-text-tertiary)'
 
 interface ComposerTriggerPopoverProps {
   activeIndex: number

@@ -519,7 +519,7 @@ function ProfileDropdownItem({ color, name }: { color: null | string; name: stri
       <span className="flex min-w-0 items-center gap-1.5">
         <span
           aria-hidden="true"
-          className="grid size-5 shrink-0 place-items-center rounded-(--radius-control) text-2xs font-semibold uppercase leading-none"
+          className="grid size-5 shrink-0 place-items-center rounded-(--radius-control) text-2xs font-semibold leading-none"
           style={{ backgroundColor: profileColorSoft(hue, 22), color: color ?? undefined }}
         >
           {name.replace(/[^a-z0-9]/gi, '').charAt(0) || '?'}
@@ -653,7 +653,7 @@ function ProfileSquare({
                 <TooltipTrigger asChild>
                   <button
                     className={cn(
-                      'grid size-6 shrink-0 cursor-grab touch-none select-none place-items-center rounded-(--radius-control) text-2xs font-semibold uppercase leading-none transition-opacity hover:opacity-100',
+                      'grid size-6 shrink-0 cursor-grab touch-none select-none place-items-center rounded-(--radius-control) text-2xs font-semibold leading-none transition-opacity hover:opacity-100',
                       active ? 'opacity-100' : 'opacity-55',
                       isDragging && 'z-10 cursor-grabbing opacity-100'
                     )}
