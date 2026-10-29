@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 
 import { LanguageSwitcher } from '@/components/language-switcher'
 import { Button } from '@/components/ui/button'
+import { controlVariants } from '@/components/ui/control'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import type { DesktopMarketplaceSearchItem } from '@/global'
 import { useI18n } from '@/i18n'
@@ -324,9 +325,9 @@ export function AppearanceSettings() {
                     and live-searches the VS Code Marketplace below. */}
                 <div className="mt-3">
                   <input
-                    className="w-full rounded-lg border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) px-3 py-1.5 text-[length:var(--conversation-caption-font-size)] outline-none placeholder:text-(--ui-text-tertiary) focus:border-(--ui-stroke-secondary)"
+                    className={controlVariants()}
                     onChange={event => setQuery(event.target.value)}
-                    placeholder="Search your themes or the VS Code Marketplace…"
+                    placeholder={a.themeSearchPlaceholder}
                     spellCheck={false}
                     value={query}
                   />
@@ -337,9 +338,7 @@ export function AppearanceSettings() {
                 <div className="mt-3 max-h-96 overflow-y-auto pr-1">
                   {filteredThemes.length === 0 ? (
                     needle ? (
-                      <p className="text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-                        No installed themes match "{query.trim()}".
-                      </p>
+                      <p className="text-sm text-(--text-secondary)">{a.themeSearchEmpty(query.trim())}</p>
                     ) : null
                   ) : (
                     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">

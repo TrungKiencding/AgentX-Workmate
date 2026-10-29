@@ -670,6 +670,8 @@ export const zh: Translations = {
       title: '外观',
       intro: '这些是仅桌面端的显示偏好。模式控制明暗；主题控制强调色与对话界面样式。',
       accentTitle: '强调色',
+      themeSearchPlaceholder: '搜索已安装主题或 VS Code 扩展市场…',
+      themeSearchEmpty: query => `没有与“${query}”匹配的已安装主题。`,
       accentDesc: '替换 Nous 主题的蓝色 — 按钮、焦点环、选中色。其他主题不受影响。',
       accentNames: {
         nousBlue: 'Nous 蓝',

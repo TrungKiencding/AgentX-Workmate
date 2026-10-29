@@ -706,6 +706,8 @@ export const en: Translations = {
       title: 'Appearance',
       intro: 'Desktop-only. Mode is brightness; theme is palette and chat chrome.',
       accentTitle: 'Accent',
+      themeSearchPlaceholder: 'Search your themes or the VS Code Marketplace…',
+      themeSearchEmpty: query => `No installed themes match “${query}”.`,
       accentDesc:
         'Recolors the Nous theme’s blue — buttons, focus ring, selection. Other themes keep their own accent.',
       accentNames: {

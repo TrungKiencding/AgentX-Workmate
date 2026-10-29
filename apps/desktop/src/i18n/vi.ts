@@ -714,6 +714,8 @@ export const vi: Translations = {
       title: 'Giao diện',
       intro: 'Chỉ áp dụng cho desktop. Chế độ quyết định độ sáng; theme quyết định bảng màu và khung trò chuyện.',
       accentTitle: 'Màu nhấn',
+      themeSearchPlaceholder: 'Tìm theme đã cài hoặc trên VS Code Marketplace…',
+      themeSearchEmpty: query => `Không có theme đã cài nào khớp với “${query}”.`,
       accentDesc:
         'Đổi màu xanh của theme Nous — nút bấm, vòng focus, vùng chọn. Các theme khác vẫn giữ màu nhấn riêng.',
       accentNames: {

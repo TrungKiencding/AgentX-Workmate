@@ -304,7 +304,7 @@ export const nousTheme: DesktopTheme = {
 export const nightOwlTheme: DesktopTheme = {
   name: 'night-owl',
   label: 'Night Owl',
-  description: 'Deep navy with periwinkle and cyan — the shipped default',
+  description: 'Deep navy with periwinkle and cyan',
   colors: {
     background: '#fbfbfb',
     foreground: '#403f53',

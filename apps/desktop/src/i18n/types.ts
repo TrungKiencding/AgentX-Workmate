@@ -661,6 +661,8 @@ export interface Translations {
       intro: string
       accentTitle: string
       accentDesc: string
+      themeSearchPlaceholder: string
+      themeSearchEmpty: (query: string) => string
       accentNames: Record<'nousBlue' | 'violet' | 'magenta' | 'green' | 'amber' | 'teal', string>
       colorMode: string
       colorModeDesc: string
