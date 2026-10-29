@@ -651,3 +651,6 @@ in the app — popper, dialog and toast entrances — did nothing.
   beside "Đang suy nghĩ…"; replies no longer carry a brand mark at their head,
   so a finished answer starts with its first line. The pen-trace CSS, the
   one-stroke `BRAND_MARK_ROUTE` and `BrandGlyph`'s `tracing` mode are removed.
+- Home greeting: back to the Newsreader serif at regular weight with the
+  account's full display name ("Chào buổi chiều, Lê Trung Kiên") — the one
+  serif line in the app, by request; `greetingName()` is removed.

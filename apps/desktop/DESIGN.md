@@ -370,7 +370,8 @@ hex) so palette tuning happens on perceptual axes.
 
 ## Typography
 
-**No serif, no all-caps, no widened tracking** (spec §3.6). Hierarchy comes
+**No serif (one exception below), no all-caps, no widened tracking** (spec
+§3.6). Hierarchy comes
 from contrast, not size: the ramp is nearly flat through the chrome, and
 metadata steps down by ink (secondary, tertiary) rather than by shrinking.
 **Every rung sits one step above the spec's** (review: legibility on older,
@@ -388,12 +389,15 @@ Faces — themes override sans/mono through the existing pipeline:
   `src/fonts/` as the sans of the other skins — variable weight per script
   subset (latin, latin-ext, vietnamese). **JetBrains Mono** (`--dt-font-mono`)
   stays bundled as the code face. No CDN fetch at runtime.
-- **The display serif is gone.** Newsreader (its three `@font-face` subsets,
-  `--dt-font-serif-display`, the `font-serif-display` utility,
-  `DEFAULT_SERIF_DISPLAY` and the theme field `fontSerifDisplay`) was removed.
-  Of its three old slots, the home greeting now sets the 30px display rung and
-  the onboarding title the 26px one, both in the sans; the connect screen
-  carries no display type at all (§ Chat, tools & boot surfaces).
+- **One serif line: the home greeting.** Newsreader (OFL-1.1, a static opsz 72 /
+  wght 400 headline cut, vendored per script subset in `src/fonts/` so
+  Vietnamese diacritics never fall back to Georgia) is kept for exactly that
+  slot, through the `font-serif-display` utility (`--font-serif-display` in
+  `@theme`) — the deliberate exception to the spec's "no serif" (review: the
+  greeting is the product's one human line and reads warmer in the face it
+  always had). It is not part of the theme pipeline (no `fontSerifDisplay`
+  field); the onboarding title stays in the sans at 26px and the connect
+  screen carries no display type at all. Roman only — never italic.
 - `--dt-font-kbd` keeps the native UI face. No pixel face survives in the app;
   `BrandMark` is a bitmap plate, not type.
 
@@ -1089,8 +1093,9 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 ## Chat, tools & boot surfaces
 
 - **The home surface is the empty transcript** (`components/chat/intro.tsx`):
-  a greeting at the 30px display rung (`text-3xl`, semibold,
-  `tracking-display`, `text-balance`; sans — the serif is gone), one muted
+  a greeting at the 30px display rung in the Newsreader serif
+  (`font-serif-display text-3xl`, regular weight, `tracking-display`,
+  `text-balance`), one muted
   16px line (`text-md`, the catalog's `bodyVariants`; `intro-copy.jsonl` only
   in English with a personality) capped at 38rem, then **at most four task
   cards** (`Button variant="card"` on the `.intro-cards` two-column grid,
@@ -1119,11 +1124,8 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
     one *existing* action (`openSession`, `requestStartWorkSession`,
     `requestComposerInsert`) — the home surface owns no navigation of its own.
   - The greeting names the user only when the account store actually has a
-    display name, and then by the name a person is addressed by —
-    `greetingName()` in `intro-chips.ts`: Vietnamese names run family-first,
-    so a `vi` locale takes the last word ("Lê Trung Kiên" → "Kiên"); other
-    locales take the first ("Jane Doe" → "Jane"); a one-word or CJK name is
-    used whole. No name, no comma, no invented placeholder.
+    display name, and then in full, as the account spells it ("Chào buổi
+    chiều, Lê Trung Kiên"). No name, no comma, no invented placeholder.
   - **One entrance, once per app launch** — not once per empty state. The
     greeting rises at `--dur-long`; the body and each card follow on a 40ms
     step at `--dur-short`, all settled by 400ms. `prefers-reduced-motion`

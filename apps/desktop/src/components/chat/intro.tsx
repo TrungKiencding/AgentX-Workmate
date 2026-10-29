@@ -13,7 +13,6 @@ import { $projectTree, requestStartWorkSession } from '@/store/projects'
 import { $currentCwd, $sessions } from '@/store/session'
 
 import {
-  greetingName,
   introCardSpan,
   type IntroChipSource,
   introChipSources,
@@ -109,7 +108,7 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
     seed: mountSeed + (seed ?? 0)
   })
 
-  const name = greetingName(account.displayName ?? '', locale)
+  const name = account.displayName?.trim() ?? ''
   const slot = introGreetingSlot(new Date().getHours())
 
   const greeting =
@@ -189,7 +188,7 @@ export function Intro({ onResumeSession, personality, seed }: IntroProps) {
     >
       <div className="w-full min-w-0">
         <div className="intro-head">
-          <h2 className="intro-greeting intro-enter text-3xl font-semibold tracking-display text-balance text-(--text-primary)">
+          <h2 className="intro-greeting intro-enter font-serif-display text-3xl tracking-display text-balance text-(--text-primary)">
             {greeting}
           </h2>
 
