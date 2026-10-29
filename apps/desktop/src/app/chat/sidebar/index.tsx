@@ -190,8 +190,19 @@ const NAV_ROW =
 const NAV_ROW_SELECTED = 'bg-(--bg-selected) shadow-none hover:bg-(--bg-selected)'
 
 // Ink only — size and shrink come from the button, which outranks anything set
-// here. The default icon ink, a step under the label so the word leads.
+// here. Each destination's glyph carries its own quiet tint (review: an
+// all-grey band read flat), the way the platform's sidebars colour their
+// glyphs; the label stays primary ink. Contributed rows keep the icon ink.
 const NAV_ROW_GLYPH = 'text-(--icon-default)'
+
+const NAV_GLYPH_TINT: Record<string, string> = {
+  'new-session': 'text-(--tint-blue)',
+  skills: 'text-(--tint-orange)',
+  messaging: 'text-(--tint-green)',
+  artifacts: 'text-(--tint-purple)'
+}
+
+const navGlyphClass = (id: string) => NAV_GLYPH_TINT[id] ?? NAV_ROW_GLYPH
 
 const SIDEBAR_NAV: SidebarNavItem[] = [
   {
@@ -1264,7 +1275,7 @@ export function ChatSidebar({
                       }}
                       type="button"
                     >
-                      <NEW_SESSION_NAV.icon className={NAV_ROW_GLYPH} />
+                      <NEW_SESSION_NAV.icon className={navGlyphClass(NEW_SESSION_NAV.id)} />
                       <span className="min-w-0 flex-1 truncate">{s.nav['new-session']}</span>
                       {/* The shortcut is a hint for people who want one, not a
                           label everyone reads: it shows on hover or keyboard
@@ -1317,7 +1328,7 @@ export function ChatSidebar({
                     }
                     type="button"
                   >
-                    <item.icon className={NAV_ROW_GLYPH} />
+                    <item.icon className={navGlyphClass(item.id)} />
                     <span className="min-w-0 flex-1 truncate">{s.nav[item.id] ?? item.label}</span>
                     {item.id === 'messaging' && pendingPairingCount > 0 && (
                       <span

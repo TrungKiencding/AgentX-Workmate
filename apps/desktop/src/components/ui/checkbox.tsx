@@ -8,9 +8,10 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
   return (
     <CheckboxPrimitive.Root
       className={cn(
-        // Spec §5.6: 16×16, 6px corners, --border-input edge; checked and
-        // indeterminate fill --bg-inverse with an inverse glyph.
-        'group peer size-4.5 shrink-0 rounded-sm border border-(--border-input) bg-(--bg-app) outline-none transition-colors duration-(--dur-micro) disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-(--bg-inverse) data-[state=checked]:bg-(--bg-inverse) data-[state=checked]:text-(--text-inverse) data-[state=indeterminate]:border-(--bg-inverse) data-[state=indeterminate]:bg-(--bg-inverse) data-[state=indeterminate]:text-(--text-inverse) aria-invalid:border-(--danger)',
+        // Spec §5.6 (one step up): 18×18, 6px corners, --border-input edge;
+        // checked and indeterminate fill the accent with a white glyph, like
+        // the platform's own checkbox.
+        'group peer size-4.5 shrink-0 rounded-sm border border-(--border-input) bg-(--bg-app) outline-none transition-colors duration-(--dur-micro) disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-(--accent) data-[state=checked]:bg-(--accent) data-[state=checked]:text-(--text-inverse) data-[state=indeterminate]:border-(--accent) data-[state=indeterminate]:bg-(--accent) data-[state=indeterminate]:text-(--text-inverse) aria-invalid:border-(--danger)',
         className
       )}
       data-slot="checkbox"

@@ -1,5 +1,6 @@
 import { Fragment, memo, type ReactNode } from 'react'
 
+import { IconTile, type Tint } from '@/components/ui/icon-tile'
 import { TabDropdown } from '@/components/ui/tab-dropdown'
 import type { IconComponent } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -36,6 +37,8 @@ interface OverlayNavItemProps {
   // lighter active state so it never competes with the boxed parent item.
   nested?: boolean
   onClick: () => void
+  /** A solid colour tile behind the glyph (top-level rows only). */
+  tint?: Tint
   trailing?: ReactNode
 }
 
@@ -46,7 +49,7 @@ export function OverlaySplitLayout({ children, className }: OverlaySplitLayoutPr
         // Narrow: one column, and pin rows to [nav-bar auto | main 1fr] — without
         // an explicit template the grid's default align-content:stretch splits the
         // height evenly across the two rows, shoving the content to mid-screen.
-        'grid h-full min-h-0 flex-1 grid-cols-[13rem_minmax(0,1fr)] overflow-hidden bg-transparent max-[47.5rem]:grid-cols-1 max-[47.5rem]:grid-rows-[auto_minmax(0,1fr)]',
+        'grid h-full min-h-0 flex-1 grid-cols-[15.5rem_minmax(0,1fr)] overflow-hidden bg-transparent max-[47.5rem]:grid-cols-1 max-[47.5rem]:grid-rows-[auto_minmax(0,1fr)]',
         className
       )}
     >
@@ -137,13 +140,14 @@ export const OverlayNavItem = memo(function OverlayNavItem({
   label,
   nested,
   onClick,
+  tint,
   trailing
 }: OverlayNavItemProps) {
   return (
     <button
       className={cn(
-        // A nav row (spec §5.1): 32px, 14px label, 10px glyph gap, 8px
-        // corners. Selected is --bg-selected only — no border, no ink change.
+        // A nav row (spec §5.1, one step up): 36px, 15px label, 10px glyph
+        // gap, 8px corners. Selected is --bg-selected only — no ink change.
         'flex h-(--control-h-md) w-full cursor-pointer items-center justify-start gap-2.5 rounded-(--radius-control) px-3 text-left text-base font-normal text-(--text-primary) transition-[background-color,color] duration-(--dur-micro)',
         nested && 'pl-6 text-sm',
         active ? 'bg-(--bg-selected)' : 'bg-transparent hover:bg-(--bg-hover)'
@@ -151,13 +155,13 @@ export const OverlayNavItem = memo(function OverlayNavItem({
       onClick={onClick}
       type="button"
     >
-      <Icon
-        className={cn(
-          'shrink-0',
-          nested ? 'size-3.5' : 'size-4',
-          'text-(--icon-default)'
-        )}
-      />
+      {tint && !nested ? (
+        <IconTile size="sm" tint={tint} variant="solid">
+          <Icon />
+        </IconTile>
+      ) : (
+        <Icon className={cn('shrink-0 text-(--icon-default)', nested ? 'size-3.5' : 'size-4.5')} />
+      )}
       <span className="min-w-0 flex-1 truncate">{label}</span>
       {trailing}
     </button>
@@ -170,6 +174,8 @@ export interface OverlayNavLink {
   id: string
   label: string
   onSelect: () => void
+  /** A colour tile behind the glyph (platform-Settings style) on the rail. */
+  tint?: Tint
 }
 
 export interface OverlayNavGroup extends OverlayNavLink {
@@ -193,7 +199,13 @@ export function OverlayNav({ footer, groups }: { footer?: ReactNode; groups: Ove
         {groups.map(group => (
           <Fragment key={group.id}>
             {group.gapBefore && <div aria-hidden className="h-2" />}
-            <OverlayNavItem active={group.active} icon={group.icon} label={group.label} onClick={group.onSelect} />
+            <OverlayNavItem
+              active={group.active}
+              icon={group.icon}
+              label={group.label}
+              onClick={group.onSelect}
+              tint={group.tint}
+            />
             {group.children && group.active && (
               <div className="ml-3.5 flex flex-col gap-0.5 pl-1.5">
                 {group.children.map(child => (

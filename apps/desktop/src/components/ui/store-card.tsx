@@ -1,5 +1,6 @@
 import type * as React from 'react'
 
+import { IconTile, type Tint } from '@/components/ui/icon-tile'
 import { cn } from '@/lib/utils'
 
 /**
@@ -94,7 +95,22 @@ export function StoreCardShelf({
  * gives a letter monogram, so a skill's category glyph, a tool's glyph and a
  * connection's brand mark line up across the tabs.
  */
-export function StoreCardGlyph({ children, className, ...props }: React.ComponentProps<'span'>) {
+export function StoreCardGlyph({
+  children,
+  className,
+  tint,
+  ...props
+}: React.ComponentProps<'span'> & { tint?: Tint }) {
+  // A tinted glyph reads its category at a glance (a soft colour wash, the
+  // platform Settings' way); an untinted one stays the neutral tile.
+  if (tint) {
+    return (
+      <IconTile className={className} data-slot="store-card-glyph" tint={tint} {...props}>
+        {children}
+      </IconTile>
+    )
+  }
+
   return (
     <span
       aria-hidden

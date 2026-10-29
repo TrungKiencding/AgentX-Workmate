@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
 import { requestConfirm } from '@/components/ui/confirm-request'
+import type { Tint } from '@/components/ui/icon-tile'
 import { Tip } from '@/components/ui/tooltip'
 import { getHermesConfigDefaults, getHermesConfigRecord, saveHermesConfig } from '@/hermes'
 import { useI18n } from '@/i18n'
@@ -46,6 +47,29 @@ import { NotificationsSettings } from './notifications-settings'
 import { PluginsSettings } from './plugins-settings'
 import { SessionsSettings } from './sessions-settings'
 import type { SettingsPageProps, SettingsView as SettingsViewId } from './types'
+
+// Each pane wears a colour tile on the rail, the way the platform's Settings
+// does — curated, so related panes share a family and none is chosen by chance.
+const SETTINGS_TINTS: Record<string, Tint> = {
+  'config:model': 'purple',
+  'config:chat': 'blue',
+  'config:appearance': 'pink',
+  'config:workspace': 'indigo',
+  'config:safety': 'green',
+  'config:memory': 'orange',
+  'config:voice': 'red',
+  'config:advanced': 'graphite',
+  notifications: 'red',
+  browser: 'teal',
+  billing: 'green',
+  gateway: 'indigo',
+  account: 'blue',
+  keybinds: 'graphite',
+  keys: 'yellow',
+  plugins: 'purple',
+  sessions: 'orange',
+  about: 'graphite'
+}
 
 const SETTINGS_VIEWS: readonly SettingsViewId[] = [
   ...SECTIONS.map(s => `config:${s.id}` as SettingsViewId),
@@ -254,7 +278,7 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
         label: t.settings.nav.about,
         onSelect: () => setActiveView('about')
       }
-    ],
+    ].map(group => ({ ...group, tint: SETTINGS_TINTS[group.id] })),
     [activeView, keysView, t, setActiveView, openKeysView]
   )
 

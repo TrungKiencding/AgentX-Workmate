@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button'
+import { tintFor } from '@/components/ui/icon-tile'
 import { StatusPill } from '@/components/ui/status-pill'
 import {
   StoreCard,
@@ -56,7 +57,7 @@ export function ToolsetCard({
         }
         dimmed={!toolset.enabled}
         glyph={
-          <StoreCardGlyph>
+          <StoreCardGlyph tint={tintFor(toolset.name)}>
             <Icon />
           </StoreCardGlyph>
         }

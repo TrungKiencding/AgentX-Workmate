@@ -108,6 +108,20 @@
        (5.2:1). Clarity outranks quiet (§1, priority order). */
     --focus-ring: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--accent);
 
+    /* Tile tints (components/ui/icon-tile.tsx) — the platform's system
+       colours a shade quieter, for icon tiles only: never text, never a
+       state. White glyphs on the solid tiles clear 3:1 (icons). */
+    --tint-blue: #2f6fe4;
+    --tint-green: #2e9a58;
+    --tint-orange: #e0761c;
+    --tint-red: #de4b40;
+    --tint-purple: #8257e5;
+    --tint-pink: #d4467e;
+    --tint-teal: #188b9c;
+    --tint-indigo: #5058d4;
+    --tint-yellow: #b07e05;
+    --tint-graphite: #7a7a75;
+
     /* Elevation levels (§3.9). Flat by default: cards and the composer carry a
        border, never a shadow. */
     --elevation-drawer: 0 0 0 1px var(--border-default), 8px 0 24px rgb(0 0 0 / 0.08);
@@ -116,6 +130,16 @@
   }
 
   :root.dark {
+    --tint-blue: #4d8df6;
+    --tint-green: #3fb873;
+    --tint-orange: #f08c3a;
+    --tint-red: #ef6157;
+    --tint-purple: #9d7cf2;
+    --tint-pink: #e8689b;
+    --tint-teal: #2fa8b8;
+    --tint-indigo: #7179ea;
+    --tint-yellow: #dca52a;
+    --tint-graphite: #8f8f8a;
     --brand: var(--clay-400);
     --scrim: rgb(0 0 0 / 0.56);
     --scrim-light: rgb(0 0 0 / 0.32);
@@ -142,7 +166,9 @@
   --bg-hover: var(--gray-100);
   --bg-selected: var(--gray-150);
   --bg-pressed: var(--gray-200);
-  --bg-inverse: var(--gray-950);
+  /* Charcoal, not black (review): the filled control reads as a calm dark
+     grey — white on it is 8.2:1. */
+  --bg-inverse: var(--gray-700);
 
   /* Secondary ink, icons and lines sit one rung firmer than the spec's §3.3
      (review: on older, lower-density displays the spec's greys washed out).
@@ -231,7 +257,7 @@
   --bg-hover: var(--gray-850);
   --bg-selected: var(--gray-800);
   --bg-pressed: var(--gray-750);
-  --bg-inverse: var(--gray-100);
+  --bg-inverse: var(--gray-200);
 
   /* One rung firmer than §3.4, as in light. */
   --border-subtle: var(--gray-800);
