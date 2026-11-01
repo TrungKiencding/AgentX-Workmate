@@ -203,7 +203,7 @@ export function StatusMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-2xs font-semibold uppercase tracking-wide transition-[filter] hover:brightness-105"
+          className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-2xs font-semibold transition-[filter] hover:brightness-105"
           style={{ backgroundColor: `color-mix(in srgb, ${meta.tone} 15%, transparent)`, color: meta.tone }}
           type="button"
         >
@@ -229,7 +229,7 @@ export function StatusMenu({
 
 // The board's one field/section-label style — hoisted so Section (here), the
 // create dialog's Field, and the orchestration panel all read identically.
-export const FIELD_LABEL = 'text-2xs font-semibold uppercase tracking-[0.14em] text-(--ui-text-quaternary)'
+export const FIELD_LABEL = 'text-2xs font-semibold text-(--ui-text-quaternary)'
 
 export function Section({ action, children, label }: { action?: ReactNode; children: ReactNode; label: string }) {
   return (

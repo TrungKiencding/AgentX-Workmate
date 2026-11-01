@@ -10,9 +10,9 @@
 
 import { atom } from 'nanostores'
 
-// Mirror DEFAULT_ZOOM_LEVEL (125%) so Appearance doesn't flash 100% before
-// the main-process zoom.get() resolves. Keep in sync with electron/zoom.ts.
-export const $zoomPercent = atom<number>(125)
+// Mirror DEFAULT_ZOOM_LEVEL (100%) so Appearance doesn't flash another value
+// before the main-process zoom.get() resolves. Keep in sync with electron/zoom.ts.
+export const $zoomPercent = atom<number>(100)
 
 export function setZoomPercent(percent: number): void {
   window.agentxDesktop?.zoom?.setPercent(percent)

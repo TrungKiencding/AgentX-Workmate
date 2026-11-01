@@ -1,3 +1,4 @@
+import { type Tint, tintFor } from '@/components/ui/icon-tile'
 import {
   Box,
   BrandApple,
@@ -69,6 +70,33 @@ export const skillCategoryIcon = (raw: string): IconComponent => {
   const key = skillCategoryKey(raw)
 
   return isKnownSkillCategory(key) ? CATEGORY_ICONS[key] : CATEGORY_ICONS.general
+}
+
+// Each known group's tile colour — chosen, not hashed, so a colour means
+// something (mail is blue, notes are yellow, the home is green) and
+// neighbouring shelves never collide.
+const CATEGORY_TINTS: Record<SkillCategoryId, Tint> = {
+  apple: 'graphite',
+  'autonomous-ai-agents': 'purple',
+  creative: 'pink',
+  email: 'blue',
+  general: 'graphite',
+  github: 'graphite',
+  media: 'red',
+  mlops: 'indigo',
+  'note-taking': 'yellow',
+  productivity: 'orange',
+  research: 'teal',
+  'smart-home': 'green',
+  'social-media': 'blue',
+  'software-development': 'indigo'
+}
+
+/** The group's tile colour; an unknown category gets a stable hashed one. */
+export const skillCategoryTint = (raw: string): Tint => {
+  const key = skillCategoryKey(raw)
+
+  return isKnownSkillCategory(key) ? CATEGORY_TINTS[key] : tintFor(key)
 }
 
 // Proper names a naive word-capitalizer would mangle. The backend exposes no

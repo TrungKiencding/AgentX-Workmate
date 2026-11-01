@@ -1,5 +1,6 @@
 import type * as React from 'react'
 
+import { IconTile, type Tint } from '@/components/ui/icon-tile'
 import { cn } from '@/lib/utils'
 
 /**
@@ -22,7 +23,9 @@ export function StoreCard({ className, ...props }: React.ComponentProps<'article
   return (
     <article
       className={cn(
-        'flex min-w-0 flex-col gap-2 rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) p-4 shadow-xs transition-[background-color,border-color,box-shadow] duration-(--dur-short) ease-out hover:border-(--ui-stroke-secondary) hover:bg-(--ui-bg-quaternary) hover:shadow-sm',
+        // A content card (spec §5.10): the page colour under a --border-default
+        // hairline, 16px padding, flat — hover only firms the edge.
+        'flex min-w-0 flex-col gap-2 rounded-(--radius-card) border border-(--border-default) bg-(--bg-app) p-4 transition-[border-color] duration-(--dur-micro) ease-out hover:border-(--border-strong)',
         className
       )}
       data-slot="store-card"
@@ -74,10 +77,10 @@ export function StoreCardShelf({
         <div className="mb-2 flex items-end justify-between gap-3 px-0.5">
           <div className="min-w-0">
             <div className="flex items-baseline gap-1.5">
-              <h3 className="text-sm font-semibold text-(--ui-text-tertiary)">{label}</h3>
-              {count !== undefined && <span className="text-xs tabular-nums text-(--ui-text-quaternary)">{count}</span>}
+              <h3 className="text-sm text-(--text-secondary)">{label}</h3>
+              {count !== undefined && <span className="text-xs tabular-nums text-(--text-tertiary)">{count}</span>}
             </div>
-            {note && <p className="mt-0.5 max-w-[60ch] text-xs text-(--ui-text-quaternary)">{note}</p>}
+            {note && <p className="mt-0.5 max-w-[60ch] text-xs text-(--text-tertiary)">{note}</p>}
           </div>
           {action && <div className="flex shrink-0 items-center gap-1.5">{action}</div>}
         </div>
@@ -92,12 +95,27 @@ export function StoreCardShelf({
  * gives a letter monogram, so a skill's category glyph, a tool's glyph and a
  * connection's brand mark line up across the tabs.
  */
-export function StoreCardGlyph({ children, className, ...props }: React.ComponentProps<'span'>) {
+export function StoreCardGlyph({
+  children,
+  className,
+  tint,
+  ...props
+}: React.ComponentProps<'span'> & { tint?: Tint }) {
+  // A tinted glyph reads its category at a glance (a soft colour wash, the
+  // platform Settings' way); an untinted one stays the neutral tile.
+  if (tint) {
+    return (
+      <IconTile className={className} data-slot="store-card-glyph" tint={tint} {...props}>
+        {children}
+      </IconTile>
+    )
+  }
+
   return (
     <span
       aria-hidden
       className={cn(
-        'inline-grid size-8 shrink-0 place-items-center rounded-md bg-(--ui-bg-tertiary) text-(--ui-text-tertiary) [&>svg]:size-4.5',
+        'inline-grid size-8 shrink-0 place-items-center rounded-md bg-(--bg-subtle) text-(--icon-default) [&>svg]:size-4.5',
         className
       )}
       data-slot="store-card-glyph"

@@ -154,7 +154,7 @@ function ReleaseView({
       </div>
 
       <div>
-        <p className="text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">{u.whatsNew}</p>
+        <p className="text-2xs font-medium text-(--ui-text-tertiary)">{u.whatsNew}</p>
         <ul className="mt-1.5 grid gap-1.5 text-xs text-foreground">
           {notes.map(note => (
             <li className="flex items-start gap-2" key={note}>

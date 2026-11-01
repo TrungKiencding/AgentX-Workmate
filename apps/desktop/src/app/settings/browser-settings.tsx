@@ -480,7 +480,7 @@ function BrowserCard({
       <StoreCardHeader
         dimmed={!enabled}
         glyph={
-          <StoreCardGlyph>
+          <StoreCardGlyph tint="blue">
             <AppWindow />
           </StoreCardGlyph>
         }

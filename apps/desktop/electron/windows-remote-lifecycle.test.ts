@@ -79,6 +79,24 @@ test('platform detection surfaces transport failures as themselves, not unsuppor
     ),
     (err: any) => err.kind === 'unsupported-platform' && /AgentX is not installed/.test(err.message)
   )
+
+  await assert.rejects(
+    detectRemotePlatform(
+      sshWith(async command => {
+        if (command.startsWith('uname ')) {
+          throw new Error('not recognized')
+        }
+
+        throw new Error(
+          '#< CLIXML <Objs><S S="progress">module load</S><S S="Error">The remote AgentX Python runtime was not found._x000D__x000A_</S></Objs>'
+        )
+      })
+    ),
+    (err: any) =>
+      err.kind === 'unsupported-platform' &&
+      /probe: The remote AgentX Python runtime was not found\./.test(err.message) &&
+      !/CLIXML|module load/.test(err.message)
+  )
 })
 
 test('helper command uses the fixed remote Python entry point and quotes path data', () => {

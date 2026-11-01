@@ -120,6 +120,7 @@ import {
 } from '../../routes'
 import type { SidebarNavItem } from '../../types'
 
+import { SidebarAccountRow } from './account-row'
 import { ConnectedChannels } from './connected-channels'
 import { SidebarCronJobsSection } from './cron-jobs-section'
 import { SidebarLoadMoreRow } from './load-more-row'
@@ -168,9 +169,9 @@ const NEW_SESSION_NAV: SidebarNavItem = {
   keybindActionId: 'session.new'
 }
 
-// A nav row is a 40px, 15px-medium row in the app's primary ink — deliberately a
-// rung above the conversation rows below it, which are 36px of secondary ink, so
-// the band reads as "where you can go" rather than as the top of one long list.
+// A nav row (Quiet Tool spec §5.1, one step up): 36px, a 20px glyph 10px from a 15px label
+// in primary ink, inset 8px from the sidebar edge (the content wrapper) with
+// 12px of padding, 8px corners. Hover is --bg-hover.
 //
 // no-drag: these rows sit directly under the titlebar's
 // [-webkit-app-region:drag] strips (app-shell.tsx), with only 6px of clearance.
@@ -180,22 +181,28 @@ const NEW_SESSION_NAV: SidebarNavItem = {
 //
 // The glyph size has to be set from HERE. SidebarMenuButton's base carries
 // `[&>svg]:size-4`, and a `size-*` on the icon itself loses to it on
-// specificity — the `size-4.5` that used to sit down there never rendered a
-// single pixel wider than 16px.
+// specificity.
 const NAV_ROW =
-  'group/nav relative flex h-(--sidebar-nav-row-height) w-full justify-start gap-2.5 rounded-(--radius-control) px-2 text-left text-md font-medium text-(--ui-text-primary) transition-colors duration-(--dur-micro) ease-out [-webkit-app-region:no-drag] [&>svg]:size-5 hover:bg-(--ui-control-hover-background) hover:text-foreground hover:transition-none'
+  'group/nav relative flex h-(--sidebar-nav-row-height) w-full cursor-pointer justify-start gap-2.5 rounded-(--radius-control) px-3 text-left text-base font-normal text-(--text-primary) transition-colors duration-(--dur-micro) ease-out [-webkit-app-region:no-drag] [&>svg]:size-5 hover:bg-(--bg-hover) hover:text-(--text-primary) hover:transition-none'
 
-// "Selected" is the sidebar's own selected treatment: the tinted row fill PLUS
-// the 2px accent bar on the leading edge, drawn in the row's padding so it costs
-// no layout.
-const NAV_ROW_SELECTED =
-  'bg-(--ui-row-active-background) text-foreground shadow-none before:absolute before:inset-y-2 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""] hover:bg-(--ui-row-active-background)'
+// Selected (spec §5.1): --bg-selected and nothing else — no ink change, no
+// leading bar.
+const NAV_ROW_SELECTED = 'bg-(--bg-selected) shadow-none hover:bg-(--bg-selected)'
 
 // Ink only — size and shrink come from the button, which outranks anything set
-// here. Held just under the label's ink so the word still leads the row, but
-// only just: at 72% these outline glyphs washed out into the sidebar fill and
-// the row lost its anchor.
-const NAV_ROW_GLYPH = 'text-[color-mix(in_srgb,currentColor_88%,transparent)]'
+// here. Each destination's glyph carries its own quiet tint (review: an
+// all-grey band read flat), the way the platform's sidebars colour their
+// glyphs; the label stays primary ink. Contributed rows keep the icon ink.
+const NAV_ROW_GLYPH = 'text-(--icon-default)'
+
+const NAV_GLYPH_TINT: Record<string, string> = {
+  'new-session': 'text-(--tint-blue)',
+  skills: 'text-(--tint-orange)',
+  messaging: 'text-(--tint-green)',
+  artifacts: 'text-(--tint-purple)'
+}
+
+const navGlyphClass = (id: string) => NAV_GLYPH_TINT[id] ?? NAV_ROW_GLYPH
 
 const SIDEBAR_NAV: SidebarNavItem[] = [
   {
@@ -1240,12 +1247,13 @@ export function ChatSidebar({
         'border-(--sidebar-edge-border) bg-(--ui-sidebar-surface-background) opacity-100'
       )}
       collapsible="none"
+      data-sidebar-surface=""
     >
-      <SidebarContent className="gap-0 overflow-hidden bg-transparent px-2.5">
+      <SidebarContent className="gap-0 overflow-hidden bg-transparent px-2">
         <SidebarGroup className="shrink-0 p-0 pb-2 pt-[calc(var(--titlebar-height)+0.375rem)]">
           <SidebarGroupContent>
-            {/* A hair of daylight between the rows: at gap-px the 40px rows
-                fused into one slab and the hover fill had no edge to land on. */}
+            {/* 2px between rows (spec §3.7) — enough for each hover fill to
+                land on its own edge. */}
             <SidebarMenu className="gap-0.5">
               <SidebarMenuItem>
                 {/* Right-click offers the same "Open in split" submenu as the
@@ -1267,7 +1275,7 @@ export function ChatSidebar({
                       }}
                       type="button"
                     >
-                      <NEW_SESSION_NAV.icon className={NAV_ROW_GLYPH} />
+                      <NEW_SESSION_NAV.icon className={navGlyphClass(NEW_SESSION_NAV.id)} />
                       <span className="min-w-0 flex-1 truncate">{s.nav['new-session']}</span>
                       {/* The shortcut is a hint for people who want one, not a
                           label everyone reads: it shows on hover or keyboard
@@ -1320,12 +1328,12 @@ export function ChatSidebar({
                     }
                     type="button"
                   >
-                    <item.icon className={NAV_ROW_GLYPH} />
+                    <item.icon className={navGlyphClass(item.id)} />
                     <span className="min-w-0 flex-1 truncate">{s.nav[item.id] ?? item.label}</span>
                     {item.id === 'messaging' && pendingPairingCount > 0 && (
                       <span
                         aria-label={t.messaging.pendingAria(pendingPairingCount)}
-                        className="ml-auto inline-flex min-w-4.5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-medium tabular-nums text-[color-mix(in_srgb,var(--ui-red)_var(--status-pill-ink),var(--dt-foreground))] [background:color-mix(in_srgb,var(--ui-red)_var(--status-pill-tint),transparent)]"
+                        className="ml-auto inline-flex min-w-4.5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-medium tabular-nums bg-(--danger-bg) text-(--danger)"
                       >
                         {pendingPairingCount}
                       </span>
@@ -1369,7 +1377,8 @@ export function ChatSidebar({
         </SidebarGroup>
 
         {showSessionSections && (
-          <div className="shrink-0 pb-2 pt-1">
+          // 24px between the navigation block and the groups (spec §5.2).
+          <div className="shrink-0 pb-4 pt-0.5">
             <SearchField
               aria-label={s.searchAria}
               inputRef={searchInputRef}
@@ -1676,6 +1685,7 @@ export function ChatSidebar({
             <ProfileRail />
           </div>
         )}
+        <SidebarAccountRow />
       </SidebarContent>
       <ProjectDialog />
     </Sidebar>

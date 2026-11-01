@@ -9,8 +9,19 @@ import { arraysEqual, insertUniqueId, readKey } from '@/lib/storage'
 
 import { $paneStates, ensurePaneRegistered, setPaneOpen, setPaneWidthOverride, togglePane } from './panes'
 
-export const SIDEBAR_DEFAULT_WIDTH = 237
-export const SIDEBAR_MAX_WIDTH = 360
+// Sidebar width (Quiet Tool spec §4.1 / §4.3): 288px by default, 256px when the
+// window opens in the 1024–1279 band, user-resizable within 240–400 and
+// persisted as the pane's width override.
+export const SIDEBAR_DEFAULT_WIDTH = 288
+export const SIDEBAR_COMPACT_WIDTH = 256
+export const SIDEBAR_MIN_WIDTH = 240
+export const SIDEBAR_MAX_WIDTH = 400
+
+/** The width a sidebar with no saved width opens at, for this window's size. */
+export function defaultSidebarWidth(viewportWidth = typeof window === 'undefined' ? 1440 : window.innerWidth) {
+  return viewportWidth < 1280 ? SIDEBAR_COMPACT_WIDTH : SIDEBAR_DEFAULT_WIDTH
+}
+
 // Open at the same width as the sessions sidebar so the two rails match, but
 // allow shrinking well below that (~30% under the old 14rem floor) for users who
 // want a narrow tree.
@@ -71,7 +82,7 @@ export const $rightRailActiveTabId = persistentAtom<RightRailTabId | null>(RIGHT
 export const $sidebarWidth: ReadableAtom<number> = computed($paneStates, states => {
   const override = states[CHAT_SIDEBAR_PANE_ID]?.widthOverride
 
-  return typeof override === 'number' ? override : SIDEBAR_DEFAULT_WIDTH
+  return typeof override === 'number' ? override : defaultSidebarWidth()
 })
 
 export const $pinnedSessionIds = persistentAtom(SIDEBAR_PINNED_STORAGE_KEY, [] as string[], Codecs.stringArray)
@@ -260,7 +271,7 @@ export function restoreWorktree(id: string): void {
 }
 
 export function setSidebarWidth(width: number) {
-  const bounded = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_DEFAULT_WIDTH, width))
+  const bounded = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, width))
   setPaneWidthOverride(CHAT_SIDEBAR_PANE_ID, bounded)
 }
 

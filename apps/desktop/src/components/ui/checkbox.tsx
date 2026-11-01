@@ -1,14 +1,17 @@
 import { Checkbox as CheckboxPrimitive } from 'radix-ui'
 import * as React from 'react'
 
-import { Codicon } from '@/components/ui/codicon'
+import { Check, Minus } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 
 function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
   return (
     <CheckboxPrimitive.Root
       className={cn(
-        'group peer size-4 shrink-0 rounded-sm border border-input shadow-xs outline-none transition-shadow focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground data-[state=indeterminate]:border-primary data-[state=indeterminate]:bg-primary data-[state=indeterminate]:text-primary-foreground aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40',
+        // Spec §5.6 (one step up): 18×18, 6px corners, --border-input edge;
+        // checked and indeterminate fill the accent with a white glyph, like
+        // the platform's own checkbox.
+        'group peer size-4.5 shrink-0 rounded-sm border border-(--border-input) bg-(--bg-app) outline-none transition-colors duration-(--dur-micro) disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-(--accent) data-[state=checked]:bg-(--accent) data-[state=checked]:text-white data-[state=indeterminate]:border-(--accent) data-[state=indeterminate]:bg-(--accent) data-[state=indeterminate]:text-white aria-invalid:border-(--danger)',
         className
       )}
       data-slot="checkbox"
@@ -18,10 +21,8 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
         className="flex items-center justify-center text-current"
         data-slot="checkbox-indicator"
       >
-        {/* codicon.css sets `display: inline-block` at higher specificity than a bare
-            `hidden`, so both glyphs paint at once without the important modifier. */}
-        <Codicon className="hidden! group-data-[state=checked]:block!" name="check" size="0.875rem" />
-        <Codicon className="hidden! group-data-[state=indeterminate]:block!" name="dash" size="0.875rem" />
+        <Check className="hidden size-3.5 stroke-[2.5] group-data-[state=checked]:block" />
+        <Minus className="hidden size-3.5 stroke-[2.5] group-data-[state=indeterminate]:block" />
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
   )

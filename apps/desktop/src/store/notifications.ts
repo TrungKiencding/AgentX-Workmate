@@ -9,8 +9,6 @@ export interface NotificationAction {
   onClick: () => void
 }
 
-export type NotificationPlacement = 'default' | 'bottom-right'
-
 export type NotificationScope = 'app' | 'session'
 
 export interface AppNotification {
@@ -29,7 +27,6 @@ export interface AppNotification {
   /** Runs when the person closes the notice; see NotificationInput.onDismiss. */
   onDismiss?: () => void
   createdAt: number
-  placement?: NotificationPlacement
   scope: NotificationScope
 }
 
@@ -51,7 +48,6 @@ export interface NotificationInput {
    */
   onDismiss?: () => void
   durationMs?: number
-  placement?: NotificationPlacement
   /**
    * 'app' for a notice about the app rather than the open chat: an update, an
    * agent that needs a restart. Moving to another chat or starting a turn clears
@@ -66,31 +62,67 @@ export interface NotificationInput {
 const MAX_SESSION_NOTIFICATIONS = 4
 
 let notificationCounter = 0
-const timers = new Map<string, number>()
+
+// A running auto-dismiss: the pending timeout and when it fires. While the
+// toast region is hovered or focused every timer is held (spec §5.15) — the
+// handle is dropped and `remaining` remembers the time left.
+interface DismissTimer {
+  handle?: number
+  deadline: number
+  remaining: number
+}
+
+const timers = new Map<string, DismissTimer>()
+let held = false
 
 export const $notifications = atom<AppNotification[]>([])
 
-function defaultDuration(kind: NotificationKind) {
+// Spec §5.15: 4s, 6s when the toast carries an action (it takes longer to
+// decide). Errors and warnings need handling, so they never time out.
+function defaultDuration(kind: NotificationKind, action?: NotificationAction) {
   if (kind === 'error' || kind === 'warning') {
     return 0
   }
 
-  return 5_000
+  return action ? 6_000 : 4_000
 }
 
-// Only interruptions worth a top-center toast: errors, warnings, and anything
-// with an action button the user needs to notice and click (restart gateway,
-// update available, sign-in prompts). Everything else — the bulk of routine
-// "saved"/"enabled"/"archived" confirmations across settings, MCP, cron,
-// profiles, messaging — is ambient feedback and defaults to a quiet
-// bottom-right toast instead. Callers can still force `placement: 'default'`
-// for a specific case.
-function defaultPlacement(kind: NotificationKind, action?: NotificationAction): NotificationPlacement {
-  if (kind === 'error' || kind === 'warning' || action) {
-    return 'default'
+function armTimer(id: string, remaining: number) {
+  const timer: DismissTimer = { deadline: Date.now() + remaining, remaining }
+
+  if (!held) {
+    timer.handle = window.setTimeout(() => dismissNotification(id), remaining)
   }
 
-  return 'bottom-right'
+  timers.set(id, timer)
+}
+
+/** Pause every auto-dismiss — the pointer or focus is inside the toast region. */
+export function holdNotificationTimers() {
+  if (held) {
+    return
+  }
+
+  held = true
+
+  for (const timer of timers.values()) {
+    window.clearTimeout(timer.handle)
+    timer.handle = undefined
+    timer.remaining = Math.max(0, timer.deadline - Date.now())
+  }
+}
+
+/** Resume the held timers with the time each had left. */
+export function releaseNotificationTimers() {
+  if (!held) {
+    return
+  }
+
+  held = false
+
+  for (const [id, timer] of timers) {
+    armTimer(id, timer.remaining)
+  }
 }
 
 function cleanErrorText(value: string) {
@@ -192,7 +224,6 @@ export function notify(input: NotificationInput): string {
     action: input.action,
     onDismiss: input.onDismiss,
     createdAt: Date.now(),
-    placement: input.placement ?? defaultPlacement(kind, input.action),
     scope: input.scope ?? 'session'
   }
 
@@ -211,13 +242,10 @@ export function notify(input: NotificationInput): string {
 
   $notifications.set(kept)
 
-  const duration = input.durationMs ?? defaultDuration(kind)
+  const duration = input.durationMs ?? defaultDuration(kind, input.action)
 
   if (duration > 0) {
-    timers.set(
-      id,
-      window.setTimeout(() => dismissNotification(id), duration)
-    )
+    armTimer(id, duration)
   }
 
   return id
@@ -235,7 +263,7 @@ export function notifyError(error: unknown, fallback: string): string {
 }
 
 function forgetTimer(id: string) {
-  window.clearTimeout(timers.get(id))
+  window.clearTimeout(timers.get(id)?.handle)
   timers.delete(id)
 }
 
@@ -287,9 +315,10 @@ export function closeAllNotifications() {
 /** Drop every notice and timer, running nothing. For tests. */
 export function resetNotifications() {
   for (const timer of timers.values()) {
-    window.clearTimeout(timer)
+    window.clearTimeout(timer.handle)
   }
 
   timers.clear()
+  held = false
   $notifications.set([])
 }

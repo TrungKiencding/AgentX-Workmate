@@ -48,10 +48,9 @@ function resetStores() {
 beforeEach(resetStores)
 afterEach(cleanup)
 
-// The connecting overlay renders the resolved line in a transparent copy that
-// reserves the decode's final width; match that node specifically so the
-// recovery overlay's "Lost connection…" copy doesn't read as a false positive.
-const isConnectingShown = () => screen.queryAllByText('Connecting to AgentX server').length > 0
+// The connecting overlay's one line ("Connecting to AgentX server…"); the
+// recovery overlay's "Lost connection…" copy doesn't match it.
+const isConnectingShown = () => screen.queryAllByText(/^Connecting to AgentX server/).length > 0
 
 // The recovery overlay names its actions in both the buttons and the "what to
 // do" steps, so a single-match query would throw on the duplicate; presence is
@@ -82,6 +81,20 @@ describe('connecting overlay vs recovery surface', () => {
     expect(isRecoveryShown()).toBe(true)
     // Connecting overlay bows out when boot.error is set.
     expect(isConnectingShown()).toBe(false)
+  })
+
+  it('shows the connect screen while the first boot waits on the gateway', async () => {
+    $desktopBoot.set({ ...$desktopBoot.get(), progress: 60, running: true, visible: true })
+    setGatewayState('connecting')
+
+    let container!: HTMLElement
+    await act(async () => {
+      container = render(<GatewayConnectingOverlay />).container
+    })
+
+    expect(isConnectingShown()).toBe(true)
+    expect(container.querySelector('[data-slot="connect-mark"] path')?.getAttribute('pathLength')).toBe('1')
+    expect(container.querySelector('[data-slot="connect-track"]')).not.toBeNull()
   })
 
   it('post-boot socket drops do not re-cover the app with the initial CONNECTING overlay', async () => {

@@ -311,7 +311,13 @@ function MarkdownCode({ className, children, ...props }: ComponentProps<'code'>)
 
   if (!language) {
     return (
-      <code className={cn('rounded bg-muted px-1 py-0.5 font-mono text-[0.9em] text-foreground', className)} {...props}>
+      <code
+        className={cn(
+          'rounded-sm bg-(--bg-hover) px-[5px] py-px font-mono text-[0.92em] text-(--text-primary)',
+          className
+        )}
+        {...props}
+      >
         {children}
       </code>
     )

@@ -25,6 +25,7 @@ import { $newSessionTabAction, registerPaneCloser } from '@/components/pane-shel
 import { FloatingPet } from '@/components/pet/floating-pet'
 import { RemoteDisplayBanner } from '@/components/remote-display-banner'
 import { SignInOverlay } from '@/components/sign-in-overlay'
+import { ConfirmRequestHost } from '@/components/ui/confirm-request'
 import { WebmatePromptCard } from '@/components/webmate-prompt-card'
 import { emitGatewayEvent } from '@/contrib/events'
 import { getSessionMessages, triggerCronJob } from '@/hermes'
@@ -1214,6 +1215,9 @@ export function ContribWiring({ children }: { children: ReactNode }) {
 
       {/* Toasts above everything. */}
       <NotificationStack />
+
+      {/* Host for requestConfirm(): the app's own confirm dialog. */}
+      <ConfirmRequestHost />
 
       {/* Petdex floating mascot — renders nothing unless installed + enabled. */}
       <FloatingPet />

@@ -92,17 +92,17 @@ export function NavLink({
   return (
     <Button
       className={cn(
-        'flex min-h-(--control-h-md) w-full justify-start gap-2 rounded-(--radius-control) px-2 text-left text-sm transition-[background-color,border-color,color] duration-(--dur-micro)',
+        'flex min-h-(--control-h-md) w-full justify-start gap-2.5 rounded-(--radius-control) px-3 text-left text-base transition-[background-color,color] duration-(--dur-micro)',
         active
-          ? 'bg-(--ui-bg-tertiary) text-foreground'
-          : 'text-(--ui-text-secondary) hover:bg-(--chrome-action-hover) hover:text-foreground'
+          ? 'bg-(--bg-selected) text-(--text-primary) hover:bg-(--bg-selected)'
+          : 'text-(--text-primary) hover:bg-(--bg-hover)'
       )}
       onClick={onClick}
       size="sm"
       type="button"
       variant="ghost"
     >
-      <Icon className="size-4 shrink-0" />
+      <Icon className="size-4 shrink-0 text-(--icon-default)" />
       <span className="min-w-0 flex-1 truncate">{label}</span>
     </Button>
   )

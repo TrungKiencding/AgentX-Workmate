@@ -120,7 +120,7 @@ export function DecodedLabel({ leaving, text }: { leaving?: boolean; text: strin
   return (
     <span
       className={cn(
-        'inline-flex items-center font-mono text-xs font-semibold uppercase tracking-[0.28em] tabular-nums text-primary transition duration-[360ms] ease-out',
+        'inline-flex items-center font-mono text-xs font-semibold tabular-nums text-primary transition duration-[360ms] ease-out',
         leaving ? 'translate-y-2 opacity-0 saturate-0' : 'translate-y-0 opacity-100 saturate-100'
       )}
     >
@@ -153,7 +153,7 @@ export function HackeryButton({
     <button
       className={cn(
         'group inline-flex items-center gap-2 rounded-md border border-(--stroke-nous) px-6 py-2.5',
-        'font-mono text-xs font-semibold uppercase text-primary',
+        'font-mono text-xs font-semibold text-primary',
         'transition-[border-color,background-color] duration-(--dur-short-exit) ease-out hover:border-primary/60 hover:bg-primary/[0.06]',
         'disabled:pointer-events-none disabled:opacity-50'
       )}

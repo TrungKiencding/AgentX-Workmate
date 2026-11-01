@@ -39,7 +39,7 @@ export function ConnectedChannels({
               className={cn(
                 'relative flex min-h-10 w-full items-center gap-2.5 rounded-(--radius-control) px-2 py-1.5 text-left transition-colors duration-(--dur-micro) [-webkit-app-region:no-drag]',
                 active
-                  ? 'bg-(--ui-row-active-background) text-foreground before:absolute before:inset-y-2 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""]'
+                  ? 'bg-(--bg-selected) text-(--text-primary)'
                   : 'text-(--ui-text-secondary) hover:bg-(--ui-control-hover-background) hover:text-foreground'
               )}
               key={platform.id}

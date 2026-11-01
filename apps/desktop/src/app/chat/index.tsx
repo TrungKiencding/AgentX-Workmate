@@ -68,6 +68,7 @@ import { ScrollToBottomButton } from './scroll-to-bottom-button'
 import { useSessionView } from './session-view'
 import { SessionActionsMenu } from './sidebar/session-actions-menu'
 import { selectTranscriptWindow } from './transcript-window'
+import { TurnDoneAnnouncer } from './turn-announcer'
 
 interface ChatViewProps extends Omit<React.ComponentProps<'div'>, 'onSubmit'> {
   gateway: HermesGateway | null
@@ -688,6 +689,7 @@ export const ChatView = memo(function ChatView({
             </div>
           )}
           {showChatBar && <ScrollToBottomButton />}
+          {isPrimary && <TurnDoneAnnouncer busy={busy} />}
           {/* Vibe hearts rise from the composer only when no pet is out (else
               they play on the pet). Fired by the core `reaction` event. */}
           {!isMessagingConversation && !petPresent && (

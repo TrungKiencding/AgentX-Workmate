@@ -238,7 +238,7 @@ function ProfileGlyph({ color, isDefault, name }: { color: null | string; isDefa
   return (
     <span
       aria-hidden="true"
-      className="grid size-4 shrink-0 place-items-center rounded-[3px] text-2xs font-semibold uppercase leading-none"
+      className="grid size-4 shrink-0 place-items-center rounded-[3px] text-2xs font-semibold leading-none"
       style={{ backgroundColor: profileColorSoft(hue, 22), color: color ?? undefined }}
     >
       {initial}
@@ -349,7 +349,7 @@ function SoulEditor({ profileName }: { profileName: string }) {
     <section className="space-y-2">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <PanelSectionLabel className="text-2xs tracking-[0.14em]">SOUL.md</PanelSectionLabel>
+          <PanelSectionLabel className="text-2xs">SOUL.md</PanelSectionLabel>
           <p className="text-xs text-muted-foreground">{p.soulDesc}</p>
         </div>
         {dirty && <span className="text-2xs text-muted-foreground">{p.unsavedChanges}</span>}

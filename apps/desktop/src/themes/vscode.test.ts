@@ -87,8 +87,8 @@ describe('convertVscodeColorTheme', () => {
     const { theme } = convertVscodeColorTheme(dracula)
 
     // applyTheme merges `{ ...DEFAULT_TYPOGRAPHY, ...theme.typography }`, so an
-    // import without the field (including the newer fontSerifDisplay) inherits
-    // Geist / JetBrains Mono / Newsreader instead of breaking.
+    // import without the field inherits Geist / JetBrains Mono instead of
+    // breaking.
     expect(theme.typography).toBeUndefined()
   })
 

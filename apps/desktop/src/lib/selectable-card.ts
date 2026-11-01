@@ -21,14 +21,14 @@ export interface SelectableCardState {
  */
 export function selectableCardClass({ active, prominent }: SelectableCardState): string {
   return cn(
-    // The in-page card voice: --radius-card, ONE border level. Active earns the
-    // accent border plus a faint accent wash — not a second ring around the
-    // first; two outlines on one card is decoration, not hierarchy.
-    'rounded-(--radius-card) border transition-[background-color,border-color] duration-(--dur-micro)',
+    // The in-page card voice (spec §5.10): --radius-card, the page colour,
+    // ONE border level that firms on hover. The chosen card is the one place
+    // the accent appears — its edge, never a fill.
+    'rounded-(--radius-card) border bg-(--bg-app) transition-[border-color] duration-(--dur-micro)',
     active
-      ? 'border-primary bg-primary/[0.06]'
+      ? 'border-(--accent)'
       : prominent
-        ? 'border-(--ui-stroke-tertiary) bg-(--ui-bg-quinary) hover:bg-(--chrome-action-hover)'
-        : 'border-transparent bg-transparent text-(--ui-text-tertiary) hover:border-(--ui-stroke-tertiary) hover:bg-(--ui-bg-quinary)'
+        ? 'border-(--border-default) hover:border-(--border-strong)'
+        : 'border-transparent text-(--text-secondary) hover:border-(--border-default)'
   )
 }

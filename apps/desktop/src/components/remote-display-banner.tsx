@@ -14,8 +14,7 @@ export function RemoteDisplayBanner() {
         notify({
           durationMs: 0,
           kind: 'info',
-          message: translateNow('remoteDisplayBanner.message', reason),
-          placement: 'default'
+          message: translateNow('remoteDisplayBanner.message', reason)
         })
       }
     })

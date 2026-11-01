@@ -1,9 +1,9 @@
 import { useStore } from '@nanostores/react'
 import { useRef } from 'react'
 
-import { Codicon } from '@/components/ui/codicon'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
+import { ArrowDown } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { $approvalRequest } from '@/store/prompts'
 import { $threadJumpButtonVisible, requestScrollToBottom } from '@/store/thread-scroll'
@@ -44,16 +44,20 @@ export function ScrollToBottomButton() {
 
   const state = visible ? 'in' : hasShownRef.current ? 'out' : 'idle'
   const label = approval ? t.assistant.approval.jumpToApproval : t.assistant.thread.scrollToBottom
+  // The pill names where it goes (spec §6.5 "↓ Mới nhất"); the approval case
+  // names why the session needs you instead.
+  const text = approval ? label : t.assistant.thread.jumpToLatest
 
   return (
     <button
       aria-hidden={!visible}
       aria-label={label}
       className={cn(
-        'thread-jump-button absolute left-1/2 z-20 grid place-items-center backdrop-blur-[0.75rem] [-webkit-backdrop-filter:blur(0.75rem)]',
+        // A level-1 pill (spec §6.5), centred 12px above the composer.
+        'thread-jump-button absolute left-1/2 z-20 grid h-8 grid-flow-col place-items-center gap-1.5 rounded-full bg-(--bg-raised) px-3 text-sm shadow-md transition-colors duration-(--dur-micro)',
         approval
-          ? 'h-8 grid-flow-col gap-1.5 rounded-full border border-primary/40 bg-(--composer-fill) px-3 text-primary hover:bg-primary/10'
-          : 'size-8 rounded-full border border-border/65 bg-(--composer-fill) text-muted-foreground hover:text-foreground',
+          ? 'text-(--accent) hover:text-(--accent-hover)'
+          : 'text-(--text-secondary) hover:text-(--text-primary)',
         !visible && 'pointer-events-none'
       )}
       data-state={state}
@@ -62,13 +66,13 @@ export function ScrollToBottomButton() {
         requestScrollToBottom()
       }}
       style={{
-        bottom: 'calc(var(--composer-measured-height) + 0.625rem)'
+        bottom: 'calc(var(--composer-measured-height) + 0.75rem)'
       }}
       tabIndex={visible ? 0 : -1}
       type="button"
     >
-      <Codicon name="arrow-down" size={approval ? '0.875rem' : '1rem'} />
-      {approval && <span className="text-xs font-medium">{label}</span>}
+      <ArrowDown className="size-4" />
+      <span>{text}</span>
     </button>
   )
 }

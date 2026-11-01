@@ -8,6 +8,7 @@ import { getSkillHubChanges, tickSkillHub } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { Loader2 } from '@/lib/icons'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
+import { fmtClock } from '@/lib/time'
 import { $gateway } from '@/store/gateway'
 import {
   $hubActions,
@@ -78,7 +79,7 @@ function when(value: string | null | undefined): string {
 
   const date = new Date(value)
 
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString()
+  return Number.isNaN(date.getTime()) ? value : fmtClock.format(date)
 }
 
 /** What `useHubSync` hands the store: the hub's changes feed and the tick. */

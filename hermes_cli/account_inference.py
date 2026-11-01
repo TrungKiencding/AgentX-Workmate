@@ -12,6 +12,25 @@ from dataclasses import dataclass
 from hermes_constants import account_slug_for_home, get_hermes_home
 
 
+def _is_retired_gateway(endpoint: str) -> bool:
+    """True for an https address on a host the AgentX AI Gateway has left."""
+    from urllib.parse import urlsplit
+
+    from hermes_cli.config_defaults import RETIRED_GATEWAY_HOSTS
+
+    try:
+        parts = urlsplit(endpoint)
+        port = parts.port
+    except ValueError:
+        return False
+    return (
+        parts.scheme == "https"
+        and (parts.hostname or "") in RETIRED_GATEWAY_HOSTS
+        and port is None
+        and parts.path in ("", "/")
+    )
+
+
 @dataclass(frozen=True)
 class AccountInference:
     provider: str
@@ -27,9 +46,12 @@ class AccountInference:
         own_endpoint = normalize_base_url(self.base_url).lower()
         # Persisted sessions store the resolved provider as "custom" and its
         # endpoint. That pair is accepted only for the managed endpoint.
+        # A retired address of the gateway is the gateway: a chat saved before it
+        # moved must keep working, and callers send requests to self.base_url.
+        own = endpoint == own_endpoint or _is_retired_gateway(endpoint)
         named = slug in {expected, f"custom:{expected}"}
-        resolved = slug == "custom" and bool(endpoint) and endpoint == own_endpoint
-        return (named or resolved) and (not endpoint or endpoint == own_endpoint)
+        resolved = slug == "custom" and bool(endpoint) and own
+        return (named or resolved) and (not endpoint or own)
 
 
 def account_inference() -> AccountInference | None:

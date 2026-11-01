@@ -3,18 +3,19 @@ import * as React from 'react'
 
 import { cn } from '@/lib/utils'
 
+// Banner (spec §5.16): an in-flow notice tied to a region — connection lost,
+// a quota running out, an update. Flat: no border, no shadow; the fill is the
+// signal's soft background (neutral = --bg-subtle), the glyph carries the hue.
+// One banner per region.
 const alertVariants = cva(
-  'relative grid w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-3 gap-y-1 rounded-lg border bg-card px-4 py-3 text-sm text-card-foreground shadow-xs [&>svg]:mt-0.5 [&>svg]:size-4 [&>svg]:shrink-0',
+  'relative grid w-full grid-cols-[auto_minmax(0,1fr)] items-start gap-x-2.5 gap-y-0.5 rounded-lg px-3 py-2.5 text-base text-(--text-primary) [&>svg]:mt-0.5 [&>svg]:size-4 [&>svg]:shrink-0',
   {
     variants: {
       variant: {
-        default: 'border-border',
-        destructive:
-          'border-destructive/35 bg-[color-mix(in_srgb,var(--dt-card)_96%,var(--dt-destructive)_4%)] [&>svg]:text-destructive',
-        warning:
-          'border-primary/30 bg-[color-mix(in_srgb,var(--dt-card)_96%,var(--dt-primary)_4%)] [&>svg]:text-primary',
-        success:
-          'border-primary/25 bg-[color-mix(in_srgb,var(--dt-card)_97%,var(--dt-primary)_3%)] [&>svg]:text-primary'
+        default: 'bg-(--bg-subtle) [&>svg]:text-(--icon-muted)',
+        destructive: 'bg-(--danger-bg) [&>svg]:text-(--danger)',
+        warning: 'bg-(--warning-bg) [&>svg]:text-(--warning)',
+        success: 'bg-(--bg-subtle) [&>svg]:text-(--success)'
       }
     },
     defaultVariants: {
@@ -30,7 +31,7 @@ function Alert({ className, variant, ...props }: React.ComponentProps<'div'> & V
 function AlertTitle({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
-      className={cn('col-start-2 line-clamp-1 min-h-4 font-medium tracking-tight text-foreground', className)}
+      className={cn('col-start-2 line-clamp-1 min-h-5 font-medium text-(--text-primary)', className)}
       data-slot="alert-title"
       {...props}
     />
@@ -41,7 +42,7 @@ function AlertDescription({ className, ...props }: React.ComponentProps<'div'>) 
   return (
     <div
       className={cn(
-        'col-start-2 grid justify-items-start gap-1 text-muted-foreground [&_p]:leading-relaxed',
+        'col-start-2 grid justify-items-start gap-1 text-(--text-secondary) [&_p]:leading-relaxed',
         className
       )}
       data-slot="alert-description"

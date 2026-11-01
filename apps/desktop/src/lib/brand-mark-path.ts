@@ -6,15 +6,13 @@
  * Fitting that to the medial axis of `assets/brand/mark-1024.png` (the raster
  * every icon is generated from) gives three sharp vertices, four fillet radii
  * and the tail's tip, all in a 100x100 box; `buildMark()` turns those into two
- * paths of straight runs and circular arcs, and `buildMarkRoute()` into the
- * same ink as one stroke. The earlier skeleton trace put a kink on every
+ * paths of straight runs and circular arcs. The earlier skeleton trace put a kink on every
  * corner and a wobble along the tail, which a hairline at 24px shows as a
  * shaky hand. Re-fit the numbers if the artwork changes.
  *
  * One source for every place the mark is drawn as a stroke — the `BrandGlyph`
- * at the head of a reply, the `ThinkingMark` that writes itself while a reply
- * is on its way, the `EmptyFigure` illustrations — so they can never drift
- * into slightly different logos.
+ * (connect screen, sign-in art) and the `EmptyFigure` illustrations — so they
+ * can never drift into slightly different logos.
  */
 type Point = readonly [number, number]
 
@@ -99,31 +97,5 @@ export function buildMark(): readonly [loop: string, tail: string] {
   return [loop, tail]
 }
 
-/**
- * The same ink as ONE stroke, the way a pen draws the mark without lifting:
- * out of the fork round the loop — elbow, base, heel, up the left leg, over
- * the apex — then down the right leg straight through the fork and on along
- * the tail to its tip. Every joint is a tangent one, so a dash running along
- * it never jumps a corner; that is what the thinking row's mark traces.
- */
-export function buildMarkRoute(): string {
-  const at = landmarks()
-
-  return [
-    `M${point(at.fork)}`,
-    arc(RADIUS.elbow, at.elbowBase),
-    `L${point(at.heelBase)}`,
-    arc(RADIUS.heel, at.heelLeft),
-    `L${point(at.apexLeft)}`,
-    arc(RADIUS.apex, at.apexRight),
-    `L${point(at.cornerDown)}`,
-    arc(RADIUS.tail, at.cornerBack),
-    `L${point(TAIL_TIP)}`
-  ].join(' ')
-}
-
 /** The two paths, built once. */
 export const BRAND_MARK_PATHS = buildMark()
-
-/** The one-stroke route, built once. */
-export const BRAND_MARK_ROUTE = buildMarkRoute()

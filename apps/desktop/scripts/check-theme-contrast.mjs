@@ -12,11 +12,13 @@
  *                                  accent, primary, destructive
  *   filled controls APCA |Lc| ≥ 60 primary + destructive carry their label
  *   focus ring      WCAG ≥ 3:1     ring vs page (WCAG 1.4.11 boundary)
+ *   input edge      WCAG ≥ 3:1     Quiet's `input` vs page and popover — a
+ *                                  form field's border is its only boundary
+ *                                  (other skins use `input` as a fill)
  *   hairlines       WCAG ≥ 1.2:1   border/sidebarBorder must exist on screen
  *   status tones    WCAG ≥ 4.5:1   --ui-green/-yellow/-red (styles.css, per
  *                                  mode) as TEXT on every preset's page and
- *                                  card, and on the StatusPill's soft tint of
- *                                  the same tone (UI-REDESIGN-PLAN-V2 §2.2)
+ *                                  card (Quiet Tool spec §3.5)
  *
  * The plan's shorthand "border/bg ≥ 3:1" is deliberately NOT applied to
  * hairlines: 3:1 is the WCAG floor for boundaries that are the sole indicator
@@ -53,10 +55,9 @@ const { ACCENT_PRESETS, BUILTIN_THEME_LIST, nousWithAccent } = await import('../
 
 // ─── Semantic tones (styles.css) ───────────────────────────────────────────
 // The status trio is declared once per mode in styles.css as OKLCH literals —
-// not per preset — so a StatusPill reads its colour from the mode while its
-// backdrop comes from the preset. Both halves are measured here: the tone as
-// text on the preset's page and card, and on the pill's own soft tint of that
-// tone (`--status-pill-tint`), which is the only fill a status ever gets.
+// not per preset — so a signal reads its colour from the mode while its
+// backdrop comes from the preset. Measured here as text on the preset's page
+// and card (status badges never fill with a tone).
 
 const STYLES = readFileSync(new URL('../src/styles.css', import.meta.url), 'utf8')
 
@@ -92,8 +93,6 @@ function semanticTone(tone, mode) {
   return oklchToHex(Number(match[1]) / 100, Number(match[2]), Number(match[3]))
 }
 
-const PILL_TINT = Number(STYLES.match(/--status-pill-tint: ([\d.]+)%/)?.[1] ?? 12) / 100
-const PILL_INK = Number(STYLES.match(/--status-pill-ink: ([\d.]+)%/)?.[1] ?? 70) / 100
 const SEMANTIC_TONES = ['green', 'yellow', 'red']
 
 // ─── color-mix() resolution ────────────────────────────────────────────────
@@ -167,7 +166,6 @@ const LABEL_APCA_MIN = 60
 
 function pairsFor(c) {
   const bg = resolve(c.background, '#000000')
-  const onBg = key => resolve(c[key], bg)
   const pair = (kind, label, fgRaw, bgRaw, backdrop = bg) => {
     const solidBg = resolve(bgRaw, backdrop)
 
@@ -216,15 +214,13 @@ for (const [label, theme] of measured) {
     const colors = baseColorsFor(theme, mode)
     const page = resolve(colors.background, '#000000')
     const card = resolve(colors.card, page) ?? page
-    const ink = resolve(colors.foreground, page) ?? page
 
-    // The trio was pitched for the Paper/Graphite bands, so as bare text it is
-    // gated on those two and the shipped default only (kind 'tone' → advisory
-    // elsewhere). The StatusPill pulls its label toward the preset's own ink
-    // (`--status-pill-ink`) over a soft tint of the tone (`--status-pill-tint`),
-    // which is what lets the pill clear 4.5:1 on every preset — so the pill
-    // pair is a hard gate everywhere.
-    const bandGated = ['night-owl', 'nous'].includes(label)
+    // The trio is the Quiet Tool signal set (600 rung light / 400 dark), so as
+    // bare text it is gated on the shipped default plus the two neutral bands
+    // (kind 'tone' → advisory elsewhere). Status badges never fill with the
+    // tone (spec §5.14) — the dot carries the hue, the label stays secondary
+    // ink — so text-on-page is the only pairing a tone ever has.
+    const bandGated = ['quiet', 'night-owl', 'nous'].includes(label)
 
     const semanticPairs = SEMANTIC_TONES.flatMap(tone => {
       const fg = semanticTone(tone, mode)
@@ -232,12 +228,21 @@ for (const [label, theme] of measured) {
 
       return [
         { bg: page, fg, kind, label: `--ui-${tone}/background` },
-        { bg: card, fg, kind, label: `--ui-${tone}/card` },
-        { bg: blend(fg, card, PILL_TINT), fg: blend(fg, ink, PILL_INK), kind: 'text', label: `--ui-${tone}/pill` }
+        { bg: card, fg, kind, label: `--ui-${tone}/card` }
       ]
     })
 
-    for (const { kind, label, fg, bg } of [...pairsFor(colors), ...semanticPairs]) {
+    const popover = resolve(colors.popover, page) ?? page
+
+    const inputPairs =
+      label === 'quiet'
+        ? [
+            { bg: page, fg: resolve(colors.input, page), kind: 'boundary', label: 'input/background' },
+            { bg: popover, fg: resolve(colors.input, popover), kind: 'boundary', label: 'input/popover' }
+          ]
+        : []
+
+    for (const { kind, label, fg, bg } of [...pairsFor(colors), ...semanticPairs, ...inputPairs]) {
       if (fg === null) {
         failures.push(`${variant} · ${label}: unresolvable color`)
         continue

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 
-import { keepDarkForInstallsThatShippedDark, modePref, skinPref } from './context'
+import { keepDarkForInstallsThatShippedDark, modePref, moveOldDefaultSkinToQuiet, skinPref } from './context'
 import { DEFAULT_SKIN_NAME } from './presets'
 
 // Skin and mode share one per-profile contract, so assert it once over both.
@@ -18,8 +18,8 @@ const cases = [
     b: 'midnight',
     junk: 'nope'
   },
-  // Fallback is 'light': a fresh install opens on Night Owl Light.
-  { name: 'mode', pref: modePref as unknown as Pref, fallback: 'light', a: 'dark', b: 'system', junk: 'dusk' }
+  // Fallback is 'system': a fresh install follows the OS (Quiet Tool spec §11).
+  { name: 'mode', pref: modePref as unknown as Pref, fallback: 'system', a: 'dark', b: 'light', junk: 'dusk' }
 ]
 
 describe.each(cases)('per-profile $name', ({ pref, fallback, a, b, junk }) => {
@@ -48,17 +48,17 @@ describe.each(cases)('per-profile $name', ({ pref, fallback, a, b, junk }) => {
   })
 })
 
-describe('the light default reaches fresh installs only', () => {
+describe('the OS-following default reaches fresh installs only', () => {
   beforeEach(() => window.localStorage.clear())
 
-  it('keeps a fresh install light, launch after launch', () => {
+  it('keeps a fresh install on the OS mode, launch after launch', () => {
     keepDarkForInstallsThatShippedDark()
     // The first launch paints, which caches a boot background…
-    window.localStorage.setItem('agentx-boot-background', '#fbfbfb')
+    window.localStorage.setItem('agentx-boot-background', '#ffffff')
     // …and the next launch must not mistake that for an install that shipped dark.
     keepDarkForInstallsThatShippedDark()
 
-    expect(modePref.resolve('default')).toBe('light')
+    expect(modePref.resolve('default')).toBe('system')
   })
 
   it('keeps an install that already ran on the dark default dark', () => {
@@ -75,5 +75,34 @@ describe('the light default reaches fresh installs only', () => {
     keepDarkForInstallsThatShippedDark()
 
     expect(modePref.resolve('default')).toBe('system')
+  })
+})
+
+describe('Night Owl, the previous default, moves to Quiet once', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('opens a fresh install on Quiet', () => {
+    moveOldDefaultSkinToQuiet()
+    expect(DEFAULT_SKIN_NAME).toBe('quiet')
+    expect(skinPref.resolve('default')).toBe('quiet')
+  })
+
+  it('moves the global slot and every per-profile Night Owl assignment', () => {
+    skinPref.assign('default', 'night-owl')
+    skinPref.assign('work', 'night-owl')
+    skinPref.assign('play', 'ember')
+    moveOldDefaultSkinToQuiet()
+
+    expect(skinPref.resolve('default')).toBe('quiet')
+    expect(skinPref.resolve('work')).toBe('quiet')
+    expect(skinPref.resolve('play')).toBe('ember')
+  })
+
+  it('runs once, so picking Night Owl again afterwards sticks', () => {
+    moveOldDefaultSkinToQuiet()
+    skinPref.assign('default', 'night-owl')
+    moveOldDefaultSkinToQuiet()
+
+    expect(skinPref.resolve('default')).toBe('night-owl')
   })
 })

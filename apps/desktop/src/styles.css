@@ -2,8 +2,12 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
 @import 'tw-shimmer';
+/* Enter/exit motion utilities (animate-in, fade-in-0, slide-in-from-*, zoom-in-*)
+   that every popper, dialog and toast uses for the spec's §3.11 timings. */
+@import 'tw-animate-css';
 @import 'katex/dist/katex.min.css';
 @import '@vscode/codicons/dist/codicon.css';
+@import './tokens.css';
 @custom-variant dark (&:is(.dark *));
 
 /* Blanket reduced-motion override: kill ALL CSS animations and transitions
@@ -85,14 +89,13 @@
     U+0323, U+0329, U+1EA0-1EF9, U+20AB;
 }
 
-/* Newsreader — the display-serif outlier (OFL-1.1), reserved for the three
-   sanctioned slots: the connect splash, the home greeting and the onboarding
-   hero. A static instance at opsz 72 / wght 400 (the headline cut, so the
-   hairlines stay fine at 28px), vendored per script subset like Geist. It
-   replaced Instrument Serif, which ships no Vietnamese subset: with Vietnamese
-   as the default locale every stacked diacritic (ổ, ề, ố …) fell back to
-   Georgia mid-word. Roman only, on purpose — italic display headings are
-   banned. */
+/* Newsreader — the display serif (OFL-1.1), kept for exactly ONE slot: the
+   home greeting (review: the greeting is the product's one "human" line, and
+   it reads warmer in the serif it always had — the deliberate exception to
+   the spec's "no serif in the tool UI"). A static instance at opsz 72 / wght
+   400 (the headline cut, so the hairlines stay fine at display size),
+   vendored per script subset so Vietnamese diacritics never fall back to
+   Georgia mid-word. Roman only — italic display headings are banned. */
 @font-face {
   font-family: 'Newsreader';
   font-style: normal;
@@ -148,66 +151,97 @@
   --color-midground: var(--dt-midground);
   --color-midground-foreground: var(--dt-midground-foreground);
 
+  /* Quiet Tool semantic tier as utilities (spec §12.2). `accent` is taken by
+     the shadcn soft-fill token, so the signal blue is `signal`. */
+  --color-app: var(--bg-app);
+  --color-subtle: var(--bg-subtle);
+  --color-raised: var(--bg-raised);
+  --color-hover: var(--bg-hover);
+  --color-selected: var(--bg-selected);
+  --color-pressed: var(--bg-pressed);
+  --color-inverse: var(--bg-inverse);
+  --color-fg: var(--text-primary);
+  --color-fg-muted: var(--text-secondary);
+  --color-fg-subtle: var(--text-tertiary);
+  --color-fg-disabled: var(--text-disabled);
+  --color-fg-inverse: var(--text-inverse);
+  --color-icon: var(--icon-default);
+  --color-icon-muted: var(--icon-muted);
+  --color-line: var(--border-default);
+  --color-line-subtle: var(--border-subtle);
+  --color-line-strong: var(--border-strong);
+  --color-line-input: var(--border-input);
+  --color-signal: var(--accent);
+  --color-signal-hover: var(--accent-hover);
+  --color-warning: var(--warning);
+  --color-warning-bg: var(--warning-bg);
+  --color-danger: var(--danger);
+  --color-danger-bg: var(--danger-bg);
+  --color-success: var(--success);
+  --color-brand: var(--brand);
+
   --font-sans: var(--dt-font-sans);
   --font-mono: var(--dt-font-mono);
-  /* Display serif — the 3-slot outlier face (connect splash, home greeting,
-     onboarding hero). */
-  --font-serif-display: var(--dt-font-serif-display);
+  /* The greeting's serif (see the Newsreader @font-face above). */
+  --font-serif-display: 'Newsreader', Georgia, serif;
 
-  /* Type ramp — the app's only font sizes; every text-* utility resolves here.
-     Chrome runs at 1.4 line-height, row content 1.5, prose 1.6, display tighter.
-     Floor: nothing below 11px, reading content at 14px+. */
-  --text-2xs: 0.6875rem; /* 11px — statusbar, badges, timestamps */
+  /* Type ramp — the app's only font sizes. The spec's ramp (§3.6) raised one
+     step on review, so the app stays legible on older, lower-density displays;
+     the structure is the spec's: hierarchy comes from contrast, the ramp is
+     nearly flat through the chrome and only steps up for titles. Every
+     multi-line rung keeps line-height ≥ 1.4 for Vietnamese stacked
+     diacritics. No widened tracking anywhere.
+       xs   13 caption   · sm 14 meta      · base 15 body (default chrome)
+       md   16 reading   · lg 17 title     · xl  21 page title (rare)
+       2xl  26 section display (onboarding titles) · 3xl 30 display (the home
+       greeting, in the Newsreader serif at 400, tracking-display)
+     `2xs` survives as an alias of the caption — nothing renders below it. */
+  --text-2xs: 0.8125rem;
   --text-2xs--line-height: 1.4;
-  --text-xs: 0.75rem; /* 12px — caption, meta, keybind hints */
+  --text-xs: 0.8125rem;
   --text-xs--line-height: 1.4;
-  --text-sm: 0.8125rem; /* 13px — default UI chrome: buttons, menus, sidebar, tabs */
-  --text-sm--line-height: 1.4;
-  --text-base: 0.875rem; /* 14px — row content: settings labels, secondary card titles */
-  --text-base--line-height: 1.5;
-  --text-md: 0.9375rem; /* 15px — chat prose default (see --conversation-text-font-size) */
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.43;
+  --text-base: 0.9375rem;
+  --text-base--line-height: 1.47;
+  --text-md: 1rem;
   --text-md--line-height: 1.6;
-  --text-lg: 1.125rem; /* 18px — in-page section titles */
-  --text-lg--line-height: 1.4;
-  --text-lg--letter-spacing: -0.01em;
-  --text-xl: 1.375rem; /* 22px — overlay/page titles (Settings, Command Center, …) */
-  --text-xl--line-height: 1.3;
-  --text-xl--letter-spacing: -0.01em;
-  --text-2xl: 1.75rem; /* 28px — home greeting (serif display slot) */
-  --text-2xl--line-height: 1.2;
-  --text-2xl--letter-spacing: -0.02em;
-  --text-3xl: 2.25rem; /* 36px — onboarding/update hero */
-  --text-3xl--line-height: 1.15;
-  --text-3xl--letter-spacing: -0.02em;
+  --text-lg: 1.0625rem;
+  --text-lg--line-height: 1.47;
+  --text-xl: 1.3125rem;
+  --text-xl--line-height: 1.38;
+  --text-2xl: 1.625rem;
+  --text-2xl--line-height: 1.3;
+  --text-3xl: 1.875rem;
+  --text-3xl--line-height: 1.27;
 
-  /* Section labels — the only widened tracking in the app. Small caps-ish
-     chrome labels (sidebar sections, palette groups) open up just enough to
-     read as a label rather than as content. */
-  --tracking-label: 0.06em;
+  /* The one tracking token: display type (30px) is drawn slightly tighter,
+     the way the platform's own large titles are (SF Pro Display spacing).
+     Nothing is ever tracked WIDER (spec §3.6). */
+  --tracking-display: -0.022em;
 
-  /* Motion easing — the only curves allowed on UI state (physical springs keep
-     their own named tokens). Enter = ease-out, exit = ease-in, morph = in-out. */
-  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
-  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-
-  /* The only two overshoot curves in the app, and they belong to PHYSICAL
-     interactions — a reaction popping in, a particle burst, a dragged row
-     settling, the pet hatching. Never on UI state (hover, open, select).
+  /* Motion easing (spec §3.11) — the only curves allowed. Enter = ease-out,
+     exit = ease-in, move/resize = in-out. No bounce, no spring overshoot: the
+     two physical curves (reactions, the pet) settle without overshooting.
      Mirrored for WAAPI in src/lib/motion.ts — change one, change both. */
-  --spring-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
-  --spring-reveal: cubic-bezier(0.22, 1.4, 0.4, 1);
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-in: cubic-bezier(0.4, 0, 1, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --spring-pop: cubic-bezier(0.2, 0, 0, 1);
+  --spring-reveal: cubic-bezier(0.2, 0, 0, 1);
 
   --spacing-mul: var(--dt-spacing-mul, 1);
 
-  --radius-xs: calc(var(--radius-scalar) * 0.125rem);
-  --radius-sm: calc(var(--radius-scalar) * 0.5rem);
-  --radius-md: calc(var(--radius-scalar) * 0.625rem);
-  --radius-lg: calc(var(--radius-scalar) * 0.75rem);
-  --radius-xl: calc(var(--radius-scalar) * 1rem);
-  --radius-2xl: calc(var(--radius-scalar) * 1.5rem);
-  --radius-3xl: calc(var(--radius-scalar) * 2rem);
-  --radius-4xl: calc(var(--radius-scalar) * 2.5rem);
+  /* Corner radius (spec §3.8) — fixed rungs. Nesting rule: inner radius =
+     outer radius − padding (a 12px menu with 4px padding holds 8px items). */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.375rem; /* 6px — badge, tooltip, kbd, checkbox */
+  --radius-md: 0.5rem; /* 8px — nav row, button, input, menu item */
+  --radius-lg: 0.75rem; /* 12px — card, popover, menu, code block */
+  --radius-xl: 1rem; /* 16px — composer, dialog, message bubble */
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.5rem;
+  --radius-4xl: 2rem;
 
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -218,32 +252,20 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar: var(--sidebar);
 
-  --shadow-xs: 0 0.0625rem 0.125rem color-mix(in srgb, #000 5%, transparent);
-  --shadow-sm:
-    0 0 0 0.0625rem color-mix(in srgb, var(--dt-foreground) 6%, transparent),
-    0 0.125rem 0.5rem color-mix(in srgb, #000 4%, transparent);
-  --shadow-md:
-    0 0 0 0.0625rem color-mix(in srgb, var(--dt-foreground) 8%, transparent),
-    0 0.25rem 1rem color-mix(in srgb, #000 8%, transparent),
-    0 1rem 2rem -1.5rem color-mix(in srgb, #000 18%, transparent);
-  /* Soft floating shadow for borderless modals/overlays. Single top light
-     source: every layer is centered (x=0) and cast downward, with negative
-     spread that grows with the blur so each layer is pulled horizontally inward
-     — the shadow pools below the panel instead of bleeding out every side.
-     Layered (contact → ambient) for a smooth, natural falloff. */
-  --shadow-nous:
-    0 0.125rem 0.25rem -0.125rem color-mix(in srgb, #000 7%, transparent),
-    0 0.5rem 0.75rem -0.375rem color-mix(in srgb, #000 6%, transparent),
-    0 1.25rem 1.75rem -0.875rem color-mix(in srgb, #000 6%, transparent),
-    0 2.25rem 3rem -1.75rem color-mix(in srgb, #000 0%, transparent);
-  /* Hairline border paired with --shadow-nous on borderless overlays.
-     currentColor resolves per-element, so it adapts to text color/theme. */
-  --stroke-nous: color-mix(in srgb, currentColor 3%, transparent);
-  --shadow-lg:
-    inset 0 0.0625rem 0 color-mix(in srgb, #fff 28%, transparent),
-    0 0 0 0.0625rem color-mix(in srgb, var(--dt-foreground) 8%, transparent),
-    0 0.75rem 2rem color-mix(in srgb, #000 12%, transparent);
-  --shadow-composer: 0 0.0625rem 0.125rem color-mix(in srgb, #000 5%, transparent);
+  /* Elevation (spec §3.9). Flat by default — cards and the composer carry a
+     border, never a shadow. `shadow-md` is level 1 (popover, menu, toast),
+     `shadow-nous`/`shadow-lg` level 2 (dialog, palette, route overlays). Each
+     level carries its own 1px --border-default ring, so a floating surface
+     needs no extra border; `--stroke-nous` is kept transparent for the call
+     sites that still declare one. In dark the drop all but vanishes and the
+     surface reads by --bg-raised plus that ring. */
+  --shadow-xs: none;
+  --shadow-sm: 0 0 0 1px var(--border-default);
+  --shadow-md: var(--elevation-1);
+  --shadow-nous: var(--elevation-2);
+  --stroke-nous: transparent;
+  --shadow-lg: var(--elevation-2);
+  --shadow-composer: none;
 }
 
 @layer base {
@@ -307,10 +329,10 @@
        fixed hue + chroma, lightness pitched per mode for contrast (`.dark`
        lifts each one). The light values clear 4.5:1 on paper, so a semantic
        colour can carry text and not only a dot. */
-    --ui-red: oklch(56.59% 0.1967 12.3); /* danger — was #cf2d56; 4.83:1 on paper */
+    --ui-red: oklch(55.54% 0.1835 28.5); /* danger — spec red-600 #c8372d; 5.2:1 on white */
     --ui-orange: #db704b;
-    --ui-yellow: oklch(55% 0.12 80); /* warning — 4.70:1 on paper */
-    --ui-green: oklch(52% 0.14 155); /* success — 4.89:1 on paper */
+    --ui-yellow: oklch(54.27% 0.1228 61.8); /* warning — spec amber-600 #a15c07; 5.2:1 */
+    --ui-green: oklch(52.85% 0.1061 154.6); /* success — spec green-600 #2e7d4f; 5.1:1 */
     /* Text/glyph colour to place ON a semantic fill (filled badge, status
        chip). Light fills are dark, so the pair is near-white; `.dark` flips it
        to the paper colour. Every pair clears 4.8:1. */
@@ -322,16 +344,6 @@
        picker, and its label colour is the accent's own label pair. */
     --ui-info: var(--ui-accent);
     --ui-info-foreground: var(--dt-primary-foreground);
-    /* The StatusPill: one soft fill for every tone (the tone mixed over the
-       surface at --status-pill-tint) and a label that is the tone pulled
-       toward the page's own ink (--status-pill-ink is the share the tone
-       keeps) — the same construction as --ui-diff-add-foreground. The pull is
-       what lets the label clear 4.5:1 on a tint of its own hue on every
-       preset in both modes (55% is the largest share that does; the gate
-       script reads both knobs and fails below the floor). The dot keeps the
-       pure tone, so the hue still reads at a glance. */
-    --status-pill-tint: 12%;
-    --status-pill-ink: 55%;
     --ui-cyan: #4c7f8c;
     --ui-blue: #0053fd;
     --ui-purple: #9e94d5;
@@ -435,12 +447,6 @@
       var(--ui-accent) var(--theme-row-active-accent-mix),
       color-mix(in srgb, var(--ui-base) 5%, transparent)
     );
-    /* The selected row's left marker. A tinted background alone barely
-       registers on these near-neighbour surfaces, so the active row also
-       carries a 2px accent bar on its leading edge — the state reads at a
-       glance, and it costs no layout (drawn inside the row's own padding). */
-    --ui-row-active-bar: var(--ui-accent);
-    --ui-row-active-bar-width: 2px;
     --ui-control-hover-background: color-mix(
       in srgb,
       var(--ui-accent) var(--theme-control-hover-accent-mix),
@@ -542,20 +548,6 @@
     --dt-accent-foreground: var(--ui-text-primary);
     --dt-border: var(--ui-stroke-secondary);
     --dt-input: var(--ui-stroke-primary);
-    /* THE single knob for input-field borders: the resting alpha (% of the ring
-       color). Hover doubles it; focus/open go full. 0% = invisible at rest. */
-    --dt-input-border: 7%;
-    /* Knob for input-field background fill: alpha (% of --dt-card) across all
-       states. 100% = fully opaque, lower = translucent over the blurred chrome. */
-    --dt-input-bg: 0%;
-    /* Classic recessed "inset" — a crisp 1px inner shadow at the TOP edge.
-       :root.dark bumps the alpha since a dark card swallows shadow. Removed on
-       focus (the focus border carries the state). */
-    --dt-input-inset: inset 0 1px 1px color-mix(in srgb, #000 10%, transparent);
-    /* Hovered inactive tab: deepen it AWAY from the lighter active surface, so
-       hover can never be mistaken for selected. Dark mode needs more — black
-       over a dark gutter shows less. */
-    --ui-tab-hover-darken: 2.5%;
     --dt-ring: var(--ui-stroke-primary);
     --dt-midground: var(--theme-midground);
     --dt-composer-ring: var(--ui-base);
@@ -578,10 +570,6 @@
     --dt-font-sans:
       'Geist', 'Segoe WPC', 'Segoe UI', -apple-system, BlinkMacSystemFont, 'SF Pro Text', system-ui, sans-serif,
       'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', emoji;
-    /* Display serif — Newsreader, allowed in exactly three slots
-       (connect splash, home greeting, onboarding hero). Roman only; never
-       italicized. */
-    --dt-font-serif-display: 'Newsreader', Georgia, serif;
     /* Key caps always use the native UI face — never theme typography overrides. */
     --dt-font-kbd: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', system-ui, sans-serif;
     /* Bundled JetBrains Mono is the default code face app-wide (code, kbd,
@@ -599,36 +587,24 @@
        an accent ring stays legible on an accent-filled button (the ring is read
        against the page, not against the fill). `--dt-ring` is repainted per
        skin by applyTheme(). Never transitioned — see the focus-ring rule. */
-    --ui-focus-ring: var(--dt-ring);
+    --ui-focus-ring: var(--accent);
     --ui-focus-ring-width: 2px;
     --ui-focus-ring-offset: 2px;
 
-    --radius: 0.75rem;
-    /* Effective value everywhere: the chat backdrop used to force 0.2 onto the
-       root element at runtime (an ungated leva slider default), so this 0.6
-       only ever applied to the windows that don't mount the backdrop. Pinned
-       to the value the app actually renders at. */
-    --radius-scalar: 0.2;
 
     /* Control heights — one ramp shared by Button, Input, Select and friends,
        so controls on the same row always line up. */
-    --control-h-sm: 1.75rem; /* 28px — dense rows, secondary actions */
-    --control-h-md: 2rem; /* 32px — the default control height */
-    --control-h-lg: 2.25rem; /* 36px — prominent form controls */
-    --control-h-xl: 2.5rem; /* 40px — hero CTAs (onboarding, primary dialog action) */
+    /* One step above the spec's 28/32/40 (review: legibility on older
+       displays) — the same three rungs, scaled with the type ramp. */
+    --control-h-sm: 1.875rem; /* 30px — dense rows, secondary actions */
+    --control-h-md: 2.25rem; /* 36px — the default control height */
+    --control-h-lg: 2.75rem; /* 44px — prominent buttons, lg inputs */
+    --control-h-xl: 2.75rem; /* 44px — alias of lg */
 
-    /* Chrome row heights — the navigation band's own ramp. A sidebar row is a
-       36px target (it matches --control-h-lg, the same height as a prominent
-       control) so a conversation list reads like a list of conversations, not
-       a file tree; the nav rows at the top share that height; the statusbar
-       keeps its own shorter band. */
-    /* The nav rows sit a rung ABOVE a conversation row on purpose: they are
-       the app's destinations, not list entries, and at a matched 36px the
-       whole sidebar read as one undifferentiated column. 40px is the hero rung
-       (--control-h-xl), which is the weight this band should carry — and the
-       height of the raised new-chat button that heads it. */
-    --sidebar-nav-row-height: 2.5rem; /* 40px — the new-chat button and the nav rows under it */
-    --sidebar-row-height: 2.25rem; /* 36px — sidebar session / project rows */
+    /* Chrome row heights (spec §5.1). Navigation rows and conversation rows
+       share the comfortable 32px rung. */
+    --sidebar-nav-row-height: 2.25rem; /* 36px — nav rows ("Trò chuyện mới", Tiện ích, …) */
+    --sidebar-row-height: 2.25rem; /* 36px — session / project rows */
     --statusbar-height: 1.625rem; /* 26px — the bottom status band */
     /* StatusPill heights — sm sits under the control ramp (a pill beside a
        row title), md rides --control-h-sm so it lines up with a small button. */
@@ -636,9 +612,9 @@
     --status-pill-h-md: var(--control-h-sm); /* 28px */
     /* Switch md — the default toggle for every enable/disable row in a page:
        a 22×38 track with an 18px thumb. (xs stays for menus and dense rows.) */
-    --switch-md-track-width: 2.375rem; /* 38px */
-    --switch-md-track-height: 1.375rem; /* 22px */
-    --switch-md-thumb: 1.125rem; /* 18px */
+    --switch-md-track-width: 2rem; /* 32px — spec §5.6, one step up */
+    --switch-md-track-height: 1.125rem; /* 18px */
+    --switch-md-thumb: 0.875rem; /* 14px */
     /* Home-surface task cards: the minimum height of one card, so a row of
        cards with and without a description still lines up. */
     --intro-card-min-height: 3.5rem; /* 56px */
@@ -658,22 +634,27 @@
        shell" rule in the transcript still holds. */
     --radius-control: 0.5rem; /* 8px — buttons, inputs, segmented controls */
     --radius-card: 0.75rem; /* 12px — cards, inline chat widgets */
-    --radius-overlay: 0.875rem; /* 14px — overlays, popovers, dialogs */
+    --radius-overlay: 0.75rem; /* 12px — popovers, menus (spec radius-lg) */
+    --radius-dialog: 1rem; /* 16px — dialogs, route overlays (spec radius-xl) */
     /* The user bubble is the one surface in the transcript that is *spoken*
        rather than shown — a rung rounder than a card so it reads as a line of
        speech parked on the right, not as another panel. */
-    --radius-bubble: 1.125rem; /* 18px — the user bubble */
+    --radius-bubble: 1rem; /* 16px — the user bubble (spec radius-xl) */
 
-    /* Motion durations — micro: press/toggle/color · short: hover/menu/tooltip
-       · long: overlay/entrance. Exits run ≈ 75% of the paired enter. */
-    --dur-micro: 100ms;
-    --dur-short: 200ms;
-    --dur-long: 320ms;
-    /* Paired exits — the 75% rule made into tokens so a close never has to
-       hardcode "about three quarters of the open". */
-    --dur-micro-exit: 75ms;
-    --dur-short-exit: 150ms;
-    --dur-long-exit: 240ms;
+    /* Motion durations (spec §3.11). Exits run faster than entries.
+       micro  hover / color change       120 → 120 (tooltip exit 80)
+       short  popover / menu             160 → 100
+       long   dialog / toast             200 → 150
+       collapse  group open/close        180
+       sidebar   sidebar slide/resize    220 */
+    --dur-micro: 120ms;
+    --dur-short: 160ms;
+    --dur-long: 200ms;
+    --dur-micro-exit: 80ms;
+    --dur-short-exit: 100ms;
+    --dur-long-exit: 150ms;
+    --dur-collapse: 180ms;
+    --dur-sidebar: 220ms;
 
     /* Space under last message vs overlay composer — driven by the measured composer DOCK height (see
        composer/index.tsx), which covers the micro-action strip, the status stack, the composer, and the
@@ -681,16 +662,18 @@
        This is the default; each chat surface re-declares the calc against its own measurement (see below). */
     --thread-last-message-clearance: calc(var(--composer-measured-height) + 2rem);
 
-    --composer-shell-pad-block-end: 0.625rem;
+    /* 16px between the composer and the window's bottom edge (spec §4.1). */
+    --composer-shell-pad-block-end: 1rem;
     --message-text-indent: 0.75rem;
     /* The reading surface: prose 15px, tool/caption a step behind — the chat
        column is the app's primary content and reads at content size, not
        chrome size. User-adjustable through the existing pipeline. */
-    --conversation-text-font-size: 0.9375rem;
-    --conversation-tool-font-size: 0.75rem;
-    --conversation-caption-font-size: 0.8125rem;
-    --conversation-line-height: 1.125rem;
-    --conversation-caption-line-height: 1rem;
+    --conversation-text-font-size: 1rem; /* 16px — the reading size */
+    --conversation-tool-font-size: 0.875rem; /* 14px — text-meta: tool meta, step detail */
+    --conversation-caption-font-size: 0.875rem;
+    /* 20px under the 14px meta/caption text — ≥ 1.4 for stacked diacritics. */
+    --conversation-line-height: 1.25rem;
+    --conversation-caption-line-height: 1.25rem;
     /* Prose runs looser than chrome — a reply is read in paragraphs, not
        scanned in rows. Chrome keeps --dt-line-height (1.5). */
     --conversation-prose-line-height: 1.6;
@@ -699,13 +682,13 @@
     --conversation-measure: 72ch;
     /* Markdown headings inside a reply. A chat heading is a section break in a
        message, not a page title — it tops out one rung above the prose. */
-    --conversation-h1-font-size: 1.125rem; /* 18px */
+    --conversation-h1-font-size: 1.0625rem; /* 17px — never above a page/dialog title */
     --conversation-h2-font-size: 1rem; /* 16px */
-    --conversation-h3-font-size: 0.9375rem; /* 15px — prose size, weight carries it */
-    --conversation-h4-font-size: 0.875rem; /* 14px — the content floor */
+    --conversation-h3-font-size: 1rem; /* 16px — prose size, weight carries it */
+    --conversation-h4-font-size: 0.9375rem; /* 15px — the content floor */
     /* Fenced code and any mono payload in the transcript. */
-    --conversation-code-font-size: 0.78125rem; /* 12.5px */
-    --conversation-code-line-height: 1.55;
+    --conversation-code-font-size: 0.875rem; /* 14px — text-code */
+    --conversation-code-line-height: 1.5; /* 21px */
     --conversation-turn-gap: 0.375rem;
     /* Gap between top-level turn blocks (prose ↔ tools ↔ thinking) — enough air
        that scaffolding reads as separate from the reply, not crammed into it. */
@@ -750,19 +733,21 @@
     --file-tree-row-height: 1.375rem;
 
     --composer-width: 48.75rem;
-    /* Composer control row — 32px controls matching --control-h-md, so the
+    /* Composer control row — 36px controls matching --control-h-md, so the
        send button (the app's most important control) reads as a real target. */
-    --composer-control-size: 2rem;
+    --composer-control-size: 2.25rem;
+    /* Send/Stop: the inverse circle (spec §5.7, one step up). */
     --composer-control-primary-size: 2rem;
     --composer-control-gap: 0.375rem;
     --composer-row-gap: 0.25rem;
-    --composer-ring-strength: 1;
     --composer-surface-pad-x: 0.5rem;
-    --composer-surface-pad-y: 0.3125rem;
+    /* One input line is 50px tall: 6px + the 36px control row + 6px, inside
+       the 1px border (the spec's 48px min-height, scaled with the ramp). */
+    --composer-surface-pad-y: 0.375rem;
     --composer-input-min-height: 1.625rem;
     --composer-input-max-height: 9.375rem;
     --composer-input-inline-min-width: 8rem;
-    --composer-fallback-height: 2.75rem;
+    --composer-fallback-height: 3.125rem;
     --composer-measured-height: calc(0.5rem + var(--composer-shell-pad-block-end) + var(--composer-fallback-height));
     --composer-surface-measured-height: var(--composer-fallback-height);
     --thread-viewport-height: max(
@@ -773,7 +758,8 @@
     --image-preview-max-width: 34rem;
     --image-preview-height: clamp(16.25rem, calc(var(--vsq) * 100), 26.25rem);
 
-    --sidebar-width: 14.8125rem;
+    /* Spec §4.1: 288px default, user-resizable within 240–400 (persisted). */
+    --sidebar-width: 18rem;
     --chat-min-width: 28rem;
     --titlebar-control-size: 1.5rem; /* 24px — the hit-target floor, even in OS chrome */
     --titlebar-control-height: 1.5rem;
@@ -824,9 +810,9 @@
 
     /* Dark-only accent palette overrides — the semantic trio lifted onto the
        graphite ground (same hue + chroma as light, higher lightness). */
-    --ui-red: oklch(68% 0.17 12.3); /* danger — 6.12:1 on the graphite page */
-    --ui-yellow: oklch(75% 0.12 80); /* warning — 8.53:1 */
-    --ui-green: oklch(64% 0.14 155); /* success — 6.04:1 */
+    --ui-red: oklch(69.75% 0.1586 26.5); /* danger — spec red-400 #f07167; 5.9:1 on gray-950 */
+    --ui-yellow: oklch(75.91% 0.1272 74.6); /* warning — spec amber-400 #e0a44a; 7.8:1 */
+    --ui-green: oklch(72.93% 0.1265 156.3); /* success — spec green-400 #5bbf86; 7.5:1 */
     /* Dark fills are light, so text on them is the page colour, not white. */
     --ui-red-foreground: oklch(16.91% 0.013 270.5);
     --ui-yellow-foreground: oklch(16.91% 0.013 270.5);
@@ -848,16 +834,10 @@
     --ui-diff-remove-foreground: color-mix(in srgb, var(--ui-red) 62%, #fff);
 
     --sidebar-edge-border: color-mix(in srgb, var(--ui-base) 12%, transparent);
-    --composer-ring-strength: 1.3;
     /* Hairlines lose more to a dark ground than to paper — lift, don't match. */
     --ui-brand-art-strength: 0.16;
     /* Light characters on graphite read louder than dark ones on paper. */
     --ui-glyph-field-strength: 0.75;
-    /* Dark mode: a dark card needs a stronger black inset to show the recess. */
-    --dt-input-inset: inset 0 1px 1px color-mix(in srgb, #000 38%, transparent);
-    --ui-tab-hover-darken: 6%;
-    /* Dark needs a lighter resting border than light mode. */
-    --dt-input-border: 4%;
 
     --ui-inline-code-background: color-mix(in srgb, #ffffff 7%, transparent);
     --ui-inline-code-foreground: color-mix(in srgb, #ffffff 88%, transparent);
@@ -893,12 +873,16 @@
     background: var(--ui-chat-surface-background);
     color: var(--dt-foreground);
     font-family: var(--dt-font-sans);
-    font-size: 0.8125rem;
+    /* text-body: 15px is the chrome default — nav labels, lists, the
+       composer, forms. Meta drops to 14px by colour as much as size. No
+       forced `antialiased`: on lower-density displays it thins every stem and
+       the UI reads washed out (review) — the platform's default rendering
+       keeps strokes at their designed weight. */
+    font-size: 0.9375rem;
     line-height: var(--dt-line-height, 1.55);
     letter-spacing: var(--dt-letter-spacing, 0);
     -webkit-user-select: none;
     user-select: none;
-    -webkit-font-smoothing: antialiased;
   }
 
   button,
@@ -1106,37 +1090,136 @@
   user-select: none;
 }
 
-/* Primitive-level pointer cursor for every interactive control (buttons,
-   selects, menu items, switches, tabs, summaries). Keeps individual
-   components from having to hardcode `cursor-pointer`; explicit cursor
-   utilities (cursor-grab, cursor-default, disabled:cursor-*) still win since
-   they live in the utilities layer. */
+/* Cursor (spec §7): `pointer` belongs to links and navigation rows only —
+   buttons, menu items, switches and tabs keep the platform's default arrow,
+   the desktop convention. A nav row opts in with `data-nav-row` (or the
+   `row-hover` utility, which every clickable list row already wears). */
 @layer base {
-  button:not(:disabled):not([aria-disabled='true']),
-  summary,
-  [role='button']:not([aria-disabled='true']),
-  [role='menuitem']:not([aria-disabled='true']),
-  [role='menuitemradio']:not([aria-disabled='true']),
-  [role='menuitemcheckbox']:not([aria-disabled='true']),
-  [role='option']:not([aria-disabled='true']),
-  [role='switch']:not([aria-disabled='true']),
-  [role='tab']:not([aria-disabled='true']) {
+  a[href],
+  [role='link'],
+  [data-nav-row] {
     cursor: pointer;
   }
 }
 
-/* `rounded-full` rides --radius-scalar like every other radius, so a flat skin
-   flattens pills too. It must match the utility's OWN class and nothing else:
-   `[class*='rounded-full']` was a substring match on the whole class attribute,
-   so a VARIANT that targets a pseudo-element or a state capsuled the host
-   element instead of its target. The selected sidebar session row carries
-   `before:rounded-full` (its 2px accent bar), so the row itself was silently
-   overridden from `rounded-md` to a capsule — and the running `arc-border`
-   ring, which sizes off --radius-md, no longer traced its corners. Variant
-   forms keep Tailwind's own pill radius, identical at today's scalar. */
-@layer utilities {
-  .rounded-full {
-    border-radius: calc(var(--radius-scalar) * 9999rem);
+/* Connect screen (gateway-connecting-overlay.tsx). The mark's two strokes
+   draw on in sequence (pathLength=1, so the dash is the whole path), then the
+   mark breathes — a 3% swell and back every 3.2s. Under it, a 180×4 track
+   whose bar glides across and wraps. Reduced motion: drawn, still, the bar
+   parked at the start. */
+.connect-mark {
+  animation: connect-mark-breathe 3.2s var(--ease-in-out) 1.5s infinite;
+}
+
+.connect-mark-stroke {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: connect-mark-draw 900ms var(--ease-out) 200ms both;
+}
+
+.connect-mark-stroke:nth-child(2) {
+  animation-duration: 500ms;
+  animation-delay: 950ms;
+}
+
+/* Opacity steps on at the first frame: a round cap on a zero-length dash
+   still paints a dot, which would mark the tail before its turn. */
+@keyframes connect-mark-draw {
+  0% {
+    opacity: 0;
+    stroke-dashoffset: 1;
+  }
+
+  1% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 1;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes connect-mark-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+.connect-track {
+  position: relative;
+  width: 11.25rem;
+  height: 0.25rem;
+  margin-top: 1.25rem;
+  overflow: hidden;
+  border-radius: 9999px;
+  background: var(--bg-selected);
+  animation: connect-fade-in var(--dur-long) var(--ease-out) 600ms both;
+}
+
+.connect-track-bar {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: 40%;
+  border-radius: inherit;
+  background: var(--accent);
+  animation: connect-track-glide 1.6s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@keyframes connect-track-glide {
+  from {
+    transform: translateX(-100%);
+  }
+
+  to {
+    transform: translateX(250%);
+  }
+}
+
+@keyframes connect-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connect-mark,
+  .connect-mark-stroke,
+  .connect-track,
+  .connect-track-bar {
+    animation: none;
+  }
+}
+
+/* Skeleton (spec §2.1 + §3.11): an opacity pulse 1 ↔ 0.6 over 1.6s — never a
+   shimmer sweep — that stays invisible for its first 300ms, so a load that
+   finishes quickly never flashes a skeleton at all. The base opacity is 0 and
+   the keyframes state both ends, so the element is hidden exactly until the
+   delayed animation starts. Reduced motion: shown at once, no pulse. */
+@keyframes skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+}
+
+@utility animate-skeleton {
+  opacity: 0;
+  animation: skeleton-pulse 1.6s var(--ease-in-out) 300ms infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    opacity: 1;
+    animation: none !important;
   }
 }
 
@@ -1416,22 +1499,13 @@ button {
    attribute selectors out-specify the Tailwind utilities and silently override
    the variants. */
 
-[data-slot='dropdown-menu-content'],
-[data-slot='select-content'],
-[data-slot='dialog-content'],
+/* Floating surfaces own their look in components/ui/menu-styles.ts (level 1)
+   and dialog.tsx (level 2). The thread timeline popover is the one bespoke
+   popper outside those primitives, so it takes the level-1 recipe here. */
 [data-slot='thread-timeline-popover'] {
-  border-color: var(--ui-stroke-secondary);
-  background: color-mix(in srgb, var(--ui-bg-elevated) 96%, transparent);
+  border-color: transparent;
+  background: var(--bg-raised);
   box-shadow: var(--shadow-md);
-  backdrop-filter: blur(0.75rem) saturate(1.08);
-  -webkit-backdrop-filter: blur(0.75rem) saturate(1.08);
-}
-
-[data-slot='dropdown-menu-item']:focus,
-[data-slot='dropdown-menu-checkbox-item']:focus,
-[data-slot='dropdown-menu-radio-item']:focus {
-  background: var(--ui-bg-tertiary);
-  color: var(--ui-text-primary);
 }
 
 input,
@@ -1459,6 +1533,16 @@ button,
 [data-slot='aui_user-message-root'] [role='button'] {
   -webkit-user-select: text;
   user-select: text;
+}
+
+/* Icons (spec §3.10): one outline set at a 1.5px stroke with round caps.
+   Tabler draws at 2px by default; the stroke is set here once rather than at
+   every call site. In the base layer so a deliberate `stroke-[…]` utility
+   (a 12px check that needs more weight) still wins. */
+@layer base {
+  svg.tabler-icon {
+    stroke-width: 1.5;
+  }
 }
 
 img,
@@ -1498,48 +1582,32 @@ code {
   filter: brightness(1.08) saturate(1.06);
 }
 
-/* Shared input chrome — mirrors composer hover/focus FX. Unlayered to beat Tailwind utilities. */
-/* Border strength is driven by the single --dt-input-border alpha knob (× the
-   theme's tuned ring color); hover doubles it and focus triples it. Only the
-   border-color animates — animating the translucent background over the window's
-   backdrop-blur flickers (badly on textareas), so the bg fill snaps instead.
+/* Shared input chrome (spec §5.6) — Input, Textarea, SelectTrigger and the
+   boxed SearchField. A 1px --border-input edge on the page colour; focus turns
+   the edge accent and adds the two-layer --focus-ring (page gap, then accent),
+   painted instantly — focus is never animated. The 1px border never changes
+   weight, so nothing shifts. Unlayered to beat Tailwind utilities.
    (:focus is declared after :hover so a focused+hovered field shows focus.) */
 .desktop-input-chrome {
-  background: color-mix(in srgb, var(--dt-card) var(--dt-input-bg), transparent);
-  border-color: color-mix(in srgb, var(--dt-composer-ring) var(--dt-input-border), transparent);
-  box-shadow: var(--dt-input-inset);
-  transition: border-color var(--dur-short) var(--ease-out);
+  background: var(--bg-app);
+  border-color: var(--border-input);
+  box-shadow: none;
+  transition: border-color var(--dur-micro) var(--ease-out);
 }
 
-.desktop-input-chrome:hover {
-  border-color: color-mix(in srgb, var(--dt-composer-ring) calc(var(--dt-input-border) * 2), transparent);
-}
-
-/* `[data-state='open']` keeps the trigger looking focused while its dropdown is
-   open — Radix moves focus into the list, so the trigger itself loses :focus.
-   Focus state: the 1px border never changes weight (no layout shift); the
-   accent arrives as a 2px outline instead. The outline is not in the base
-   transition list, so it appears instantly — focus rings are never animated. */
+/* `[data-state='open']` keeps a select trigger looking focused while its list
+   is open — Radix moves focus into the list, so the trigger loses :focus. */
 .desktop-input-chrome:focus,
 .desktop-input-chrome:focus-within,
 .desktop-input-chrome[data-state='open'] {
-  border-color: color-mix(in srgb, var(--dt-composer-ring) calc(var(--dt-input-border) * 2), transparent);
-  box-shadow: none;
-  outline: 2px solid var(--dt-composer-ring);
-  outline-offset: 1px;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+  outline: none;
+  transition: none;
 }
 
 .desktop-input-chrome[aria-invalid='true'] {
-  border-color: var(--dt-destructive);
-}
-
-/* SearchField variant="field" — a list's standing finder (the chat sidebar's)
-   wears the chrome above as-is, plus one thing in dark: the chrome's 4% hairline
-   all but vanishes against the sidebar, the darkest rung, and a finder has to
-   read as a field before anyone reaches for it. A faint lift of the ink gives
-   the well an edge without turning it into a lit panel. */
-:root.dark .desktop-input-chrome[data-slot='search-field'] {
-  background: color-mix(in srgb, var(--ui-base) 3.5%, transparent);
+  border-color: var(--danger);
 }
 
 @layer components {
@@ -1826,9 +1894,13 @@ code {
   padding-inline: 1.5rem;
 }
 
+/* `safe center`: centred while it fits; once a short window can't hold the
+   greeting, the line and the cards, the block starts at the top and the
+   overflow goes DOWN into the scroller — never split above the top edge and
+   under the composer, which left the first line cut and the last card hidden. */
 [data-slot='aui_intro'] {
   align-items: center;
-  justify-content: center;
+  justify-content: safe center;
   padding-bottom: var(--composer-measured-height);
   text-align: center;
 }
@@ -1870,17 +1942,17 @@ code {
   color: var(--dt-primary);
 }
 
-/* The one "human" moment in the product: a serif line that greets, a muted line
-   that says what this surface is for, and a row of ways in. The composer stays
-   the only CTA — this block leads the eye down to it. Roman, never italic, and
-   never all-caps (see design.md § Typography, serif slot 1 of 2). */
+/* The one "human" moment in the product: a serif line that greets the person
+   by name, a muted line that says what this surface is for, and a row of ways
+   in. The composer stays the only CTA — this block leads the eye down to it.
+   Roman, never italic, never all-caps. */
 .intro-greeting {
   margin: 0;
   font-weight: 400;
 }
 
 .intro-body {
-  max-width: 34rem;
+  max-width: 38rem;
   margin: 0.5rem auto 0;
   color: var(--ui-text-tertiary);
   font-size: var(--text-md);
@@ -1926,7 +1998,7 @@ code {
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
   width: 100%;
-  max-width: 34rem;
+  max-width: 40rem;
   margin: 1.25rem auto 0;
 }
 
@@ -2059,16 +2131,6 @@ code {
   padding: 5px;
 }
 
-/* Dock glow intensity scale — dimmer in light mode (the primary glow reads
-   much stronger over a light backdrop), full strength in dark mode. */
-:root {
-  --dock-glow-scale: 0.55;
-}
-
-.dark {
-  --dock-glow-scale: 1;
-}
-
 /* Drag-region hatch — a diagonal ///// pattern (Photoshop-style) that fades into
    the transparent grab margin on hover (and stays while dragging) to signal the
    composer is draggable. Inherits the root radius so it clips to the corners. */
@@ -2099,25 +2161,18 @@ code {
   ) !important;
 }
 
-/* The composer is the focus of the chat screen, so it carries the one elevation
-   in the transcript: at rest a hairline + the contact shadow it already has a
-   token for, focused the accent border + one step up the SAME shadow ladder
-   (--shadow-composer → --shadow-sm). No new shadow, and no coloured glow — the
-   border does the talking. `--composer-ring-strength` (1 light / 1.3 dark) is
-   the single knob. Neither property is transitioned: focus paints in the frame
-   it lands. */
+/* Composer surface (spec §5.7): the page colour under a --border-default
+   hairline, 16px corners, no shadow. Hover and focus-within firm the edge to
+   --border-strong — never the accent: the composer is always the focus of
+   the screen, it doesn't need a ring to say so. */
 [data-slot='composer-surface'] {
-  border-color: var(--ui-stroke-secondary) !important;
-  box-shadow: var(--shadow-composer);
+  border-color: var(--border-default) !important;
+  box-shadow: none;
+  transition: border-color var(--dur-micro) var(--ease-out);
 }
 
-[data-slot='composer-surface']:focus-within {
-  border-color: color-mix(
-    in srgb,
-    var(--dt-composer-ring) calc(70% * var(--composer-ring-strength)),
-    transparent
-  ) !important;
-  box-shadow: var(--shadow-sm);
+[data-slot='composer-surface']:is(:hover, :focus-within) {
+  border-color: var(--border-strong) !important;
 }
 
 [data-slot='composer-fade'] {
@@ -2126,7 +2181,7 @@ code {
 
 [data-slot='composer-rich-input'] {
   color: var(--ui-text-primary);
-  font-size: 0.8125rem;
+  font-size: 0.9375rem;
 }
 
 /* Hallmark · component: composer-bar · theme: project tokens · P4 H5 E4 S4 R5 V4
@@ -2153,22 +2208,11 @@ code {
 
 /* ── Composer fill — ONE var painted by the surface AND the chrome docked to
    it (status stack, floating pills, jump button). Consumers just paint
-   `background: var(--composer-fill)`; the state ladder below sets it for the
-   composer surface (rest / scrolled), and anything outside the composer root
-   keeps the opaque `:root` value (both mix endpoints solid). The completion
-   drawers carry their own fill (composerPanelCard). */
+   `background: var(--composer-fill)`. Opaque page colour in every state
+   (spec §5.7) — the transcript never shows through the composer. The
+   completion drawers carry their own fill (composerPanelCard). */
 :root {
-  /* Opaque fill for anything painted outside the main composer root: drawers
-     (e.g. edit-message) and the status stack docked above the composer. */
-  --composer-fill: color-mix(in srgb, var(--dt-card) 90%, var(--dt-background));
-}
-
-[data-slot='composer-root'] {
-  --composer-fill: color-mix(in srgb, var(--dt-card) 72%, transparent);
-}
-
-[data-slot='composer-root'][data-thread-scrolled-up] {
-  --composer-fill: color-mix(in srgb, var(--dt-card) 48%, transparent);
+  --composer-fill: var(--bg-app);
 }
 
 /* Tool/thinking blocks now live at message-text alignment (no leading
@@ -2249,6 +2293,8 @@ code {
   mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 1.5rem), rgb(0 0 0 / 64%) 100%);
 }
 
+/* Inline code (spec §5.19): --bg-hover fill; size, padding and corners come
+   from the prose-code utilities in markdown-text.tsx. */
 [data-slot='aui_assistant-message-content'] .aui-md :not(pre) > code {
   background: var(--ui-inline-code-background);
   color: var(--ui-inline-code-foreground);
@@ -2281,7 +2327,7 @@ code {
 }
 
 [data-slot='aui_assistant-message-content'] .aui-md .aui-md-table thead {
-  border-bottom-color: var(--ui-stroke-tertiary) !important;
+  border-bottom-color: var(--border-default) !important;
 }
 
 /* Tool / thinking blocks are scaffolding around the model's reply, so we
@@ -2316,93 +2362,64 @@ code {
   opacity: 1;
 }
 
-/* The thinking row's mark writing itself (`BrandGlyph tracing`): a stroke of
-   ink runs the mark's one-stroke route (`BRAND_MARK_ROUTE`, pathLength 1) over
-   a faint copy of the mark. Two registered numbers are the pen — its head runs
-   the route over the first 70% of a lap and its tail chases from 20% to 90%,
-   both on the in-place morph curve, so the stroke swells to about two-thirds of
-   the mark and drains into the tail's tip; the last tenth is the pen lifted.
-   A dash can't be composited, so every frame of it is a main-thread frame —
-   the row only sets `tracing` while its window is focused and its transcript
-   on screen, never under reduced motion (`useAmbientMotion`). */
-@property --brand-glyph-pen-head {
-  syntax: '<number>';
-  inherits: false;
-  initial-value: 1;
-}
-
-@property --brand-glyph-pen-tail {
-  syntax: '<number>';
-  inherits: false;
-  initial-value: 0;
-}
-
-@keyframes brand-glyph-pen-head {
-  0% {
-    --brand-glyph-pen-head: 0;
-  }
-  70%,
-  100% {
-    --brand-glyph-pen-head: 1;
-  }
-}
-
-@keyframes brand-glyph-pen-tail {
-  0%,
-  20% {
-    --brand-glyph-pen-tail: 0;
-  }
-  90%,
-  100% {
-    --brand-glyph-pen-tail: 1;
-  }
-}
-
-/* One lap for the whole row, in ms: the pen's, and the label's shimmer — its
-   sweep, then a rest as long as the pen's lifted tenth — so the two move as
-   one. Declared once for both, since a shimmer duration is a bare number. */
-[data-slot='brand-glyph-ink'],
-[data-slot='aui_status-label'] {
-  --thinking-lap-ms: 2200;
-}
-
-/* The band is narrowed too: the stock one (4ch + 80px) is wider than "Đang
-   nghĩ" itself, so the whole word dimmed at once and read as a blink rather
-   than a wave passing through it. */
-[data-slot='aui_status-label'] {
-  --shimmer-duration: calc(var(--thinking-lap-ms) * 0.9);
-  --shimmer-repeat-delay: calc(var(--thinking-lap-ms) * 0.1);
-  --shimmer-spread: 5ch;
-}
-
-/* Strong enough that the mark never goes missing between laps (at a quarter
-   it all but vanished under the scaffold fade), faint enough that the pen is
-   the brightest thing in the row. */
-[data-slot='brand-glyph-ghost'] {
+/* The thinking row (TypingDots): three 5px dots in a wave — each rises 2px
+   and brightens in turn over one lap, the next a beat behind. Transform and
+   opacity only, so the compositor runs it. Paused (`data-live` absent) or
+   under reduced motion it rests as three even, half-bright dots. */
+.typing-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+  background: currentColor;
   opacity: 0.45;
 }
 
-/* The easing goes on the animation, not in the keyframes: Chromium ignores a
-   `var()` timing function inside `@keyframes`, and the element's own curve is
-   applied per keyframe interval anyway — exactly the one eased run each needs. */
-[data-slot='brand-glyph-ink'] {
-  stroke-dasharray: calc(var(--brand-glyph-pen-head) - var(--brand-glyph-pen-tail)) 2;
-  stroke-dashoffset: calc(var(--brand-glyph-pen-tail) * -1);
-  /* A stroke too short to read as one fades out instead of shrinking to a dot. */
-  opacity: clamp(0, calc((var(--brand-glyph-pen-head) - var(--brand-glyph-pen-tail)) * 40), 1);
-  animation:
-    brand-glyph-pen-head calc(var(--thinking-lap-ms) * 1ms) var(--ease-in-out) infinite,
-    brand-glyph-pen-tail calc(var(--thinking-lap-ms) * 1ms) var(--ease-in-out) infinite;
+[data-slot='typing-dots'][data-live] .typing-dot {
+  animation: typing-dot-wave var(--thinking-lap-ms) var(--ease-in-out) infinite;
 }
 
-/* The JS gate already keeps `tracing` off under reduced motion; this is the
-   floor under it. The global rule would otherwise run one lap in 0.01ms and
-   leave the pen at its end — an empty mark. With no animation the pen rests at
-   its initial values, which ink the whole route. */
+[data-slot='typing-dots'][data-live] .typing-dot:nth-child(2) {
+  animation-delay: calc(var(--thinking-lap-ms) * 0.15);
+}
+
+[data-slot='typing-dots'][data-live] .typing-dot:nth-child(3) {
+  animation-delay: calc(var(--thinking-lap-ms) * 0.3);
+}
+
+@keyframes typing-dot-wave {
+  0%,
+  60%,
+  100% {
+    opacity: 0.35;
+    transform: translateY(0);
+  }
+
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  [data-slot='brand-glyph-ink'] {
+  [data-slot='typing-dots'][data-live] .typing-dot {
     animation: none;
   }
+}
+
+/* One lap for the row: the dots' wave and the label's shimmer (its sweep,
+   then a short rest) move as one. */
+[data-slot='aui_response-loading'],
+[data-slot='aui_stream-stall'] {
+  --thinking-lap-ms: 1400ms;
+}
+
+/* The band is narrowed too: the stock one (4ch + 80px) is wider than "Đang
+   suy nghĩ" itself, so the whole phrase dimmed at once and read as a blink
+   rather than a wave passing through it. */
+[data-slot='aui_status-label'] {
+  --shimmer-duration: 1800;
+  --shimmer-repeat-delay: 400;
+  --shimmer-spread: 5ch;
 }
 
 /* Shiki surfaces in the inline file diff + source preview: strip the theme's

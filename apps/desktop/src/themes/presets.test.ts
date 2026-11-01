@@ -5,13 +5,13 @@ import {
   ACCENT_SKIN_NAME,
   BUILTIN_THEME_LIST,
   BUILTIN_THEMES,
-  DEFAULT_SERIF_DISPLAY,
   DEFAULT_SKIN_NAME,
   DEFAULT_TYPOGRAPHY,
   EMOJI_FALLBACK,
   nightOwlTheme,
   nousClassicTheme,
-  nousTheme
+  nousTheme,
+  quietTheme
 } from './presets'
 
 // #40364: none of the UI text/mono fonts carry emoji glyphs, so every font
@@ -52,14 +52,11 @@ describe('bundled default typography', () => {
     expect(BUILTIN_THEMES[DEFAULT_SKIN_NAME].typography?.fontUrl).toBeUndefined()
   })
 
-  it('ships a serif-display default; themes may omit the field', () => {
-    expect(DEFAULT_TYPOGRAPHY.fontSerifDisplay).toBe(DEFAULT_SERIF_DISPLAY)
-    expect(DEFAULT_SERIF_DISPLAY).toContain('Newsreader')
-
-    // Pre-existing themes never declare it — the merge in applyTheme falls
-    // back to the default, so old user themes keep loading unchanged.
-    for (const theme of BUILTIN_THEME_LIST) {
-      expect(theme.typography?.fontSerifDisplay).toBeUndefined()
+  it('ships no serif face — the Quiet Tool spec bans serif in the tool UI', () => {
+    for (const theme of [DEFAULT_TYPOGRAPHY, ...BUILTIN_THEME_LIST.map(t => t.typography ?? {})]) {
+      for (const stack of Object.values(theme)) {
+        expect(String(stack)).not.toMatch(/Newsreader|Georgia|(?<!sans-)serif/i)
+      }
     }
   })
 })
@@ -157,11 +154,19 @@ describe('default bands', () => {
     expect(BUILTIN_THEME_LIST.map(theme => theme.name)).toContain('nous')
   })
 
-  it('ships Night Owl as the default, hand-tuned on BOTH bands', () => {
-    expect(DEFAULT_SKIN_NAME).toBe('night-owl')
-    expect(BUILTIN_THEMES[DEFAULT_SKIN_NAME]).toBe(nightOwlTheme)
-    // Both bands are authored: no synth pass runs for the skin every install
-    // lands on, so `colors` is Night Owl Light and `darkColors` the original.
+  it('ships Quiet as the default, on the spec warm-gray ladder in BOTH bands', () => {
+    expect(DEFAULT_SKIN_NAME).toBe('quiet')
+    expect(BUILTIN_THEMES[DEFAULT_SKIN_NAME]).toBe(quietTheme)
+    // Both bands are authored — no synth pass for the skin every install lands on.
+    expect(quietTheme.colors.background).toBe('#ffffff')
+    expect(quietTheme.darkColors?.background).toBe('#1c1c1b')
+    // The system UI face, never a bundled display or serif face.
+    expect(quietTheme.typography?.fontSans).toMatch(/^-apple-system/)
+    expect(quietTheme.typography?.fontUrl).toBeUndefined()
+  })
+
+  it('keeps Night Owl, the previous default, hand-tuned on both bands', () => {
+    expect(BUILTIN_THEMES['night-owl']).toBe(nightOwlTheme)
     expect(nightOwlTheme.darkColors?.background).toBe('#011627')
     expect(nightOwlTheme.colors.background).toBe('#fbfbfb')
   })

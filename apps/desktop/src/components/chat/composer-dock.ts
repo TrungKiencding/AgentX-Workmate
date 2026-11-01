@@ -8,15 +8,12 @@ import { cn } from '@/lib/utils'
  */
 export const composerFill = 'bg-(--composer-fill)'
 
-/** Backdrop treatment for the composer input surface. Harmless where the fill
- *  is opaque (the status stack) — nothing shows through to blur. */
-export const composerSurfaceGlass = cn(
-  'backdrop-blur-[0.75rem] backdrop-saturate-[1.12] [-webkit-backdrop-filter:blur(0.75rem)_saturate(1.12)]',
-  'transition-[background-color] duration-(--dur-short-exit) ease-out'
-)
+/** Surface transition for the composer and the cards docked to it. Flat by
+ *  design (spec §1): no backdrop blur — the fill is opaque. */
+export const composerSurfaceGlass = 'transition-[background-color] duration-(--dur-micro) ease-out'
 
 const composerDockEdge = (edge: 'bottom' | 'top') =>
-  cn('border border-border/65', edge === 'top' ? 'rounded-t-2xl border-b-0' : 'rounded-b-2xl border-t-0')
+  cn('border border-(--border-default)', edge === 'top' ? 'rounded-t-xl border-b-0' : 'rounded-b-xl border-t-0')
 
 /** Glassy docked card — the status stack / queue above the composer. It sits
  *  outside `composer-root`, so its `--composer-fill` is the opaque `:root`
@@ -26,15 +23,12 @@ export const composerDockCard = (edge: 'bottom' | 'top' = 'top') =>
   cn(composerDockEdge(edge), composerFill, composerSurfaceGlass)
 
 /** Floating composer panel skin — the `/`·`@`·`?` completion drawer and the
- *  attach (`+`) menu. Glassy translucent card, hairline border, full radius,
- *  smallest type, soft nous shadow. Uses an explicit fill (not `--composer-fill`)
- *  so it renders identically whether mounted inside the composer or portaled out
- *  of it. Visual skin only — consumers add their own size/position/padding. */
-export const composerPanelCard = cn(
-  'rounded-2xl border border-border/65 shadow-nous text-[length:var(--conversation-tool-font-size)]',
-  'bg-[color-mix(in_srgb,var(--dt-card)_72%,transparent)]',
-  composerSurfaceGlass
-)
+ *  attach (`+`) menu. The level-1 popover surface (spec §5.11): --bg-raised
+ *  under shadow-md, 12px corners, meta-size type. Uses an explicit fill (not
+ *  `--composer-fill`) so it renders identically whether mounted inside the
+ *  composer or portaled out of it. Visual skin only — consumers add their own
+ *  size/position/padding. */
+export const composerPanelCard = 'rounded-lg bg-(--bg-raised) text-sm shadow-md'
 
 /**
  * A quiet control floating over composer content — the micro-action pills above
@@ -47,10 +41,10 @@ export const composerPanelCard = cn(
  * state.
  */
 export const composerFloatingPill = cn(
-  'inline-flex h-(--composer-control-size) shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5',
-  'border border-border/65 bg-(--composer-fill) backdrop-blur-[0.75rem] [-webkit-backdrop-filter:blur(0.75rem)]',
-  'text-xs font-normal text-(--ui-text-secondary) transition-colors',
-  'hover:bg-(--chrome-action-hover) hover:text-foreground'
+  'inline-flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-full px-2.5',
+  'border border-(--border-default) bg-(--bg-app)',
+  'text-sm font-normal text-(--text-secondary) transition-colors duration-(--dur-micro)',
+  'hover:bg-(--bg-hover) hover:text-(--text-primary)'
 )
 
 /**

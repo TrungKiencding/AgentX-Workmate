@@ -478,3 +478,199 @@ how it read: a static picture next to a timer.
   timer keeps counting either way.
 - **Kept honest.** `StatusPulse` lost its opacity beat (the thinking row was
   its only user) and is the sidebar's ping alone.
+
+## The 2026-10 Quiet Tool pass
+
+One direction, taken whole: the app now follows **AgentX - Design Spec Quiet
+Tool** (v2.0) — the interface steps back so content leads. Warm neutral grays
+everywhere, colour only as a signal, regions split by whitespace and one 1px
+line, hierarchy by contrast instead of by size. Eleven commits on
+`ui/quiet-tool` (`8e48b32dbd`…`72d39b0467`), 152 files under `src/`,
+`scripts/`, `electron/` and `index.html`. The contract is rewritten in
+[`DESIGN.md`](./DESIGN.md); counts below are `git grep` over `src/` (tests
+excluded) at `main` and at the branch tip.
+
+**Before.** Night Owl was the shipped skin and a fresh install opened in a
+fixed light mode. A display serif (Newsreader) held three slots; 11px type,
+54 `uppercase` labels and 50 widened-tracking literals survived in the chrome.
+Selected rows wore a fill plus a 2px accent bar; nav rows were 40px, chat rows
+36px, the sidebar 237px. Floating surfaces each picked their own shadow,
+hairline and backdrop blur (34 `backdrop-blur` uses); the composer was
+translucent glass with an accent focus ring and a coloured dock glow. The
+primary button and the send button were the skin's accent. Toasts lived in two
+stacks — top-centre for errors and actions, bottom-right for the rest — and
+timed out at 5s. Deleting a chat happened on the first click; six places asked
+through the OS `window.confirm()`. The Vietnamese copy said "phiên" for a chat
+in 46 strings and the system called itself "tôi".
+
+**After.**
+- **Three token tiers.** `src/tokens.css` adds the spec's primitives (a
+  warm-gray ladder plus the signal hues) and a semantic tier (`--bg-*`,
+  `--border-*`, `--text-*`, `--icon-*`, `--accent`, `--warning`, `--danger`,
+  `--success`, `--scrim`, `--focus-ring`, `--elevation-*`), exposed to
+  Tailwind as `bg-app`, `text-fg-muted`, `border-line`, `text-signal`… The new
+  **Quiet** skin pins the semantic tier to the primitives and points the old
+  `--ui-*` tokens back at it, so every existing surface paints spec values;
+  other skins feed the semantic tier from their own pipeline.
+- **Quiet is the default, and the default follows the OS.** A fresh install
+  opens on Quiet in the system's light or dark mode, with `index.html` and the
+  native window painting the matching white / `#1c1c1b` before any script. An
+  install still on Night Owl moves to Quiet once (marker
+  `agentx-desktop-quiet-default-v1`); switching back sticks.
+- **Type without ornament.** Newsreader and every serif hook are gone; Quiet
+  sets the platform face (SF Pro / Segoe UI, both full Vietnamese). The ramp
+  is 12 · 13 · 14 · 15 · 16 · 20 · 24 · 28px, body chrome at 14px, nothing
+  under 12px (`text-2xs` is now an alias of 12px). `uppercase` in class
+  strings: 54 → 0; widened tracking: 50 → 1.
+- **Fixed radius rungs and two elevation levels.** 6 · 8 · 12 · 16px, no
+  scalar. Cards and the composer carry a border, never a shadow; menus,
+  popovers and toasts are level 1 (`shadow-md`), dialogs, the palette and
+  route overlays level 2 (`shadow-nous`), each with its own 1px edge.
+  `--stroke-nous` is transparent; `backdrop-blur` uses: 34 → 20.
+- **Primitives on the spec.** `Button`'s primary is `--bg-inverse` on every
+  skin (never the accent), secondary a hairline, `chip` the inline control,
+  `card` a flat hairline tile; pressed is a fill, not a 1px drop. One
+  `menu-styles.ts` recipe for every menu, select, popover and cmdk list (32px
+  rows, 12px surface, 160ms in / 100ms out). Inputs: a `--border-input` edge,
+  an accent edge plus a two-layer ring on focus. Switch 28×16 and Checkbox
+  16×16 on `--bg-inverse`. `PillTabs` became `PageTabs` — text tabs over one
+  sliding underline — and `TextTab` / `PaneTab` share the voice.
+  `StatusPill` is a dot and a secondary word with no fill (the contrast gate
+  dropped its pill-tint pairs), `Kbd` an 18px flat cap, `Skeleton` an opacity
+  pulse that stays invisible for 300ms (`useDelayedTrue` deleted).
+- **Dialogs, toasts and banners.** Dialogs are 16px, 24px padding, 560 / 440 /
+  720px wide, over a plain scrim, focus on Cancel for a confirm.
+  `requestConfirm()` replaces all six `window.confirm()` calls. Toasts are one
+  bottom-centre stack above the composer, two at a time with an overflow row,
+  4s (6s with an action), errors and warnings persistent, paused while hovered
+  or focused; the placement API is gone. `Alert` is a flat in-flow banner on
+  the signal's soft fill.
+- **Undo before confirm.** Archiving a chat is immediate with "Hoàn tác" in
+  its toast; deleting one now asks, naming the chat and pointing to Archive.
+- **Sidebar and composer.** The sidebar opens at 288px (256px under a 1280px
+  window), resizable 240–400px. Nav and chat rows share 32px at 14px; selected
+  is `--bg-selected` alone; group headers carry the ▸ on the left; the search
+  field is a nav row; a 52px account row sits at the foot. The composer is
+  opaque, 16px corners, hairline firming to `--border-strong` on hover and
+  focus, a 28px inverse send circle and a ghost mic when empty, 16px above the
+  window edge, one input line 48px tall (the spec's min-height; it was first
+  left at 44px and raised on review).
+- **Transcript.** The code card is `--bg-subtle` under a subtle hairline with a
+  32px header; inline code 0.92em; tables framed at 12px with 36px rows; an
+  opened tool step hangs behind a 1px rule instead of a box; a "↓ Mới nhất"
+  pill returns the reader to the stream.
+- **Palette, keyboard, access.** The palette is 640px at 20vh over a light
+  scrim with a key footer. ⌘\ toggles the sidebar (panes flip on ⌘⇧\), ⌘[ / ⌘]
+  step between chats. One IME guard (`lib/ime.ts`, also in the plugin SDK)
+  keeps every Enter handler from submitting mid-Telex/VNI. A skip link, a
+  polite "turn finished" announcement and a `forced-colors` block (real edges
+  where shadows vanish) join the focus ring, which stays at full accent
+  strength — the spec's 60% measures 2.6:1, under WCAG's 3:1.
+- **Copy.** "Cuộc trò chuyện" everywhere a chat was "phiên" (46 → 15 strings
+  left: sign-in and runtime sessions, plus the tool-argument label "Mã
+  phiên" for `session_id`); the system never says "tôi"
+  (30 → 21 matches, every one left the user's own words); no exclamation
+  marks or all-caps emphasis in system copy.
+
+## Review round (29/10)
+
+The Quiet Tool pass, read on real machines. Three commits on `ui/quiet-tool`
+(`e59f40e669`…`e1bb23a878`), 35 files under `src/`. Two complaints drove
+nearly all of it: on older, lower-density displays the spec's sizes read small
+and its greys washed out, and an all-black, all-grey UI read heavy in some
+places and too faded in others. Each change is named in
+[`DESIGN.md`](./DESIGN.md) as a deliberate deviation from the spec, with that
+reason.
+
+**Before.** Body chrome was 14px and prose 15px; controls 28/32/40px, sidebar
+and menu rows 32px, the composer line 48px. Secondary ink was gray-600,
+tertiary gray-500 (3.4:1 — captions only), hairlines gray-150…400, and `body`
+forced `antialiased` smoothing. The sidebar was the page colour. The primary
+button, send circle, tooltip, checked switch and checkbox were near-black
+(gray-950). Every glyph in the chrome was grey. The greeting was a 24px medium
+line that addressed "Lê Trung Kiên" by the full name; the connect screen
+scrambled its line with `DecodeText`. Toasts placed themselves from a root
+`--composer-measured-height` default that let them cover the composer's top
+edge. And `tw-animate-css` was never imported, so every `animate-in/out` class
+in the app — popper, dialog and toast entrances — did nothing.
+
+**After.**
+- **One size step up.** The type ramp is 13 · 14 · 15 · 16 · 17 · 21 · 26 ·
+  30px (caption · meta · body · reading · title · page title · section display
+  · display); controls 30/36/44; sidebar nav, conversation and group-header
+  rows 36px; menu rows 36px with 18px glyphs and a 224px minimum; palette rows
+  40px under a 52px search row; page tabs 44px, 24px apart; text tabs, code
+  headers and date dividers 36px; switch 32×18 with a 14px thumb; checkbox
+  18px; kbd and badge 20px; the account row 44px with a 28px avatar; the
+  composer line 50px (6px + a 36px control row + 6px, a 32px send circle).
+  The reply's own scale moved with it: prose 16px, tool meta and code 14px,
+  headings 17 / 16 / 16 / 15px. `body` no longer forces `antialiased` — it
+  thinned every stem on low-density screens.
+- **Firmer greys.** Light: secondary gray-700 (8.2:1), tertiary gray-600
+  (5.9:1 — every text tier now clears AA), disabled gray-500, icons
+  gray-800 / gray-600, hairlines subtle · default · strong · input = gray-200 ·
+  300 · 400 · 500 (the input edge 3.4:1). Dark: secondary gray-300, tertiary
+  gray-400, disabled gray-600, icons gray-200 / gray-400, hairlines gray-800 ·
+  750 · 700 · 600. The `quietTheme` seeds followed (`WARM` gained a 750 rung).
+- **The sidebar is a place.** It sits on `--sidebar-bg` — gray-50 in light,
+  gray-1000 in dark (stepping *down* from the page) — edged by
+  `--border-default`, with row fills one rung stronger
+  (`--sidebar-row-hover` / `-selected`) wherever `data-sidebar-surface` is
+  set, the overlay rails included. The titlebar band paints the column under
+  it (split at `--workspace-left/right`), so the sidebar reads as one column
+  from the traffic lights down.
+- **Charcoal, blue and a little colour.** `--bg-inverse` is charcoal gray-700
+  in light (white on it 8.2:1) and gray-200 in dark. Switches and checkboxes
+  take `--accent` when on / checked, under a white thumb, like the
+  platform's own. A new `--tint-*` palette (blue, green, orange, red, purple,
+  pink, teal, indigo, yellow, graphite — the system colours a shade quieter,
+  per mode) feeds `IconTile`: solid Settings-style tiles on the settings rail
+  (a curated tint per pane; the rail widened from 13rem to 15.5rem so the
+  larger labels fit), soft washes behind skill, tool and browser card glyphs
+  (`StoreCardGlyph tint` — skills by a curated category map, tools by a
+  stable FNV hash, `tintFor()`), and tinted glyphs on the sidebar's four
+  destinations (new chat blue, Tiện ích orange, Kênh tin nhắn green,
+  Artifact purple). Tints mark places and kinds, never text or state.
+- **A greeting that knows your name.** 30px semibold, drawn slightly tighter
+  (`--tracking-display`, −0.022em — the token that replaced the retired
+  `--tracking-label`), addressing the given name: `greetingName()` takes the
+  last word of a Vietnamese name ("Kiên"), the first word elsewhere. The
+  intro block centres with `justify-content: safe center`, so a short window
+  scrolls it instead of cutting the first line and hiding the last card; its
+  line and cards widen to 38 / 40rem.
+- **A calmer connect screen.** The AgentX mark over a new `ActivityIndicator`
+  — twelve spokes turning in twelve steps, the platform's own rhythm, still
+  under reduced motion — beside one plain line. It fades in after a 150ms
+  beat, so a warm connect shows nothing at all.
+- **Toasts sit above the composer, not on it.** `useToastAnchor()` measures
+  the foreground composer dock and places the stack 12px above it, centred on
+  it, following it as it grows.
+- **Kept honest.** `tw-animate-css` is a direct dependency and imported in
+  `styles.css`; the `--tracking-label` token is deleted, not parked at 0.
+- Thinking row: the self-tracing brand mark is replaced by three typing dots
+  beside "Đang suy nghĩ…"; replies no longer carry a brand mark at their head,
+  so a finished answer starts with its first line. The pen-trace CSS, the
+  one-stroke `BRAND_MARK_ROUTE` and `BrandGlyph`'s `tracing` mode are removed.
+- Home greeting: back to the Newsreader serif at regular weight with the
+  account's full display name ("Chào buổi chiều, Lê Trung Kiên") — the one
+  serif line in the app, by request; `greetingName()` is removed.
+- Default UI scale for fresh installs is 100% (was 125%): the type and control
+  ramps are now sized for legibility on their own. Ctrl/Cmd+0 and View →
+  Actual Size return to 100%. Existing installs still on exactly 125% (the
+  old default) move to 100% once; any other saved scale is kept, and a 125%
+  chosen after the move sticks (`zoom-state.json` now carries
+  `defaultPercent`).
+- Account row and greeting name show on launch: both read the sign-in through
+  `useKeycloakAccount()`, which re-reads once the gateway opens (a launch-time
+  read happens before the backend knows the realm). The account row drops the
+  plan name.
+- Connect screen, larger and livelier: an 88px mark that draws itself in one
+  pen stroke and then breathes, a 17px status line, and a slim accent
+  progress track gliding underneath (replacing the 16px spinner, whose
+  `ActivityIndicator` component is removed). The overlay test's "is it
+  shown?" helper never matched the line (it lacked the "…"), so every
+  assertion passed vacuously; it now matches, and a positive case covers the
+  screen during first boot.
+- Dark input borders clear 3:1: `--border-input` is gray-500 in dark as in
+  light (5.0:1 on the page, 4.2:1 on a dialog; gray-600 was 2.9:1), and the
+  contrast gate now checks Quiet's `input` against the page and the popover.

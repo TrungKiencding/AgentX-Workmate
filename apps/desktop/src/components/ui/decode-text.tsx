@@ -123,11 +123,7 @@ export function DecodeText({
 
   return (
     <span
-      className={cn(
-        'inline-flex items-center',
-        mono && 'font-mono text-2xs font-semibold uppercase tracking-[0.4em] tabular-nums',
-        className
-      )}
+      className={cn('inline-flex items-center', mono && 'font-mono text-2xs font-semibold tabular-nums', className)}
       {...props}
     >
       {cursor && <style>{'@keyframes decode-cursor { 0%, 49% { opacity: 1 } 50%, 100% { opacity: 0 } }'}</style>}

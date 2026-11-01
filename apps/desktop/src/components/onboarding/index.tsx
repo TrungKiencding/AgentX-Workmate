@@ -236,11 +236,11 @@ function Header() {
   const { t } = useI18n()
 
   return (
-    <div className="bg-(--ui-chat-bubble-background) px-5 pb-2 pt-6">
-      {/* Serif outlier slot 2 of 2 (the home greeting is slot 1). Roman, never
-          italic — the one moment of voice on the way in. */}
-      <h2 className="font-serif-display text-2xl text-(--ui-text-primary)">{t.onboarding.headerTitle}</h2>
-      <p className="mt-1.5 max-w-xl text-base text-(--ui-text-tertiary)">{t.onboarding.gatewayHeaderDesc}</p>
+    <div className="px-6 pb-2 pt-6">
+      {/* text-display (spec §3.6): the onboarding title is one of the rare
+          24px moments — sans, weight 500, no colour block behind it. */}
+      <h2 className="text-2xl font-medium text-balance text-(--text-primary)">{t.onboarding.headerTitle}</h2>
+      <p className="mt-1.5 max-w-xl text-base text-pretty text-(--text-secondary)">{t.onboarding.gatewayHeaderDesc}</p>
     </div>
   )
 }

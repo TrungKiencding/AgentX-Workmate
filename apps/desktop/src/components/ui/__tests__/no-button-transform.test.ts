@@ -6,13 +6,13 @@ import { describe, expect, it } from 'vitest'
 // Static-analysis guard: no `<Button>` call site may carry a `translate-*`
 // utility in its className.
 //
-// Every `translate-x/y-*` utility writes the SAME CSS property (`translate`),
-// and the Button primitive owns one of its own: `active:translate-y-px` (the
-// 1px press settle, `active:translate-y-0` on `icon-titlebar`). A positioning
-// transform passed from a call site therefore doesn't compose with it — it is
-// cancelled the instant the button is pressed. That shipped as a real bug: the
-// overlay close X was centred with `-translate-y-1/2` and dropped half its
-// height on every press before the overlay closed.
+// Every `translate-x/y-*` utility writes the SAME CSS property (`translate`).
+// The Button primitive once owned one of its own (a 1px press settle), and a
+// positioning transform passed from a call site was cancelled the instant the
+// button was pressed: the overlay close X, centred with `-translate-y-1/2`,
+// dropped half its height on every press. The Quiet Tool press is a fill now,
+// but the rule stays — a Button is a control, and positioning belongs to a
+// wrapper, so a future press treatment can never collide with a call site.
 //
 // The fix is always the same: wrap the Button in a positioned element and let
 // the wrapper own the transform. Same category as `no-native-title` — a lint

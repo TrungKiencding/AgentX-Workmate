@@ -161,11 +161,8 @@ function SidebarSessionRowImpl({
       }
       className={cn(
         'group row-hover relative',
-        // Selected reads at a glance: the tinted row fill PLUS a 2px accent
-        // bar on the leading edge (drawn in the row's own padding, so it
-        // costs no layout and never nudges the label).
-        isSelected &&
-          'bg-(--ui-row-active-background) before:absolute before:inset-y-1 before:left-0 before:w-(--ui-row-active-bar-width) before:rounded-full before:bg-(--ui-row-active-bar) before:content-[""]',
+        // Selected (spec §5.1): --bg-selected alone — no ink change, no bar.
+        isSelected && 'bg-(--bg-selected)',
         isWorking && 'text-foreground',
         // Opaque surface while lifted so the dragged row erases what's under
         // it (translucency let the rows below bleed through).

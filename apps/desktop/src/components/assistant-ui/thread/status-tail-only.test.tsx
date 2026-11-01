@@ -107,7 +107,7 @@ describe('thinking indicator is tail-only', () => {
 })
 
 describe('stall row', () => {
-  it('brings the mark back a rung smaller, writing itself, when a running reply goes quiet', async () => {
+  it('brings the typing dots back when a running reply goes quiet', async () => {
     vi.useFakeTimers()
     // The row only moves in a focused window, which jsdom never reports.
     const hasFocus = vi.spyOn(window.document, 'hasFocus').mockReturnValue(true)
@@ -126,13 +126,12 @@ describe('stall row', () => {
         await vi.advanceTimersByTimeAsync(200)
       })
 
-      const glyph = container.querySelector('[data-slot="aui_stream-stall"] [data-slot="brand-glyph"]')
+      const dots = container.querySelector('[data-slot="aui_stream-stall"] [data-slot="typing-dots"]')
 
-      expect(glyph?.hasAttribute('data-tracing')).toBe(true)
-      expect(glyph?.getAttribute('class')).toContain('size-3.5')
+      expect(dots?.hasAttribute('data-live')).toBe(true)
       expect(
         container.querySelector('[data-slot="aui_stream-stall"] [data-slot="aui_status-label"]')?.textContent
-      ).toBe('Thinking')
+      ).toBe('Thinking…')
     } finally {
       hasFocus.mockRestore()
       vi.useRealTimers()

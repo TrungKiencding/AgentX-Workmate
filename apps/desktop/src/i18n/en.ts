@@ -706,6 +706,8 @@ export const en: Translations = {
       title: 'Appearance',
       intro: 'Desktop-only. Mode is brightness; theme is palette and chat chrome.',
       accentTitle: 'Accent',
+      themeSearchPlaceholder: 'Search your themes or the VS Code Marketplace…',
+      themeSearchEmpty: query => `No installed themes match “${query}”.`,
       accentDesc:
         'Recolors the Nous theme’s blue — buttons, focus ring, selection. Other themes keep their own accent.',
       accentNames: {
@@ -1786,6 +1788,7 @@ export const en: Translations = {
   commandCenter: {
     close: 'Close command center',
     paletteTitle: 'Command palette',
+    paletteFooter: { move: 'move', select: 'select', close: 'close' },
     back: 'Back',
     searchPlaceholder: 'Search sessions, views, and actions',
     goTo: 'Go to',
@@ -2573,6 +2576,12 @@ export const en: Translations = {
       messaging: 'Message channels',
       artifacts: 'Artifacts'
     },
+    account: {
+      menuLabel: 'Account menu',
+      accountSettings: 'Account',
+      settings: 'Settings',
+      shortcuts: 'Keyboard shortcuts'
+    },
     searchAria: 'Search chats',
     searchPlaceholder: 'Search chats…',
     clearSearch: 'Clear search',
@@ -2680,6 +2689,9 @@ export const en: Translations = {
       newWindow: 'New window',
       hideTabBar: 'Hide tab bar',
       openInNewTab: 'Open in new tab',
+      deleteConfirmTitle: title => `Delete “${title}”?`,
+      deleteConfirmBody: 'The chat and its messages are removed for good. This can’t be undone — archive it instead if you may want it back.',
+      deleteConfirmAction: 'Delete chat',
       openInSplit: 'Open in split',
       copyIdFailed: 'Could not copy chat ID',
       sessionActions: 'Chat actions',
@@ -3478,6 +3490,7 @@ export const en: Translations = {
   },
 
   shell: {
+    skipToContent: 'Skip to content',
     windowControls: 'Window controls',
     paneControls: 'Pane controls',
     appControls: 'App controls',
@@ -3850,7 +3863,7 @@ export const en: Translations = {
         count === 1
           ? 'Will resume when the background task finishes'
           : `Will resume when ${count} background tasks finish`,
-      thinking: 'Thinking',
+      thinking: 'Thinking…',
       startingAgent: 'Starting the assistant',
       thought: 'Thought',
       thoughtBriefly: 'Thought briefly',
@@ -3873,6 +3886,8 @@ export const en: Translations = {
       editMessage: 'Edit message',
       expandMessage: 'Expand message',
       scrollToBottom: 'Scroll to bottom',
+      jumpToLatest: 'Latest',
+      turnDone: 'AgentX has finished replying',
       stop: 'Stop',
       restorePrevious: 'Restore previous checkpoint',
       restoreCheckpoint: 'Restore checkpoint',
@@ -4218,6 +4233,9 @@ export const en: Translations = {
     branchFailed: 'Branch failed',
     deleteFailed: 'Delete failed',
     archived: 'Archived',
+    archivedTitled: title => `Archived “${title}”`,
+    undo: 'Undo',
+    unarchiveFailed: 'Couldn’t bring the chat back. Find it in Settings → Archived chats.',
     archiveFailed: 'Archive failed',
     cwdChangeFailed: 'Working directory change failed',
     cwdStagedTitle: 'Working directory staged',

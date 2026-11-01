@@ -661,6 +661,8 @@ export interface Translations {
       intro: string
       accentTitle: string
       accentDesc: string
+      themeSearchPlaceholder: string
+      themeSearchEmpty: (query: string) => string
       accentNames: Record<'nousBlue' | 'violet' | 'magenta' | 'green' | 'amber' | 'teal', string>
       colorMode: string
       colorModeDesc: string
@@ -1591,6 +1593,7 @@ export interface Translations {
   commandCenter: {
     close: string
     paletteTitle: string
+    paletteFooter: { move: string; select: string; close: string }
     back: string
     searchPlaceholder: string
     goTo: string
@@ -2160,6 +2163,12 @@ export interface Translations {
 
   sidebar: {
     nav: Record<string, string>
+    account: {
+      menuLabel: string
+      accountSettings: string
+      settings: string
+      shortcuts: string
+    }
     searchAria: string
     searchPlaceholder: string
     clearSearch: string
@@ -2264,6 +2273,9 @@ export interface Translations {
       newWindow: string
       hideTabBar: string
       openInNewTab: string
+      deleteConfirmTitle: (title: string) => string
+      deleteConfirmBody: string
+      deleteConfirmAction: string
       openInSplit: string
       splitRight: string
       splitDown: string
@@ -2930,6 +2942,7 @@ export interface Translations {
   }
 
   shell: {
+    skipToContent: string
     windowControls: string
     paneControls: string
     appControls: string
@@ -3314,6 +3327,8 @@ export interface Translations {
       editMessage: string
       expandMessage: string
       scrollToBottom: string
+      jumpToLatest: string
+      turnDone: string
       stop: string
       restorePrevious: string
       restoreCheckpoint: string
@@ -3554,6 +3569,9 @@ export interface Translations {
     branchFailed: string
     deleteFailed: string
     archived: string
+    archivedTitled: (title: string) => string
+    undo: string
+    unarchiveFailed: string
     archiveFailed: string
     cwdChangeFailed: string
     cwdStagedTitle: string

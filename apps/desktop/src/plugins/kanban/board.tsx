@@ -39,6 +39,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  shouldSubmitOnEnter,
   Switch,
   Textarea,
   Tip,
@@ -79,7 +80,6 @@ import {
 } from './api'
 import { BoardSwitcher } from './board-switcher'
 import { TaskDrawer } from './drawer'
-import { shouldSubmitOnEnter } from './ime-enter'
 import { EMPTY_OVERRIDE, ModelOverrideField, overrideCreateFields, type TaskModelOverride } from './model-override'
 import { OrchestrationPanel } from './orchestration'
 import { columnMeta, type KanbanBoard, type KanbanTask, type TaskEstimate } from './types'
@@ -430,7 +430,7 @@ function Column({
         <span className="grid h-5 shrink-0 place-items-center">
           <span className="size-1.5 rounded-full" style={{ backgroundColor: meta.tone }} />
         </span>
-        <span className="text-2xs font-medium uppercase tracking-wide text-(--ui-text-tertiary) [writing-mode:vertical-rl]">
+        <span className="text-2xs font-medium text-(--ui-text-tertiary) [writing-mode:vertical-rl]">
           {label}
         </span>
         {column.tasks.length > 0 && (
@@ -448,7 +448,7 @@ function Column({
       <header className="mb-1.5 flex h-5 items-center gap-1.5 px-1">
         <span className="size-1.5 rounded-full" style={{ backgroundColor: meta.tone }} />
         <Tip label={columnHelp(k, column.name)}>
-          <span className="cursor-help text-2xs font-medium uppercase tracking-wide text-(--ui-text-tertiary)">
+          <span className="cursor-help text-2xs font-medium text-(--ui-text-tertiary)">
             {label}
           </span>
         </Tip>

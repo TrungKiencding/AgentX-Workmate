@@ -393,10 +393,7 @@ export function BootFailureOverlay() {
             aria-labelledby="boot-failure-steps"
             className="rounded-(--radius-card) border border-(--ui-stroke-tertiary) bg-(--ui-bg-tertiary)/40 px-4 py-3"
           >
-            <h3
-              className="text-2xs font-medium uppercase tracking-[0.06em] text-(--ui-text-tertiary)"
-              id="boot-failure-steps"
-            >
+            <h3 className="text-2xs font-medium text-(--ui-text-tertiary)" id="boot-failure-steps">
               {copy.whatToDo}
             </h3>
             <ol className="mt-2 grid list-decimal gap-1.5 pl-5 text-sm leading-5 text-(--ui-text-secondary)">

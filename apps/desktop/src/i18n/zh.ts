@@ -670,6 +670,8 @@ export const zh: Translations = {
       title: '外观',
       intro: '这些是仅桌面端的显示偏好。模式控制明暗；主题控制强调色与对话界面样式。',
       accentTitle: '强调色',
+      themeSearchPlaceholder: '搜索已安装主题或 VS Code 扩展市场…',
+      themeSearchEmpty: query => `没有与“${query}”匹配的已安装主题。`,
       accentDesc: '替换 Nous 主题的蓝色 — 按钮、焦点环、选中色。其他主题不受影响。',
       accentNames: {
         nousBlue: 'Nous 蓝',
@@ -1918,6 +1920,7 @@ export const zh: Translations = {
   commandCenter: {
     close: '关闭命令中心',
     paletteTitle: '命令面板',
+    paletteFooter: { move: '移动', select: '选择', close: '关闭' },
     back: '返回',
     searchPlaceholder: '搜索会话、视图与操作',
     goTo: '前往',
@@ -2662,6 +2665,12 @@ export const zh: Translations = {
       messaging: '消息平台',
       artifacts: '产物'
     },
+    account: {
+      menuLabel: '账户菜单',
+      accountSettings: '账户',
+      settings: '设置',
+      shortcuts: '键盘快捷键'
+    },
     searchAria: '搜索对话',
     searchPlaceholder: '搜索对话…',
     clearSearch: '清除搜索',
@@ -2767,6 +2776,9 @@ export const zh: Translations = {
       newWindow: '新窗口',
       hideTabBar: '隐藏标签栏',
       openInNewTab: '在新标签页中打开',
+      deleteConfirmTitle: title => `删除“${title}”？`,
+      deleteConfirmBody: '对话及其所有消息将被永久删除，且无法撤销。如果以后可能还需要，请改为归档。',
+      deleteConfirmAction: '删除对话',
       openInSplit: '在分屏中打开',
       copyIdFailed: '无法复制对话 ID',
 
@@ -3522,6 +3534,7 @@ export const zh: Translations = {
   },
 
   shell: {
+    skipToContent: '跳到内容',
     windowControls: '窗口控件',
     paneControls: '面板控件',
     appControls: '应用控件',
@@ -3908,6 +3921,8 @@ export const zh: Translations = {
       editMessage: '编辑消息',
       expandMessage: '展开消息',
       scrollToBottom: '滚动到底部',
+      jumpToLatest: '最新',
+      turnDone: 'AgentX 已完成回复',
       stop: '停止',
       restorePrevious: '恢复上一个检查点',
       restoreCheckpoint: '恢复检查点',
@@ -4235,6 +4250,9 @@ export const zh: Translations = {
     branchFailed: '分支失败',
     deleteFailed: '删除失败',
     archived: '已归档',
+    archivedTitled: title => `已归档“${title}”`,
+    undo: '撤销',
+    unarchiveFailed: '无法恢复对话。可在 设置 → 已归档对话 中找回。',
     archiveFailed: '归档失败',
     cwdChangeFailed: '工作目录更改失败',
     cwdStagedTitle: '工作目录已暂存',

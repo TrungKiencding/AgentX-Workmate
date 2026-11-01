@@ -187,7 +187,7 @@ export function UninstallSection() {
                     <span className="flex items-center gap-2 text-sm font-medium text-foreground">
                       {opt.title}
                       {opt.recommended && (
-                        <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-2xs font-medium tracking-wide text-destructive uppercase">
+                        <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-2xs font-medium text-destructive">
                           Recommended
                         </span>
                       )}

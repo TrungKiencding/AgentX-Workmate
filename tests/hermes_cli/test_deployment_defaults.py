@@ -164,6 +164,13 @@ class TestTheInstallerTemplateDoesNotUndoAnyOfIt:
 
         assert keycloak["session_days"] == DEPLOYMENT_KEYCLOAK_SESSION_DAYS
 
+    def test_the_default_proxy_is_not_a_retired_one(self):
+        from urllib.parse import urlsplit
+
+        from hermes_cli.config_defaults import RETIRED_GATEWAY_HOSTS
+
+        assert urlsplit(DEPLOYMENT_LITELLM_BASE_URL).hostname not in RETIRED_GATEWAY_HOSTS
+
     def test_the_proxy_survives_the_template(self, installed_machine):
         settings = load_settings(load_config())
 

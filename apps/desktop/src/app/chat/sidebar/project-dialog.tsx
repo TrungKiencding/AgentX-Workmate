@@ -242,7 +242,7 @@ export function ProjectDialog() {
                       {folder}
                     </span>
                     {index === 0 && (
-                      <span className="shrink-0 text-2xs uppercase text-(--ui-text-quaternary)">{p.primaryBadge}</span>
+                      <span className="shrink-0 text-2xs text-(--ui-text-quaternary)">{p.primaryBadge}</span>
                     )}
                     <Tip label={p.removeFolder}>
                       <Button

@@ -82,8 +82,9 @@ const BUILTIN_KEYBIND_ACTIONS: readonly KeybindActionMeta[] = [
   { id: 'session.newWindow', category: 'session', defaults: ['mod+shift+n'] },
   // ⌃Tab / ⌃⇧Tab — the universal tab-cycle chord. Literally Control, not Cmd
   // (macOS reserves Cmd+Tab for app switching); see `ctrl` in combo.ts.
-  { id: 'session.next', category: 'session', defaults: ['ctrl+tab'] },
-  { id: 'session.prev', category: 'session', defaults: ['ctrl+shift+tab'] },
+  // ⌘] / ⌘[ are the Quiet Tool spec's next/previous item (§8.1).
+  { id: 'session.next', category: 'session', defaults: ['ctrl+tab', 'mod+]'] },
+  { id: 'session.prev', category: 'session', defaults: ['ctrl+shift+tab', 'mod+['] },
   ...SESSION_SLOT_ACTIONS,
   { id: 'session.focusSearch', category: 'session', defaults: ['mod+shift+f'] },
   { id: 'session.togglePin', category: 'session', defaults: [] },
@@ -107,7 +108,8 @@ const BUILTIN_KEYBIND_ACTIONS: readonly KeybindActionMeta[] = [
   { id: 'nav.agents', category: 'navigation', defaults: [] },
 
   // ── View (layout + appearance + the shortcuts panel itself) ───────────────
-  { id: 'view.toggleSidebar', category: 'view', defaults: ['mod+b'] },
+  // ⌘\ is the spec's sidebar toggle (§8.1); ⌘B stays for muscle memory.
+  { id: 'view.toggleSidebar', category: 'view', defaults: ['mod+b', 'mod+\\'] },
   { id: 'view.toggleRightSidebar', category: 'view', defaults: ['mod+j'] },
   // ⌘⇧S — "s" for status bar. VS Code ships
   // `workbench.action.toggleStatusbarVisibility` unbound (it's a chord-free
@@ -129,8 +131,9 @@ const BUILTIN_KEYBIND_ACTIONS: readonly KeybindActionMeta[] = [
   { id: 'view.nextTerminal', category: 'view', defaults: ['ctrl+shift+down'] },
   { id: 'view.prevTerminal', category: 'view', defaults: ['ctrl+shift+up'] },
   { id: 'view.closeTerminal', category: 'view', defaults: ['ctrl+shift+w'] },
-  // ⌘\ — the backslash reads like a mirror line flipping the layout.
-  { id: 'view.flipPanes', category: 'view', defaults: ['mod+\\'] },
+  // ⌘⇧\ — the backslash reads like a mirror line flipping the layout (plain
+  // ⌘\ belongs to the sidebar toggle, spec §8.1).
+  { id: 'view.flipPanes', category: 'view', defaults: ['mod+shift+\\'] },
   // ⌘W closes the focused zone's active tab — its own tab strip (preview) or
   // the tree tab (session tiles, files, terminal). The uncloseable workspace
   // is a no-op. ⌘⇧T reopens the last closed tab where it was.

@@ -49,8 +49,14 @@ DEPLOYMENT_KEYCLOAK_SESSION_DAYS = 14
 #: with the proxy URL the service currently names, and that wins. It
 #: still has to be a live host — it is what a laptop probes before it has
 #: collected a key, and what Settings reports — so update it when the proxy
-#: moves (``vtn-4000.wondertek.space`` stopped answering in September 2026).
-DEPLOYMENT_LITELLM_BASE_URL = "https://aigw.dev-server.cloud"
+#: moves (``vtn-4000.wondertek.space`` stopped answering in September 2026,
+#: ``aigw.dev-server.cloud`` on 2026-10-31).
+DEPLOYMENT_LITELLM_BASE_URL = "https://aigw.astralx.com.vn"
+
+#: Hosts the gateway answered at before. A saved chat or a fallback entry can
+#: still name one; it means this account's gateway, and the request goes to the
+#: address on record (``account_inference.AccountInference.allows``).
+RETIRED_GATEWAY_HOSTS = ("aigw.dev-server.cloud",)
 
 #: Model pinned as an account's default the first time its key is minted.
 #:

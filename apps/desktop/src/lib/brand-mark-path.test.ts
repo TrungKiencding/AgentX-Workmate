@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { BRAND_MARK_PATHS, BRAND_MARK_ROUTE } from './brand-mark-path'
+import { BRAND_MARK_PATHS } from './brand-mark-path'
 
 // The mark is drawn as a hairline in three places (the reply's BrandGlyph, the
 // thinking row, the EmptyFigures), so its geometry is pinned here, once: built
@@ -25,7 +25,7 @@ describe('BRAND_MARK_PATHS', () => {
   })
 
   it('keeps every point inside the 100x100 box, with breathing room for the stroke', () => {
-    for (const d of [...BRAND_MARK_PATHS, BRAND_MARK_ROUTE]) {
+    for (const d of BRAND_MARK_PATHS) {
       const coords = d.match(/-?\d+(?:\.\d+)?/g)?.map(Number) ?? []
 
       expect(coords.length).toBeGreaterThan(0)
@@ -119,53 +119,3 @@ function heading(segment: Segment, end: boolean): Point {
 const totalLength = (d: string) => segmentsOf(d).reduce((sum, segment) => sum + lengthOf(segment), 0)
 
 const vertices = (d: string) => new Set(segmentsOf(d).flatMap(s => [s.from.join(' '), s.to.join(' ')]))
-
-// The thinking row runs a dash along this route, so it has to be the mark
-// itself — the same ink, start to finish — and it has to flow: a dash that hits
-// a kink reads as the pen catching on the paper.
-describe('BRAND_MARK_ROUTE', () => {
-  const [loop, tail] = BRAND_MARK_PATHS
-  const route = segmentsOf(BRAND_MARK_ROUTE)
-
-  it('is one open stroke of straight runs and circular arcs', () => {
-    expect(BRAND_MARK_ROUTE).toMatch(/^M[\d. -]+(?: [LA][\d. -]+)+$/)
-    expect(BRAND_MARK_ROUTE).not.toMatch(/[CSQTZ]/)
-    expect(BRAND_MARK_ROUTE.match(/M/g)).toHaveLength(1)
-  })
-
-  it('leaves from the fork and ends at the tip of the tail', () => {
-    const tailSegments = segmentsOf(tail)
-
-    expect(route[0]?.from).toEqual(tailSegments[0]?.from)
-    expect(route.at(-1)?.to).toEqual(tailSegments.at(-1)?.to)
-  })
-
-  it('carries exactly the ink of the loop and the tail', () => {
-    expect(vertices(BRAND_MARK_ROUTE)).toEqual(new Set([...vertices(loop), ...vertices(tail)]))
-    // Coordinates are written to 0.01, so the lengths agree to a few hundredths.
-    expect(totalLength(BRAND_MARK_ROUTE)).toBeCloseTo(totalLength(loop) + totalLength(tail), 1)
-  })
-
-  it('runs down the right leg straight through the fork into the tail', () => {
-    const fork = route[0]!.from
-    const leg = route.find(s => s.kind === 'line' && s.to.join(' ') === segmentsOf(tail)[0]!.to.join(' '))!
-    const [dx, dy] = heading(leg, false)
-    // Distance from the fork to the leg's line.
-    const offLine = Math.abs((fork[0] - leg.from[0]) * dy - (fork[1] - leg.from[1]) * dx)
-
-    expect(offLine).toBeLessThan(0.02)
-  })
-
-  it('never turns a corner — every joint is tangent', () => {
-    expect(route.length).toBeGreaterThan(1)
-
-    for (let i = 1; i < route.length; i += 1) {
-      const out = heading(route[i - 1]!, true)
-      const into = heading(route[i]!, false)
-
-      expect(route[i]!.from).toEqual(route[i - 1]!.to)
-      // Within half a degree; the 0.01 rounding of the coordinates is the slack.
-      expect(out[0] * into[0] + out[1] * into[1]).toBeGreaterThan(Math.cos((0.5 * Math.PI) / 180))
-    }
-  })
-})

@@ -74,6 +74,7 @@ import { sanitizeComposerInput } from '@/lib/composer-input-sanitize'
 import { DATA_IMAGE_URL_RE } from '@/lib/embedded-images'
 import { triggerHaptic } from '@/lib/haptics'
 import { Loader2Icon } from '@/lib/icons'
+import { isImeComposing } from '@/lib/ime'
 import { cn } from '@/lib/utils'
 import type { ComposerAttachment } from '@/store/composer'
 import { notifyError } from '@/store/notifications'
@@ -645,6 +646,12 @@ export const UserEditComposer: FC<UserEditComposerProps> = ({ cwd, gateway, sess
   )
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    // An IME confirming its text (Telex/VNI, CJK) owns Enter and the arrows —
+    // never submit or steer the trigger menu mid-composition.
+    if (isImeComposing(event)) {
+      return
+    }
+
     if (trigger && triggerItems.length > 0) {
       if (event.key === 'ArrowDown') {
         event.preventDefault()

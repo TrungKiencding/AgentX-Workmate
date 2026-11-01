@@ -279,6 +279,7 @@ export { compactNumber } from '@/lib/format'
 export { triggerHaptic as haptic } from '@/lib/haptics'
 /** The app's lucide icon set (RefreshCw, LayoutDashboard, Activity, …). */
 export * as icons from '@/lib/icons'
+export { isImeComposing, shouldSubmitOnEnter } from '@/lib/ime'
 export { type KeybindContribution, KEYBINDS_AREA } from '@/lib/keybinds/actions'
 /** The app's deterministic identity color for a name (profiles, assignees,
  *  authors) + its translucent tag fill — so plugin-rendered identities read

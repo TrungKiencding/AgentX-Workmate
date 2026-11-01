@@ -11,7 +11,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { useI18n } from '@/i18n'
 import { compactNumber } from '@/lib/format'
-import { skillCategoryIcon, skillDisplayName } from '@/lib/skill-categories'
+import { skillCategoryIcon, skillCategoryTint, skillDisplayName } from '@/lib/skill-categories'
 import { asText } from '@/lib/text'
 import type { SkillInfo } from '@/types/hermes'
 
@@ -57,7 +57,7 @@ export function SkillCard({
         }
         dimmed={!skill.enabled}
         glyph={
-          <StoreCardGlyph>
+          <StoreCardGlyph tint={skillCategoryTint(categoryFor(skill))}>
             <Icon />
           </StoreCardGlyph>
         }

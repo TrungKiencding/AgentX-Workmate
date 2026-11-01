@@ -1,17 +1,21 @@
 import { useStore } from '@nanostores/react'
 import { useEffect, useRef, useState } from 'react'
 
-import { DecodeText } from '@/components/ui/decode-text'
 import { useI18n } from '@/i18n'
+import { BRAND_MARK_PATHS, BRAND_MARK_VIEWBOX } from '@/lib/brand-mark-path'
 import { cn } from '@/lib/utils'
 import { $desktopBoot } from '@/store/boot'
 import { $gatewaySwitching } from '@/store/gateway-switch'
 import { $gatewayState } from '@/store/session'
 
-// Decode mechanics live in the shared <DecodeText> primitive
-// (components/ui/decode-text.tsx). The line comes from the catalog
-// (`boot.connecting`): its `word` stays legible throughout — only the `target`
-// decodes — so the splash always says what it's doing, in the app's language.
+// The connect screen, the way a Mac starts up: the AgentX mark large in the
+// middle, one plain line from the catalog (`boot.connecting`) under it, and a
+// slim progress track below that. The mark draws itself in one pen stroke as
+// the screen arrives, then breathes slowly while the track's bar glides
+// across (indeterminate — the gateway gives no honest percentage). All three
+// motions are transform/opacity/dash only, and reduced motion holds them
+// still. The group fades in after a short beat (a fast connect never flashes
+// it) and settles out with a fade and a slight lift.
 
 // Exit choreography (ms): text fades down + out, hold, then the overlay fades.
 const TEXT_OUT_MS = 360
@@ -46,8 +50,7 @@ export function GatewayConnectingOverlay() {
   const boot = useStore($desktopBoot)
   const gatewaySwitching = useStore($gatewaySwitching)
   const { t } = useI18n()
-  const text = `${t.boot.connecting.word}${t.boot.connecting.target}`
-  const prefix = t.boot.connecting.word.length
+  const text = `${t.boot.connecting.word}${t.boot.connecting.target}…`
   const [previewing] = useState(forcedPreview)
   const reduce = prefersReducedMotion()
   // Under reduced motion, skip the multi-phase exit choreography (text-out →
@@ -146,23 +149,45 @@ export function GatewayConnectingOverlay() {
   return (
     <div
       className={cn(
-        'fixed inset-0 z-(--z-connecting) grid place-items-center bg-(--ui-chat-surface-background) transition-opacity duration-500 ease-out',
+        'fixed inset-0 z-(--z-connecting) grid place-items-center bg-(--ui-chat-surface-background) transition-opacity duration-(--dur-long) ease-(--ease-in)',
         overlayHidden ? 'pointer-events-none opacity-0' : 'opacity-100'
       )}
     >
-      <DecodeText
-        active={phase === 'live' && (previewing || connecting)}
-        className={cn(
-          // Display-serif slot 3 of 3 (see DESIGN.md) — the same face and size
-          // as the home greeting, so boot hands off to a room it matches.
-          'font-serif-display text-2xl text-(--theme-primary) transition duration-(--dur-long) ease-out',
-          leaving ? 'translate-y-2 opacity-0 saturate-0' : 'translate-y-0 opacity-100 saturate-100'
-        )}
-        cursor
-        mono={false}
-        prefix={prefix}
-        text={text}
-      />
+      {/* Two layers so the two motions keep their own timing: the outer one
+          arrives (a 150ms beat first, so a warm connect shows nothing), the
+          inner one settles out (fade + slight scale on the exit curve). */}
+      <div className="animate-in fade-in-0 slide-in-from-bottom-1 fill-mode-both delay-150 duration-(--dur-long) ease-(--ease-out)">
+        <div
+          className={cn(
+            'flex flex-col items-center transition-[opacity,scale] duration-(--dur-long) ease-(--ease-in)',
+            leaving ? 'scale-[1.02] opacity-0' : 'scale-100 opacity-100'
+          )}
+          data-slot="connecting-splash"
+          role="status"
+        >
+          <svg
+            aria-hidden="true"
+            className="connect-mark size-22 text-(--text-primary)"
+            data-slot="connect-mark"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            viewBox={BRAND_MARK_VIEWBOX}
+          >
+            {/* Same inset as BrandGlyph; the stroke is in box units (≈3px at 88px). */}
+            <g strokeWidth={3.9} transform="translate(6 6) scale(0.88)">
+              {BRAND_MARK_PATHS.map(d => (
+                <path className="connect-mark-stroke" d={d} key={d} pathLength={1} />
+              ))}
+            </g>
+          </svg>
+          <p className="m-0 mt-7 text-lg text-(--text-secondary)">{text}</p>
+          <div aria-hidden="true" className="connect-track" data-slot="connect-track">
+            <div className="connect-track-bar" />
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

@@ -96,6 +96,35 @@ def test_resolved_custom_sessions_must_match_gateway_endpoint(account_home):
         )
 
 
+@pytest.mark.parametrize(
+    "saved",
+    ["https://aigw.dev-server.cloud/v1", "https://aigw.dev-server.cloud", "HTTPS://AIGW.DEV-SERVER.CLOUD/v1/"],
+)
+def test_a_chat_saved_before_the_gateway_moved_goes_to_the_gateway(account_home, saved):
+    """The retired address is accepted as the gateway and never used: the
+    request goes to the address on record."""
+    assert account_inference().allows("custom", saved)
+    runtime = resolve_runtime_provider(requested="custom", explicit_base_url=saved)
+    assert runtime["base_url"] == "https://gateway.test/v1"
+    assert runtime["api_key"] == "sk-test-account-gateway-key"
+
+
+@pytest.mark.parametrize(
+    "other",
+    [
+        "http://aigw.dev-server.cloud/v1",
+        "https://aigw.dev-server.cloud:8443/v1",
+        "https://aigw.dev-server.cloud/other",
+        "https://evil.aigw.dev-server.cloud/v1",
+        "https://other.test/v1",
+    ],
+)
+def test_only_the_retired_address_itself_passes_as_the_gateway(account_home, other):
+    assert not account_inference().allows("custom", other)
+    with pytest.raises(ValueError, match="only use models through"):
+        resolve_runtime_provider(requested="custom", explicit_base_url=other)
+
+
 def test_missing_key_never_autodetects_another_provider(account_home, monkeypatch):
     monkeypatch.delenv("COMPANY_AI_API_KEY")
     with pytest.raises(ValueError, match="not configured for this account"):

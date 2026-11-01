@@ -1,0 +1,344 @@
+/* ─────────────────────────────────────────────────────────────────────────
+   Quiet Tool tokens — the three-tier token architecture of the design spec
+   ("AgentX - Design Spec Quiet Tool" v2.0, §3).
+
+     Primitive  (raw values)     --gray-600: #646460
+        ↓
+     Semantic   (meaning)        --text-secondary: var(--gray-600)
+        ↓
+     Component  (per component)  --ui-row-active-background, --nav-row-*, …
+
+   Components consume the SEMANTIC tier (or a component token built on it) —
+   never a primitive, never a hex. A theme change or dark mode swaps only the
+   semantic tier.
+
+   Two paths feed the semantic tier:
+   · The Quiet skin (the shipped default) pins it straight to the warm-gray
+     primitives below — exact spec values, both modes.
+   · Every other skin (Night Owl, Nous, Midnight, …) keeps its own palette
+     pipeline (`--theme-*` seeds → `--ui-*` in styles.css) and the semantic tier
+     reads from that, so new components written against the spec names still
+     paint correctly under a legacy skin.
+
+   Contrast for the Quiet values is the spec's §3.5 table; the gate
+   (scripts/check-theme-contrast.mjs) re-measures the preset on every check.
+   ───────────────────────────────────────────────────────────────────────── */
+
+@layer base {
+  :root {
+    /* Primitive — warm gray ladder (§3.2). */
+    --gray-0: #ffffff;
+    --gray-50: #f7f7f5;
+    --gray-100: #f0f0ee;
+    --gray-150: #eaeae7;
+    --gray-200: #e2e2df;
+    --gray-300: #cececa;
+    --gray-400: #b3b3ae;
+    --gray-500: #8b8b86;
+    --gray-600: #646460;
+    --gray-700: #4f4f4c;
+    --gray-750: #3f3f3d;
+    --gray-800: #333331;
+    --gray-850: #2a2a29;
+    --gray-900: #232322;
+    --gray-950: #1c1c1b;
+    --gray-1000: #141413;
+
+    --blue-400: #6b9bf7;
+    --blue-500: #2563eb;
+    --blue-600: #1d4fc4;
+    --blue-300: #8db3f9;
+    --amber-600: #a15c07;
+    --amber-400: #e0a44a;
+    --amber-50: #fdf3e4;
+    --amber-950: #3a2e1c;
+    --red-600: #c8372d;
+    --red-400: #f07167;
+    --red-50: #fcebe9;
+    --red-950: #3d2321;
+    --green-600: #2e7d4f;
+    --green-400: #5bbf86;
+    --clay-500: #d97757;
+    --clay-400: #e08a6c;
+
+    /* Semantic — read from the active skin's pipeline. The Quiet skin
+       overrides every one of these with a primitive (blocks below). */
+    --bg-app: var(--ui-bg-chrome);
+    --bg-subtle: var(--ui-bg-quaternary);
+    --bg-raised: var(--ui-bg-elevated);
+    --bg-hover: var(--ui-row-hover-background);
+    --bg-selected: var(--ui-row-active-background);
+    --bg-pressed: var(--ui-control-active-background);
+    --bg-inverse: var(--theme-foreground);
+
+    --border-subtle: var(--ui-stroke-quaternary);
+    --border-default: var(--ui-stroke-tertiary);
+    --border-strong: var(--ui-stroke-secondary);
+    --border-input: var(--ui-stroke-primary);
+
+    --text-primary: var(--ui-text-primary);
+    --text-secondary: var(--ui-text-secondary);
+    --text-tertiary: var(--ui-text-tertiary);
+    --text-disabled: var(--ui-text-quaternary);
+    --text-inverse: var(--ui-bg-chrome);
+
+    --icon-default: var(--ui-text-secondary);
+    --icon-muted: var(--ui-text-tertiary);
+
+    /* Signals. The semantic trio lives once per mode in styles.css
+       (`--ui-red/-yellow/-green`, stated in OKLCH for the contrast gate) and is
+       the spec's 600 rung in light, the 400 rung in dark. */
+    --accent: var(--ui-accent);
+    --accent-hover: color-mix(in srgb, var(--ui-accent) 82%, var(--ui-base));
+    --warning: var(--ui-yellow);
+    --warning-bg: color-mix(in srgb, var(--ui-yellow) 10%, var(--bg-app));
+    --danger: var(--ui-red);
+    --danger-bg: color-mix(in srgb, var(--ui-red) 9%, var(--bg-app));
+    --success: var(--ui-green);
+    /* Mascot and logo ONLY — 3.1:1 on paper, never text. */
+    --brand: var(--clay-500);
+
+    --selection: color-mix(in srgb, var(--accent) 18%, transparent);
+    --scrim: rgb(0 0 0 / 0.32);
+    /* The command palette's lighter dim (spec §5.12 "scrim nhẹ"). */
+    --scrim-light: rgb(0 0 0 / 0.12);
+    /* The spec states the ring at 60% of the accent; at that strength a 2px
+       blue ring on white lands at 2.6:1, under the WCAG 1.4.11 floor for a
+       focus indicator, so the ring paints the accent at full strength
+       (5.2:1). Clarity outranks quiet (§1, priority order). */
+    --focus-ring: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--accent);
+
+    /* Tile tints (components/ui/icon-tile.tsx) — the platform's system
+       colours a shade quieter, for icon tiles only: never text, never a
+       state. White glyphs on the solid tiles clear 3:1 (icons); in dark the
+       lifted tints are pulled back for solid tiles (see IconTile). */
+    --tint-blue: #2f6fe4;
+    --tint-green: #2e9a58;
+    --tint-orange: #e0761c;
+    --tint-red: #de4b40;
+    --tint-purple: #8257e5;
+    --tint-pink: #d4467e;
+    --tint-teal: #188b9c;
+    --tint-indigo: #5058d4;
+    --tint-yellow: #b07e05;
+    --tint-graphite: #7a7a75;
+
+    /* Elevation levels (§3.9). Flat by default: cards and the composer carry a
+       border, never a shadow. */
+    --elevation-drawer: 0 0 0 1px var(--border-default), 8px 0 24px rgb(0 0 0 / 0.08);
+    --elevation-1: 0 4px 16px rgb(0 0 0 / 0.08), 0 0 0 1px var(--border-default);
+    --elevation-2: 0 16px 48px rgb(0 0 0 / 0.16), 0 0 0 1px var(--border-default);
+  }
+
+  :root.dark {
+    --tint-blue: #4d8df6;
+    --tint-green: #3fb873;
+    --tint-orange: #f08c3a;
+    --tint-red: #ef6157;
+    --tint-purple: #9d7cf2;
+    --tint-pink: #e8689b;
+    --tint-teal: #2fa8b8;
+    --tint-indigo: #7179ea;
+    --tint-yellow: #dca52a;
+    --tint-graphite: #8f8f8a;
+    --brand: var(--clay-400);
+    --scrim: rgb(0 0 0 / 0.56);
+    --scrim-light: rgb(0 0 0 / 0.32);
+    --warning-bg: color-mix(in srgb, var(--ui-yellow) 14%, var(--bg-app));
+    --danger-bg: color-mix(in srgb, var(--ui-red) 14%, var(--bg-app));
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Quiet skin — the semantic tier pinned to primitives (§3.3 / §3.4), and the
+   legacy component tokens (`--ui-*`) pointed back at it so every existing
+   surface paints the spec values without a per-component rewrite.
+
+   Unlayered on purpose: the `:root` / `:root.dark` defaults in styles.css live
+   in `@layer base`, and an unlayered declaration wins over any layered one.
+   No cycles: every `--ui-*` below resolves to a semantic token that this same
+   block pins to a primitive.
+   ───────────────────────────────────────────────────────────────────────── */
+
+:root[data-agentx-theme='quiet'] {
+  --bg-app: var(--gray-0);
+  --bg-subtle: var(--gray-50);
+  --bg-raised: var(--gray-0);
+  --bg-hover: var(--gray-100);
+  --bg-selected: var(--gray-150);
+  --bg-pressed: var(--gray-200);
+  /* Charcoal, not black (review): the filled control reads as a calm dark
+     grey — white on it is 8.2:1. */
+  --bg-inverse: var(--gray-700);
+
+  /* Secondary ink, icons and lines sit one rung firmer than the spec's §3.3
+     (review: on older, lower-density displays the spec's greys washed out).
+     Secondary text 8.2:1, tertiary 5.9:1 — every text tier now clears AA;
+     the input edge 3.4:1 clears the 3:1 boundary floor. */
+  --border-subtle: var(--gray-200);
+  --border-default: var(--gray-300);
+  --border-strong: var(--gray-400);
+  --border-input: var(--gray-500);
+
+  --text-primary: var(--gray-950);
+  --text-secondary: var(--gray-700);
+  --text-tertiary: var(--gray-600);
+  --text-disabled: var(--gray-500);
+  --text-inverse: var(--gray-0);
+
+  --icon-default: var(--gray-800);
+  --icon-muted: var(--gray-600);
+
+  --accent: var(--blue-500);
+  --accent-hover: var(--blue-600);
+  --warning-bg: var(--amber-50);
+  --danger-bg: var(--red-50);
+
+  /* The sidebar sits on its own warm off-white so the navigation column reads
+     as a place, not as more page (a deliberate step past the spec's single
+     --bg-app surface, asked for in review). Its rows get one rung more
+     contrast than the page's, so hover and selection still land on it. */
+  --sidebar-bg: var(--gray-50);
+  --sidebar-row-hover: var(--gray-150);
+  --sidebar-row-selected: var(--gray-200);
+
+  /* Legacy component tokens → semantic tier. */
+  --ui-bg-chrome: var(--bg-app);
+  --ui-bg-sidebar: var(--sidebar-bg);
+  --ui-bg-editor: var(--bg-app);
+  --ui-bg-elevated: var(--bg-raised);
+  --ui-bg-card: var(--bg-app);
+  --ui-bg-input: var(--bg-app);
+  --ui-bg-primary: var(--bg-pressed);
+  --ui-bg-secondary: var(--bg-selected);
+  --ui-bg-tertiary: var(--bg-hover);
+  --ui-bg-quaternary: var(--bg-subtle);
+  --ui-bg-quinary: var(--bg-subtle);
+  --ui-row-hover-background: var(--bg-hover);
+  --ui-row-active-background: var(--bg-selected);
+  --ui-control-hover-background: var(--bg-hover);
+  --ui-control-active-background: var(--bg-selected);
+
+  --ui-text-primary: var(--text-primary);
+  --ui-text-secondary: var(--text-secondary);
+  --ui-text-tertiary: var(--text-tertiary);
+  --ui-text-quaternary: var(--text-disabled);
+  --conversation-scaffold-text: var(--text-secondary);
+  --conversation-scaffold-meta: var(--text-tertiary);
+
+  --ui-stroke-primary: var(--border-strong);
+  --ui-stroke-secondary: var(--border-default);
+  --ui-stroke-tertiary: var(--border-default);
+  --ui-stroke-quaternary: var(--border-subtle);
+  --sidebar-edge-border: var(--border-default);
+  --ui-sash-hover-border: var(--border-strong);
+  --ui-sash-hover-background: var(--bg-hover);
+
+  --ui-scrollbar-thumb: var(--gray-300);
+  --ui-scrollbar-thumb-hover: var(--gray-400);
+  --ui-scrollbar-thumb-overlay: var(--gray-300);
+  --ui-scrollbar-thumb-overlay-hover: var(--gray-400);
+
+  --ui-chat-bubble-background: var(--bg-subtle);
+  --ui-chat-bubble-opaque-background: var(--bg-subtle);
+  --ui-widget-surface-background: var(--bg-app);
+  --ui-terminal-surface-background: var(--bg-app);
+  --ui-inline-code-background: var(--bg-hover);
+  --ui-inline-code-foreground: var(--text-primary);
+  --ui-selection-background: var(--selection);
+
+  --dt-popover: var(--bg-raised);
+  --dt-user-bubble-hover: var(--bg-hover);
+}
+
+:root.dark[data-agentx-theme='quiet'] {
+  --bg-app: var(--gray-950);
+  --bg-subtle: var(--gray-900);
+  --bg-raised: var(--gray-850);
+  --bg-hover: var(--gray-850);
+  --bg-selected: var(--gray-800);
+  --bg-pressed: var(--gray-750);
+  --bg-inverse: var(--gray-200);
+
+  /* One rung firmer than §3.4, as in light. The input edge is the same
+     gray-500 as light: a form field's border is its only boundary, so it must
+     clear 3:1 — 5.0:1 on the page, 4.2:1 on a dialog (gray-600 was 2.9:1). */
+  --border-subtle: var(--gray-800);
+  --border-default: var(--gray-750);
+  --border-strong: var(--gray-700);
+  --border-input: var(--gray-500);
+
+  --text-primary: var(--gray-100);
+  --text-secondary: var(--gray-300);
+  --text-tertiary: var(--gray-400);
+  --text-disabled: var(--gray-600);
+  --text-inverse: var(--gray-950);
+
+  --icon-default: var(--gray-200);
+  --icon-muted: var(--gray-400);
+
+  --accent: var(--blue-400);
+  --accent-hover: var(--blue-300);
+  --warning-bg: var(--amber-950);
+  --danger-bg: var(--red-950);
+
+  /* In dark the sidebar steps DOWN from the page, the macOS source-list way. */
+  --sidebar-bg: var(--gray-1000);
+  --sidebar-row-hover: var(--gray-900);
+  --sidebar-row-selected: var(--gray-800);
+  --ui-bg-sidebar: var(--sidebar-bg);
+
+  /* The sidebar edge is the default hairline in both modes (see presets.ts). */
+  --sidebar-edge-border: var(--border-default);
+
+  --ui-scrollbar-thumb: var(--gray-700);
+  --ui-scrollbar-thumb-hover: var(--gray-600);
+  --ui-scrollbar-thumb-overlay: var(--gray-700);
+  --ui-scrollbar-thumb-overlay-hover: var(--gray-600);
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   High-contrast mode (spec §10: `forced-colors: active` must lose neither
+   edges nor focus). The OS forces box-shadow to none, and every elevation
+   level and the input focus ring here are box-shadows — so floating and
+   bordered surfaces get a real CanvasText border, and focus a Highlight
+   outline. Icons already paint with currentColor.
+   ───────────────────────────────────────────────────────────────────────── */
+@media (forced-colors: active) {
+  :where(
+    [data-slot='dropdown-menu-content'],
+    [data-slot='dropdown-menu-sub-content'],
+    [data-slot='context-menu-content'],
+    [data-slot='select-content'],
+    [data-slot='popover-content'],
+    [data-slot='dialog-content'],
+    [data-slot='toast'],
+    [data-slot='tooltip-content'] > span,
+    [data-slot='composer-surface'],
+    [data-slot='code-card'],
+    [data-slot='store-card']
+  ) {
+    border: 1px solid CanvasText;
+  }
+
+  .desktop-input-chrome:is(:focus, :focus-within, [data-state='open']) {
+    outline: 2px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  :where([data-slot='switch'], [data-slot='checkbox']) {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* Inside the sidebar the row fills use the sidebar's own rungs. Custom
+   properties substitute where they are declared, so every token a row reads
+   is re-pointed here, not only the semantic pair. */
+:root[data-agentx-theme='quiet'] [data-sidebar-surface] {
+  --bg-hover: var(--sidebar-row-hover);
+  --bg-selected: var(--sidebar-row-selected);
+  --ui-row-hover-background: var(--sidebar-row-hover);
+  --ui-row-active-background: var(--sidebar-row-selected);
+  --ui-control-hover-background: var(--sidebar-row-hover);
+  --ui-control-active-background: var(--sidebar-row-selected);
+}

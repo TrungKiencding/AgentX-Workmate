@@ -194,9 +194,7 @@ function IdleView({
           ) : (
             groups.map(group => (
               <div key={group.id}>
-                <p className="text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">
-                  {u.changelogGroups[group.id]}
-                </p>
+                <p className="text-2xs font-medium text-(--ui-text-tertiary)">{u.changelogGroups[group.id]}</p>
                 <ul className="mt-1.5 grid gap-1.5 text-xs text-foreground">
                   {group.items.map(item => (
                     <li className="flex items-start gap-2" key={item}>

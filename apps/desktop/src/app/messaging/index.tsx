@@ -641,7 +641,7 @@ function PlatformRow({
       {pendingCount > 0 && (
         <span
           aria-label={m.pendingAria(pendingCount)}
-          className="inline-flex min-w-4.5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-medium tabular-nums text-[color-mix(in_srgb,var(--ui-red)_var(--status-pill-ink),var(--dt-foreground))] [background:color-mix(in_srgb,var(--ui-red)_var(--status-pill-tint),transparent)]"
+          className="inline-flex min-w-4.5 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-medium tabular-nums bg-(--danger-bg) text-(--danger)"
         >
           {pendingCount}
         </span>

@@ -3,10 +3,10 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { StatusPill } from './status-pill'
 
-// The pill is a dot and a word on a tint of ONE tone colour: every tone must
-// paint from a token (never a Tailwind ramp), the dot must always be there,
-// and the text must be the child — a status is a glyph and a colour, never a
-// hue alone.
+// The status badge is a dot and a word: every tone must paint its dot from a
+// token (never a Tailwind ramp), the dot must always be there, there is no
+// coloured fill, and the text must be the child — a status is a glyph and a
+// colour, never a hue alone.
 
 afterEach(() => {
   cleanup()

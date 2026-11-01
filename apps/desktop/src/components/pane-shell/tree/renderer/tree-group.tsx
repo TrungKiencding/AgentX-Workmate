@@ -15,7 +15,7 @@ import { type CSSProperties, Fragment, type ReactNode, type RefObject, useEffect
 import { ActionsContextMenu, type MenuKit, renderActionItem } from '@/components/ui/actions-menu'
 import { Codicon } from '@/components/ui/codicon'
 import { DecodeText } from '@/components/ui/decode-text'
-import { DROP_SHEET_BLUR_CLASS, DROP_SHEET_CLASS } from '@/components/ui/drop-affordance'
+import { DROP_SHEET_CLASS } from '@/components/ui/drop-affordance'
 import { PANE_TAB_STRIP_LINE_LEFT, PANE_TAB_STRIP_LINE_RIGHT, PaneTab, PaneTabLabel } from '@/components/ui/pane-tab'
 import { ContribBoundary } from '@/contrib/react/boundary'
 import { useContributions } from '@/contrib/react/use-contributions'
@@ -623,10 +623,10 @@ export function TreeGroup({
 
       {/* Body: the zone's pane content — every kept (ever-active) pane stays
           mounted in an absolute layer; only the active one is visible.
-          `visibility` (not display) keeps the hidden pane's layout box, so
-          scroll positions and measurements survive the round-trip — which also
-          makes a hidden layer's rect identical to the visible one's, hence the
-          marker document-wide lookups filter on (see pane-visibility.ts). */}
+          `visibility`(not display) keeps the hidden pane's layout box, so
+ scroll positions and measurements survive the round-trip — which also
+ makes a hidden layer's rect identical to the visible one's, hence the
+ marker document-wide lookups filter on (see pane-visibility.ts). */}
       {!node.minimized && (
         <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
           {isEmpty ? (
@@ -676,8 +676,8 @@ export function TreeGroup({
       )}
 
       {/* Edit-mode veil: the BODY is a drag handle for the active pane. It
-          starts below the header so tabs/headers stay directly interactive
-          (drag any tab, right-click for the zone menu). */}
+ starts below the header so tabs/headers stay directly interactive
+ (drag any tab, right-click for the zone menu). */}
       {editMode && !dragging && !isEmpty && !node.minimized && (
         <ZoneMenu {...zoneMenu}>
           <div
@@ -685,7 +685,7 @@ export function TreeGroup({
             // terminal rail is z-40) — the edit veil must cover all of it.
             // The scrim mixes the accent over the CHROME BG (not transparent)
             // so it properly dims content in dark themes instead of leaving a
-            // barely-tinted wash; the light blur reads as "edit mode" the same
+            // barely-tinted wash; the light blur reads as "edit mode"the same
             // way the zone editor's backdrop does.
             className="absolute inset-x-0 bottom-0 z-50 flex cursor-grab items-center justify-center outline-1 -outline-offset-2 outline-dashed backdrop-blur-[2px]"
             onPointerDown={e => startPaneDrag(activeId, e, undefined, undefined, undefined, active?.title ?? activeId)}
@@ -696,7 +696,7 @@ export function TreeGroup({
               outlineColor: 'color-mix(in srgb, var(--ui-accent) 55%, transparent)'
             }}
           >
-            <span className="flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-md border border-(--ui-stroke-secondary) bg-popover px-2 py-1 text-2xs font-semibold uppercase tracking-[0.16em] text-(--ui-text-secondary)">
+            <span className="flex max-w-[calc(100%-1rem)] items-center gap-1.5 rounded-md border border-(--ui-stroke-secondary) bg-popover px-2 py-1 text-2xs font-semibold text-(--ui-text-secondary)">
               <Codicon className="shrink-0" name="gripper" size="0.8125rem" />
               <span className="min-w-0 truncate">{active?.title ?? activeId}</span>
             </span>
@@ -705,7 +705,7 @@ export function TreeGroup({
       )}
 
       {/* FancyZones drop overlay — its own component so the per-frame drop
-          hint re-renders only this (tiny) node, not the whole zone. */}
+ hint re-renders only this (tiny) node, not the whole zone. */}
       <ZoneDropOverlay node={node} />
     </div>
   )
@@ -717,7 +717,7 @@ export function TreeGroup({
 
 /**
  * The insertion divider for a stack drop: a 2px vertical line at the slot the
- * dragged tab will land in (before `stack.before`, or after the last tab).
+ * dragged tab will land in (before`stack.before`, or after the last tab).
  * Absolute over the strip — pure overlay, zero layout shift. #000 on light,
  * #FFF on dark. Split out so per-pointermove `$dropHint` churn re-renders
  * only this node (same isolation contract as ZoneDropOverlay).
@@ -837,23 +837,16 @@ function ZoneDropOverlay({ node }: { node: GroupNode }) {
       <div
         className={cn(
           DROP_SHEET_CLASS,
-          // Transition ONLY the box + colors. `transition-all` also animated
-          // backdrop-filter, and a blur interpolating while the insets glide
-          // re-blurs half a zone every frame — the single most expensive
-          // paint in the whole drag.
+          // Transition ONLY the box + colors — never `transition-all`.
           'absolute transition-[top,right,bottom,left,background-color,border-color,opacity] duration-(--dur-short-exit) ease-out',
-          // Blur only the live target — idle outlines must not fog the app.
-          active && !centerLink && DROP_SHEET_BLUR_CLASS,
           centerLink && 'opacity-0'
         )}
         style={{
           ...REGION[pos],
-          // Accent over a card wash so the fill dims content on dark themes
-          // (a bare accent alpha disappears there).
-          background: active
-            ? 'color-mix(in srgb, var(--ui-accent) 18%, color-mix(in srgb, var(--dt-card) 55%, transparent))'
-            : 'color-mix(in srgb, var(--ui-accent) 5%, color-mix(in srgb, var(--dt-card) 25%, transparent))',
-          borderColor: `color-mix(in srgb, var(--ui-accent) ${active ? 75 : 28}%, transparent)`
+          // The live target is the one place the accent appears (spec §6.6:
+          // the drop position is drawn in --accent); idle outlines stay quiet.
+          background: active ? 'var(--bg-subtle)' : 'transparent',
+          borderColor: active ? 'var(--accent)' : 'var(--border-default)'
         }}
       />
     </div>

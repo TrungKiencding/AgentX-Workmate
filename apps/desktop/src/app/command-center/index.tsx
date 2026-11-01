@@ -482,9 +482,7 @@ export function CommandCenterView({ initialSection, onClose, onDeleteSession, on
 
               <div className="flex min-h-0 flex-col pt-2">
                 <div className="mb-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-                  <span className="text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">
-                    {cc.recentLogs}
-                  </span>
+                  <span className="text-2xs font-medium text-(--ui-text-tertiary)">{cc.recentLogs}</span>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                     <ResponsiveTabs
                       align="end"
@@ -592,9 +590,7 @@ function UsagePanel({ error, loading, onRefresh, period, usage }: UsagePanelProp
 
       <section>
         <div className="mb-2 flex items-baseline justify-between">
-          <span className="text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">
-            {cc.dailyTokens}
-          </span>
+          <span className="text-2xs font-medium text-(--ui-text-tertiary)">{cc.dailyTokens}</span>
           <span className="flex items-center gap-3 text-2xs text-(--ui-text-tertiary)">
             <span className="inline-flex items-center gap-1">
               <span className="size-2 rounded-[1px] bg-[color:var(--dt-primary)]/60" /> {cc.input}
@@ -676,7 +672,7 @@ function UsageList({
 }) {
   return (
     <section className="min-w-0">
-      <div className="mb-1.5 text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">{title}</div>
+      <div className="mb-1.5 text-2xs font-medium text-(--ui-text-tertiary)">{title}</div>
       {rows.length === 0 ? (
         <div className="text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
           {emptyLabel}
@@ -698,7 +694,7 @@ function UsageList({
 function UsageStat({ hint, label, value }: { hint?: string; label: string; value: string }) {
   return (
     <div className="min-w-0">
-      <div className="text-2xs font-medium uppercase tracking-label text-(--ui-text-tertiary)">{label}</div>
+      <div className="text-2xs font-medium text-(--ui-text-tertiary)">{label}</div>
       {/* Columnar figures: `tabular-nums` so the row of stats keeps its column
           edges as the numbers tick. */}
       <div className="mt-1 truncate text-lg font-semibold tabular-nums text-foreground">{value}</div>

@@ -443,7 +443,7 @@ const MARKDOWN_CONTAINER_CLASS_NAME = cn(
   'prose-headings:text-foreground prose-strong:text-foreground',
   'prose-a:break-words prose-p:[overflow-wrap:anywhere]',
   'prose-li:marker:text-muted-foreground/70',
-  'prose-code:rounded-[0.25rem] prose-code:px-[0.1875rem] prose-code:py-px prose-code:font-mono prose-code:text-[0.9em] prose-code:font-normal prose-code:before:content-none prose-code:after:content-none',
+  'prose-code:rounded-sm prose-code:px-[5px] prose-code:py-px prose-code:font-mono prose-code:text-[0.92em] prose-code:font-normal prose-code:before:content-none prose-code:after:content-none',
   '[&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&>*+*]:mt-(--paragraph-gap)'
 )
 
@@ -560,10 +560,12 @@ function MarkdownTextSurface({
           <li className={cn('leading-(--conversation-prose-line-height)', className)} {...props} />
         ),
         table: ({ className, ...props }: ComponentProps<'table'>) => (
-          <div className="aui-md-table my-2 max-w-full overflow-x-auto rounded-(--radius-control) border border-(--ui-stroke-tertiary)">
+          // Spec §5.19: a --border-default frame with 12px corners, scrolling
+          // sideways inside the block; 36px rows split by --border-subtle.
+          <div className="aui-md-table my-3 max-w-full overflow-x-auto rounded-lg border border-(--border-default)">
             <table
               className={cn(
-                'm-0 w-full min-w-[18rem] border-collapse text-[length:var(--conversation-caption-font-size)] [&_tr]:border-b [&_tr]:border-(--ui-stroke-tertiary) last:[&_tr]:border-0',
+                'm-0 w-full min-w-[18rem] border-collapse text-base tabular-nums [&_tr]:border-b [&_tr]:border-(--border-subtle) last:[&_tr]:border-0',
                 className
               )}
               {...props}
@@ -571,25 +573,19 @@ function MarkdownTextSurface({
           </div>
         ),
         thead: ({ className, ...props }: ComponentProps<'thead'>) => (
-          <thead className={cn('m-0 bg-muted/35 text-muted-foreground', className)} {...props} />
+          <thead className={cn('m-0 bg-(--bg-subtle) text-(--text-primary)', className)} {...props} />
         ),
         th: ({ className, ...props }: ComponentProps<'th'>) => (
           <th
             className={cn(
-              'whitespace-nowrap px-2.5 py-1.5 text-left align-middle text-[length:var(--conversation-tool-font-size)] font-medium text-muted-foreground',
+              'h-9 whitespace-nowrap px-3 text-left align-middle text-base font-medium text-(--text-primary)',
               className
             )}
             {...props}
           />
         ),
         td: ({ className, ...props }: ComponentProps<'td'>) => (
-          <td
-            className={cn(
-              'px-2.5 py-1.5 align-top text-[length:var(--conversation-caption-font-size)] leading-snug',
-              className
-            )}
-            {...props}
-          />
+          <td className={cn('h-9 px-3 py-2 align-top text-base leading-5', className)} {...props} />
         ),
         img: MarkdownImage,
         // ```mermaid / ```svg fences route to their lazy renderers; substantial

@@ -1521,7 +1521,9 @@ def delete_profile(name: str, yes: bool = False) -> Path:
     ]
 
     # Check for service
-    wrapper_path = _get_wrapper_dir() / canon
+    wrapper_dir = _get_wrapper_dir()
+    wrapper_candidates = (wrapper_dir / canon, wrapper_dir / f"{canon}.bat")
+    wrapper_path = next((c for c in wrapper_candidates if c.exists()), wrapper_candidates[0])
     has_wrapper = wrapper_path.exists()
     if has_wrapper:
         items.append(f"Command alias ({wrapper_path})")

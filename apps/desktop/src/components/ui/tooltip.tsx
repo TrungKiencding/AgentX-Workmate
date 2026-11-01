@@ -20,11 +20,10 @@ const HasTooltipProvider = React.createContext(false)
 
 function TooltipProvider({
   delayDuration = 0,
-  // Radix's "skip" grace: after one tip opens, every trigger touched within
-  // this window opens INSTANTLY, delay bypassed. Its 300ms default meant a
-  // cursor sweeping the chrome still flashed a trail of tips despite the
-  // hover delay. Zero it so each tip independently honors `delayDuration`.
-  skipDelayDuration = 0,
+  // Radix's "skip" grace: once a tip is showing, the next trigger touched
+  // within this window opens INSTANTLY (Quiet Tool spec §5.13) — reading along
+  // a toolbar is one gesture, not a 500ms wait per button.
+  skipDelayDuration = 300,
   // Tips are labels, not interactive surfaces. Hoverable content + Radix's
   // pointer-grace bridge is what leaves tips stuck open — especially over
   // Electron `-webkit-app-region: drag` chrome where pointermove never fires
@@ -102,23 +101,25 @@ function TooltipContent({
         // Transparent, width-capped wrapper. The visible chip is the inner inline
         // span so `box-decoration-break: clone` gives a marker-style background
         // that hugs EACH wrapped line (bg only on the text, ragged right — no
-        // rectangular dead space). No fade transition — once the hover delay
-        // elapses the chip appears at once.
+        // rectangular dead space). Fades in over 120ms once the hover delay
+        // elapses and out over 80ms (spec §3.11) — opacity only, no transform.
         // pointer-events-none: the tip must never steal hover/clicks from the
         // chrome underneath (titlebar tools, adjacent tabs, etc.).
-        className={cn('pointer-events-none z-(--z-over-modal) w-fit max-w-64 select-none', className)}
+        className={cn(
+          'pointer-events-none z-(--z-over-modal) w-fit max-w-64 select-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:duration-(--dur-micro-exit) data-[state=delayed-open]:animate-in data-[state=delayed-open]:fade-in-0 data-[state=delayed-open]:duration-(--dur-micro)',
+          className
+        )}
         data-slot="tooltip-content"
         sideOffset={sideOffset}
         {...props}
       >
-        {/* bg-foreground/text-background auto-inverts per theme. leading-normal
-            keeps lines readable; py-1 makes the cloned line-boxes overlap just
-            enough to read as one continuous fill (no gaps between lines). */}
+        {/* --bg-inverse / --text-inverse (spec §5.13): 12/16 caption, 4×8
+            padding, 6px corners, no arrow. */}
         {/* [&>*]:!inline-flex: a block-level label child (e.g. `flex`) collapses
             this inline decoration's geometry, so Radix measures a zero-size chip
             and parks an empty rectangle in the corner (#62022). Force any direct
             child inline-flex so every call site stays safe. */}
-        <span className="box-decoration-clone inline bg-foreground px-1.5 py-1 text-2xs font-bold leading-normal text-background [font-family:Arial,sans-serif] [&>*]:!inline-flex">
+        <span className="block w-fit rounded-sm bg-(--bg-inverse) px-2 py-1 text-xs leading-4 text-(--text-inverse) [&>*]:!inline-flex">
           {children}
         </span>
       </TooltipPrimitive.Content>
@@ -201,7 +202,7 @@ function TipHintLabel({ text, hint }: TipHintLabelProps) {
   return (
     <span className="inline-flex items-center gap-2">
       <span>{text}</span>
-      <span className="opacity-55">{hint}</span>
+      <span className="opacity-60">{hint}</span>
     </span>
   )
 }

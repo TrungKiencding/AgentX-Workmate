@@ -5,36 +5,32 @@ import { Checkbox } from './checkbox'
 
 /**
  * The indicator stacks both glyphs and hides one with a utility class, so the
- * cascade — not the markup — decides what the user sees. codicon.css sets
- * `display: inline-block` on `.codicon[class*='codicon-']`, which outranks a
- * single-class utility and paints the check and the dash at the same time.
- * That specificity race is the real contract, so the test carries both
- * stylesheets rather than asserting on class strings. Tailwind's nested output
- * is flattened to the equivalent descendant selector because jsdom does not
- * implement CSS nesting.
+ * cascade — not the markup — decides what the user sees: the state variant has
+ * to outrank the bare `hidden`. That race is the real contract, so the test
+ * carries the stylesheet rather than asserting on class strings. Tailwind's
+ * nested output is flattened to the equivalent descendant selector because
+ * jsdom does not implement CSS nesting.
  */
-const CODICON_CSS = `.codicon[class*='codicon-'] { display: inline-block; }`
-
 const TAILWIND_CSS = `
-  .hidden\\! { display: none !important; }
-  :where(.group)[data-state="checked"] .group-data-\\[state\\=checked\\]\\:block\\! {
-    display: block !important;
+  .hidden { display: none; }
+  :where(.group)[data-state="checked"] .group-data-\\[state\\=checked\\]\\:block {
+    display: block;
   }
-  :where(.group)[data-state="indeterminate"] .group-data-\\[state\\=indeterminate\\]\\:block\\! {
-    display: block !important;
+  :where(.group)[data-state="indeterminate"] .group-data-\\[state\\=indeterminate\\]\\:block {
+    display: block;
   }
 `
 
 function shownGlyphs(container: HTMLElement) {
-  return [...container.querySelectorAll<HTMLElement>('.codicon')]
+  return [...container.querySelectorAll<SVGElement>('svg.tabler-icon')]
     .filter(glyph => getComputedStyle(glyph).display !== 'none')
-    .map(glyph => (glyph.classList.contains('codicon-check') ? 'check' : 'dash'))
+    .map(glyph => (glyph.classList.contains('tabler-icon-check') ? 'check' : 'dash'))
 }
 
 beforeAll(() => {
   // eslint-disable-next-line no-restricted-globals -- the cascade is the assertion; it needs a real stylesheet
   const style = document.createElement('style')
-  style.textContent = `${CODICON_CSS}\n${TAILWIND_CSS}`
+  style.textContent = TAILWIND_CSS
   // eslint-disable-next-line no-restricted-globals -- see above
   document.head.append(style)
 })

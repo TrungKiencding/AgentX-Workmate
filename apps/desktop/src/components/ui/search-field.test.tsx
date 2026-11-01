@@ -20,12 +20,12 @@ describe('SearchField', () => {
     expect(textbox().parentElement?.className).toContain('opacity-30')
   })
 
-  it('field: the whole well is a label in the shared input chrome, legible at rest', () => {
+  it('field: the whole well is a label sized as a sidebar nav row, legible at rest', () => {
     render(<SearchField onChange={vi.fn()} placeholder="Search" value="" variant="field" />)
 
     const well = textbox().closest('label')
 
-    expect(well?.className).toContain('desktop-input-chrome')
+    expect(well?.className).toContain('h-(--sidebar-nav-row-height)')
     expect(well?.className).not.toContain('opacity-30')
   })
 
