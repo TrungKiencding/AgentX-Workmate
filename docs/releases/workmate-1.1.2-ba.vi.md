@@ -31,6 +31,7 @@ Workmate 1.1.2 mang đến diện mạo mới **Quiet**: yên tĩnh, dễ đọc
 | Lời chào và màn hình kết nối | Lời chào hiện đủ họ tên; màn hình kết nối làm mới với logo tự vẽ. Menu, hộp thoại và thông báo có hiệu ứng mở mượt. |
 | Trợ năng | Nút **Bỏ qua đến nội dung** khi điều hướng bằng phím Tab; trình đọc màn hình báo khi AgentX trả lời xong; viền ô nhập ở chế độ tối rõ hơn. |
 | Thuật ngữ thống nhất | Tiếng Việt dùng nhất quán “cuộc trò chuyện”. |
+| WebMate 1.0.14 đi kèm | Dùng địa chỉ mới của AI Gateway; khi gateway không phản hồi, WebMate tự hỏi dịch vụ cấp key để lấy địa chỉ hiện tại thay vì báo ngoại tuyến. |
 
 ## Các lỗi đã sửa
 
@@ -67,7 +68,7 @@ Cần nêu rõ để bộ phận hỗ trợ trả lời được người dùng:
 - Có bộ cài cho **macOS Apple Silicon (ARM64)** và **Windows x64**. Không quảng bá là đã hỗ trợ macOS Intel hoặc Windows ARM64.
 - Xác thực hệ điều hành không đổi: macOS dùng chữ ký ad-hoc, chưa có Apple notarization; bộ cài Windows chưa có chữ ký Authenticode.
 - Nâng cấp bằng cách **cài đè lên bản hiện tại** hoặc cập nhật trong ứng dụng, giữ hội thoại, cấu hình, bộ nhớ và thông tin đăng nhập. Không hướng dẫn gỡ bản cũ trước. Windows 1.0.x cần tải bộ cài mới và cài đè một lần.
-- **WebMate vẫn là 1.0.13**, không đổi so với 1.1.1. Không giới thiệu như một cập nhật WebMate mới.
+- **WebMate 1.0.14** là bản sửa kết nối AI Gateway, không có tính năng mới. Không quảng bá như một bản nâng cấp tính năng WebMate.
 - **Không có** công tắc “chế độ tương phản cao” trong ứng dụng. Ứng dụng chỉ giữ viền và focus khi chế độ tương phản của hệ điều hành bật.
 - **Data Hub không có trong bản này.** Không nhắc đến, kể cả khi thấy trong lịch sử thay đổi.
 - Không nói bản này nhanh hơn hay nhẹ hơn: không có phép đo hiệu năng đáng quảng bá. Quiet là thay đổi về thiết kế.
