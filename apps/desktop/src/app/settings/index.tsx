@@ -173,112 +173,113 @@ export function SettingsView({ onClose, onConfigSaved, onMainModelChanged }: Set
   }
 
   const navGroups: OverlayNavGroup[] = useMemo(
-    () => [
-      ...SECTIONS.map(s => {
-        const view = `config:${s.id}` as SettingsViewId
+    () =>
+      [
+        ...SECTIONS.map(s => {
+          const view = `config:${s.id}` as SettingsViewId
 
-        return {
-          active: activeView === view,
-          icon: s.icon,
-          id: view,
-          label: t.settings.sections[s.id] ?? s.label,
-          onSelect: () => setActiveView(view)
-        }
-      }),
-      {
-        active: activeView === 'notifications',
-        icon: Bell,
-        id: 'notifications',
-        label: t.settings.nav.notifications,
-        onSelect: () => setActiveView('notifications')
-      },
-      // AgentX WebMate — the browser extension (apps/desktop/WEBMATE-INTEGRATION-PLAN.md §5).
-      {
-        active: activeView === 'browser',
-        icon: AppWindow,
-        id: 'browser',
-        label: t.settings.nav.browser,
-        onSelect: () => setActiveView('browser')
-      },
-      // Billing is hidden for now — see BILLING_ENABLED.
-      ...(BILLING_ENABLED
-        ? [
-            {
-              active: activeView === 'billing',
-              icon: BarChart3,
-              id: 'billing',
-              label: t.settings.nav.billing,
-              onSelect: () => setActiveView('billing')
-            }
-          ]
-        : []),
-      {
-        active: activeView === 'gateway',
-        icon: Globe,
-        id: 'gateway',
-        label: t.settings.nav.gateway,
-        onSelect: () => setActiveView('gateway')
-      },
-      {
-        active: activeView === 'account',
-        icon: UserCircle,
-        id: 'account',
-        label: t.settings.nav.account,
-        onSelect: () => setActiveView('account')
-      },
-      {
-        active: activeView === 'keybinds',
-        icon: Keyboard,
-        id: 'keybinds',
-        label: t.settings.nav.keybinds,
-        onSelect: () => setActiveView('keybinds')
-      },
-      {
-        active: activeView === 'keys',
-        children: [
-          {
-            active: activeView === 'keys' && keysView === 'tools',
-            icon: Wrench,
-            id: 'kview:tools',
-            label: t.settings.nav.keysTools,
-            onSelect: () => openKeysView('tools')
-          },
-          {
-            active: activeView === 'keys' && keysView === 'settings',
-            icon: Settings2,
-            id: 'kview:settings',
-            label: t.settings.nav.keysSettings,
-            onSelect: () => openKeysView('settings')
+          return {
+            active: activeView === view,
+            icon: s.icon,
+            id: view,
+            label: t.settings.sections[s.id] ?? s.label,
+            onSelect: () => setActiveView(view)
           }
-        ],
-        icon: KeyRound,
-        id: 'keys',
-        label: t.settings.nav.apiKeys,
-        onSelect: () => setActiveView('keys')
-      },
-      {
-        active: activeView === 'plugins',
-        icon: Package,
-        id: 'plugins',
-        label: t.settings.nav.plugins,
-        onSelect: () => setActiveView('plugins')
-      },
-      {
-        active: activeView === 'sessions',
-        icon: Archive,
-        id: 'sessions',
-        label: t.settings.nav.archivedChats,
-        onSelect: () => setActiveView('sessions')
-      },
-      {
-        active: activeView === 'about',
-        gapBefore: true,
-        icon: Info,
-        id: 'about',
-        label: t.settings.nav.about,
-        onSelect: () => setActiveView('about')
-      }
-    ].map(group => ({ ...group, tint: SETTINGS_TINTS[group.id] })),
+        }),
+        {
+          active: activeView === 'notifications',
+          icon: Bell,
+          id: 'notifications',
+          label: t.settings.nav.notifications,
+          onSelect: () => setActiveView('notifications')
+        },
+        // AgentX WebMate — the browser extension (apps/desktop/WEBMATE-INTEGRATION-PLAN.md §5).
+        {
+          active: activeView === 'browser',
+          icon: AppWindow,
+          id: 'browser',
+          label: t.settings.nav.browser,
+          onSelect: () => setActiveView('browser')
+        },
+        // Billing is hidden for now — see BILLING_ENABLED.
+        ...(BILLING_ENABLED
+          ? [
+              {
+                active: activeView === 'billing',
+                icon: BarChart3,
+                id: 'billing',
+                label: t.settings.nav.billing,
+                onSelect: () => setActiveView('billing')
+              }
+            ]
+          : []),
+        {
+          active: activeView === 'gateway',
+          icon: Globe,
+          id: 'gateway',
+          label: t.settings.nav.gateway,
+          onSelect: () => setActiveView('gateway')
+        },
+        {
+          active: activeView === 'account',
+          icon: UserCircle,
+          id: 'account',
+          label: t.settings.nav.account,
+          onSelect: () => setActiveView('account')
+        },
+        {
+          active: activeView === 'keybinds',
+          icon: Keyboard,
+          id: 'keybinds',
+          label: t.settings.nav.keybinds,
+          onSelect: () => setActiveView('keybinds')
+        },
+        {
+          active: activeView === 'keys',
+          children: [
+            {
+              active: activeView === 'keys' && keysView === 'tools',
+              icon: Wrench,
+              id: 'kview:tools',
+              label: t.settings.nav.keysTools,
+              onSelect: () => openKeysView('tools')
+            },
+            {
+              active: activeView === 'keys' && keysView === 'settings',
+              icon: Settings2,
+              id: 'kview:settings',
+              label: t.settings.nav.keysSettings,
+              onSelect: () => openKeysView('settings')
+            }
+          ],
+          icon: KeyRound,
+          id: 'keys',
+          label: t.settings.nav.apiKeys,
+          onSelect: () => setActiveView('keys')
+        },
+        {
+          active: activeView === 'plugins',
+          icon: Package,
+          id: 'plugins',
+          label: t.settings.nav.plugins,
+          onSelect: () => setActiveView('plugins')
+        },
+        {
+          active: activeView === 'sessions',
+          icon: Archive,
+          id: 'sessions',
+          label: t.settings.nav.archivedChats,
+          onSelect: () => setActiveView('sessions')
+        },
+        {
+          active: activeView === 'about',
+          gapBefore: true,
+          icon: Info,
+          id: 'about',
+          label: t.settings.nav.about,
+          onSelect: () => setActiveView('about')
+        }
+      ].map(group => ({ ...group, tint: SETTINGS_TINTS[group.id] })),
     [activeView, keysView, t, setActiveView, openKeysView]
   )
 

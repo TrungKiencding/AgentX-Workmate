@@ -419,7 +419,11 @@ describe('syncMcpReload (revision-aware ack)', () => {
 
   // #141769: a refused revision (one parked MCP server) was re-sent every 5 s poll forever.
   it('backs off a refused revision instead of retrying it every poll tick', async () => {
-    const gw = { request: vi.fn(() => Promise.reject(new Error('mcp_servers_unavailable'))), on: vi.fn(), off: vi.fn() } as any
+    const gw = {
+      request: vi.fn(() => Promise.reject(new Error('mcp_servers_unavailable'))),
+      on: vi.fn(),
+      off: vi.fn()
+    } as any
     const state = freshState()
     let clock = 0
     const now = () => clock

@@ -216,10 +216,7 @@ describe('deviceHeaders', () => {
     // The service answers a MISSING device header with a clear 400. A
     // malformed one is a case nobody has thought about.
     assert.deepEqual(deviceHeaders(null), {})
-    assert.deepEqual(
-      deviceHeaders({ id: 'not-a-uuid', name: 'x', createdAt: '' }),
-      {}
-    )
+    assert.deepEqual(deviceHeaders({ id: 'not-a-uuid', name: 'x', createdAt: '' }), {})
   })
 
   test('re-sanitizes the stored name on the way out', () => {
@@ -251,8 +248,12 @@ describe('durable device identity', () => {
 
     const io = memoryIo('{truncated', {
       readBackupText: () => backup,
-      writeBackupText: value => { backup = value },
-      newId: () => { throw new Error('recovery must not mint an ID') }
+      writeBackupText: value => {
+        backup = value
+      },
+      newId: () => {
+        throw new Error('recovery must not mint an ID')
+      }
     })
 
     const recovered = readDeviceRecord(io)
@@ -268,8 +269,12 @@ describe('durable device identity', () => {
 
     const io = memoryIo(null, {
       readBackupText: () => backup,
-      writeBackupText: value => { backup = value },
-      writeText: () => { throw new Error('failed write') }
+      writeBackupText: value => {
+        backup = value
+      },
+      writeText: () => {
+        throw new Error('failed write')
+      }
     })
 
     const first = readDeviceRecord(io)
@@ -282,7 +287,9 @@ describe('durable device identity', () => {
     const before = readDeviceRecord(memoryIo())
 
     const io = memoryIo(JSON.stringify({ ...before, id: before.id.toUpperCase() }), {
-      newId: () => { throw new Error('existing UUID must be preserved') }
+      newId: () => {
+        throw new Error('existing UUID must be preserved')
+      }
     })
 
     assert.equal(readDeviceRecord(io).id, before.id)

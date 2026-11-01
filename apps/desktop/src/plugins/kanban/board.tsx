@@ -295,12 +295,8 @@ function Card({
           {(arc === 'running' || arc === 'stale') && !dragging && !selected && (
             <span aria-hidden className={cn('kanban-arc', arc === 'stale' && 'kanban-arc--stale')} />
           )}
-          <span className="line-clamp-2 text-sm font-medium leading-snug text-foreground">
-            {task.title || task.id}
-          </span>
-          {summary && (
-            <span className="line-clamp-2 text-2xs leading-snug text-(--ui-text-tertiary)">{summary}</span>
-          )}
+          <span className="line-clamp-2 text-sm font-medium leading-snug text-foreground">{task.title || task.id}</span>
+          {summary && <span className="line-clamp-2 text-2xs leading-snug text-(--ui-text-tertiary)">{summary}</span>}
           <CardFooter arc={arc} task={task} />
         </div>
       </ContextMenuTrigger>
@@ -430,9 +426,7 @@ function Column({
         <span className="grid h-5 shrink-0 place-items-center">
           <span className="size-1.5 rounded-full" style={{ backgroundColor: meta.tone }} />
         </span>
-        <span className="text-2xs font-medium text-(--ui-text-tertiary) [writing-mode:vertical-rl]">
-          {label}
-        </span>
+        <span className="text-2xs font-medium text-(--ui-text-tertiary) [writing-mode:vertical-rl]">{label}</span>
         {column.tasks.length > 0 && (
           <span className="text-2xs tabular-nums text-(--ui-text-quaternary)">{column.tasks.length}</span>
         )}
@@ -448,9 +442,7 @@ function Column({
       <header className="mb-1.5 flex h-5 items-center gap-1.5 px-1">
         <span className="size-1.5 rounded-full" style={{ backgroundColor: meta.tone }} />
         <Tip label={columnHelp(k, column.name)}>
-          <span className="cursor-help text-2xs font-medium text-(--ui-text-tertiary)">
-            {label}
-          </span>
+          <span className="cursor-help text-2xs font-medium text-(--ui-text-tertiary)">{label}</span>
         </Tip>
         <span className="text-2xs tabular-nums text-(--ui-text-quaternary)">{column.tasks.length}</span>
         <button

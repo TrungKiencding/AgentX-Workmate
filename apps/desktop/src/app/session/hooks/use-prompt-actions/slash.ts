@@ -668,6 +668,7 @@ export function useSlashCommand(deps: SlashCommandDeps) {
               client_capture: true,
               surface: 'gui'
             })
+
             applyWakeStatus(current)
 
             return current

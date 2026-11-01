@@ -454,7 +454,8 @@ export const ja = defineLocale({
       deviceRevoked: '失効済み',
       deviceRevoke: 'デバイスを失効',
       deviceRevokeConfirmTitle: 'このデバイスを失効しますか？',
-      deviceRevokeConfirmDesc: name => `${name} はアカウントにアクセスできなくなります。このインストールは失効履歴に移動します。`,
+      deviceRevokeConfirmDesc: name =>
+        `${name} はアカウントにアクセスできなくなります。このインストールは失効履歴に移動します。`,
       deviceRotateKey: 'モデルキーも新しく発行する',
       deviceRotateKeyDesc:
         'デバイス間で 1 つのモデルキーを共有しているため、失効させるだけではそのデバイスのモデルアクセスは残ります。他のデバイスは新しいキーを自動で受け取ります。',
@@ -1188,7 +1189,8 @@ export const ja = defineLocale({
       toolsEnabledOf: (on, total) => `${total} 件中 ${on} 件がオン`,
       toolsHint: 'ツールをクリックすると、そのツールだけをオン・オフできます。',
       noTools: 'この接続にはツールがありません。',
-      gatewayServerDesc: 'AgentX AgentHub 上のあなたのサーバーを、ゲートウェイ経由で使います。サインインは一度で済みます。',
+      gatewayServerDesc:
+        'AgentX AgentHub 上のあなたのサーバーを、ゲートウェイ経由で使います。サインインは一度で済みます。',
       gatewayToolsetDesc:
         'AgentX AgentHub でまとめたツールセットを、ゲートウェイ経由で使います。サインインは一度で済みます。',
       gatewayTokenNote: 'このマシンのトークンは .env (AGENTX_HUB_GATEWAY_TOKEN) に保存され、自動で更新されます。',
@@ -1259,7 +1261,8 @@ export const ja = defineLocale({
       hubOpen: 'AgentHub で開く',
       hubRemoved: name => `${name} を外しました。次回の同期で AgentX AgentHub に伝わります。`,
       hubReplace: 'AgentHub の版に置き換える…',
-      hubReplaceConfirm: name => `${name} を AgentX AgentHub の版に置き換えますか？起動コマンドに加えた変更は失われます。`,
+      hubReplaceConfirm: name =>
+        `${name} を AgentX AgentHub の版に置き換えますか？起動コマンドに加えた変更は失われます。`,
       hubModified: 'このマシンで編集済みのため、AgentHub は上書きしません。',
       hubNameTaken: 'このマシンでは別のサーバーがこの名前を使っています。',
       hubNotRegistered: 'AgentX AgentHub には連絡がつき次第伝えます。',
@@ -1743,7 +1746,8 @@ export const ja = defineLocale({
       openHub: 'AgentX AgentHub を開く',
       state: {
         heldPill: 'AgentHub がオフ',
-        held: reason => `AgentX AgentHub がオフにしました：${reason}。オンに戻せるのは AgentHub だけです。削除はできます。`,
+        held: reason =>
+          `AgentX AgentHub がオフにしました：${reason}。オンに戻せるのは AgentHub だけです。削除はできます。`,
         heldNoReason: 'AgentX AgentHub がオフにしました。オンに戻せるのは AgentHub だけです。削除はできます。',
         switchLocked: 'AgentX AgentHub がオフのままにしています',
         archivedPill: '公開停止',
@@ -1774,7 +1778,8 @@ export const ja = defineLocale({
         public: '公開'
       },
       workspace: 'ワークスペース',
-      noWorkspace: 'AgentHub 上のどのワークスペースにも参加していません。AgentHub のワークスペースページで作成してください。',
+      noWorkspace:
+        'AgentHub 上のどのワークスペースにも参加していません。AgentHub のワークスペースページで作成してください。',
       kind: '種類',
       kindAuto: '自動判別',
       kindCore: 'Core (Workmate、Claude Code…)',

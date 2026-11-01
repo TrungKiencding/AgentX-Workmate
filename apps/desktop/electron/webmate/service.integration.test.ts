@@ -33,7 +33,9 @@ async function until(condition: () => boolean, label: string, timeoutMs = 10_000
   const deadline = Date.now() + timeoutMs
 
   while (Date.now() < deadline) {
-    if (condition()) {return}
+    if (condition()) {
+      return
+    }
     await sleep(50)
   }
 
@@ -150,14 +152,20 @@ test.skipIf(!fs.existsSync(chrome))(
       ws.on('message', raw => {
         const msg = JSON.parse(raw.toString())
 
-        if (!msg.action) {return}
+        if (!msg.action) {
+          return
+        }
         seen.push(msg.action)
         ws.send(JSON.stringify({ id: msg.id, ok: true, result: { busy: msg.payload?.resume ? 0 : busy } }))
 
-        if (msg.action === 'workmate_reload') {setTimeout(() => ws.close(), 50)}
+        if (msg.action === 'workmate_reload') {
+          setTimeout(() => ws.close(), 50)
+        }
       })
       ws.on('close', () => {
-        if (!stopped) {setTimeout(dialExternal, 100)}
+        if (!stopped) {
+          setTimeout(dialExternal, 100)
+        }
       })
     }
 

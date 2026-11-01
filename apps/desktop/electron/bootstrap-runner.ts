@@ -1131,6 +1131,7 @@ async function runBootstrap(opts) {
     } catch {
       void 0
     }
+
     await runLog.closed
   }
 }

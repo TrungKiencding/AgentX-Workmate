@@ -5175,7 +5175,9 @@ function restorePersistedZoomLevel(window) {
       // A pre-JSON install's legacy value takes the same one-time move off the
       // retired 125% default.
       const level =
-        stored == null ? DEFAULT_ZOOM_LEVEL : (resolveSavedZoomLevel(Number(stored), undefined).level ?? DEFAULT_ZOOM_LEVEL)
+        stored == null
+          ? DEFAULT_ZOOM_LEVEL
+          : (resolveSavedZoomLevel(Number(stored), undefined).level ?? DEFAULT_ZOOM_LEVEL)
 
       const applied = applyZoomLevel(window.webContents, level)
       writeZoomState(applied)
