@@ -47,7 +47,7 @@ jobs:
       matrix:
         include:
           - name: macOS (dmg + zip)
-            os: macos-14
+            os: macos-15
             artifact: macos
           - name: Windows (nsis)
             os: windows-latest
