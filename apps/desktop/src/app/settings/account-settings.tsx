@@ -4,79 +4,14 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import { EmptyState } from '@/components/ui/empty-state'
-import type { DesktopAccountProvisionResult } from '@/global'
 import { useI18n } from '@/i18n'
 import { Check, LogOut, UserCircle } from '@/lib/icons'
-import { asLicense, licenseReadOnlyMessage } from '@/lib/license'
-import {
-  $accountIsolation,
-  $keycloakAccount,
-  type AccountIsolationState,
-  refreshAccountIsolation,
-  refreshKeycloakAccount,
-  rotateAccountKey,
-  signOutKeycloak
-} from '@/store/account'
+import { $keycloakAccount, refreshKeycloakAccount, signOutKeycloak } from '@/store/account'
 import { refreshLicense } from '@/store/license'
-import { startManualOnboarding } from '@/store/onboarding'
 
 import { DeviceList } from './device-list'
 import { LicenseRow } from './license-row'
 import { ListRow, Pill, SectionHeading, SettingsContent, SettingsSkeleton } from './primitives'
-
-/**
- * One line describing the account's model key.
- *
- * Table-driven over the provisioning status rather than a condition ladder,
- * and it never renders the backend's raw `detail` for the states a user can
- * act on — those get product language. The remaining states fall through to
- * `detail`, which is operator-facing prose naming the setting that is wrong.
- */
-export function describeKey(
-  litellm: NonNullable<AccountIsolationState['litellm']>,
-  copy: ReturnType<typeof useI18n>['t']['settings']['account']
-): string {
-  if (litellm.ok) {
-    return litellm.masked_key ? `${litellm.masked_key} · ${litellm.base_url}` : litellm.base_url
-  }
-
-  const byStatus: Record<string, string> = {
-    disabled: copy.keyDisabled,
-    missing: copy.keyNone,
-    offline: copy.keyOffline,
-    // Not the same sentence as `disabled`, which they used to share. An
-    // install with no model service configured is one somebody has to finish
-    // setting up, and telling the user it "does not issue keys" reads as
-    // settled policy rather than as a thing to chase.
-    unconfigured: copy.keyUnconfigured,
-    // The one status the user has to act on rather than wait out.
-    revoked: copy.keyRevoked
-  }
-
-  return byStatus[litellm.status] || litellm.detail
-}
-
-/**
- * Why a rotation did not happen, for the line under the key row. A refusal
- * because of the AgentX license is said the way the license is everywhere
- * else; anything else is the service's own words.
- */
-export function describeRotateFailure(
-  result: DesktopAccountProvisionResult,
-  t: ReturnType<typeof useI18n>['t']
-): string {
-  const litellm = result.litellm
-
-  if (litellm?.status === 'license_inactive') {
-    const license = asLicense(litellm.license)
-
-    return t.settings.account.keyRotateFailed(
-      license ? licenseReadOnlyMessage(license, t.license) : t.license.readOnlyGeneric
-    )
-  }
-
-  return t.settings.account.keyRotateFailed(litellm?.detail?.trim() || result.error || litellm?.status || '')
-}
 
 /**
  * Settings → Account: who you are signed in to AgentX as, and how to leave.
@@ -88,13 +23,7 @@ export function describeRotateFailure(
 export function AccountSettings() {
   const { t } = useI18n()
   const account = useStore($keycloakAccount)
-  const isolation = useStore($accountIsolation)
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [rotating, setRotating] = useState(false)
-  // Why the last rotation did not happen, in the service's words. Cleared on
-  // the next attempt; a refresh alone cannot clear it, because a refused
-  // rotation leaves the key state exactly as it was.
-  const [rotateError, setRotateError] = useState('')
   const copy = t.settings.account
 
   // Re-read on mount rather than trusting a boot-time snapshot: the main
@@ -102,7 +31,6 @@ export function AccountSettings() {
   // early read reports "not configured" on a perfectly gated install.
   useEffect(() => {
     void refreshKeycloakAccount()
-    void refreshAccountIsolation()
     void refreshLicense()
   }, [])
 
@@ -151,86 +79,16 @@ export function AccountSettings() {
           title={account.signedIn ? name : copy.signedOut}
         />
 
-        <ListRow description={account.issuer || undefined} title={copy.realmTitle} />
-
-        {account.signedIn && isolation.loaded && isolation.account ? (
-          <ListRow
-            // `isolated: false` means this backend is serving the machine's
-            // SHARED home. Saying so is the whole point — a panel that showed
-            // the account name regardless would imply a separation that is not
-            // in place yet.
-            action={
-              isolation.isolated ? (
-                <Pill tone="primary">
-                  <Check className="size-3" />
-                  {isolation.account}
-                </Pill>
-              ) : undefined
-            }
-            description={isolation.isolated ? isolation.home || undefined : copy.homeSharedDesc}
-            hint={
-              isolation.isolated && isolation.home ? (
-                <span data-selectable-text="true">{isolation.account}</span>
-              ) : undefined
-            }
-            title={copy.homeTitle}
-          />
-        ) : null}
-
-        {/* The license sits with who you are, above the key it decides
-            whether you may use. Renders nothing while none is known. */}
+        {/* The license sits with who you are. Renders nothing while none is
+            known. */}
         {account.signedIn ? <LicenseRow /> : null}
-
-        {account.signedIn && isolation.loaded && isolation.litellm ? (
-          <ListRow
-            action={
-              // Rotation only makes sense once a key exists. Offering it against
-              // a disabled or unconfigured install would be a button that
-              // cannot succeed.
-              isolation.litellm.ok ? (
-                <Button
-                  disabled={rotating}
-                  onClick={async () => {
-                    setRotating(true)
-                    setRotateError('')
-
-                    try {
-                      const result = await rotateAccountKey()
-
-                      if (!result.ok) {
-                        setRotateError(describeRotateFailure(result, t))
-                      }
-                    } finally {
-                      setRotating(false)
-                    }
-                  }}
-                  variant="outline"
-                >
-                  {rotating ? copy.keyRotating : copy.keyRotate}
-                </Button>
-              ) : (
-                <Button onClick={() => startManualOnboarding()} variant="outline">
-                  {t.agentxKey.retry}
-                </Button>
-              )
-            }
-            below={
-              rotateError ? (
-                <p className="text-sm text-destructive" role="alert">
-                  {rotateError}
-                </p>
-              ) : undefined
-            }
-            description={describeKey(isolation.litellm, copy)}
-            hint={isolation.litellm.models.length ? copy.keyModels(isolation.litellm.models.length) : undefined}
-            title={copy.keyTitle}
-          />
-        ) : null}
 
         {account.signedIn ? (
           <ListRow
             action={
-              <Button onClick={() => setConfirmOpen(true)} variant="outline">
+              // A solid danger fill rather than a hairline: the way out has to
+              // be findable at a glance, not one more outline button in a list.
+              <Button onClick={() => setConfirmOpen(true)} variant="destructive">
                 <LogOut />
                 {copy.signOut}
               </Button>
@@ -241,9 +99,7 @@ export function AccountSettings() {
         ) : null}
       </div>
 
-      {/* Below the model-key row, because "which machines hold this key" only
-          makes sense once you have been told there is a key. Renders nothing
-          when no keys service is configured. */}
+      {/* Renders nothing when no keys service is configured. */}
       {account.signedIn ? <DeviceList key={`${account.issuer}:${account.userId}`} /> : null}
 
       <ConfirmDialog

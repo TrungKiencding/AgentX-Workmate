@@ -2825,7 +2825,8 @@ export const vi: Translations = {
       menuLabel: 'Menu tài khoản',
       accountSettings: 'Tài khoản',
       settings: 'Cài đặt',
-      shortcuts: 'Phím tắt'
+      shortcuts: 'Phím tắt',
+      signOut: 'Đăng xuất'
     },
     searchAria: 'Tìm trong các cuộc trò chuyện',
     searchPlaceholder: 'Tìm cuộc trò chuyện…',

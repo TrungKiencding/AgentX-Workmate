@@ -2168,6 +2168,7 @@ export interface Translations {
       accountSettings: string
       settings: string
       shortcuts: string
+      signOut: string
     }
     searchAria: string
     searchPlaceholder: string

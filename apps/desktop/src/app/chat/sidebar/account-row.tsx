@@ -1,6 +1,8 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import { SETTINGS_ROUTE } from '@/app/routes'
+import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,8 +14,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useKeycloakAccount } from '@/hooks/use-keycloak-account'
 import { useI18n } from '@/i18n'
-import { ChevronDown, Keyboard, Settings, User } from '@/lib/icons'
+import { ChevronDown, Keyboard, LogOut, Settings, User } from '@/lib/icons'
 import { useKeybindHint } from '@/lib/keybinds/use-keybind-hint'
+import { signOutKeycloak } from '@/store/account'
 
 /** Up to two initials from a display name, else the first letter of the email. */
 export function accountInitials(displayName: string, email: string): string {
@@ -34,7 +37,7 @@ export function accountInitials(displayName: string, email: string): string {
  * a row under a divider — an initials avatar on --bg-selected, the name in
  * primary ink, and a ⌄ (the plan is not shown here; it lives in Settings →
  * Account). The whole row opens the
- * account menu. Renders nothing until someone is signed in: a row that says
+ * account menu, which ends with Sign out. Renders nothing until someone is signed in: a row that says
  * "unknown" would be noise, and the sign-in gate already owns that state.
  */
 export function SidebarAccountRow() {
@@ -44,6 +47,7 @@ export function SidebarAccountRow() {
   const copy = t.sidebar.account
   const settingsHint = useKeybindHint('nav.settings')
   const shortcutsHint = useKeybindHint('keybinds.openPanel')
+  const [confirmOpen, setConfirmOpen] = useState(false)
 
   const name = account.displayName?.trim() || account.email?.trim() || ''
 
@@ -89,8 +93,27 @@ export function SidebarAccountRow() {
             {copy.shortcuts}
             {shortcutsHint ? <DropdownMenuShortcut>{shortcutsHint}</DropdownMenuShortcut> : null}
           </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          {/* Same confirm as Settings → Account: signing out reloads into the
+              sign-in gate, so a stray click here must not cost the session. */}
+          <DropdownMenuItem onSelect={() => setConfirmOpen(true)} variant="destructive">
+            <LogOut />
+            {copy.signOut}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <ConfirmDialog
+        confirmLabel={t.settings.account.signOut}
+        description={t.settings.account.signOutConfirmDesc}
+        destructive
+        // The reload takes over on success, so don't race it with a dismiss.
+        dismissOnConfirm={false}
+        onClose={() => setConfirmOpen(false)}
+        onConfirm={signOutKeycloak}
+        open={confirmOpen}
+        title={t.settings.account.signOutConfirmTitle}
+      />
     </div>
   )
 }

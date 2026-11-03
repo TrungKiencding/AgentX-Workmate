@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
@@ -60,5 +60,19 @@ describe('SidebarAccountRow', () => {
     expect(trigger.textContent).toContain('LK')
     expect(trigger.textContent).toContain('Lê Kiên')
     expect(trigger.textContent).not.toContain('Pro')
+  })
+
+  it('ends the menu with a sign-out that asks before leaving', async () => {
+    $keycloakAccount.set({ ...signedOut, displayName: 'Lê Kiên', loaded: true, signedIn: true })
+
+    renderRow()
+
+    const trigger = screen.getByRole('button', { name: 'Account menu' })
+
+    // Radix opens the menu on pointerdown (button 0), not on click.
+    fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }))
+
+    expect(await screen.findByText('Sign out of AgentX?')).toBeTruthy()
   })
 })

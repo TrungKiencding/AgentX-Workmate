@@ -2580,7 +2580,8 @@ export const en: Translations = {
       menuLabel: 'Account menu',
       accountSettings: 'Account',
       settings: 'Settings',
-      shortcuts: 'Keyboard shortcuts'
+      shortcuts: 'Keyboard shortcuts',
+      signOut: 'Sign out'
     },
     searchAria: 'Search chats',
     searchPlaceholder: 'Search chats…',

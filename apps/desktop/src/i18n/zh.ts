@@ -2669,7 +2669,8 @@ export const zh: Translations = {
       menuLabel: '账户菜单',
       accountSettings: '账户',
       settings: '设置',
-      shortcuts: '键盘快捷键'
+      shortcuts: '键盘快捷键',
+      signOut: '退出登录'
     },
     searchAria: '搜索对话',
     searchPlaceholder: '搜索对话…',
