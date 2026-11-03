@@ -1263,6 +1263,7 @@ def _content_policy_blocked_result(
         "completed": False,
         "failed": True,
         "error": f"content_policy_blocked: {error_detail}",
+        "failure_reason": FailoverReason.content_policy_blocked.value,
     }
 
 
@@ -5163,6 +5164,7 @@ def run_conversation(
                         "partial": True,
                         "failed": True,
                         "compaction_disabled": True,
+                        "failure_reason": classified.reason.value,
                     }
 
                 # ── Anthropic Sonnet long-context tier gate ───────────
@@ -5491,6 +5493,7 @@ def run_conversation(
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
+                            "failure_reason": FailoverReason.payload_too_large.value,
                         }
                     agent._buffer_status(f"⚠️  Request payload too large (413) — compression attempt {compression_attempts}/{max_compression_attempts}...")
 
@@ -5563,6 +5566,7 @@ def run_conversation(
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
+                            "failure_reason": FailoverReason.payload_too_large.value,
                         }
 
                 # Check for context-length errors BEFORE generic 4xx handler.
@@ -5641,6 +5645,7 @@ def run_conversation(
                                 "partial": True,
                                 "failed": True,
                                 "compression_exhausted": True,
+                                "failure_reason": FailoverReason.context_overflow.value,
                             }
                         # Also compress the message history so the output-cap
                         # retry does not just spin on max_tokens alone.  The
@@ -5795,6 +5800,7 @@ def run_conversation(
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
+                            "failure_reason": FailoverReason.context_overflow.value,
                         }
                     agent._buffer_status(COMPRESSION_RETRY_TOO_LARGE_STATUS_TEMPLATE.format(tokens=approx_tokens, attempt=compression_attempts, cap=max_compression_attempts))
 
@@ -5858,6 +5864,7 @@ def run_conversation(
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
+                            "failure_reason": FailoverReason.context_overflow.value,
                         }
 
                 # Check for non-retryable client errors.  The classifier
@@ -6167,6 +6174,10 @@ def run_conversation(
                         "completed": False,
                         "failed": True,
                         "error": _nonretryable_summary,
+                        # The classified reason, so callers (the desktop's
+                        # error explanation, the SSO usage metrics) can tell a
+                        # missing model from a malformed request.
+                        "failure_reason": classified.reason.value,
                     }
 
                 if retry_count >= max_retries:

@@ -4522,6 +4522,95 @@ export const vi: Translations = {
     }
   },
 
+  turnError: {
+    kinds: {
+      offline: {
+        title: 'Bạn đang ngoại tuyến',
+        hint: 'Kiểm tra Wi-Fi hoặc kết nối mạng, rồi thử lại.'
+      },
+      network_error: {
+        title: 'Không kết nối được tới AgentX',
+        hint: 'Mạng có thể đang chập chờn, hoặc máy chủ AgentX tạm thời không truy cập được. Thử lại sau ít phút; nếu vẫn lỗi, hãy báo quản trị viên.'
+      },
+      timeout: {
+        title: 'Model phản hồi quá lâu',
+        hint: 'Yêu cầu đã chờ quá thời gian cho phép. Thử lại; nếu yêu cầu dài hoặc kèm nhiều tệp, hãy chia nhỏ.'
+      },
+      rate_limited: {
+        title: 'Đang có quá nhiều yêu cầu',
+        hint: 'Yêu cầu đang được gửi nhanh hơn mức cho phép. Đợi một lát rồi thử lại.'
+      },
+      quota_exceeded: {
+        title: 'Bạn đã dùng hết hạn mức AI',
+        hint: 'Hạn mức chi tiêu của tài khoản đã hết cho kỳ này. Liên hệ quản trị viên để được cấp thêm, hoặc chờ sang kỳ mới.'
+      },
+      auth_failed: {
+        title: 'Quyền dùng AI của bạn không còn hợp lệ',
+        hint: 'Khoá AI của tài khoản đã hết hạn hoặc bị thu hồi. Đăng xuất rồi đăng nhập lại; nếu vẫn lỗi, liên hệ quản trị viên.'
+      },
+      model_unavailable: {
+        title: 'Model này hiện không dùng được',
+        hint: 'Model có thể đã bị gỡ hoặc đang tạm ngừng. Chọn model khác rồi thử lại.'
+      },
+      model_not_allowed: {
+        title: 'Tài khoản của bạn chưa được dùng model này',
+        hint: 'Chọn model khác, hoặc nhờ quản trị viên cấp quyền.'
+      },
+      context_too_long: {
+        title: 'Cuộc trò chuyện đã quá dài',
+        hint: 'Nội dung vượt quá lượng model đọc được trong một lần. Bắt đầu cuộc trò chuyện mới, rút gọn tin nhắn hoặc bớt tệp đính kèm.'
+      },
+      content_filtered: {
+        title: 'Yêu cầu bị bộ lọc nội dung chặn',
+        hint: 'Nhà cung cấp model từ chối xử lý nội dung này. Hãy diễn đạt lại rồi gửi lại.'
+      },
+      bad_request: {
+        title: 'Model không xử lý được yêu cầu này',
+        hint: 'Có thể do tệp đính kèm hoặc tuỳ chọn mà model không hỗ trợ. Thử lại với nội dung khác, hoặc chọn model khác.'
+      },
+      overloaded: {
+        title: 'Model đang quá tải',
+        hint: 'Nhiều người đang dùng cùng lúc. Lỗi ở phía nhà cung cấp, không phải do bạn — thử lại sau ít phút.'
+      },
+      upstream_error: {
+        title: 'Dịch vụ AI đang gặp sự cố',
+        hint: 'Lỗi ở phía nhà cung cấp model, không phải do bạn. Thử lại sau ít phút; nếu vẫn lỗi, hãy báo quản trị viên.'
+      },
+      stream_interrupted: {
+        title: 'Câu trả lời bị ngắt giữa chừng',
+        hint: 'Kết nối bị gián đoạn khi model đang trả lời. Thử lại để tạo câu trả lời mới.'
+      },
+      no_response: {
+        title: 'Model không trả lời',
+        hint: 'Model kết thúc mà không đưa ra nội dung nào. Thử lại, hoặc chọn model khác.'
+      },
+      max_steps: {
+        title: 'Tác vụ cần nhiều bước hơn giới hạn',
+        hint: 'Đã dừng sau số bước tối đa cho một lượt. Gửi "tiếp tục" để làm tiếp, hoặc chia nhỏ yêu cầu.'
+      },
+      local_error: {
+        title: 'Workmate gặp lỗi trên máy',
+        hint: 'Thử lại. Nếu lỗi lặp lại, khởi động lại Workmate hoặc gửi chi tiết bên dưới cho quản trị viên.'
+      },
+      operation_failed: {
+        title: 'Đã có lỗi xảy ra',
+        hint: 'Thử lại. Nếu lỗi lặp lại, gửi chi tiết bên dưới cho quản trị viên.'
+      }
+    },
+    licenseTitle: 'Giấy phép AgentX không cho phép dùng AI lúc này',
+    waitCauses: {
+      overloaded: 'Nhiều người đang dùng cùng lúc. Lỗi ở phía nhà cung cấp, không phải do bạn.',
+      rate_limited: 'Yêu cầu đang được gửi nhanh hơn mức cho phép.'
+    },
+    waitSeconds: seconds => `Thử lại sau khoảng ${seconds} giây.`,
+    waitMinutes: minutes => `Thử lại sau khoảng ${minutes} phút.`,
+    retry: 'Thử lại',
+    details: 'Chi tiết lỗi',
+    code: code => `Mã lỗi: ${code}`,
+    copyDetails: 'Sao chép chi tiết lỗi',
+    copyDetailsFailed: 'Không sao chép được chi tiết lỗi'
+  },
+
   errors: {
     genericFailure: 'Đã có lỗi xảy ra',
     boundaryTitle: 'Giao diện gặp sự cố',

@@ -19,6 +19,7 @@ import { asLicense, LICENSE_READ_ONLY_CODE, licenseReadOnlyMessage } from '@/lib
 import { modelOptionsQueryKey } from '@/lib/model-options'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'
+import { describeTurnError, deviceOnline, turnErrorCode, turnErrorDetails } from '@/lib/turn-error'
 import { type AgentNoticePayload, clearAgentNotice, nativeNoticeInput, showAgentNotice } from '@/store/agent-notices'
 import { AGENT_BUILD_SLOW_NOTICE_KEY, clearAllAgentStarting, setSessionAgentStarting } from '@/store/agent-starting'
 import { reconcileApprovalModeForProfile } from '@/store/approval-mode'
@@ -182,10 +183,11 @@ interface GatewayEventDeps {
     sessionId: string,
     text: string,
     responsePreviewed?: boolean,
-    failure?: { error: string; partial: boolean },
+    failure?: { error: string; errorCode: string; partial: boolean },
     createdFiles?: DeliverableFile[]
   ) => void
-  failAssistantMessage: (sessionId: string, errorMessage: string) => void
+  /** `error` is the raw text ('' when there was none), `errorCode` what it was (lib/turn-error). */
+  failAssistantMessage: (sessionId: string, error: string, errorCode: string) => void
   flushQueuedDeltas: (sessionId?: string) => void
   finalizeInterimAssistantMessage: (sessionId: string, text: string) => void
   /** Retire a runtime the backend reclaimed and re-attach whatever showed it.
@@ -770,18 +772,30 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
         const refusedBy = licenseRefusal ? asLicense(payload?.license) : null
 
         // Terminal error frames (status "error") carry the failure in
-        // structured fields: `error` is the message, and `partial` marks
-        // `text` as streamed output to keep rather than the error string.
+        // structured fields: `error` is the message, `failure_code` (and
+        // `failure_reason`) what it was, and `partial` marks `text` as
+        // streamed output to keep rather than the error string.
+        const failureText =
+          payload?.status === 'error'
+            ? (refusedBy && licenseReadOnlyMessage(refusedBy, translationsNow().license)) ||
+              coerceGatewayText(payload.error).trim() ||
+              finalText
+            : ''
+
+        const failureCode =
+          payload?.status === 'error'
+            ? turnErrorCode({
+                code: payload.failure_code || (licenseRefusal ? LICENSE_READ_ONLY_CODE : undefined),
+                online: deviceOnline(),
+                reason: payload.failure_reason,
+                text: failureText
+              })
+            : ''
+
+        // No text at all: the code stands in, so the bubble still fails.
         const failure =
           payload?.status === 'error'
-            ? {
-                error:
-                  (refusedBy && licenseReadOnlyMessage(refusedBy, translationsNow().license)) ||
-                  coerceGatewayText(payload.error).trim() ||
-                  finalText ||
-                  'AgentX reported an error',
-                partial: Boolean(payload.partial)
-              }
+            ? { error: failureText || failureCode, errorCode: failureCode, partial: Boolean(payload.partial) }
             : undefined
 
         completeAssistantMessage(
@@ -1247,8 +1261,10 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
 
         clearAgentNotice(clearedKey)
       } else if (event.type === 'error') {
-        const errorMessage = payload?.message || 'AgentX reported an error'
+        const errorMessage = coerceGatewayText(payload?.message).trim()
         const looksLikeProviderSetup = isProviderSetupErrorMessage(errorMessage)
+        const errorCode = turnErrorCode({ online: deviceOnline(), text: errorMessage })
+        const turnError = describeTurnError({ code: errorCode, text: errorMessage }, translationsNow())
 
         // A turn that errors out has also ended — drop any open blocking prompt
         // for this session so an approval/sudo/secret overlay can't linger past
@@ -1268,7 +1284,7 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
         }
 
         dispatchNativeNotification({
-          body: errorMessage,
+          body: turnError.title,
           kind: 'turnError',
           sessionId,
           title: translateNow('notifications.native.turnErrorTitle')
@@ -1282,18 +1298,20 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
           // Toast globally, not just when the failing thread is focused: a
           // turn-ending error (e.g. out of funds) blocks every thread, so the
           // inline error alone is too easy to miss. The stable id collapses the
-          // same error from multiple blocked threads into one toast.
+          // same error from multiple blocked threads into one toast. Plain
+          // words up front; the raw text stays folded under its details.
           notify({
             id: `gateway-error:${errorMessage}`,
             kind: 'error',
-            title: 'AgentX error',
-            message: errorMessage
+            title: turnError.title,
+            message: turnError.hint,
+            detail: turnErrorDetails(turnError, errorMessage, translationsNow().turnError)
           })
         }
 
         if (sessionId) {
           flushQueuedDeltas(sessionId)
-          failAssistantMessage(sessionId, errorMessage)
+          failAssistantMessage(sessionId, errorMessage, errorCode)
         }
 
         if (isActiveEvent) {

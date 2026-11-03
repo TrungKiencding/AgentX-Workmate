@@ -127,3 +127,27 @@ def test_non_retryable_failure_error_is_summarized_not_raw_html():
     # The original page was tens of kilobytes; a summary is short.
     assert len(error) < 500
     assert len(error) < len(_CLOUDFLARE_CHALLENGE_HTML)
+
+
+def test_non_retryable_failure_carries_its_classified_reason():
+    """A non-retryable abort says what it was, not just that it failed.
+
+    Without ``failure_reason`` the turn's usage code fell back to
+    ``operation_failed`` and the desktop could only guess from the text that
+    the model was missing (tui_gateway/usage_outcome.py).
+    """
+    agent = _make_agent()
+    err = Exception("Error code: 404 - {'error': {'message': 'The model `gpt-x` does not exist', 'code': 'model_not_found'}}")
+    err.status_code = 404
+    agent.client.chat.completions.create.side_effect = err
+
+    with (
+        patch.object(agent, "_persist_session"),
+        patch.object(agent, "_save_trajectory"),
+        patch.object(agent, "_cleanup_task_resources"),
+    ):
+        result = agent.run_conversation("hello")
+
+    assert agent.client.chat.completions.create.called
+    assert result.get("failed") is True
+    assert result.get("failure_reason") == "model_not_found"

@@ -674,3 +674,36 @@ in the app — popper, dialog and toast entrances — did nothing.
 - Dark input borders clear 3:1: `--border-input` is gray-500 in dark as in
   light (5.0:1 on the page, 4.2:1 on a dialog; gray-600 was 2.9:1), and the
   contrast gate now checks Quiet's `input` against the page and the popover.
+
+## 2026-11 — a failed reply in plain words
+
+**Before.** A failed turn printed the provider's own text as a red line under
+the prompt — "API call failed after 3 retries: HTTP 429: {…}", "Error code:
+429 - {'error': …}", "Connection error." — and a bare `error` event added a
+toast titled "AgentX error" with the same text. Nobody could tell what had
+happened, what to do, or whom to ask. The words "AgentX reported an error" and
+"AgentX error" were hard-coded English.
+
+**After.**
+- The transcript's error block (`TurnErrorBlock`) says it the way ChatGPT and
+  Claude do, in the UI language: a short title, one or two sentences of cause
+  and next step that name the administrator when the person can't fix it, the
+  wait the provider asked for ("Thử lại sau khoảng 20 giây"), **Thử lại** only
+  where resending can help — on the latest turn, through the thread's own
+  regenerate — and **Chi tiết lỗi** folding away "Mã lỗi: <code>" and the raw
+  text with a copy button. The dismiss control stays.
+- One catalog, shared word for word with AgentX Chat and WebMate (Workmate
+  keeps "model" in English), in all six languages (`t.turnError`). The code is
+  the gateway's `failure_code` (`lib/turn-error.ts`), refined to `overloaded`
+  when the provider said capacity and to `offline` when the device had no
+  network; the text is read only for older frames, bare `error` events and a
+  rejected submit. A license refusal keeps the license's own sentence under its
+  title.
+- The code lives on the message (`ChatMessage.errorCode`) beside the raw text,
+  and survives re-hydration, the in-flight journal and `session.resume`
+  (the retained turn now carries `failure_code` and `failure_reason`).
+- The bare-`error` toast and the OS notification of any failed turn say the
+  title (and the toast the hint, with the raw text under its details). A
+  rejected submit no longer toasts what its bubble already says; a full disk
+  still does. A failure frame with no text at all still gets its bubble.
+- The toast's details panel is now `DetailPanel`, shared with the error block.

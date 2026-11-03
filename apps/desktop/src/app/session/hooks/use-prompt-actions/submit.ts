@@ -6,6 +6,7 @@ import { type ChatMessage, textPart } from '@/lib/chat-messages'
 import { optimisticAttachmentRef } from '@/lib/chat-runtime'
 import { sanitizeComposerInput } from '@/lib/composer-input-sanitize'
 import { setMutableRef } from '@/lib/mutable-ref'
+import { deviceOnline, turnErrorCode } from '@/lib/turn-error'
 import {
   isVoicePlaybackActive,
   markVoicePlaybackInterrupted,
@@ -18,7 +19,7 @@ import {
   type ComposerAttachment,
   terminalContextBlocksFromDraft
 } from '@/store/composer'
-import { clearNotifications, notify, notifyError } from '@/store/notifications'
+import { clearNotifications, isDiskFullErrorMessage, notify, notifyError } from '@/store/notifications'
 import { requestDesktopOnboarding } from '@/store/onboarding'
 import {
   $sessions,
@@ -729,6 +730,7 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
         }
 
         const message = inlineErrorMessage(err, copy.promptFailed)
+        const errorCode = turnErrorCode({ online: deviceOnline(), text: message })
 
         updateSessionState(
           sessionId,
@@ -740,7 +742,8 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
                 id: `assistant-error-${Date.now()}`,
                 role: 'assistant',
                 parts: [],
-                error: message || copy.promptFailed,
+                error: message || errorCode,
+                errorCode,
                 branchGroupId: state.pendingBranchGroup ?? undefined
               }
             ],
@@ -758,7 +761,10 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
           return false
         }
 
-        if (targetIsCurrentView()) {
+        // The bubble above explains it in plain words where the person is
+        // looking; a toast would only repeat it. A full disk is the exception:
+        // the transcript cannot say "free some space", the toast can.
+        if (targetIsCurrentView() && isDiskFullErrorMessage(message)) {
           notifyError(err, copy.promptFailed)
         }
 

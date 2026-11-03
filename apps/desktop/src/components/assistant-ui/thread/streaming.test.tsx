@@ -543,10 +543,17 @@ describe('assistant-ui streaming renderer', () => {
     expect(finalRoot?.querySelector('[data-slot="aui_msg-actions"]')).toBeTruthy()
   })
 
-  it('renders assistant provider errors inline', () => {
+  it('renders assistant provider errors inline, in plain words with the raw text folded', () => {
     render(<MessageHarness message={assistantErrorMessage('OpenRouter rejected the request (403).')} />)
 
-    expect(screen.getByRole('alert').textContent).toContain('OpenRouter rejected the request (403).')
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('Your AI access is no longer valid')
+    expect(alert.textContent).not.toContain('OpenRouter rejected the request (403).')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Error details' }))
+
+    expect(alert.textContent).toContain('Error code: auth_failed')
+    expect(alert.textContent).toContain('OpenRouter rejected the request (403).')
   })
 
   it('omits the dismiss control when no onDismissError handler is supplied', () => {

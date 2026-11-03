@@ -228,6 +228,19 @@ describe('recoverInFlightTurnJournal', () => {
     expect(merged.parts[1]).toMatchObject({ type: 'text', text: 'partial' })
   })
 
+  it("keeps the projected failure and its code over the journal's healthy tail", () => {
+    journalEntry([user('u1', 'do the thing'), assistantWithTool('assistant-stream-old', 'partial', { pending: true })])
+
+    const base = [
+      user('db-u1', 'do the thing'),
+      assistant('assistant-stream-rt9', '', { error: 'HTTP 429', errorCode: 'rate_limited' })
+    ]
+
+    const merged = recoverInFlightTurnJournal('stored-1', base, { keepPending: true }).messages.at(-1)!
+
+    expect(merged).toMatchObject({ error: 'HTTP 429', errorCode: 'rate_limited', id: 'assistant-stream-rt9' })
+  })
+
   it('keeps the journal text when it is longer than the projection text', () => {
     journalEntry([
       user('u1', 'do the thing'),

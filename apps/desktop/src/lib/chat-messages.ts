@@ -18,7 +18,12 @@ export type ChatMessage = {
   parts: ChatMessagePart[]
   timestamp?: number
   pending?: boolean
+  /** A failed turn's raw error text, as the gateway or provider sent it. */
   error?: string
+  /** What the failure is shown as (lib/turn-error.ts `turnErrorCode`): the
+   *  gateway's `failure_code`, refined. Absent on rows from before it existed —
+   *  the error text is classified then. */
+  errorCode?: string
   branchGroupId?: string
   hidden?: boolean
   /** Sealed mid-turn commentary (`message.interim`) — rendered without the
@@ -142,6 +147,9 @@ export type GatewayEventPayload = {
   // Structured billing wall forwarded on message.complete when a turn fails
   // with FailoverReason.billing (shape mirrors @agentx/shared BillingBlock).
   billing?: BillingBlock
+  // message.complete of a failed turn: what ended it, in the shared code words
+  // (tui_gateway/usage_outcome.py), and the classified reason behind the code.
+  failure_code?: string
   failure_reason?: string
   // message.complete with failure_reason "license_read_only" — the AgentX
   // license the backend refused the turn by (validated with lib/license
@@ -1252,6 +1260,7 @@ export function preserveLocalAssistantErrors(
     return {
       ...message,
       error: local.error,
+      errorCode: local.errorCode,
       pending: false
     }
   })

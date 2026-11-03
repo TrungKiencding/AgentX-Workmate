@@ -615,6 +615,10 @@ export interface SessionResumeResponse {
     /** Retained failed turn: the error the terminal frame carried (the frame
      *  itself may have been lost to a disconnect). */
     error?: string
+    /** …and its `failure_code` / `failure_reason`, so the replayed bubble
+     *  explains the failure the way the live one did. */
+    failure_code?: string
+    failure_reason?: string
     recoverable?: boolean
     status?: string
     streaming?: boolean

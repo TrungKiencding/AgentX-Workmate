@@ -113,6 +113,22 @@ def test_fail_inflight_turn_retains_partial_and_error():
     assert snapshot["error"] == "provider exploded"
     assert snapshot["status"] == "error"
     assert snapshot["recoverable"] is True
+    # No code was given: the snapshot invents none.
+    assert "failure_code" not in snapshot
+    assert "failure_reason" not in snapshot
+
+
+def test_snapshot_keeps_the_failure_code_and_reason():
+    """Resume rebuilds the failed bubble with the same explanation the live
+    frame gave, so the code and the classified reason are retained too."""
+    session = _session()
+    server._start_inflight_turn(session, "do the thing")
+
+    server._fail_inflight_turn(session, "HTTP 529: overloaded", "upstream_error", "overloaded")
+
+    snapshot = server._inflight_snapshot(session)
+    assert snapshot["failure_code"] == "upstream_error"
+    assert snapshot["failure_reason"] == "overloaded"
 
 
 def test_snapshot_returned_for_error_only_turn():
@@ -168,6 +184,7 @@ def test_returned_error_result_retains_snapshot_and_emits_terminal_frame(
     assert snapshot["status"] == "error"
     assert snapshot["error"] == "provider 402: billing wall"
     assert snapshot["user"] == "do the thing"
+    assert snapshot["failure_code"] == payload["failure_code"] == "operation_failed"
     assert session["running"] is False
 
 
@@ -223,6 +240,7 @@ def test_exception_closes_turn_with_terminal_complete_and_partial(emits, turn_en
     assert snapshot is not None
     assert snapshot["assistant"] == "half an ans"
     assert snapshot["error"] == "connection reset mid-stream"
+    assert snapshot["failure_code"] == payload["failure_code"]
     assert session["running"] is False
 
 
@@ -253,6 +271,7 @@ def test_live_session_payload_exposes_retained_failure(emits, turn_env, monkeypa
     assert inflight["status"] == "error"
     assert inflight["error"] == "budget exhausted"
     assert inflight["user"] == "long job"
+    assert inflight["failure_code"] == "operation_failed"
 
 
 # ── Retained failure must not leak into the next turn ─────────────────

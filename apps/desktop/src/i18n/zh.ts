@@ -4295,6 +4295,95 @@ export const zh: Translations = {
     }
   },
 
+  turnError: {
+    kinds: {
+      offline: {
+        title: '你已离线',
+        hint: '请检查 Wi-Fi 或网络连接，然后重试。'
+      },
+      network_error: {
+        title: '无法连接到 AgentX',
+        hint: '网络可能不稳定，或 AgentX 服务器暂时无法访问。请稍后重试；如果仍然出错，请告知管理员。'
+      },
+      timeout: {
+        title: '模型响应时间过长',
+        hint: '请求已超时。请重试；如果请求很长或附带了很多文件，请拆分成几部分。'
+      },
+      rate_limited: {
+        title: '当前请求过多',
+        hint: '请求发送速度超过了允许的上限。请稍等片刻再重试。'
+      },
+      quota_exceeded: {
+        title: '你的 AI 额度已用完',
+        hint: '你的账户本期支出额度已用完。请联系管理员增加额度，或等待下一周期。'
+      },
+      auth_failed: {
+        title: '你的 AI 访问权限已失效',
+        hint: '你账户的 AI 密钥已过期或被吊销。请退出后重新登录；如果仍然不行，请联系管理员。'
+      },
+      model_unavailable: {
+        title: '此模型当前不可用',
+        hint: '该模型可能已被移除或暂停。请选择其他模型后重试。'
+      },
+      model_not_allowed: {
+        title: '你的账户无权使用此模型',
+        hint: '请选择其他模型，或请管理员为你开通权限。'
+      },
+      context_too_long: {
+        title: '对话过长',
+        hint: '内容超出了模型一次能读取的量。请开始新对话、缩短消息或减少附件。'
+      },
+      content_filtered: {
+        title: '被内容过滤器拦截',
+        hint: '模型提供商拒绝处理此内容。请换种说法后重新发送。'
+      },
+      bad_request: {
+        title: '模型无法处理此请求',
+        hint: '此模型可能不支持某个附件或选项。请换用其他内容，或选择其他模型。'
+      },
+      overloaded: {
+        title: '模型负载过高',
+        hint: '当前使用人数较多。这是提供商的问题，不是你的问题——请几分钟后重试。'
+      },
+      upstream_error: {
+        title: 'AI 服务出现问题',
+        hint: '错误出在模型提供商一方，不是你的问题。请几分钟后重试；如果仍然出错，请告知管理员。'
+      },
+      stream_interrupted: {
+        title: '回复被中断',
+        hint: '模型回答时连接中断了。请重试以获取新的回复。'
+      },
+      no_response: {
+        title: '模型没有回复',
+        hint: '模型结束时没有生成任何内容。请重试，或选择其他模型。'
+      },
+      max_steps: {
+        title: '任务所需步骤超出上限',
+        hint: '已在单轮步骤上限处停止。发送“继续”以接着做，或拆分请求。'
+      },
+      local_error: {
+        title: 'Workmate 在本机遇到问题',
+        hint: '请重试。如果反复出现，请重启 Workmate，或把下方的详细信息发给管理员。'
+      },
+      operation_failed: {
+        title: '出了点问题',
+        hint: '请重试。如果反复出现，请把下方的详细信息发给管理员。'
+      }
+    },
+    licenseTitle: '你的 AgentX 许可证目前不允许使用 AI',
+    waitCauses: {
+      overloaded: '当前使用人数较多。这是提供商的问题，不是你的问题。',
+      rate_limited: '请求发送速度超过了允许的上限。'
+    },
+    waitSeconds: seconds => `请在约 ${seconds} 秒后重试。`,
+    waitMinutes: minutes => `请在约 ${minutes} 分钟后重试。`,
+    retry: '重试',
+    details: '错误详情',
+    code: code => `错误代码：${code}`,
+    copyDetails: '复制错误详情',
+    copyDetailsFailed: '无法复制错误详情'
+  },
+
   errors: {
     genericFailure: '发生错误',
     boundaryTitle: '界面出错了',

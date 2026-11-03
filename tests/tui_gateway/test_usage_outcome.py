@@ -151,12 +151,27 @@ def test_an_answered_turn_carries_no_failure_code(finish):
     payload = finish(lambda *a, **k: {"final_response": "hi", "completed": True})
     assert payload["status"] == "complete"
     assert "failure_code" not in payload
+    assert "failure_reason" not in payload
 
 
 def test_a_failed_turn_says_why_by_its_classified_reason(finish):
     payload = finish(lambda *a, **k: _failed("rate_limit", final_response="", error="HTTP 429: slow down"))
     assert payload["status"] == "error"
     assert payload["failure_code"] == "rate_limited"
+    assert payload["failure_reason"] == "rate_limit"
+
+
+def test_a_failed_turn_carries_the_reason_its_code_folds_away(finish):
+    # The desktop says "overloaded" rather than "the AI service ran into a problem".
+    payload = finish(lambda *a, **k: _failed("overloaded", final_response="", error="HTTP 529: overloaded"))
+    assert payload["failure_code"] == "upstream_error"
+    assert payload["failure_reason"] == "overloaded"
+
+
+def test_a_failed_turn_without_a_classified_reason_sends_none(finish):
+    payload = finish(lambda *a, **k: _failed(final_response="", error="something odd"))
+    assert payload["failure_code"] == "operation_failed"
+    assert "failure_reason" not in payload
 
 
 def test_a_turn_that_ran_out_of_iterations_is_a_failure_though_it_completed(finish):

@@ -557,6 +557,19 @@ describe('interleaved reasoning/text coalescing', () => {
 })
 
 describe('preserveLocalAssistantErrors', () => {
+  it('re-grafts a local error onto the hydrated row with the code that explains it', () => {
+    const nextMessages: ChatMessage[] = [{ id: 'a-1', parts: [], role: 'assistant' }]
+
+    const currentMessages: ChatMessage[] = [
+      { error: 'HTTP 429', errorCode: 'rate_limited', id: 'a-1', parts: [], role: 'assistant' }
+    ]
+
+    expect(preserveLocalAssistantErrors(nextMessages, currentMessages)[0]).toMatchObject({
+      error: 'HTTP 429',
+      errorCode: 'rate_limited'
+    })
+  })
+
   it('preserves a local user+error pair when hydration omits the failed turn', () => {
     const nextMessages: ChatMessage[] = [
       {

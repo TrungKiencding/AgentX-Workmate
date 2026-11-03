@@ -10,6 +10,7 @@ import {
 } from '@/lib/chat-messages'
 import { normalizePersonalityValue } from '@/lib/chat-runtime'
 import { embeddedImageUrls, textWithoutEmbeddedImages } from '@/lib/embedded-images'
+import { turnErrorCode } from '@/lib/turn-error'
 import { reconcileApprovalModeForProfile } from '@/store/approval-mode'
 import { requestDesktopOnboardingForCredentialWarning } from '@/store/onboarding'
 import { $activeGatewayProfile, $profiles, normalizeProfileKey } from '@/store/profile'
@@ -155,6 +156,7 @@ const COMPARED_FIELDS = [
   'role',
   'pending',
   'error',
+  'errorCode',
   'hidden',
   'branchGroupId',
   'interim',
@@ -270,6 +272,7 @@ export function chatMessagesEquivalent(a: ChatMessage, b: ChatMessage): boolean 
     a.role !== b.role ||
     a.pending !== b.pending ||
     a.error !== b.error ||
+    a.errorCode !== b.errorCode ||
     a.hidden !== b.hidden ||
     a.branchGroupId !== b.branchGroupId ||
     // Interim gates the action footer, so flipping it must repaint (e.g. a
@@ -678,6 +681,15 @@ export function appendLiveSessionProjection(
   // the terminal frame may have been lost to a disconnect) — surface the
   // failure on the projected row instead of rendering the partial as healthy.
   const inflightError = projection.inflight?.error?.trim() ?? ''
+
+  const inflightErrorCode = inflightError
+    ? turnErrorCode({
+        code: projection.inflight?.failure_code,
+        reason: projection.inflight?.failure_reason,
+        text: inflightError
+      })
+    : ''
+
   const queuedUser = projection.queued?.user?.trim() ?? ''
 
   if (
@@ -786,7 +798,7 @@ export function appendLiveSessionProjection(
         role: 'assistant',
         parts: inflightAssistant ? [assistantTextPart(inflightAssistant)] : [],
         pending: inflightStreaming,
-        ...(inflightError ? { error: inflightError } : {})
+        ...(inflightError ? { error: inflightError, errorCode: inflightErrorCode } : {})
       })
     }
   }

@@ -259,14 +259,15 @@ function hasStructuralParts(message: ChatMessage): boolean {
 }
 
 function overlayProjectionRow(projection: ChatMessage, journalRow: ChatMessage): ChatMessage {
-  // A projected error (retained failed turn) must survive the overlay.
-  const error = journalRow.error ?? projection.error
+  // A projected error (retained failed turn) must survive the overlay, with
+  // the code that explains it.
+  const failed = journalRow.error ? journalRow : projection
 
   const merged: ChatMessage = {
     ...journalRow,
     id: projection.id,
     pending: projection.pending,
-    ...(error ? { error } : {})
+    ...(failed.error ? { error: failed.error, errorCode: failed.errorCode } : {})
   }
 
   if (assistantTextLength(projection) <= assistantTextLength(journalRow)) {

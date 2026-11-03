@@ -2165,6 +2165,64 @@ describe('usePromptActions submit / queue drain semantics', () => {
   })
 })
 
+describe('usePromptActions rejected prompt.submit', () => {
+  beforeEach(() => {
+    clearNotifications()
+  })
+
+  afterEach(() => {
+    cleanup()
+    clearNotifications()
+  })
+
+  async function rejectSubmit(message: string) {
+    const seeds: Record<string, unknown>[] = []
+
+    const requestGateway = vi.fn(async (method: string) => {
+      if (method === 'prompt.submit') {
+        throw new Error(message)
+      }
+
+      return {} as never
+    })
+
+    let handle: HarnessHandle | null = null
+    await actRender(
+      <Harness
+        onReady={h => (handle = h)}
+        onSeedState={state => seeds.push(state)}
+        refreshSessions={async () => undefined}
+        requestGateway={requestGateway}
+      />
+    )
+
+    expect(await handle!.submitText('hello')).toBe(false)
+
+    const failed = seeds
+      .flatMap(state =>
+        Array.isArray(state.messages) ? (state.messages as { error?: string; errorCode?: string }[]) : []
+      )
+      .filter(message => message.error)
+
+    return failed.at(-1)
+  }
+
+  it('fails the bubble with the code that explains it, and toasts nothing on top', async () => {
+    const failed = await rejectSubmit('AgentX gateway connection closed')
+
+    expect(failed).toMatchObject({ error: 'AgentX gateway connection closed', errorCode: 'local_error' })
+    // The bubble is where the person is looking; a toast would only repeat it.
+    expect($notifications.get()).toEqual([])
+  })
+
+  it('still toasts a full disk, which the bubble cannot explain', async () => {
+    const failed = await rejectSubmit('database or disk is full')
+
+    expect(failed?.errorCode).toBe('operation_failed')
+    expect($notifications.get()).toHaveLength(1)
+  })
+})
+
 describe('usePromptActions redirectPrompt', () => {
   afterEach(() => {
     cleanup()

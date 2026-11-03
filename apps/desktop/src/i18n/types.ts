@@ -7,6 +7,29 @@
 
 export type Locale = 'vi' | 'en' | 'zh' | 'zh-hant' | 'ja' | 'ar'
 
+/** What a failed turn is shown as (lib/turn-error.ts maps every failure code
+ *  onto one of these). */
+export type TurnErrorKind =
+  | 'auth_failed'
+  | 'bad_request'
+  | 'content_filtered'
+  | 'context_too_long'
+  | 'license'
+  | 'local_error'
+  | 'max_steps'
+  | 'model_not_allowed'
+  | 'model_unavailable'
+  | 'network_error'
+  | 'no_response'
+  | 'offline'
+  | 'operation_failed'
+  | 'overloaded'
+  | 'quota_exceeded'
+  | 'rate_limited'
+  | 'stream_interrupted'
+  | 'timeout'
+  | 'upstream_error'
+
 export type ToolTitleKey =
   | 'browser_click'
   | 'browser_fill'
@@ -3612,6 +3635,25 @@ export interface Translations {
       failed: (error: string) => string
       timedOut: string
     }
+  }
+
+  /** A failed turn in plain words: the transcript's error block, the toast
+   *  and the OS notification (lib/turn-error.ts). Shared wording with AgentX
+   *  Chat and WebMate. */
+  turnError: {
+    /** Every kind but `license`, whose explanation is the license's own
+     *  sentence (t.license). */
+    kinds: Record<Exclude<TurnErrorKind, 'license'>, { title: string; hint: string }>
+    licenseTitle: string
+    /** The cause alone, for when the provider said how long to wait. */
+    waitCauses: { overloaded: string; rate_limited: string }
+    waitSeconds: (seconds: number) => string
+    waitMinutes: (minutes: number) => string
+    retry: string
+    details: string
+    code: (code: string) => string
+    copyDetails: string
+    copyDetailsFailed: string
   }
 
   errors: {

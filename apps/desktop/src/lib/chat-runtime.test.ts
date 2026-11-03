@@ -9,7 +9,8 @@ import {
   messageCreatedAt,
   optimisticAttachmentRef,
   parseCommandDispatch,
-  parseSlashCommand
+  parseSlashCommand,
+  toRuntimeMessage
 } from './chat-runtime'
 
 const DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANS'
@@ -198,5 +199,31 @@ describe('messageCreatedAt', () => {
   it('treats a zero / non-finite timestamp as absent', () => {
     expect(messageCreatedAt({ timestamp: 0 }, NOW).getTime()).toBe(NOW)
     expect(messageCreatedAt({ timestamp: Number.NaN }, NOW).getTime()).toBe(NOW)
+  })
+})
+
+describe('toRuntimeMessage', () => {
+  it("hands a failed turn's code to the error block beside its raw text", () => {
+    const runtime = toRuntimeMessage({
+      error: 'HTTP 429: slow down',
+      errorCode: 'rate_limited',
+      id: 'a-1',
+      parts: [],
+      role: 'assistant'
+    })
+
+    expect(runtime.status).toEqual({ type: 'incomplete', reason: 'error', error: 'HTTP 429: slow down' })
+    expect(runtime.metadata.custom).toMatchObject({ errorCode: 'rate_limited' })
+  })
+
+  it('carries no code once the error is dismissed', () => {
+    const runtime = toRuntimeMessage({
+      errorCode: 'rate_limited',
+      id: 'a-1',
+      parts: [{ type: 'text', text: 'partial' }],
+      role: 'assistant'
+    })
+
+    expect(runtime.metadata.custom).not.toHaveProperty('errorCode')
   })
 })

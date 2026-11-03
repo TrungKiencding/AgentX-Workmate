@@ -705,7 +705,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
             return []
           }
 
-          return [{ ...message, error: undefined, pending: false }]
+          return [{ ...message, error: undefined, errorCode: undefined, pending: false }]
         })
 
       // View first: the cache update below triggers a re-sync that reads

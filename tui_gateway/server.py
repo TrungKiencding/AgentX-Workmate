@@ -7363,7 +7363,12 @@ def _clear_inflight_turn(session: dict) -> None:
     session["inflight_turn"] = None
 
 
-def _fail_inflight_turn(session: dict, error: Any) -> None:
+def _fail_inflight_turn(
+    session: dict,
+    error: Any,
+    failure_code: str | None = None,
+    failure_reason: str | None = None,
+) -> None:
     """Mark the in-flight turn terminal-error but keep it replayable.
 
     Normal completion clears ``inflight_turn`` because the response is now in
@@ -7373,7 +7378,9 @@ def _fail_inflight_turn(session: dict, error: Any) -> None:
     user's prompt, any partial assistant text, and the error itself instead of
     leaving the client stranded on a spinner or hydrating from stale DB state.
     The snapshot lives until the next turn starts (``_start_inflight_turn``
-    overwrites it) or the session closes.
+    overwrites it) or the session closes. ``failure_code`` and
+    ``failure_reason`` are the terminal frame's, so the replayed bubble
+    explains the failure the same way the live one did.
 
     Caller must hold ``session["history_lock"]``.
     """
@@ -7389,6 +7396,10 @@ def _fail_inflight_turn(session: dict, error: Any) -> None:
     turn["recoverable"] = True
     turn["streaming"] = False
     turn["updated_at"] = now
+    if failure_code:
+        turn["failure_code"] = failure_code
+    if failure_reason:
+        turn["failure_reason"] = failure_reason
     session["inflight_turn"] = turn
 
 
@@ -7934,6 +7945,9 @@ def _inflight_snapshot(session: dict) -> dict | None:
         snapshot["error"] = error
         snapshot["status"] = str(turn.get("status") or "error")
         snapshot["recoverable"] = bool(turn.get("recoverable"))
+        for key in ("failure_code", "failure_reason"):
+            if turn.get(key):
+                snapshot[key] = str(turn[key])
     return snapshot
 
 
@@ -7946,8 +7960,11 @@ def _emit_terminal_turn_error(sid: str, session: dict, error: Any) -> None:
     client that missed this frame (disconnect window) can recover it from
     ``session.resume``'s ``inflight`` payload.
     """
+    # What ended it, for the SSO usage metrics (tui_gateway/usage_outcome.py)
+    # and the desktop's explanation of the failure.
+    failure_code = exception_failure_code(error) if isinstance(error, BaseException) else FALLBACK_FAILURE_CODE
     with session["history_lock"]:
-        _fail_inflight_turn(session, error)
+        _fail_inflight_turn(session, error, failure_code)
         turn = session.get("inflight_turn") or {}
         message = str(turn.get("error") or "turn failed")
         partial = str(turn.get("assistant") or "")
@@ -7960,10 +7977,7 @@ def _emit_terminal_turn_error(sid: str, session: dict, error: Any) -> None:
         "status": "error",
         "error": message,
         "recoverable": True,
-        # What ended it, for the SSO usage metrics (tui_gateway/usage_outcome.py).
-        "failure_code": (
-            exception_failure_code(error) if isinstance(error, BaseException) else FALLBACK_FAILURE_CODE
-        ),
+        "failure_code": failure_code,
     }
     if partial:
         payload["partial"] = True
@@ -10352,8 +10366,16 @@ def _run_prompt_submit(
             # A turn that did not give the person their answer says why, for the SSO
             # usage metrics (tui_gateway/usage_outcome.py): never its text.
             failure_code = turn_failure_code(result, status)
+            # The classified reason behind it rides along ("overloaded" where the
+            # code says "upstream_error", the billing wall, the license refusal),
+            # so the desktop explains the failure without re-parsing the text.
+            failure_reason = (
+                str(result.get("failure_reason") or "") if failure_code and isinstance(result, dict) else ""
+            )
             if failure_code:
                 payload["failure_code"] = failure_code
+            if failure_reason:
+                payload["failure_reason"] = failure_reason
             if last_reasoning:
                 payload["reasoning"] = last_reasoning
             if status_note:
@@ -10374,15 +10396,13 @@ def _run_prompt_submit(
             _billing_block = result.get("billing_block") if isinstance(result, dict) else None
             if _billing_block:
                 payload["billing"] = _billing_block
-                payload["failure_reason"] = result.get("failure_reason")
             # Same for a turn the AgentX license refused
             # (hermes_cli.account_license.turn_refusal): the code and the
             # license travel as data, so the desktop explains it in its own
             # words and locks the composer rather than re-parsing the text.
             from hermes_cli.account_license import READ_ONLY_CODE as _LICENSE_READ_ONLY
 
-            if isinstance(result, dict) and result.get("failure_reason") == _LICENSE_READ_ONLY:
-                payload["failure_reason"] = _LICENSE_READ_ONLY
+            if failure_reason == _LICENSE_READ_ONLY:
                 payload["license"] = result.get("license")
             rendered = render_message(raw, cols)
             if rendered:
@@ -10396,6 +10416,8 @@ def _run_prompt_submit(
                     _fail_inflight_turn(
                         session,
                         result.get("error") if isinstance(result, dict) else raw,
+                        failure_code,
+                        failure_reason,
                     )
                     turn_error_retained = True
                 else:

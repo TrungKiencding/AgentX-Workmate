@@ -1,7 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 
-import { translateNow } from '@/i18n'
+import { translateNow, translationsNow } from '@/i18n'
 import {
   appendAssistantTextPart,
   appendReasoningPart,
@@ -22,6 +22,7 @@ import {
   stripGeneratedImageEchoes
 } from '@/lib/generated-images'
 import { todoCallResult } from '@/lib/todos'
+import { describeTurnError, deviceOnline, turnErrorCode } from '@/lib/turn-error'
 import { dispatchNativeNotification } from '@/store/native-notifications'
 import { isDiskFullErrorMessage, notifyError } from '@/store/notifications'
 import { broadcastSessionsChanged } from '@/store/session-sync'
@@ -544,11 +545,21 @@ export function useMessageStream({
       sessionId: string,
       text: string,
       responsePreviewed?: boolean,
-      failure?: { error: string; partial: boolean },
+      failure?: { error: string; errorCode: string; partial: boolean },
       createdFiles?: DeliverableFile[]
     ) => {
       let shouldHydrate = false
       const createdFilesPatch = createdFiles?.length ? { createdFiles } : {}
+      const finalText = renderMediaTags(text).trim()
+      // Structured failure from the terminal frame wins over the legacy text
+      // heuristic ("Error: <provider detail>" texts don't match the regexes).
+      const completionError = failure?.error ?? completionErrorText(finalText)
+
+      const completionErrorCode = completionError
+        ? (failure?.errorCode ?? turnErrorCode({ online: deviceOnline(), text: completionError }))
+        : undefined
+
+      const failurePatch = completionError ? { error: completionError, errorCode: completionErrorCode } : {}
 
       const completedState = updateSessionState(sessionId, state => {
         // Late completion from an already-cancelled turn: cancelRun has
@@ -569,10 +580,6 @@ export function useMessageStream({
         }
 
         const streamId = state.streamId
-        const finalText = renderMediaTags(text).trim()
-        // Structured failure from the terminal frame wins over the legacy text
-        // heuristic ("Error: <provider detail>" texts don't match the regexes).
-        const completionError = failure?.error ?? completionErrorText(finalText)
         // A partial failure's `text` is streamed output the user should keep,
         // not the error string — settle it like a normal reply AND mark the
         // bubble failed, instead of stripping the text.
@@ -591,13 +598,13 @@ export function useMessageStream({
           const settled = { ...message, pending: false, interim: false, ...createdFilesPatch }
 
           if (completionError && !keepFailedPartialText) {
-            return { ...settled, error: completionError, parts: message.parts.filter(part => part.type !== 'text') }
+            return { ...settled, ...failurePatch, parts: message.parts.filter(part => part.type !== 'text') }
           }
 
           return {
             ...settled,
             parts: replaceTextPart(message.parts),
-            ...(completionError ? { error: completionError } : {})
+            ...failurePatch
           }
         }
 
@@ -607,7 +614,7 @@ export function useMessageStream({
           parts: completionError && !keepFailedPartialText ? [] : [assistantTextPart(finalText)],
           branchGroupId: state.pendingBranchGroup ?? undefined,
           ...createdFilesPatch,
-          ...(completionError && { error: completionError })
+          ...failurePatch
         })
 
         const prev = state.messages
@@ -658,10 +665,11 @@ export function useMessageStream({
               nextMessages = prev.map((message, messageIndex) =>
                 messageIndex === index ? completeMessage(message) : message
               )
-            } else if (finalText) {
+            } else if (finalText || completionError) {
+              // A failure that came without text still gets its bubble.
               nextMessages = [...prev, newAssistantFromCompletion()]
             }
-          } else if (finalText) {
+          } else if (finalText || completionError) {
             nextMessages = [...prev, newAssistantFromCompletion()]
           }
         }
@@ -719,23 +727,35 @@ export function useMessageStream({
         void hydrateFromStoredSession(3, completedState.storedSessionId, sessionId)
       }
 
-      dispatchNativeNotification({
-        body: text.slice(0, 140) || translateNow('notifications.native.turnDoneBody'),
-        kind: 'turnDone',
-        sessionId,
-        title: translateNow('notifications.native.turnDoneTitle')
-      })
+      // A failed turn notifies as one, in plain words — never the raw error.
+      dispatchNativeNotification(
+        completionError
+          ? {
+              body: describeTurnError({ code: completionErrorCode, text: completionError }, translationsNow()).title,
+              kind: 'turnError',
+              sessionId,
+              title: translateNow('notifications.native.turnErrorTitle')
+            }
+          : {
+              body: text.slice(0, 140) || translateNow('notifications.native.turnDoneBody'),
+              kind: 'turnDone',
+              sessionId,
+              title: translateNow('notifications.native.turnDoneTitle')
+            }
+      )
     },
     [hydrateFromStoredSession, scheduleSessionsRefresh, updateSessionState]
   )
 
   const failAssistantMessage = useCallback(
-    (sessionId: string, errorMessage: string) => {
+    (sessionId: string, errorText: string, errorCode: string) => {
+      // No text at all: the code stands in, so the bubble still fails.
+      const error = errorText.trim() || errorCode
+
       updateSessionState(sessionId, state => {
         const streamId = state.streamId ?? `assistant-error-${Date.now()}`
         const groupId = state.pendingBranchGroup ?? undefined
         const prev = state.messages
-        const error = errorMessage.trim() || 'AgentX reported an error'
 
         const nextMessages = prev.some(m => m.id === streamId)
           ? prev.map(message =>
@@ -743,6 +763,7 @@ export function useMessageStream({
                 ? {
                     ...message,
                     error,
+                    errorCode,
                     pending: false
                   }
                 : message
@@ -754,6 +775,7 @@ export function useMessageStream({
                 role: 'assistant' as const,
                 parts: [],
                 error,
+                errorCode,
                 pending: false,
                 branchGroupId: groupId
               }

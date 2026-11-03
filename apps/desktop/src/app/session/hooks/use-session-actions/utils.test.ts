@@ -1006,6 +1006,32 @@ describe('preserveLocalPendingTurnMessages', () => {
 })
 
 describe('appendLiveSessionProjection', () => {
+  // A failed turn replayed on reconnect explains itself the way the live
+  // bubble did: the retained snapshot carries the frame's code and reason.
+  it("projects a retained failed turn with the gateway's failure code", () => {
+    const restored = appendLiveSessionProjection([], {
+      session_id: 'runtime-1',
+      inflight: {
+        user: 'do the thing',
+        error: 'HTTP 500: upstream',
+        failure_code: 'upstream_error',
+        failure_reason: 'overloaded',
+        status: 'error'
+      }
+    })
+
+    expect(restored.at(-1)).toMatchObject({ error: 'HTTP 500: upstream', errorCode: 'overloaded', role: 'assistant' })
+  })
+
+  it('reads the retained error text when an older backend sent no code', () => {
+    const restored = appendLiveSessionProjection([], {
+      session_id: 'runtime-1',
+      inflight: { user: 'do the thing', error: 'Connection error.', status: 'error' }
+    })
+
+    expect(restored.at(-1)?.errorCode).toBe('network_error')
+  })
+
   // Corrections typed while a turn ran are their own user bubbles on the same
   // turn. Resume must rebuild the prompt AND every correction, in order.
   it('projects mid-turn redirect corrections after the prompt that started the turn', () => {

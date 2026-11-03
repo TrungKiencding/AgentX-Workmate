@@ -1,7 +1,6 @@
 import {
   ActionBarPrimitive,
   BranchPickerPrimitive,
-  ErrorPrimitive,
   MessagePrimitive,
   useAuiState,
   useMessageRuntime
@@ -20,6 +19,7 @@ import { MESSAGE_PARTS_COMPONENTS } from '@/components/assistant-ui/thread/messa
 import { ReactionPicker } from '@/components/assistant-ui/thread/message-reactions'
 import { ResponseLoadingIndicator, StreamStallIndicator } from '@/components/assistant-ui/thread/status'
 import { formatMessageTimestamp } from '@/components/assistant-ui/thread/timestamp'
+import { TurnErrorBlock } from '@/components/assistant-ui/thread/turn-error-block'
 import { useMessageReactions, useTapbackDoubleClick } from '@/components/assistant-ui/thread/use-message-reactions'
 import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button'
 import { PreviewAttachment } from '@/components/chat/preview-attachment'
@@ -31,7 +31,7 @@ import { useAiBlockedReason } from '@/hooks/use-ai-blocked-reason'
 import { useI18n } from '@/i18n'
 import type { DeliverableFile } from '@/lib/deliverables'
 import { triggerHaptic } from '@/lib/haptics'
-import { AudioLines, GitForkIcon, Loader2Icon, RefreshCwIcon, SmilePlusIcon, VolumeXIcon, XIcon } from '@/lib/icons'
+import { AudioLines, GitForkIcon, Loader2Icon, RefreshCwIcon, SmilePlusIcon, VolumeXIcon } from '@/lib/icons'
 import { extractPreviewTargets } from '@/lib/preview-targets'
 import { formatAgo } from '@/lib/time'
 import { useEnterAnimation } from '@/lib/use-enter-animation'
@@ -63,7 +63,6 @@ export const AssistantMessage: FC<{
 }> = ({ onBranchInNewChat, onDismissError, readOnly = false }) => {
   const messageId = useAuiState(s => s.message.id)
   const messageRuntime = useMessageRuntime()
-  const { t } = useI18n()
 
   // PERF: this component must NOT subscribe to the streaming text. Every
   // selector here returns a value that stays referentially stable across
@@ -161,22 +160,12 @@ export const AssistantMessage: FC<{
           </div>
         )}
         <MessagePrimitive.Error>
-          <ErrorPrimitive.Root
-            className="mt-1.5 flex items-start gap-1.5 text-[length:var(--conversation-caption-font-size)] leading-5 text-(--conversation-error-text)"
-            role="alert"
-          >
-            <ErrorPrimitive.Message className="min-w-0 flex-1" />
-            {onDismissError && (
-              <TooltipIconButton
-                className="-my-0.5 shrink-0 text-current opacity-70 hover:opacity-100"
-                onClick={() => onDismissError(messageId)}
-                side="top"
-                tooltip={t.assistant.thread.dismissError}
-              >
-                <XIcon className="size-3.5" />
-              </TooltipIconButton>
-            )}
-          </ErrorPrimitive.Root>
+          {/* Retrying regenerates from this turn's prompt, so only the latest
+              turn offers it — an older one would discard the turns after it. */}
+          <TurnErrorBlock
+            canRetry={!readOnly && isLastMessage}
+            onDismiss={onDismissError && (() => onDismissError(messageId))}
+          />
         </MessagePrimitive.Error>
       </div>
       {hasVisibleText && !isInterim && (

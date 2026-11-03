@@ -438,6 +438,7 @@ export function toRuntimeMessage(message: ChatMessage): ThreadMessage {
       custom: {
         ...(message.interim ? { interim: true } : {}),
         ...(message.createdFiles?.length ? { createdFiles: message.createdFiles } : {}),
+        ...(message.error && message.errorCode ? { errorCode: message.errorCode } : {}),
         ...reactionMeta
       }
     }

@@ -4279,6 +4279,95 @@ export const en: Translations = {
     }
   },
 
+  turnError: {
+    kinds: {
+      offline: {
+        title: "You're offline",
+        hint: 'Check your Wi-Fi or network connection, then try again.'
+      },
+      network_error: {
+        title: "Couldn't reach AgentX",
+        hint: 'Your connection may be unstable, or the AgentX server is briefly unreachable. Try again in a minute; if it keeps happening, tell your administrator.'
+      },
+      timeout: {
+        title: 'The model took too long to respond',
+        hint: 'The request timed out. Try again; if your request is long or has many files, split it into smaller parts.'
+      },
+      rate_limited: {
+        title: 'Too many requests right now',
+        hint: 'Requests are arriving faster than allowed. Wait a moment, then try again.'
+      },
+      quota_exceeded: {
+        title: "You've used up your AI allowance",
+        hint: "Your account's spending limit for this period is used up. Ask your administrator for more, or wait for the next period."
+      },
+      auth_failed: {
+        title: 'Your AI access is no longer valid',
+        hint: "Your account's AI key has expired or been revoked. Sign out and sign back in; if that doesn't help, contact your administrator."
+      },
+      model_unavailable: {
+        title: "This model isn't available right now",
+        hint: 'It may have been removed or paused. Pick another model and try again.'
+      },
+      model_not_allowed: {
+        title: "Your account can't use this model",
+        hint: 'Pick another model, or ask your administrator for access.'
+      },
+      context_too_long: {
+        title: 'This conversation is too long',
+        hint: "It's more than the model can read at once. Start a new conversation, shorten your message, or attach fewer files."
+      },
+      content_filtered: {
+        title: 'Blocked by a content filter',
+        hint: 'The model provider declined this content. Rephrase it and send again.'
+      },
+      bad_request: {
+        title: "The model couldn't process this request",
+        hint: 'An attachment or option may not be supported by this model. Try different content, or pick another model.'
+      },
+      overloaded: {
+        title: 'The model is overloaded',
+        hint: "It's in heavy demand right now. This isn't on your side — try again in a few minutes."
+      },
+      upstream_error: {
+        title: 'The AI service ran into a problem',
+        hint: "The error is on the model provider's side, not yours. Try again in a few minutes; if it keeps happening, tell your administrator."
+      },
+      stream_interrupted: {
+        title: 'The reply was cut off',
+        hint: 'The connection dropped while the model was answering. Try again for a fresh reply.'
+      },
+      no_response: {
+        title: "The model didn't reply",
+        hint: 'It finished without producing anything. Try again, or pick another model.'
+      },
+      max_steps: {
+        title: 'The task needed more steps than allowed',
+        hint: 'It stopped at the step limit for one turn. Send "continue" to carry on, or split the request.'
+      },
+      local_error: {
+        title: 'Workmate hit a problem on this computer',
+        hint: 'Try again. If it keeps happening, restart Workmate or send the details below to your administrator.'
+      },
+      operation_failed: {
+        title: 'Something went wrong',
+        hint: 'Try again. If it keeps happening, send the details below to your administrator.'
+      }
+    },
+    licenseTitle: "Your AgentX license doesn't allow AI right now",
+    waitCauses: {
+      overloaded: "It's in heavy demand right now. This isn't on your side.",
+      rate_limited: 'Requests are arriving faster than allowed.'
+    },
+    waitSeconds: seconds => `Try again in about ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`,
+    waitMinutes: minutes => `Try again in about ${minutes} minutes.`,
+    retry: 'Try again',
+    details: 'Error details',
+    code: code => `Error code: ${code}`,
+    copyDetails: 'Copy error details',
+    copyDetailsFailed: "Couldn't copy the error details"
+  },
+
   errors: {
     genericFailure: 'Something went wrong',
     boundaryTitle: 'Something broke in the interface',
