@@ -183,7 +183,7 @@ const NEW_SESSION_NAV: SidebarNavItem = {
 // `[&>svg]:size-4`, and a `size-*` on the icon itself loses to it on
 // specificity.
 const NAV_ROW =
-  'group/nav relative flex h-(--sidebar-nav-row-height) w-full cursor-pointer justify-start gap-2.5 rounded-(--radius-control) px-3 text-left text-base font-normal text-(--text-primary) transition-colors duration-(--dur-micro) ease-out [-webkit-app-region:no-drag] [&>svg]:size-5 hover:bg-(--bg-hover) hover:text-(--text-primary) hover:transition-none'
+  'group/nav relative flex h-(--sidebar-nav-row-height) w-full cursor-pointer justify-start gap-3 rounded-(--radius-control) px-3 text-left text-md font-normal text-(--text-primary) transition-colors duration-(--dur-micro) ease-out [-webkit-app-region:no-drag] [&>svg]:size-5 hover:bg-(--bg-hover) hover:text-(--text-primary) hover:transition-none'
 
 // Selected (spec §5.1): --bg-selected and nothing else — no ink change, no
 // leading bar.

@@ -25,7 +25,7 @@ export function ConnectedChannels({
 
   return (
     <section className="mt-3 border-t border-(--ui-stroke-tertiary) pt-3" data-slot="connected-channels">
-      <h2 className="px-2 pb-1.5 text-xs font-medium text-(--ui-text-tertiary)">{label}</h2>
+      <h2 className="px-2 pb-1.5 text-sm font-medium text-(--ui-text-tertiary)">{label}</h2>
       <div className="grid gap-0.5">
         {connected.map(platform => {
           const active = platform.id === activePlatformId
@@ -37,7 +37,7 @@ export function ConnectedChannels({
             <button
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'relative flex min-h-10 w-full items-center gap-2.5 rounded-(--radius-control) px-2 py-1.5 text-left transition-colors duration-(--dur-micro) [-webkit-app-region:no-drag]',
+                'relative flex min-h-11 w-full items-center gap-2.5 rounded-(--radius-control) px-2 py-1.5 text-left transition-colors duration-(--dur-micro) [-webkit-app-region:no-drag]',
                 active
                   ? 'bg-(--bg-selected) text-(--text-primary)'
                   : 'text-(--ui-text-secondary) hover:bg-(--ui-control-hover-background) hover:text-foreground'
@@ -48,8 +48,8 @@ export function ConnectedChannels({
             >
               <PlatformAvatar platformId={platform.id} platformName={platform.name} size="sm" />
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium">{platform.name}</span>
-                <span className="block truncate text-xs text-(--ui-text-tertiary)">{destination || platform.name}</span>
+                <span className="block truncate text-base font-medium">{platform.name}</span>
+                <span className="block truncate text-sm text-(--ui-text-tertiary)">{destination || platform.name}</span>
               </span>
             </button>
           )

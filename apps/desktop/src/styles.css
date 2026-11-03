@@ -603,7 +603,7 @@
 
     /* Chrome row heights (spec §5.1). Navigation rows and conversation rows
        share the comfortable 32px rung. */
-    --sidebar-nav-row-height: 2.25rem; /* 36px — nav rows ("Trò chuyện mới", Tiện ích, …) */
+    --sidebar-nav-row-height: 2.5rem; /* 40px — nav rows ("Trò chuyện mới", Tiện ích, …) */
     --sidebar-row-height: 2.25rem; /* 36px — session / project rows */
     --statusbar-height: 1.625rem; /* 26px — the bottom status band */
     /* StatusPill heights — sm sits under the control ramp (a pill beside a
@@ -678,8 +678,9 @@
        scanned in rows. Chrome keeps --dt-line-height (1.5). */
     --conversation-prose-line-height: 1.6;
     /* Reading measure. Paragraphs, list items, quotes and headings stop here;
-       code, tables and figures keep the full column and bleed past it. */
-    --conversation-measure: 72ch;
+       code, tables and figures keep the full column and bleed past it.
+       72ch plus the 16px the transcript gained from its narrower gutter. */
+    --conversation-measure: calc(72ch + 1rem);
     /* Markdown headings inside a reply. A chat heading is a section break in a
        message, not a page title — it tops out one rung above the prose. */
     --conversation-h1-font-size: 1.0625rem; /* 17px — never above a page/dialog title */
@@ -758,8 +759,8 @@
     --image-preview-max-width: 34rem;
     --image-preview-height: clamp(16.25rem, calc(var(--vsq) * 100), 26.25rem);
 
-    /* Spec §4.1: 288px default, user-resizable within 240–400 (persisted). */
-    --sidebar-width: 18rem;
+    /* Spec §4.1 one step up: 304px default, user-resizable within 240–400 (persisted). */
+    --sidebar-width: 19rem;
     --chat-min-width: 28rem;
     --titlebar-control-size: 1.5rem; /* 24px — the hit-target floor, even in OS chrome */
     --titlebar-control-height: 1.5rem;

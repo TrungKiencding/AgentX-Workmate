@@ -9,11 +9,11 @@ import { arraysEqual, insertUniqueId, readKey } from '@/lib/storage'
 
 import { $paneStates, ensurePaneRegistered, setPaneOpen, setPaneWidthOverride, togglePane } from './panes'
 
-// Sidebar width (Quiet Tool spec §4.1 / §4.3): 288px by default, 256px when the
-// window opens in the 1024–1279 band, user-resizable within 240–400 and
-// persisted as the pane's width override.
-export const SIDEBAR_DEFAULT_WIDTH = 288
-export const SIDEBAR_COMPACT_WIDTH = 256
+// Sidebar width (Quiet Tool spec §4.1 / §4.3, one step up for legibility): 304px
+// by default, 272px when the window opens in the 1024–1279 band,
+// user-resizable within 240–400 and persisted as the pane's width override.
+export const SIDEBAR_DEFAULT_WIDTH = 304
+export const SIDEBAR_COMPACT_WIDTH = 272
 export const SIDEBAR_MIN_WIDTH = 240
 export const SIDEBAR_MAX_WIDTH = 400
 
