@@ -2,6 +2,7 @@ import type { AppendMessage } from '@assistant-ui/react'
 
 import { translateNow, type Translations } from '@/i18n'
 import type { ChatMessage } from '@/lib/chat-messages'
+import { userIndexAtOrdinal, userOrdinalAt } from '@/lib/compaction-ordinal'
 import { type CommandsCatalogLike, filterDesktopCommandsCatalog } from '@/lib/desktop-slash-commands'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import type { ComposerAttachment } from '@/store/composer'
@@ -370,28 +371,17 @@ export function appendText(message: AppendMessage): string {
     .trim()
 }
 
-export function visibleUserOrdinal(messages: readonly ChatMessage[], end: number): number {
-  return messages.slice(0, end).filter(m => m.role === 'user' && !m.hidden).length
+const isVisibleUserTurn = (message: ChatMessage) => message.role === 'user' && !message.hidden
+const compactionOffset = (message: ChatMessage) => message.compaction?.userTurnsBefore
+
+/** prompt.submit ordinal of the user turn at `end`; null when a context
+ *  compaction summarized it away (see lib/compaction-ordinal). */
+export function visibleUserOrdinal(messages: readonly ChatMessage[], end: number): null | number {
+  return userOrdinalAt(messages, end, isVisibleUserTurn, compactionOffset)
 }
 
 export function visibleUserIndexAtOrdinal(messages: readonly ChatMessage[], targetOrdinal: number): number {
-  let ordinal = 0
-
-  for (let index = 0; index < messages.length; index += 1) {
-    const message = messages[index]
-
-    if (message.role !== 'user' || message.hidden) {
-      continue
-    }
-
-    if (ordinal === targetOrdinal) {
-      return index
-    }
-
-    ordinal += 1
-  }
-
-  return -1
+  return userIndexAtOrdinal(messages, targetOrdinal, isVisibleUserTurn, compactionOffset)
 }
 
 export interface SubmitTextOptions {

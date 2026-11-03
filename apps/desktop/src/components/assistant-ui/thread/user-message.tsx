@@ -11,6 +11,7 @@ import { Codicon } from '@/components/ui/codicon'
 import { Tip } from '@/components/ui/tooltip'
 import { useResizeObserver } from '@/hooks/use-resize-observer'
 import { useI18n } from '@/i18n'
+import { latestCompactionAnchor, userOrdinalAt } from '@/lib/compaction-ordinal'
 import { triggerHaptic } from '@/lib/haptics'
 import { StopFilled } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -120,6 +121,14 @@ const ProcessNotificationNote: FC<{ text: string }> = ({ text }) => {
   )
 }
 
+const isUserThreadMessage = (message: { role: string }) => message.role === 'user'
+
+const threadCompactionOffset = (message: { metadata?: { custom?: Record<string, unknown> } }) => {
+  const compaction = message.metadata?.custom?.compaction as { userTurnsBefore?: unknown } | undefined
+
+  return typeof compaction?.userTurnsBefore === 'number' ? compaction.userTurnsBefore : undefined
+}
+
 export const UserMessage: FC<{
   onCancel?: () => Promise<void> | void
   onRequestRestoreConfirm?: (messageId: string, target: RestoreMessageTarget) => void
@@ -144,22 +153,18 @@ export const UserMessage: FC<{
     return null
   })
 
+  // prompt.submit ordinal of this turn; null when a context compaction
+  // summarized it away (it sits above the latest divider).
   const runtimeUserOrdinal = useAuiState(s => {
-    let ordinal = 0
+    const index = s.thread.messages.findIndex(message => message.id === s.message.id)
 
-    for (const message of s.thread.messages) {
-      if (message.role !== 'user') {
-        continue
-      }
+    return index < 0 ? null : userOrdinalAt(s.thread.messages, index, isUserThreadMessage, threadCompactionOffset)
+  })
 
-      if (message.id === s.message.id) {
-        return ordinal
-      }
+  const summarizedAway = useAuiState(s => {
+    const anchor = latestCompactionAnchor(s.thread.messages, threadCompactionOffset)
 
-      ordinal += 1
-    }
-
-    return null
+    return anchor !== null && s.thread.messages.findIndex(message => message.id === s.message.id) < anchor.index
   })
 
   const attachmentRefs = useAuiState(s => {
@@ -193,8 +198,11 @@ export const UserMessage: FC<{
   // edited, restored, or stopped from here. The bubble stays a button that
   // toggles the 2-line clamp so long prompts are still fully readable.
   const readOnly = readOnlyProp || isWatchWindow()
+  // A turn above the latest compaction divider is no longer in the model's
+  // history: readable and reactable, but it can't be edited or rewound to.
+  const frozen = readOnly || summarizedAway
   const [expanded, setExpanded] = useState(false)
-  const clampActive = !(readOnly && expanded)
+  const clampActive = !(frozen && expanded)
 
   const measureClamp = useCallback((entries: readonly ResizeObserverEntry[]) => {
     const inner = clampInnerRef.current
@@ -252,11 +260,11 @@ export const UserMessage: FC<{
 
   const hasBody = messageText.trim().length > 0
   const isLatestUser = messageId === latestUserId
-  const showStop = !readOnly && isLatestUser && threadRunning && Boolean(onCancel)
+  const showStop = !frozen && isLatestUser && threadRunning && Boolean(onCancel)
   // Restore (re-run this exact prompt) is available everywhere the Stop button
   // isn't — including mid-stream on older prompts, since the action interrupts
   // the live turn before rewinding.
-  const showRestore = !readOnly && !showStop && Boolean(onRequestRestoreConfirm) && hasBody
+  const showRestore = !frozen && !showStop && Boolean(onRequestRestoreConfirm) && hasBody
 
   const bubbleClassName = cn(
     USER_BUBBLE_BASE_CLASS,
@@ -331,9 +339,10 @@ export const UserMessage: FC<{
                       }
                 }
               >
-                {readOnly ? (
-                  // Spectator transcript: clicking only toggles the clamp so the
-                  // full prompt is readable — never opens an edit composer.
+                {frozen ? (
+                  // Spectator transcript / summarized turn: clicking only toggles
+                  // the clamp so the full prompt is readable — never opens an
+                  // edit composer.
                   <button
                     aria-expanded={bodyClamped ? expanded : undefined}
                     className={cn(bubbleClassName, !bodyClamped && 'cursor-default')}

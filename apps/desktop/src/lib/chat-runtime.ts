@@ -414,7 +414,7 @@ export function toRuntimeMessage(message: ChatMessage): ThreadMessage {
       role,
       content: [textPart(text)],
       createdAt,
-      metadata: { custom: {} }
+      metadata: { custom: message.compaction ? { compaction: message.compaction } : {} }
     } as ThreadMessage
   }
 

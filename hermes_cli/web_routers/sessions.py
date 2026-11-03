@@ -642,7 +642,13 @@ async def get_session_messages(
     profile: Optional[str] = None,
     limit: Optional[int] = Query(None, ge=0),
     offset: int = Query(0, ge=0),
+    view: Optional[str] = None,
 ):
+    # ``view=display`` is the transcript-UI projection: turns archived by
+    # in-place compaction come back and each compaction handoff is a
+    # ``display_kind="compaction"`` row. The default stays the live rows.
+    include_compacted = view == "display"
+
     def _read():
         db = _open_session_db_for_profile(profile, read_only=True)
         try:
@@ -652,7 +658,9 @@ async def get_session_messages(
             sid = db.resolve_resume_session_id(sid)
             # Clamp limit to prevent abuse (max 500 per page)
             _limit = min(limit, 500) if limit is not None else None
-            return sid, _limit, db.get_messages(sid, limit=_limit, offset=offset)
+            return sid, _limit, db.get_messages(
+                sid, limit=_limit, offset=offset, include_compacted=include_compacted
+            )
         finally:
             db.close()
 

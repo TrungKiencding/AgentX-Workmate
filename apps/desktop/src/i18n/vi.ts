@@ -4124,6 +4124,9 @@ export const vi: Translations = {
       restorePrevious: 'Khôi phục checkpoint trước đó',
       restoreCheckpoint: 'Khôi phục checkpoint',
       restoreFromHere: 'Khôi phục checkpoint — chạy lại từ prompt này',
+      compactionLabel: 'Đã tóm tắt ngữ cảnh',
+      compactionNote:
+        'Trợ lý làm tiếp dựa trên bản tóm tắt này để tiết kiệm ngữ cảnh. Các tin nhắn phía trên vẫn được lưu đầy đủ, nhưng không sửa hay khôi phục được nữa.',
       restoreTitle: 'Khôi phục về checkpoint này?',
       restoreBody: 'Mọi thứ sau prompt này sẽ bị gỡ khỏi cuộc trò chuyện, và prompt đó sẽ chạy lại từ đây.',
       restoreConfirm: 'Khôi phục & chạy lại',

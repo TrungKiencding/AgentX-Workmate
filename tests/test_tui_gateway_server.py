@@ -2502,7 +2502,7 @@ def test_session_resume_uses_parent_lineage_for_display(monkeypatch, omit_messag
         def reopen_session(self, target):
             captured["reopened"] = target
 
-        def get_resume_conversations(self, session_id):
+        def get_resume_conversations(self, session_id, **_kwargs):
             return (
                 self.get_messages_as_conversation(session_id, repair_alternation=True),
                 self.get_messages_as_conversation(session_id, include_ancestors=True),
@@ -2943,7 +2943,7 @@ def test_session_resume_passes_stored_runtime_to_agent(monkeypatch):
         def reopen_session(self, target):
             pass
 
-        def get_resume_conversations(self, session_id):
+        def get_resume_conversations(self, session_id, **_kwargs):
             return (
                 self.get_messages_as_conversation(session_id, repair_alternation=True),
                 self.get_messages_as_conversation(session_id, include_ancestors=True),
@@ -3012,7 +3012,7 @@ def test_session_resume_profile_uses_profile_db_cwd(monkeypatch, tmp_path):
         def reopen_session(self, _target):
             captured["reopened"] = _target
 
-        def get_resume_conversations(self, session_id):
+        def get_resume_conversations(self, session_id, **_kwargs):
             return (
                 self.get_messages_as_conversation(session_id, repair_alternation=True),
                 self.get_messages_as_conversation(session_id, include_ancestors=True),
@@ -4402,7 +4402,7 @@ def test_prompt_submit_rejects_negative_truncate_ordinal(monkeypatch):
     replaced = []
 
     class _FakeDB:
-        def replace_messages(self, key, messages):
+        def replace_messages(self, key, messages, **_kwargs):
             replaced.append((key, list(messages)))
 
     history = [
@@ -4539,7 +4539,7 @@ def test_prompt_submit_refuses_unconfirmed_nonempty_truncation(monkeypatch):
     replaced = []
 
     class _FakeDB:
-        def replace_messages(self, key, messages):
+        def replace_messages(self, key, messages, **_kwargs):
             replaced.append((key, list(messages)))
 
     history = [
@@ -4602,7 +4602,7 @@ def test_prompt_submit_refuses_empty_truncation_without_confirm(monkeypatch):
     replaced = []
 
     class _FakeDB:
-        def replace_messages(self, key, messages):
+        def replace_messages(self, key, messages, **_kwargs):
             replaced.append((key, list(messages)))
 
     history = [
@@ -4689,7 +4689,7 @@ def test_prompt_submit_empty_truncation_allowed_with_confirm(monkeypatch):
             self._target()
 
     class _FakeDB:
-        def replace_messages(self, key, messages):
+        def replace_messages(self, key, messages, **_kwargs):
             replaced.append((key, list(messages)))
 
     history = [
@@ -8100,7 +8100,7 @@ def test_slash_exec_r7_read_commands_use_metadata_mirror_flag_on(monkeypatch):
                 "pinned": True,
             }
 
-        def get_resume_conversations(self, session_id):
+        def get_resume_conversations(self, session_id, **_kwargs):
             return (
                 self.get_messages_as_conversation(session_id, repair_alternation=True),
                 self.get_messages_as_conversation(session_id, include_ancestors=True),
@@ -9722,7 +9722,8 @@ def test_prompt_submit_can_truncate_before_user_ordinal(monkeypatch):
         def __init__(self):
             self.replaced = []
 
-        def replace_messages(self, session_id, messages):
+        def replace_messages(self, session_id, messages, active_only=False):
+            assert active_only, "a rewind must keep compaction-archived rows"
             self.replaced.append((session_id, list(messages)))
 
     stub_db = _StubDb()
@@ -9779,7 +9780,7 @@ def test_prompt_submit_refuses_turn_when_truncate_persist_fails(monkeypatch):
     server._sessions["trunc-fail-sid"] = sess
 
     class _FailDb:
-        def replace_messages(self, session_id, messages):
+        def replace_messages(self, session_id, messages, **_kwargs):
             raise OSError("disk full")
 
     monkeypatch.setattr(server, "_get_db", lambda: _FailDb())
@@ -9871,7 +9872,7 @@ def test_prompt_submit_truncate_ordinal_skips_display_kind_rows(monkeypatch):
         def __init__(self):
             self.replaced = []
 
-        def replace_messages(self, session_id, messages):
+        def replace_messages(self, session_id, messages, **_kwargs):
             self.replaced.append((session_id, list(messages)))
 
     stub_db = _StubDb()

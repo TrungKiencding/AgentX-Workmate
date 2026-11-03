@@ -131,6 +131,12 @@ export function planReload(messages: ChatMessage[], parentId: null | string): nu
     return null
   }
 
+  const truncateOrdinal = visibleUserOrdinal(messages, userIndex)
+
+  if (truncateOrdinal === null) {
+    return null
+  }
+
   const targetAssistant =
     parentId && messages[parentIndex]?.role === 'assistant'
       ? messages[parentIndex]
@@ -139,7 +145,7 @@ export function planReload(messages: ChatMessage[], parentId: null | string): nu
   return {
     branchGroupId: targetAssistant?.branchGroupId ?? branchGroupForUser(userMessage),
     text,
-    truncateOrdinal: visibleUserOrdinal(messages, userIndex),
+    truncateOrdinal,
     userIndex
   }
 }
@@ -207,6 +213,10 @@ export function planRestore(messages: ChatMessage[], messageId: string, target?:
       ? visibleUserOrdinal(messages, sourceIndex)
       : target.userOrdinal
 
+  if (truncateOrdinal === null) {
+    throw new Error('This message was summarized away and can no longer be restored.')
+  }
+
   return { sourceIndex, text, truncateOrdinal }
 }
 
@@ -242,13 +252,19 @@ export function planEdit(messages: ChatMessage[], edited: AppendMessage): EditPl
   // truncate-by-ordinal would 422 — resubmit plainly instead.
   const nextMessage = messages[sourceIndex + 1]
   const isFailedTurn = nextMessage?.role === 'assistant' && Boolean(nextMessage.error)
+  const truncateOrdinal = isFailedTurn ? undefined : visibleUserOrdinal(messages, sourceIndex)
+
+  if (truncateOrdinal === null) {
+    // Summarized away by a context compaction: not in the model history.
+    return null
+  }
 
   return {
     editedMessage: { ...source, parts: [textPart(text)] },
     isFailedTurn,
     sourceIndex,
     text,
-    truncateOrdinal: isFailedTurn ? undefined : visibleUserOrdinal(messages, sourceIndex)
+    truncateOrdinal
   }
 }
 

@@ -3927,6 +3927,8 @@ export const zh: Translations = {
       restorePrevious: '恢复上一个检查点',
       restoreCheckpoint: '恢复检查点',
       restoreFromHere: '恢复检查点 — 从此提示重新运行',
+      compactionLabel: '已总结上下文',
+      compactionNote: '助手会基于这份总结继续工作，以节省上下文。上面的消息仍完整保存，但不能再编辑或恢复。',
       restoreTitle: '恢复到此检查点？',
       restoreBody: '此提示之后的所有消息将从对话中移除，并从此处重新运行该提示。',
       restoreConfirm: '恢复并重新运行',

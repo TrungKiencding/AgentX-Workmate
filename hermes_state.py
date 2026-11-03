@@ -32,6 +32,7 @@ from collections import deque
 from contextlib import contextmanager
 from pathlib import Path
 
+from agent.compaction_display import fold_compaction_display
 from agent.memory_manager import sanitize_context
 from agent.session_activity import ActivityProvenance
 from agent.message_sanitization import _sanitize_surrogates
@@ -9077,6 +9078,7 @@ class SessionDB(
         include_inactive: bool = False,
         limit: Optional[int] = None,
         offset: int = 0,
+        include_compacted: bool = False,
     ) -> List[Dict[str, Any]]:
         """Load messages for a session in insertion order.
 
@@ -9084,6 +9086,13 @@ class SessionDB(
         ``include_inactive=True`` to load soft-deleted rows (e.g. for
         audit / debug views of rewound history). See
         :meth:`rewind_to_message` for the soft-delete mechanic.
+
+        ``include_compacted=True`` returns the transcript-UI projection
+        instead: archived pre-compaction rows come back, re-inserted
+        head/tail copies are folded away and each compaction handoff becomes
+        a ``display_kind="compaction"`` row (see
+        :func:`agent.compaction_display.fold_compaction_display`). Paging
+        applies to that projection. Never feed it to a model.
 
         Ordered by AUTOINCREMENT id (true insertion order) rather than
         timestamp — see c03acca50 for the WSL2 clock-regression rationale.
@@ -9094,12 +9103,23 @@ class SessionDB(
         ``offset`` alone (without ``limit``) also pages — SQLite requires a
         LIMIT clause for OFFSET, so it's emitted as ``LIMIT -1`` (unbounded).
         """
-        active_clause = "" if include_inactive else " AND active = 1"
+        if include_inactive:
+            active_clause = ""
+        elif include_compacted:
+            active_clause = " AND (active = 1 OR compacted = 1)"
+        else:
+            active_clause = " AND active = 1"
         sql = (
             "SELECT * FROM messages WHERE session_id = ?"
             f"{active_clause} ORDER BY id"
         )
         params: list = [session_id]
+        if include_compacted:
+            with self._read_ctx() as conn:
+                rows = conn.execute(sql, params).fetchall()
+            folded = fold_compaction_display([self._message_row_dict(row) for row in rows])
+            end = None if limit is None else offset + limit
+            return folded[offset:end]
         if limit is not None or offset:
             # SQLite's OFFSET requires LIMIT; -1 means "no limit".
             sql += " LIMIT ? OFFSET ?"
@@ -9290,6 +9310,7 @@ class SessionDB(
         include_inactive: bool = False,
         repair_alternation: bool = False,
         include_row_ids: bool = False,
+        include_compacted: bool = False,
     ) -> List[Dict[str, Any]]:
         """
         Load messages in the OpenAI conversation format (role + content dicts).
@@ -9298,6 +9319,11 @@ class SessionDB(
         By default only active messages are returned. Pass
         ``include_inactive=True`` to load soft-deleted (rewound) rows
         as well. See :meth:`rewind_to_message`.
+
+        ``include_compacted=True`` is the transcript-UI projection: archived
+        pre-compaction rows are restored and folded with the compacted copies
+        (see :func:`agent.compaction_display.fold_compaction_display`). It is
+        display-only — never replay it to a model.
 
         ``repair_alternation=True`` runs ``repair_message_sequence`` over the
         loaded list before returning it. Callers that restore a session for
@@ -9313,11 +9339,17 @@ class SessionDB(
         if include_ancestors and not self._is_explicit_branch_session(session_id):
             session_ids = self._session_lineage_root_to_tip(session_id)
 
-        active_clause = "" if include_inactive else " AND active = 1"
+        if include_inactive:
+            active_clause = ""
+        elif include_compacted:
+            active_clause = " AND (active = 1 OR compacted = 1)"
+        else:
+            active_clause = " AND active = 1"
+        fold_columns = ", session_id, active" if include_compacted else ""
         with self._read_ctx() as conn:
             placeholders = ",".join("?" for _ in session_ids)
             rows = conn.execute(
-                f"SELECT {self._CONVERSATION_ROW_COLUMNS} "
+                f"SELECT {self._CONVERSATION_ROW_COLUMNS}{fold_columns} "
                 f"FROM messages WHERE session_id IN ({placeholders})"
                 # Order by AUTOINCREMENT id (true insertion order), NOT timestamp:
                 # append_message stamps rows with time.time(), which is not
@@ -9337,6 +9369,7 @@ class SessionDB(
             include_ancestors=include_ancestors,
             repair_alternation=repair_alternation,
             include_row_ids=include_row_ids,
+            fold_compaction=include_compacted,
         )
 
     # Columns every conversation projection decodes. Shared by
@@ -9357,6 +9390,7 @@ class SessionDB(
         include_ancestors: bool,
         repair_alternation: bool,
         include_row_ids: bool = False,
+        fold_compaction: bool = False,
     ) -> List[Dict[str, Any]]:
         """Decode fetched message rows into the OpenAI conversation format.
 
@@ -9364,6 +9398,11 @@ class SessionDB(
         can build the model-fed and display views from one SELECT. ``rows`` must
         already be ordered by ``id`` (insertion order) and filtered to the
         desired session set / active state by the caller.
+
+        ``fold_compaction`` builds the transcript-UI projection: ``rows`` then
+        carry ``session_id`` and ``active``, and every row outside the tip's
+        live set (archived by compaction, or an ancestor's) is an original the
+        compacted copies are folded against.
         """
         messages = []
         for row in rows:
@@ -9456,7 +9495,15 @@ class SessionDB(
                     except (json.JSONDecodeError, TypeError):
                         logger.warning("Failed to deserialize codex_message_items, falling back to None")
                         msg["codex_message_items"] = None
-            if include_ancestors and self._is_duplicate_replayed_user_message(messages, msg):
+            if fold_compaction and (
+                not row["active"] or row["session_id"] != session_id
+            ):
+                msg["_archived"] = True
+            if (
+                include_ancestors
+                and not fold_compaction
+                and self._is_duplicate_replayed_user_message(messages, msg)
+            ):
                 continue
             messages.append(msg)
         # DEFENSE-IN-DEPTH against background-review session pollution: a forked
@@ -9477,6 +9524,16 @@ class SessionDB(
         # content on load so replaying history doesn't re-teach the model
         # to keep emitting the marker. No-op for unaffected sessions.
         messages = _strip_stale_tool_call_markers(messages)
+        if fold_compaction:
+            # Fold first: the replayed-user dedup below must not eat a
+            # compacted copy the fold aligns against its original.
+            messages = fold_compaction_display(messages)
+            if include_ancestors:
+                deduped: List[Dict[str, Any]] = []
+                for msg in messages:
+                    if not self._is_duplicate_replayed_user_message(deduped, msg):
+                        deduped.append(msg)
+                messages = deduped
         if repair_alternation and messages:
             # Lazy import: hermes_state already depends on agent.* (see
             # sanitize_context above), but keep this optional path from
@@ -9495,7 +9552,7 @@ class SessionDB(
         return messages
 
     def get_resume_conversations(
-        self, session_id: str
+        self, session_id: str, include_compacted: bool = False
     ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Return ``(model_history, display_history)`` for a session resume in ONE SELECT.
 
@@ -9514,17 +9571,24 @@ class SessionDB(
         rows are part of the lineage), so serving both from one lineage SELECT
         halves the resume's DB work versus two separate calls, with byte-identical
         output (see test_get_resume_conversations_matches_separate_reads).
+
+        ``include_compacted=True`` makes ``display_history`` the transcript-UI
+        projection (see ``get_messages_as_conversation``); ``model_history``
+        is unchanged.
         """
         session_ids = (
             [session_id]
             if self._is_explicit_branch_session(session_id)
             else self._session_lineage_root_to_tip(session_id)
         )
+        active_clause = (
+            "(active = 1 OR compacted = 1)" if include_compacted else "active = 1"
+        )
         with self._read_ctx() as conn:
             placeholders = ",".join("?" for _ in session_ids)
             rows = conn.execute(
-                f"SELECT session_id, {self._CONVERSATION_ROW_COLUMNS} "
-                f"FROM messages WHERE session_id IN ({placeholders}) AND active = 1 "
+                f"SELECT session_id, active, {self._CONVERSATION_ROW_COLUMNS} "
+                f"FROM messages WHERE session_id IN ({placeholders}) AND {active_clause} "
                 # ORDER BY id (insertion order) — see get_messages_as_conversation
                 # for why timestamp ordering is unsafe.
                 "ORDER BY id",
@@ -9534,7 +9598,7 @@ class SessionDB(
         # Tip rows are exactly the model-fed set (get_messages_as_conversation
         # with session_ids=[session_id]); filtering the lineage fetch preserves
         # their relative id order.
-        tip_rows = [r for r in rows if r["session_id"] == session_id]
+        tip_rows = [r for r in rows if r["session_id"] == session_id and r["active"]]
         model_history = self._rows_to_conversation(
             tip_rows,
             session_id=session_id,
@@ -9548,6 +9612,7 @@ class SessionDB(
             include_ancestors=True,
             repair_alternation=False,
             include_row_ids=True,
+            fold_compaction=include_compacted,
         )
         return model_history, display_history
 

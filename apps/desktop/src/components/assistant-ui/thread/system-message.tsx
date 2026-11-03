@@ -1,6 +1,7 @@
 import { MessagePrimitive, useAuiState } from '@assistant-ui/react'
 import { type FC } from 'react'
 
+import { CompactionDivider } from '@/components/assistant-ui/thread/compaction-divider'
 import { messageContentText } from '@/components/assistant-ui/thread/content'
 import { Codicon } from '@/components/ui/codicon'
 import { LinkifiedText } from '@/lib/external-link'
@@ -11,6 +12,11 @@ const STEER_NOTE_RE = /^steer:(?<text>[\s\S]+)$/
 
 export const SystemMessage: FC = () => {
   const text = useAuiState(s => messageContentText(s.message.content))
+  const compaction = useAuiState(s => Boolean(s.message.metadata?.custom?.compaction))
+
+  if (compaction) {
+    return <CompactionDivider summary={text} />
+  }
 
   if (!text) {
     return null

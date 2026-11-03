@@ -708,8 +708,11 @@ export function useMessageStream({
 
       scheduleSessionsRefresh()
 
+      // A turn that compacted the context rehydrates: the stored transcript
+      // keeps every turn above the compaction and adds its divider, and it is
+      // what rewind/edit ordinals are counted against from now on.
       if (compactedTurnRef.current.delete(sessionId)) {
-        shouldHydrate = false
+        shouldHydrate = true
       }
 
       if (shouldHydrate) {

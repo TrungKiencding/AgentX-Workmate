@@ -3333,6 +3333,8 @@ export interface Translations {
       restorePrevious: string
       restoreCheckpoint: string
       restoreFromHere: string
+      compactionLabel: string
+      compactionNote: string
       restoreTitle: string
       restoreBody: string
       restoreConfirm: string

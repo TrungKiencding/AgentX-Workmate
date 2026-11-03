@@ -644,12 +644,15 @@ export function getSession(id: string, profile?: string | null): Promise<Session
 // this GET to the remote backend (which serves its own state.db); for a local
 // profile the primary opens that profile's state.db via ?profile=. Omit for
 // the current/default profile.
+// `view=display` asks for the transcript the user lived through: turns a
+// context compaction archived come back, and each compaction is one
+// `display_kind: 'compaction'` row. Older backends ignore it.
 export function getSessionMessages(id: string, profile?: string | null): Promise<SessionMessagesResponse> {
-  const suffix = profile ? `?profile=${encodeURIComponent(profile)}` : ''
+  const query = new URLSearchParams({ ...(profile ? { profile } : {}), view: 'display' })
 
   return window.agentxDesktop.api<SessionMessagesResponse>({
     ...(profile ? { profile } : {}),
-    path: `/api/sessions/${encodeURIComponent(id)}/messages${suffix}`
+    path: `/api/sessions/${encodeURIComponent(id)}/messages?${query}`
   })
 }
 

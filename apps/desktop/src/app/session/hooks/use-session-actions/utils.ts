@@ -159,7 +159,8 @@ const COMPARED_FIELDS = [
   'branchGroupId',
   'interim',
   'reactions',
-  'createdFiles'
+  'createdFiles',
+  'compaction'
 ] as const
 
 const IGNORED_FIELDS = ['timestamp', 'attachmentRefs', 'parts', 'rowId'] as const
@@ -275,7 +276,9 @@ export function chatMessagesEquivalent(a: ChatMessage, b: ChatMessage): boolean 
     // previewed final settling onto a sealed interim bubble restores the bar).
     (a.interim ?? false) !== (b.interim ?? false) ||
     !chatReactionsEquivalent(a.reactions, b.reactions) ||
-    !chatCreatedFilesEquivalent(a.createdFiles, b.createdFiles)
+    !chatCreatedFilesEquivalent(a.createdFiles, b.createdFiles) ||
+    a.compaction?.summary !== b.compaction?.summary ||
+    a.compaction?.userTurnsBefore !== b.compaction?.userTurnsBefore
   ) {
     return false
   }

@@ -7930,6 +7930,34 @@ def is_compaction_summary_message(message: Any) -> bool:
     return ContextCompressor._is_context_summary_content(content)
 
 
+def split_compaction_summary(content: Any) -> Optional[tuple[str, str]]:
+    """Split a compaction-carrying message into ``(summary, residual)``.
+
+    ``summary`` is the handoff body with every prefix and the end marker
+    removed — what a transcript UI shows when the user opens the summary.
+    ``residual`` is the real turn text the same row also carries: the
+    preserved tail content of a merge-into-tail carrier, or the live tail
+    request a forced user-leading summary keeps after its end marker. Empty
+    when the row is only a summary.
+
+    Returns ``None`` when *content* holds no compaction summary.
+    """
+    kind = ContextCompressor.classify_summary_content(content)
+    if kind is None:
+        return None
+    text = _content_text_for_contains(content).strip()
+    if kind == "merged":
+        before, _, _ = text.partition(_MERGED_SUMMARY_DELIMITER)
+        before = before.strip()
+        if before.startswith(_MERGED_PRIOR_CONTEXT_HEADER):
+            before = before[len(_MERGED_PRIOR_CONTEXT_HEADER):].strip()
+        residual = before
+    else:
+        _, marker, after = text.partition(_SUMMARY_END_MARKER)
+        residual = after.strip() if marker else ""
+    return ContextCompressor._strip_summary_prefix(text), residual
+
+
 def _handoff_carries_live_user_content(message: Any) -> bool:
     """Return True when a summary-bearing row still carries a live user ask.
 

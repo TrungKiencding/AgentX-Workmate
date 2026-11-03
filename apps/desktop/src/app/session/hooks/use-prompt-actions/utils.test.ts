@@ -152,6 +152,39 @@ describe('visible user ordinals', () => {
     expect(visibleUserIndexAtOrdinal(messages, 1)).toBe(3)
     expect(visibleUserIndexAtOrdinal(messages, 5)).toBe(-1)
   })
+
+  describe('after a context compaction', () => {
+    // The model history behind the divider holds 3 user turns (copied head,
+    // the handoff, a copied tail turn); the transcript shows the originals
+    // above it instead.
+    const compacted = [
+      { role: 'user' },
+      { role: 'assistant' },
+      { role: 'user' },
+      { role: 'assistant' },
+      { role: 'system', compaction: { summary: 's', userTurnsBefore: 3 } },
+      { role: 'user' },
+      { role: 'assistant' },
+      { role: 'user' }
+    ] as ChatMessage[]
+
+    it('counts from the divider offset', () => {
+      expect(visibleUserOrdinal(compacted, 5)).toBe(3)
+      expect(visibleUserOrdinal(compacted, 7)).toBe(4)
+      expect(visibleUserIndexAtOrdinal(compacted, 4)).toBe(7)
+    })
+
+    it('refuses turns summarized away above the divider', () => {
+      expect(visibleUserOrdinal(compacted, 2)).toBeNull()
+      expect(visibleUserIndexAtOrdinal(compacted, 0)).toBe(-1)
+    })
+
+    it('keeps counting from the top when the divider has no offset (older backend)', () => {
+      const legacy = compacted.map(m => (m.compaction ? { ...m, compaction: { summary: 's' } } : m))
+
+      expect(visibleUserOrdinal(legacy, 7)).toBe(3)
+    })
+  })
 })
 
 describe('renderRpcResult', () => {

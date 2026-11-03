@@ -3892,6 +3892,9 @@ export const en: Translations = {
       restorePrevious: 'Restore previous checkpoint',
       restoreCheckpoint: 'Restore checkpoint',
       restoreFromHere: 'Restore checkpoint — rerun from this prompt',
+      compactionLabel: 'Context summarized',
+      compactionNote:
+        'The assistant continues from this summary to save context. Everything above is still saved here, but it can no longer be edited or restored.',
       restoreTitle: 'Restore to this checkpoint?',
       restoreBody:
         'Everything after this prompt is removed from the conversation, and the prompt runs again from here.',

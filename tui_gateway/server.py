@@ -36,6 +36,7 @@ from hermes_cli.account_license import LicenseReadOnly
 from hermes_cli.env_loader import load_hermes_dotenv
 from utils import is_truthy_value
 from tools.environments.local import hermes_subprocess_env
+from agent.compaction_display import fold_compaction_display
 from agent.replay_cleanup import sanitize_replay_history
 from agent.skill_commands import describe_skill_invocation
 from agent.conversation_loop import INTERRUPT_WAITING_FOR_MODEL_PREFIX
@@ -7162,7 +7163,10 @@ def _history_to_messages(history: list[dict]) -> list[dict]:
     messages = []
     tool_call_args = {}
 
-    for m in history:
+    # Compaction handoffs render as dividers, never as an opaque user bubble.
+    # A DB display read is already folded (archived turns restored); this
+    # covers live-only histories — the in-memory fallback, older stores.
+    for m in fold_compaction_display([m for m in history if isinstance(m, dict)]):
         if not isinstance(m, dict):
             continue
         role = m.get("role")
@@ -8340,7 +8344,9 @@ def _live_visible_history(session: dict, db, in_memory_fallback: list[dict]) -> 
     key = session.get("session_key")
     if db is not None and key:
         try:
-            display = db.get_messages_as_conversation(key, include_ancestors=True, include_row_ids=True)
+            display = db.get_messages_as_conversation(
+                key, include_ancestors=True, include_row_ids=True, include_compacted=True
+            )
             return _reconcile_display_with_live(display, in_memory_fallback)
         except Exception:
             logger.debug("live display projection read failed", exc_info=True)
@@ -12894,7 +12900,10 @@ def _format_live_history_output(session: dict) -> str:
     if db is not None and session.get("session_key"):
         try:
             history = db.get_messages_as_conversation(
-                session["session_key"], include_ancestors=True, include_row_ids=True
+                session["session_key"],
+                include_ancestors=True,
+                include_row_ids=True,
+                include_compacted=True,
             )
         except Exception:
             pass

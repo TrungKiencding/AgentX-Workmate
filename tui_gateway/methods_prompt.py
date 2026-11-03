@@ -258,9 +258,15 @@ def _(rid, params: dict) -> dict:
             # new exchange is appended on top of the "undone" turns — durable
             # zombie history on resume, and the edit/regenerate never sticks.
             # Fail closed: refuse the turn and leave memory/DB unchanged.
+            # active_only: rewrite the live rows only. Turns an in-place
+            # compaction archived stay on disk — the transcript still shows
+            # them above the compaction divider, and a rewind/edit after the
+            # divider must not silently delete them (#61145's class).
             if (db := _get_db()) is not None:
                 try:
-                    db.replace_messages(session["session_key"], truncated)
+                    db.replace_messages(
+                        session["session_key"], truncated, active_only=True
+                    )
                 except Exception as exc:
                     logger.error(
                         "prompt.submit: replace_messages failed for session %s "

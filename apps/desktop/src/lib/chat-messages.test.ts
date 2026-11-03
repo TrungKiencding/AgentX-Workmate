@@ -360,6 +360,39 @@ describe('toChatMessages', () => {
     ])
   })
 
+  it('turns a compaction row into a divider carrying the summary and ordinal offset', () => {
+    const messages = toChatMessages([
+      { role: 'user', content: 'make the deck', timestamp: 1 },
+      { role: 'assistant', content: 'done', timestamp: 2 },
+      {
+        role: 'user',
+        content: undefined,
+        text: '## Goal\nBuild the deck',
+        display_kind: 'compaction',
+        display_metadata: { compaction: { user_turns_before: 2 } } as never,
+        timestamp: 3
+      },
+      { role: 'user', content: 'next', timestamp: 4 }
+    ])
+
+    expect(messages.map(message => message.role)).toEqual(['user', 'assistant', 'system', 'user'])
+    expect(messages[2].compaction).toEqual({ summary: '## Goal\nBuild the deck', userTurnsBefore: 2 })
+  })
+
+  it('keeps an empty compaction divider and tolerates JSON-text metadata', () => {
+    const [divider] = toChatMessages([
+      {
+        role: 'assistant',
+        content: '',
+        display_kind: 'compaction',
+        display_metadata: '{"compaction": {"user_turns_before": "x"}}',
+        timestamp: 3
+      }
+    ])
+
+    expect(divider.compaction).toEqual({ summary: '' })
+  })
+
   // A backend older than this app serves display_metadata as unparsed JSON
   // text. Indexing into that string used to throw and fail the whole resume.
   it.each([

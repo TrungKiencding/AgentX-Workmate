@@ -1696,6 +1696,36 @@ class TestWebServerEndpoints:
         assert resp.status_code == 200
         assert resp.json()["pagination"]["limit"] == 500
 
+    def test_get_session_messages_display_view_restores_compacted_turns(self):
+        """``view=display`` (the desktop's transcript read) brings back the
+        turns an in-place compaction archived and shows the handoff as one
+        compaction row; the default read stays the live rows."""
+        from agent.context_compressor import SUMMARY_PREFIX, _SUMMARY_END_MARKER
+        from hermes_state import SessionDB
+
+        db = SessionDB()
+        try:
+            db.create_session(session_id="compacted", source="desktop")
+            for i in range(6):
+                db.append_message(
+                    session_id="compacted",
+                    role="user" if i % 2 == 0 else "assistant",
+                    content=f"turn {i}",
+                    timestamp=float(i + 1),
+                )
+            loaded = db.get_messages_as_conversation("compacted")
+            summary = {"role": "user", "content": f"{SUMMARY_PREFIX}\nbody\n\n{_SUMMARY_END_MARKER}"}
+            db.archive_and_compact("compacted", loaded[:2] + [summary] + loaded[-2:])
+        finally:
+            db.close()
+
+        live = self.client.get("/api/sessions/compacted/messages").json()["messages"]
+        assert len(live) == 5
+
+        shown = self.client.get("/api/sessions/compacted/messages?view=display").json()["messages"]
+        assert [m["content"] for m in shown] == [f"turn {i}" for i in range(6)] + ["body"]
+        assert shown[-1]["display_kind"] == "compaction"
+
 
 
 

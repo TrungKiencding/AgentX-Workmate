@@ -35,6 +35,18 @@ export type ChatMessage = {
    *  the created-files card. Live from `message.complete`, rehydrated from
    *  the reply row's `display_metadata.files_created`. */
   createdFiles?: DeliverableFile[]
+  /** A context compaction point (`display_kind: 'compaction'`): rendered as a
+   *  divider whose disclosure holds the summary the model continued from. */
+  compaction?: CompactionMarker
+}
+
+export interface CompactionMarker {
+  summary: string
+  /** Model-history user turns the transcript does not show after this divider
+   *  (copied head/tail, the handoff itself). A turn shown after the LAST
+   *  divider has prompt.submit ordinal `userTurnsBefore + its own count`.
+   *  Absent from a backend older than this app. */
+  userTurnsBefore?: number
 }
 
 export type GatewayEventPayload = {
@@ -371,6 +383,17 @@ function parseDisplayMetadata(metadata: SessionMessage['display_metadata']): nul
   }
 
   return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null
+}
+
+function compactionMarker(message: SessionMessage): CompactionMarker {
+  const raw = message.content ?? message.text
+  const summary = typeof raw === 'string' ? raw.trim() : ''
+  const meta = parseDisplayMetadata(message.display_metadata)?.compaction
+  const before = meta && typeof meta === 'object' ? (meta as Record<string, unknown>).user_turns_before : undefined
+
+  return typeof before === 'number' && Number.isInteger(before) && before >= 0
+    ? { summary, userTurnsBefore: before }
+    : { summary }
 }
 
 function timelineTaskCount(metadata: SessionMessage['display_metadata']): number | undefined {
@@ -1059,6 +1082,22 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
       return
     }
 
+    if (message.display_kind === 'compaction') {
+      flushPendingTools(index)
+      activeAssistantIndex = null
+      const compaction = compactionMarker(message)
+
+      result.push({
+        id: `${message.timestamp || Date.now()}-${index}-compaction`,
+        role: 'system',
+        parts: [textPart(compaction.summary)],
+        timestamp: message.timestamp,
+        compaction
+      })
+
+      return
+    }
+
     const content = message.content || message.text || message.context || message.name
 
     const rawDisplayContent = transcriptContent(
@@ -1184,7 +1223,11 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
 
   return withUniqueToolCallIds(
     withoutGeneratedImageEchoes.filter(
-      m => chatMessageText(m).trim() || m.parts.some(part => part.type !== 'text') || m.attachmentRefs?.length
+      m =>
+        m.compaction ||
+        chatMessageText(m).trim() ||
+        m.parts.some(part => part.type !== 'text') ||
+        m.attachmentRefs?.length
     )
   )
 }
