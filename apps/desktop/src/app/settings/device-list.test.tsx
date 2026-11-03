@@ -66,8 +66,8 @@ describe('DeviceList', () => {
 
     render(<DeviceList />)
 
-    expect(await screen.findByRole('article', { name: /^MacBook Pro/ })).toBeTruthy()
-    expect(screen.getByRole('article', { name: /^Windows desktop/ })).toBeTruthy()
+    expect(await screen.findByRole('button', { name: 'MacBook Pro' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Windows desktop' })).toBeTruthy()
     // Exactly one row says "this device" — the caller's, not a row property.
     expect(screen.getAllByText(/this device/i)).toHaveLength(1)
   })
@@ -297,7 +297,7 @@ describe('describeRevokeFailure', () => {
 })
 
 describe('device management experience', () => {
-  it('keeps identically named installs separate and puts revoked records in collapsed history', async () => {
+  it('folds reinstalls into one row and puts revoked records in collapsed history', async () => {
     stubDevices({
       list: async () => ({
         current: 'device-a',
@@ -305,19 +305,87 @@ describe('device management experience', () => {
         devices: [
           device({ id: 'device-a' }),
           device({ id: 'device-b' }),
+          device({ id: 'device-c' }),
           device({ id: 'revoked', name: 'Old Mac', revoked: true, revoked_at: '2026-10-10T00:00:00Z' })
         ]
       })
     })
     const { container } = render(<DeviceList />)
-    await screen.findByText(en.settings.account.deviceOtherTitle(1))
-    expect(screen.getByText(en.settings.account.deviceDuplicateHint)).toBeTruthy()
+    const table = await screen.findByRole('table', { name: en.settings.account.devicesTitle })
+    // This machine, and one row for its two older installs — not three rows
+    // that all say "MacBook Pro".
+    expect(within(table).getAllByRole('row')).toHaveLength(3)
+    expect(within(table).getByText(/2 installs/)).toBeTruthy()
     const history = screen.getByText(en.settings.account.deviceHistoryTitle(1)).closest('details')!
     expect(history.open).toBe(false)
     expect(screen.getAllByText(en.settings.account.deviceCurrent)).toHaveLength(1)
-    expect(screen.getAllByRole('button', { name: en.settings.account.deviceRevoke })).toHaveLength(1)
+    expect(within(table).getAllByRole('button', { name: en.settings.account.deviceRevoke })).toHaveLength(1)
     expect(container.textContent).toContain('macOS')
     expect(container.textContent).not.toContain('darwin')
+  })
+
+  it('revokes every install a row stands for, rotating the key once at the end', async () => {
+    const revoke = vi.fn(async () => ({ key_rotated: true, status: 'ok' }))
+
+    stubDevices({
+      list: async () => ({
+        current: 'device-a',
+        status: 'ok',
+        devices: [
+          device({ id: 'device-a', name: 'Desk' }),
+          device({ id: 'device-b', last_seen_at: '2026-10-02T00:00:00Z' }),
+          device({ id: 'device-c', last_seen_at: '2026-10-01T00:00:00Z' })
+        ]
+      }),
+      revoke
+    })
+    render(<DeviceList />)
+    fireEvent.click(await screen.findByRole('button', { name: en.settings.account.deviceRevoke }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText(en.settings.account.deviceRevokeGroupNote(2))).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: en.settings.account.deviceRevoke }))
+    await waitFor(() => expect(revoke).toHaveBeenCalledTimes(2))
+    expect(revoke).toHaveBeenNthCalledWith(1, 'device-b', { rotateKey: false })
+    expect(revoke).toHaveBeenNthCalledWith(2, 'device-c', { rotateKey: true })
+  })
+
+  it('revokes every other device from the heading, never this one', async () => {
+    const revoke = vi.fn(async () => ({ key_rotated: true, status: 'ok' }))
+
+    stubDevices({
+      list: async () => ({
+        current: 'device-a',
+        status: 'ok',
+        devices: [device({ id: 'device-a' }), device({ id: 'device-b', name: 'Desk' }), device({ id: 'device-c' })]
+      }),
+      revoke
+    })
+    render(<DeviceList />)
+    fireEvent.click(await screen.findByRole('button', { name: en.settings.account.deviceRevokeOthers }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText(en.settings.account.deviceRevokeOthersConfirmDesc(2))).toBeTruthy()
+    fireEvent.click(within(dialog).getByRole('button', { name: en.settings.account.deviceRevokeOthers }))
+    await waitFor(() => expect(revoke).toHaveBeenCalledTimes(2))
+    expect(revoke.mock.calls.map(call => (call as unknown[])[0])).not.toContain('device-a')
+  })
+
+  it('shows ten machines a page and pages through the rest', async () => {
+    stubDevices({
+      list: async () => ({
+        current: 'device-0',
+        status: 'ok',
+        devices: Array.from({ length: 23 }, (_, index) => device({ id: `device-${index}`, name: `Machine ${index}` }))
+      })
+    })
+    render(<DeviceList />)
+    const table = await screen.findByRole('table', { name: en.settings.account.devicesTitle })
+    expect(within(table).getAllByRole('row')).toHaveLength(11)
+    expect(screen.getByText(en.settings.account.devicePageRange(1, 10, 23))).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: en.ui.pagination.nextAria }))
+    fireEvent.click(screen.getByRole('button', { name: en.ui.pagination.nextAria }))
+    expect(screen.getByText(en.settings.account.devicePage(3, 3))).toBeTruthy()
+    expect(within(table).getAllByRole('row')).toHaveLength(4)
+    expect((screen.getByRole('button', { name: en.ui.pagination.nextAria }) as HTMLButtonElement).disabled).toBe(true)
   })
 
   it('offers only local sign-out on the current device, with explicit confirmation', async () => {
@@ -328,9 +396,9 @@ describe('device management experience', () => {
       { keycloak: { signOut } }
     )
     render(<DeviceList />)
-    const row = await screen.findByRole('article')
-    row.querySelector('details')!.open = true
-    fireEvent.click(screen.getByRole('button', { name: en.settings.account.deviceSignOutHere }))
+    expect(screen.queryByRole('button', { name: en.settings.account.deviceRevoke })).toBeNull()
+    fireEvent.click(await screen.findByRole('button', { name: 'MacBook Pro' }))
+    fireEvent.click(await screen.findByRole('button', { name: en.settings.account.deviceSignOutHere }))
     expect(await screen.findByRole('dialog')).toBeTruthy()
     expect(signOut).not.toHaveBeenCalled()
     expect(revoke).not.toHaveBeenCalled()
@@ -403,8 +471,8 @@ describe('device management experience', () => {
     render(<DeviceList />)
     const history = (await screen.findByText(en.settings.account.deviceHistoryTitle(1))).closest('details')!
     history.open = true
-    history.querySelector('article details')!.setAttribute('open', '')
-    expect(within(history).getByRole('button', { name: en.settings.account.deviceRotateRetry })).toBeTruthy()
+    fireEvent.click(within(history).getByRole('button', { name: 'Old Mac' }))
+    expect(await screen.findByRole('button', { name: en.settings.account.deviceRotateRetry })).toBeTruthy()
   })
 
   it('changes an account label while keeping the original machine name', async () => {
@@ -418,15 +486,16 @@ describe('device management experience', () => {
 
     stubDevices({ list: async () => ({ current: 'device-a', status: 'ok', can_rename: true, devices: [row] }), rename })
     render(<DeviceList />)
-    const article = await screen.findByRole('article')
-    article.querySelector('details')!.open = true
-    fireEvent.click(screen.getByRole('button', { name: en.settings.account.deviceRename }))
+    fireEvent.click(await screen.findByRole('button', { name: 'MacBook Pro' }))
+    fireEvent.click(await screen.findByRole('button', { name: en.settings.account.deviceRename }))
     fireEvent.change(screen.getByRole('textbox', { name: en.settings.account.deviceRename }), {
       target: { value: ' Work laptop ' }
     })
     fireEvent.click(screen.getByRole('button', { name: en.common.save }))
     await waitFor(() => expect(rename).toHaveBeenCalledWith('device-b', 'Work laptop'))
-    expect(await screen.findByText('Work laptop')).toBeTruthy()
+    // The table row and the dialog title both follow the new label; the
+    // machine's own name stays in the details.
+    expect((await screen.findAllByText('Work laptop')).length).toBeGreaterThan(0)
     expect(screen.getByText('MacBook Pro')).toBeTruthy()
   })
 })

@@ -540,13 +540,9 @@ export const ar = defineLocale({
       keyRotating: 'جارٍ الإصدار…',
       keyRotateFailed: detail => `تعذّر إصدار مفتاح جديد: ${detail}`,
       keyModels: n => `${n} نموذج متاح`,
-      deviceOtherTitle: n => `أجهزة أخرى لديها صلاحية الوصول (${n})`,
       deviceHistoryTitle: n => `سجل سحب الصلاحيات (${n})`,
       deviceHistoryHint:
         'لم يعد بإمكان هذه التثبيتات الوصول إلى الحساب. إذا لم يُستبدل مفتاح النماذج، فقد يظل المفتاح المحفوظ صالحًا.',
-      deviceDuplicateHint:
-        'بعض التثبيتات تشترك في اسم الجهاز. تحقق من معرّف التثبيت وتاريخ التسجيل في التفاصيل قبل سحب الصلاحيات.',
-      deviceDetails: 'التفاصيل',
       deviceHostname: 'اسم الجهاز',
       deviceApp: 'التطبيق',
       deviceVersion: 'الإصدار',
@@ -555,8 +551,6 @@ export const ar = defineLocale({
       deviceIdentity: 'معرّف التثبيت',
       deviceAccountAccess: 'الوصول إلى الحساب',
       deviceUnknown: 'غير معروف',
-      deviceRecordId: n => `التثبيت ${n}`,
-      deviceRegisteredAt: n => `سُجّل في ${n}`,
       deviceRevokedAt: n => `سُحبت الصلاحيات في ${n}`,
       deviceRename: 'تغيير الاسم',
       deviceRenameHint: 'اتركه فارغًا لاستخدام اسم الجهاز. يُحفظ هذا الاسم في حسابك.',

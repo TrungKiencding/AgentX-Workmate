@@ -414,13 +414,9 @@ export const ja = defineLocale({
       keyRotating: '発行中…',
       keyRotateFailed: detail => `新しいキーを発行できませんでした: ${detail}`,
       keyModels: n => `${n} 個のモデルが利用可能`,
-      deviceOtherTitle: n => `アクセス権のある他のデバイス (${n})`,
       deviceHistoryTitle: n => `失効履歴 (${n})`,
       deviceHistoryHint:
         'これらのインストールはアカウントにアクセスできません。モデルキーを交換していない場合、保存済みのキーがまだ使えることがあります。',
-      deviceDuplicateHint:
-        '同じマシン名のインストールがあります。失効前に詳細でインストールIDと登録日を確認してください。',
-      deviceDetails: '詳細',
       deviceHostname: 'マシン名',
       deviceApp: 'アプリケーション',
       deviceVersion: 'バージョン',
@@ -429,8 +425,6 @@ export const ja = defineLocale({
       deviceIdentity: 'インストールID',
       deviceAccountAccess: 'アカウントへのアクセス',
       deviceUnknown: '不明',
-      deviceRecordId: n => `インストール ${n}`,
-      deviceRegisteredAt: n => `登録 ${n}`,
       deviceRevokedAt: n => `失効 ${n}`,
       deviceRename: '名前を変更',
       deviceRenameHint: '空欄ならマシン名を使用します。この名前はアカウントに保存されます。',

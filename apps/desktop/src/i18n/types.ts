@@ -535,11 +535,8 @@ export interface Translations {
       keyRotating: string
       keyRotateFailed: (detail: string) => string
       keyModels: (n: number) => string
-      deviceOtherTitle: (n: number) => string
       deviceHistoryTitle: (n: number) => string
       deviceHistoryHint: string
-      deviceDuplicateHint: string
-      deviceDetails: string
       deviceHostname: string
       deviceApp: string
       deviceVersion: string
@@ -548,8 +545,6 @@ export interface Translations {
       deviceIdentity: string
       deviceAccountAccess: string
       deviceUnknown: string
-      deviceRecordId: (n: string) => string
-      deviceRegisteredAt: (n: string) => string
       deviceRevokedAt: (n: string) => string
       deviceRename: string
       deviceRenameHint: string
@@ -562,6 +557,17 @@ export interface Translations {
       deviceRotationDone: string
       deviceRotationFailed: string
       deviceRotationUnsupported: string
+      deviceColDevice: string
+      deviceColRevoked: string
+      deviceColActions: string
+      deviceInstalls: (n: number) => string
+      deviceInstallsTitle: string
+      devicePageRange: (from: number, to: number, total: number) => string
+      devicePage: (page: number, pages: number) => string
+      deviceRevokeOthers: string
+      deviceRevokeOthersConfirmTitle: string
+      deviceRevokeOthersConfirmDesc: (n: number) => string
+      deviceRevokeGroupNote: (n: number) => string
       devicesTitle: string
       devicesEmpty: string
       devicesEmptyDesc: string

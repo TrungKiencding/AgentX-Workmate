@@ -76,26 +76,58 @@ function timestamp(value: string | null): number {
   return Date.parse(value || '') || 0
 }
 
-/** Names are hints, never identity: distinct installs must remain individually revocable. */
+/**
+ * One machine as Settings lists it: every install that shares its label,
+ * platform and app, newest first. Reinstalls, dev sandboxes and wiped homes
+ * each register a fresh install id, and listing every one of them buried the
+ * machines a person actually has under rows that all say the same thing.
+ */
+export interface DeviceGroup {
+  key: string
+  /** Newest activity first (newest revocation first, for history). */
+  devices: DesktopDevice[]
+  current: boolean
+}
+
+/**
+ * Fold installs into machines. Names are still only hints: a group is revoked
+ * as a whole, so no install it hides keeps its access, and this install never
+ * shares a row — it cannot be revoked from here, and the reinstalls beside it
+ * must stay revocable.
+ */
 export function groupDevices(devices: DesktopDevice[], current: string) {
-  const live = devices.filter(device => !device.revoked)
-  const names = new Map<string, number>()
+  const byNewest = (a: DesktopDevice, b: DesktopDevice) => timestamp(b.last_seen_at) - timestamp(a.last_seen_at)
+  const byRevoked = (a: DesktopDevice, b: DesktopDevice) => timestamp(b.revoked_at) - timestamp(a.revoked_at)
 
-  for (const device of live) {
-    const name = device.display_name || device.name
+  function fold(rows: DesktopDevice[], order: typeof byNewest): DeviceGroup[] {
+    const groups = new Map<string, DeviceGroup>()
 
-    names.set(name, (names.get(name) || 0) + 1)
+    for (const device of [...rows].sort(order)) {
+      const isCurrent = device.id === current && !device.revoked
+
+      const key = isCurrent
+        ? `current:${device.id}`
+        : JSON.stringify([device.display_name || device.name, device.platform, device.client_name || ''])
+
+      const group = groups.get(key) ?? { current: isCurrent, devices: [], key }
+
+      group.devices.push({ ...device, current: isCurrent })
+      groups.set(key, group)
+    }
+
+    // Map order follows each group's newest member, so the groups are sorted
+    // already; only this machine moves to the top.
+    return [...groups.values()].sort((a, b) => Number(b.current) - Number(a.current))
   }
 
-  const newest = (a: DesktopDevice, b: DesktopDevice) => timestamp(b.last_seen_at) - timestamp(a.last_seen_at)
-
   return {
-    current: live.filter(device => device.id === current).map(device => ({ ...device, current: true })),
-    duplicateNames: new Set([...names].filter(([, count]) => count > 1).map(([name]) => name)),
-    other: live
-      .filter(device => device.id !== current)
-      .map(device => ({ ...device, current: false }))
-      .sort(newest),
-    revoked: devices.filter(device => device.revoked).sort((a, b) => timestamp(b.revoked_at) - timestamp(a.revoked_at))
+    active: fold(
+      devices.filter(device => !device.revoked),
+      byNewest
+    ),
+    revoked: fold(
+      devices.filter(device => device.revoked),
+      byRevoked
+    )
   }
 }
