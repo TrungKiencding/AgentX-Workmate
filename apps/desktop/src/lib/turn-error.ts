@@ -209,9 +209,9 @@ const VAGUE_READINGS = new Set([TURN_ERROR_FALLBACK_CODE, 'bad_request'])
 
 /**
  * Whether the text names the failure better than the gateway's code. The
- * backend's classifier files whatever it does not recognise under a broad
- * bucket: a LiteLLM budget wall or a provider's "safety system" refusal as a
- * malformed request (`bad_request`), a refused or dropped connection as
+ * backend's classifier files what it does not recognise under a broad bucket
+ * — a provider's wording it has no pattern for as a malformed request
+ * (`bad_request`), and a backend older than 1.1.3 also a refused connection as
  * `timeout`. Those buckets give way to a precise reading; every other code
  * stands.
  */

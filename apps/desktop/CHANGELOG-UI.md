@@ -707,3 +707,11 @@ happened, what to do, or whom to ask. The words "AgentX reported an error" and
   rejected submit no longer toasts what its bubble already says; a full disk
   still does. A failure frame with no text at all still gets its bubble.
 - The toast's details panel is now `DetailPanel`, shared with the error block.
+- The backend names three failures it used to file under broad buckets, so
+  both this block and the SSO usage metrics get them right: an AI Gateway
+  spend cap (LiteLLM "Budget has been exceeded", a 400) is `budget_exceeded` →
+  `quota_exceeded`, not a malformed request; LiteLLM's, Azure's and OpenAI's
+  content refusals are `content_policy_blocked` → `content_filtered`; a refused
+  or broken connection reports `connection_failed` → `network_error` while it
+  still retries as a transport timeout. A reply still cut off after the
+  continuation attempts reports `response_truncated` → `stream_interrupted`.

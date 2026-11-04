@@ -31,11 +31,13 @@ _REASON_CODES = {
     "auth_permanent": "auth_failed",
     "billing": "quota_exceeded",
     "billing_unverified": "quota_exceeded",
+    "budget_exceeded": "quota_exceeded",
     "rate_limit": "rate_limited",
     "upstream_rate_limit": "rate_limited",
     "overloaded": "upstream_error",
     "server_error": "upstream_error",
     "timeout": "timeout",
+    "connection_failed": "network_error",
     "ssl_cert_verification": "network_error",
     "context_overflow": "context_too_long",
     "payload_too_large": "context_too_long",
@@ -98,7 +100,7 @@ def exception_failure_code(error: BaseException) -> str:
     if isinstance(error, LicenseReadOnly):
         return _license_code(error.license)
     try:
-        return _REASON_CODES.get(classify_api_error(error).reason.value, FALLBACK_CODE)
+        return _REASON_CODES.get(classify_api_error(error).failure_reason, FALLBACK_CODE)
     except Exception:  # classifying never stands in the way of closing the turn
         return FALLBACK_CODE
 
@@ -114,6 +116,8 @@ def _failure_reason_code(result: Mapping[str, Any]) -> str | None:
         return "session_save_failed"
     if reason == "interpreter_shutdown":
         return "app_shutdown"
+    if reason == "response_truncated":
+        return "stream_interrupted"
     return _REASON_CODES.get(reason, FALLBACK_CODE)
 
 

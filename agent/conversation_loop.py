@@ -705,7 +705,7 @@ def _billing_failure_result(
         "completed": False,
         "failed": True,
         "error": summary,
-        "failure_reason": classified.reason.value,
+        "failure_reason": classified.failure_reason,
         # The billing verdict may rest on an ambiguous body (#82154) — carry
         # that through the structured result, not just the prose.
         "billing_unverified": unverified,
@@ -3821,6 +3821,9 @@ def run_conversation(
                                 "completed": False,
                                 "partial": True,
                                 "error": "Response remained truncated after 4 continuation attempts",
+                                # The reply was cut off: what the person is told and the
+                                # usage metrics count (tui_gateway/usage_outcome.py).
+                                "failure_reason": "response_truncated",
                             }
 
                     if agent.api_mode in {"chat_completions", "bedrock_converse", "anthropic_messages"}:
@@ -5164,7 +5167,7 @@ def run_conversation(
                         "partial": True,
                         "failed": True,
                         "compaction_disabled": True,
-                        "failure_reason": classified.reason.value,
+                        "failure_reason": classified.failure_reason,
                     }
 
                 # ── Anthropic Sonnet long-context tier gate ───────────
@@ -6177,7 +6180,7 @@ def run_conversation(
                         # The classified reason, so callers (the desktop's
                         # error explanation, the SSO usage metrics) can tell a
                         # missing model from a malformed request.
-                        "failure_reason": classified.reason.value,
+                        "failure_reason": classified.failure_reason,
                     }
 
                 if retry_count >= max_retries:
@@ -6399,7 +6402,7 @@ def run_conversation(
                         # transient throttle from a real failure and choose a
                         # different exit code. ``rate_limit`` / ``billing`` here
                         # mean "quota wall, not a task error".
-                        "failure_reason": classified.reason.value,
+                        "failure_reason": classified.failure_reason,
                         # True when the billing verdict rests on an ambiguous
                         # body (#82154) — may be a content-filter rejection.
                         "billing_unverified": _billing_unverified,

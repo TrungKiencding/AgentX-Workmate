@@ -48,6 +48,9 @@ def _unanswered(exit_reason: str, answer: str | None = None) -> dict:
         (_failed("model_not_found"), "error", "model_unavailable"),
         (_failed("content_policy_blocked"), "error", "content_filtered"),
         (_failed("format_error"), "error", "bad_request"),
+        (_failed("budget_exceeded"), "error", "quota_exceeded"),
+        (_failed("connection_failed"), "error", "network_error"),
+        (_failed("response_truncated", partial=True), "error", "stream_interrupted"),
         (_failed("unknown"), "error", "operation_failed"),
         (_failed("something new"), "error", "operation_failed"),
         (_failed("session_persistence_failed:disk"), "error", "session_save_failed"),
@@ -193,3 +196,24 @@ def test_an_exception_out_of_the_turn_says_why(finish):
     payload = finish(refuse)
     assert payload["status"] == "error"
     assert payload["failure_code"] == "license_expired"
+
+
+def test_every_failover_reason_has_a_shared_code():
+    """A reason the classifier can give is never sent as the fallback by omission."""
+    from agent.error_classifier import FailoverReason
+    from tui_gateway.usage_outcome import _REASON_CODES
+
+    missing = {reason.value for reason in FailoverReason} - set(_REASON_CODES)
+    assert missing == set()
+
+
+def test_a_refused_connection_that_ended_the_turn_is_a_network_error():
+    class ConnectError(Exception):
+        pass
+
+    class APIConnectionError(Exception):
+        pass
+
+    error = APIConnectionError("Connection error.")
+    error.__cause__ = ConnectError("[Errno 61] Connection refused")
+    assert exception_failure_code(error) == "network_error"

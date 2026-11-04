@@ -36,6 +36,10 @@ class FailoverReason(enum.Enum):
 
     # Billing / quota
     billing = "billing"                  # 402 or confirmed credit exhaustion — rotate immediately
+    # A gateway's spend cap (LiteLLM key/user/team budget). Deterministic
+    # until an administrator raises it, and not a provider credit wall: no
+    # retry, no credential rotation, no "add credits" guidance.
+    budget_exceeded = "budget_exceeded"
     rate_limit = "rate_limit"            # 429 or quota-based throttling — backoff then rotate
     # Upstream model rate-limited (aggregator 429) — fallback to a different
     # model, NOT credential rotation. The user's key is healthy.
@@ -101,6 +105,18 @@ class ClassifiedError:
     @property
     def is_auth(self) -> bool:
         return self.reason in {FailoverReason.auth, FailoverReason.auth_permanent}
+
+    @property
+    def failure_reason(self) -> str:
+        """The reason a failed turn reports (``failure_reason`` on its result).
+
+        The recovery reason, except where the same recovery covers failures a
+        person reads differently: a connection that could not be made retries
+        like a timeout, but is reported as ``connection_failed``.
+        """
+        if self.reason == FailoverReason.timeout and self.error_context.get("connect_failed"):
+            return "connection_failed"
+        return self.reason.value
 
     @property
     def billing_unverified(self) -> bool:
@@ -606,6 +622,14 @@ _CONTENT_POLICY_BLOCKED_PATTERNS = [
     # echo back; the underscore form is provider-specific enough.
     "content_filter",
     "responsibleaipolicyviolation",
+    # LiteLLM re-raises every provider's refusal as ContentPolicyViolationError
+    # (so an AgentX AI Gateway refusal arrives as a plain 400), Azure words it
+    # as its "content management policy", OpenAI's image and chat refusals as
+    # "rejected as a result of our safety system".
+    "contentpolicyviolation",
+    "content_policy_violation",
+    "content management policy",
+    "rejected as a result of our safety system",
     # MiniMax output-layer safety filter. The error string is surfaced
     # verbatim by MiniMax SDK / OpenAI-compatible endpoints, usually in the
     # form "output new_sensitive (1027)" when the model's *output* (often a
@@ -615,6 +639,48 @@ _CONTENT_POLICY_BLOCKED_PATTERNS = [
     # strings will not collide. See #32421.
     "new_sensitive",
 ]
+
+# A gateway's spend cap: LiteLLM's BudgetExceededError ("Budget has been
+# exceeded! Current cost: …, Max budget: …", type ``budget_exceeded``) and its
+# per-user/team form ("ExceededBudget: User=… over budget"), sent as a 400.
+# Verbatim LiteLLM wording only — "budget" alone also names Anthropic's
+# ``thinking.budget_tokens`` and the agent's own iteration budget.
+_GATEWAY_BUDGET_PATTERNS = [
+    "budget has been exceeded",
+    "exceededbudget",
+    "budget_exceeded",
+]
+
+# A connection that was never made, or was refused or reset: reported as a
+# network failure (``connection_failed``) while it retries as a transport
+# timeout. Timeout types stay timeouts (APITimeoutError subclasses
+# APIConnectionError, so it is named here only to be excluded).
+_CONNECT_FAILURE_TYPES = frozenset({
+    "APIConnectionError", "ConnectError", "ConnectionError",
+    "ConnectionRefusedError", "ConnectionResetError", "ConnectionAbortedError",
+    "BrokenPipeError", "RemoteProtocolError", "ReadError",
+    "ServerDisconnectedError", "ClientConnectorError", "gaierror",
+})
+_TIMEOUT_TYPES = frozenset({
+    "APITimeoutError", "ReadTimeout", "ConnectTimeout", "PoolTimeout",
+    "WriteTimeout", "TimeoutError", "ServerTimeoutError",
+})
+
+
+def _is_connect_failure(error: Exception) -> bool:
+    """True when ``error`` (or what it wraps) is a failed or broken connection, not a timeout."""
+    seen = 0
+    current: Optional[BaseException] = error
+    while current is not None and seen < 6:
+        name = type(current).__name__
+        if name in _TIMEOUT_TYPES or isinstance(current, TimeoutError):
+            return False
+        if name in _CONNECT_FAILURE_TYPES or isinstance(current, ConnectionError):
+            return True
+        current = current.__cause__ or current.__context__
+        seen += 1
+    return False
+
 
 # Auth patterns (non-status-code signals)
 _AUTH_PATTERNS = [
@@ -948,6 +1014,17 @@ def classify_api_error(
             should_fallback=True,
         )
 
+    # A gateway's spend cap (LiteLLM, as the AgentX AI Gateway). It arrives as
+    # a 400, so without this it is a ``format_error``; it is no provider
+    # credit wall either (``billing`` would rotate credentials and point at a
+    # top-up page). The same key fails until an administrator raises the cap.
+    if any(p in error_msg for p in _GATEWAY_BUDGET_PATTERNS):
+        return _result(
+            FailoverReason.budget_exceeded,
+            retryable=False,
+            should_fallback=True,
+        )
+
     # Anthropic thinking block recovery (400).  Two distinct failure modes,
     # same recovery (strip all reasoning_details and retry without thinking
     # blocks — see the thinking_signature handler in conversation_loop.py):
@@ -1222,6 +1299,8 @@ def classify_api_error(
     # ── 8. Transport / timeout heuristics ───────────────────────────
 
     if error_type in _TRANSPORT_ERROR_TYPES or isinstance(error, (TimeoutError, ConnectionError, OSError)):
+        if _is_connect_failure(error):
+            return _result(FailoverReason.timeout, retryable=True, error_context={"connect_failed": True})
         return _result(FailoverReason.timeout, retryable=True)
 
     # ── 9. Fallback: unknown ────────────────────────────────────────
@@ -1958,9 +2037,10 @@ def _classify_by_message(
     # fall through to FailoverReason.unknown. Classified as timeout (the
     # transport bucket) so the retry loop's eager transport fallback and
     # client rebuild apply. Never routes to compression: a connection that
-    # was never established is not a context-overflow signal.
+    # was never established is not a context-overflow signal. Reported as a
+    # failed connection (``failure_reason``), not a timeout.
     if any(p in error_msg for p in _CONNECTION_MESSAGE_PATTERNS):
-        return result_fn(FailoverReason.timeout, retryable=True)
+        return result_fn(FailoverReason.timeout, retryable=True, error_context={"connect_failed": True})
 
     return None
 
