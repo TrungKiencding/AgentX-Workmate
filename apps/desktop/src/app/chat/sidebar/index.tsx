@@ -7,7 +7,6 @@ import { useLocation } from 'react-router'
 
 import { PlatformAvatar } from '@/app/messaging/platform-icon'
 import { Button } from '@/components/ui/button'
-import { Codicon } from '@/components/ui/codicon'
 import { ContextMenu, ContextMenuContent, ContextMenuTrigger } from '@/components/ui/context-menu'
 import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { KbdGroup } from '@/components/ui/kbd'
@@ -110,18 +109,12 @@ import {
 } from '@/store/session'
 import { $focusedStoredSessionId, $workingSessionIds, type SplitDir } from '@/store/session-states'
 
-import {
-  type AppView,
-  ARTIFACTS_ROUTE,
-  MESSAGING_ROUTE,
-  SIDEBAR_NAV_AREA,
-  type SidebarNavContribution,
-  SKILLS_ROUTE
-} from '../../routes'
+import { type AppView, ARTIFACTS_ROUTE, MESSAGING_ROUTE, SIDEBAR_NAV_AREA, SKILLS_ROUTE } from '../../routes'
 import type { SidebarNavItem } from '../../types'
 
 import { SidebarAccountRow } from './account-row'
 import { ConnectedChannels } from './connected-channels'
+import { contributedNavItems } from './contributed-nav'
 import { SidebarCronJobsSection } from './cron-jobs-section'
 import { SidebarLoadMoreRow } from './load-more-row'
 import { orderByIds, reconcileOrderIds, resolveManualSessionOrderIds, sameIds } from './order'
@@ -311,35 +304,14 @@ export function ChatSidebar({
   onManageCronJob,
   onTriggerCronJob
 }: ChatSidebarProps) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const s = t.sidebar
   const { pathname, search } = useLocation()
   // Contributed nav rows (plugins pairing a page with a sidebar entry) render
   // below the built-ins with the same chrome; active = at their route.
   const navContributions = useContributions(SIDEBAR_NAV_AREA)
 
-  const contributedNav = useMemo<SidebarNavItem[]>(
-    () =>
-      navContributions.flatMap(c => {
-        const data = c.data as Partial<SidebarNavContribution> | undefined
-
-        if (!data?.path?.startsWith('/') || !data.label) {
-          return []
-        }
-
-        const codicon = data.codicon || 'plug'
-
-        return [
-          {
-            id: c.id,
-            label: data.label,
-            icon: (props: { className?: string }) => <Codicon name={codicon} {...props} />,
-            route: data.path
-          }
-        ]
-      }),
-    [navContributions]
-  )
+  const contributedNav = useMemo(() => contributedNavItems(navContributions, locale), [locale, navContributions])
 
   const panesFlipped = useStore($panesFlipped)
   const agentsGrouped = useStore($sidebarAgentsGrouped)

@@ -3,8 +3,7 @@
  *
  *  - BUNDLED: every `src/plugins/<name>/plugin.{ts,tsx}` default-exporting a
  *    `HermesPlugin` registers automatically (vite glob — drop a folder in).
- *    None ship in-tree today; reference/demo plugins live in the companion
- *    `hermes-example-plugins` repo.
+ *    `agentx-bots` (Bot Mode, ON by default) and `kanban` (OFF) ship here.
  *  - RUNTIME: the on-disk door (`<agentx home>/desktop-plugins/<name>/plugin.js`)
  *    — the agent's/user's door, watched + hot-reloaded by the runtime loader.
  */

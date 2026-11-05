@@ -2345,6 +2345,13 @@ def _start_agent_build(sid: str, session: dict) -> None:
             finally:
                 _clear_session_context(tokens)
 
+            # A new chat's title (session.create ``title``) is only persisted
+            # after its first message, but the system prompt is built on that
+            # first turn. Hand the intended title to the prompt builder so a
+            # title-gated section (Bot Mode's "Bot Chat") applies from turn one.
+            if pending := str(current.get("pending_title") or "").strip():
+                agent._session_title_hint = pending
+
             # Session DB row deferred to first run_conversation() call.
             # pending_title applied post-first-message (see cli.exec handler).
             current["agent"] = agent

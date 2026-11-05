@@ -3,6 +3,7 @@ import type { ThreadMessage } from '@assistant-ui/react'
 import type { QuickModelOption } from '@/app/chat/composer/types'
 import type { ClientSessionState, CommandDispatchResponse } from '@/app/types'
 import { formatRefValue } from '@/components/assistant-ui/directive-text'
+import { translateNow } from '@/i18n/runtime'
 import { type ChatMessage, type ChatMessagePart, chatMessageText, textPart } from '@/lib/chat-messages'
 import { normalize } from '@/lib/text'
 import type { ComposerAttachment } from '@/store/composer'
@@ -62,8 +63,20 @@ export function createClientSessionState(
   }
 }
 
+/** Title of an assistant's ONE canonical conversation (Bot Mode). It is a
+ *  wire contract — the backend gates the teammate protocol on it and bots
+ *  deliver with `-c "Bot Chat"` (tools/bot_mode_protocol.py) — so it stays
+ *  English on disk and is only shown localized. */
+export const BOT_CHAT_TITLE = 'Bot Chat'
+
 export function sessionTitle(session: SessionInfo): string {
-  return session.title?.trim() || session.preview?.trim() || 'Untitled session'
+  const title = session.title?.trim()
+
+  if (title === BOT_CHAT_TITLE) {
+    return translateNow('sidebar.row.mainConversation')
+  }
+
+  return title || session.preview?.trim() || 'Untitled session'
 }
 
 export function coerceGatewayText(value: unknown): string {

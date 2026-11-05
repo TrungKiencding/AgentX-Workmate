@@ -159,7 +159,10 @@ def _(rid, params: dict) -> dict:
             except Exception:
                 row["has_avatar"] = False
             out.append(row)
-        return _ok(rid, {"profiles": out})
+        # bot_mode_protocol: this backend teaches the Bot Mode teammate
+        # protocol through the "Bot Chat" system prompt (tools/bot_mode_protocol.py),
+        # so clients must never append it to SOUL.md.
+        return _ok(rid, {"profiles": out, "bot_mode_protocol": True})
     except Exception as e:
         return _err(rid, 5061, str(e))
 

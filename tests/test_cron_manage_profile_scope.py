@@ -73,3 +73,38 @@ def test_cron_manage_unknown_profile_errors(tmp_path, monkeypatch):
 
     assert "error" in resp, resp
     assert resp["error"]["code"] == 4064
+
+
+def test_cron_manage_add_creates_a_job_in_the_profile_store(tmp_path, monkeypatch):
+    """Bot Mode's "Lịch tự động" adds jobs through this RPC. A stray
+    ``continuity`` kwarg once made every add raise a TypeError."""
+    profile_home = tmp_path / "profiles" / "botA"
+    profile_home.mkdir(parents=True)
+
+    import hermes_cli.profiles as profiles
+
+    monkeypatch.setattr(profiles, "get_profile_dir", lambda name: profile_home)
+
+    resp = server.handle_request(
+        {
+            "id": "1",
+            "method": "cron.manage",
+            "params": {
+                "action": "add",
+                "name": "Bản tin sáng",
+                "schedule": "0 8 * * *",
+                "prompt": "Tóm tắt 5 tin công nghệ",
+                "profile": "botA",
+                "repeat": 3,
+                "continuity": True,
+            },
+        }
+    )
+
+    assert "result" in resp, resp
+    assert resp["result"].get("success") is not False, resp
+
+    stored = json.loads((profile_home / "cron" / "jobs.json").read_text(encoding="utf-8"))
+    jobs = stored["jobs"] if isinstance(stored, dict) else stored
+    assert [job["name"] for job in jobs] == ["Bản tin sáng"]
+    assert jobs[0]["prompt"] == "Tóm tắt 5 tin công nghệ"

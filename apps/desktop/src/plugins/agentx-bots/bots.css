@@ -1,0 +1,88 @@
+/* Bot Mode — the only motion in the roster, all CSS (no timers, no rAF).
+   Rest: an occasional blink, offset per bot (--bots-blink-delay) so a list
+   never blinks in unison. Working: a gentle sway plus three typing dots.
+   Reduced motion: completely still. */
+
+.agentx-bots-face-eyes {
+  transform-box: view-box;
+  animation: agentx-bots-blink 4.6s ease-in-out infinite;
+  animation-delay: var(--bots-blink-delay, 0s);
+}
+
+.agentx-bots-face[data-mood='work'] .agentx-bots-face-body {
+  transform-box: view-box;
+  transform-origin: 50% 70%;
+  animation: agentx-bots-sway 2.8s ease-in-out infinite;
+}
+
+.agentx-bots-face-dots circle {
+  animation: agentx-bots-dot 1.2s ease-in-out infinite;
+  opacity: 0.25;
+}
+
+.agentx-bots-face-dots circle:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.agentx-bots-face-dots circle:nth-child(3) {
+  animation-delay: 0.36s;
+}
+
+@keyframes agentx-bots-blink {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  97% {
+    transform: scaleY(0.12);
+  }
+}
+
+@keyframes agentx-bots-sway {
+  0%,
+  100% {
+    transform: rotate(-3deg) translateY(0);
+  }
+  50% {
+    transform: rotate(3deg) translateY(-0.6px);
+  }
+}
+
+@keyframes agentx-bots-dot {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+
+/* A live dot that breathes next to a working bot's name. */
+.agentx-bots-live {
+  animation: agentx-bots-live 1.6s ease-in-out infinite;
+}
+
+@keyframes agentx-bots-live {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agentx-bots-face-eyes,
+  .agentx-bots-face[data-mood='work'] .agentx-bots-face-body,
+  .agentx-bots-face-dots circle,
+  .agentx-bots-live {
+    animation: none;
+  }
+
+  .agentx-bots-face-dots circle {
+    opacity: 0.7;
+  }
+}

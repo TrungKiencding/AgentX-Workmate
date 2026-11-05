@@ -2652,6 +2652,7 @@ export const ar = defineLocale({
       renameTitle: 'إعادة تسمية المحادثة',
       renameDesc: '',
       untitledPlaceholder: 'محادثة بلا عنوان',
+      mainConversation: 'المحادثة الرئيسية',
       ageNow: 'الآن',
       ageDay: 'يوم',
       ageHour: 'ساعة',

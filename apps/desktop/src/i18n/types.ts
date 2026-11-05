@@ -2327,6 +2327,8 @@ export interface Translations {
       renameDesc: string
       untitledPlaceholder: string
       untitledChat: (id: string) => string
+      /** Display name of an assistant's canonical "Bot Chat" session. */
+      mainConversation: string
       ageNow: string
       ageDay: string
       ageHour: string

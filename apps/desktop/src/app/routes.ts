@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { noteActiveTreeGroup, revealTreePane } from '@/components/pane-shell/tree/store'
 import { registry } from '@/contrib/registry'
 import type { Contribution } from '@/contrib/types'
+import type { Locale } from '@/i18n'
 
 type NavigateLike = (to: string, options?: { replace?: boolean }) => void
 
@@ -119,10 +120,17 @@ export const SIDEBAR_NAV_AREA = 'sidebar.nav'
 export interface SidebarNavContribution {
   /** Codicon name, e.g. `'project'`. */
   codicon: string
-  label: string
+  /** Row label. A function receives the app's active locale and is re-read
+   *  when it changes, so a localized label follows a language switch. */
+  label: string | ((locale: Locale) => string)
   /** Route to navigate to (usually a contributed page's path). */
   path: string
+  /** Glyph tint, the way the built-in rows colour theirs (`--tint-<name>`).
+   *  Omit for the neutral icon ink. */
+  tint?: SidebarNavTint
 }
+
+export type SidebarNavTint = 'blue' | 'green' | 'indigo' | 'orange' | 'pink' | 'purple' | 'red' | 'teal' | 'yellow'
 
 // Views that render as a full-screen modal card (OverlayView) over the shell.
 // While one is open the app's titlebar control clusters must hide so they don't

@@ -250,6 +250,11 @@ DEFAULT_CONFIG = {
         # (docker/modal/ssh — they have their own probe).  Set False to
         # disable entirely.
         "environment_probe": True,
+        # Bot Mode teammate protocol: inside a bot's canonical "Bot Chat"
+        # session (desktop "Trợ lý" page), tell the agent how to message the
+        # other named agents on this machine. Silent until Bot Mode is used;
+        # never touches SOUL.md. See tools/bot_mode_protocol.py.
+        "bot_mode_protocol": True,
         # Embedder-supplied environment description appended to the system
         # prompt's environment-hints block. Lets a host that wraps AgentX
         # (sandbox runner, managed platform) explain the runtime environment

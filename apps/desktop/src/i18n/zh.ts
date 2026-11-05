@@ -2803,6 +2803,7 @@ export const zh: Translations = {
       renameTitle: '重命名对话',
       renameDesc: '留空则清除。',
       untitledPlaceholder: '无标题对话',
+      mainConversation: '主对话',
       untitledChat: id => `会话 ${id}`,
       ageNow: '刚刚',
       ageDay: '天',

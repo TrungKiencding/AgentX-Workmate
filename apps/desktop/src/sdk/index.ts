@@ -23,11 +23,21 @@ import { atom, type ReadableAtom } from 'nanostores'
 import { openSession, type OpenSessionIntent } from '@/app/open-session'
 import { $narrowViewport } from '@/components/pane-shell/tree/store'
 import { onGatewayEvent } from '@/contrib/events'
-import { getLogs, getStatus } from '@/hermes'
+import { deleteProfile as deleteProfileRequest, getLogs, getStatus } from '@/hermes'
 import { $gateway } from '@/store/gateway'
 import { notify, notifyError } from '@/store/notifications'
-import { $activeGatewayProfile, ensureGatewayProfile, newSessionInProfile } from '@/store/profile'
+import {
+  $activeGatewayProfile,
+  ensureGatewayProfile,
+  newSessionInProfile,
+  normalizeProfileKey,
+  prewarmProfileBackend,
+  refreshProfiles,
+  selectProfile,
+  setActiveProfile
+} from '@/store/profile'
 import { $activeSessionId, $currentCwd, $currentModel, $gatewayState } from '@/store/session'
+import { $focusedStoredSessionId } from '@/store/session-states'
 import { runGatewayRestart } from '@/store/system-actions'
 
 // -- state: readonly views over the app's live atoms -------------------------
@@ -68,6 +78,9 @@ export const host = {
     model: readonlyAtom<string>($currentModel),
     /** Profile the live gateway is routed to. */
     profile: readonlyAtom<string>($activeGatewayProfile),
+    /** Stored (database) id of the chat the user is typing into — the focused
+     *  tile's, else the main view's; null on a fresh draft. */
+    storedSessionId: readonlyAtom<null | string>($focusedStoredSessionId),
     /** Window geometry ({ width, height, narrow }). */
     viewport: readonlyAtom<ViewportRect>($viewport)
   },
@@ -125,6 +138,36 @@ export const host = {
     window.location.hash = '#/'
   },
 
+  /** Delete a profile the way Settings ▸ Profiles does: the REST delete stops
+   *  that profile's backend before removing its folder (a CLI `profile delete`
+   *  races a live backend that respawns mid-delete), then the profile list
+   *  refreshes and — when it was the live one — the app falls back to default. */
+  deleteProfile: async (name: string): Promise<void> => {
+    const wasActive = normalizeProfileKey(name) === normalizeProfileKey($activeGatewayProfile.get())
+    await deleteProfileRequest(name)
+    await refreshProfiles().catch(() => undefined)
+
+    if (wasActive) {
+      selectProfile('default')
+      setActiveProfile('default')
+    }
+  },
+
+  /** Re-read the profile list after a plugin created or renamed one, so the
+   *  sidebar's profile switcher and pickers see it without waiting for a poll. */
+  refreshProfiles: async (): Promise<void> => {
+    await refreshProfiles()
+  },
+
+  /** Make `name`'s backend the live gateway (opening its socket if needed) so
+   *  the following `host.request` calls land on THAT profile. Other profiles'
+   *  sockets stay open, so their chats keep streaming. */
+  activateProfile: async (name: string): Promise<void> => ensureGatewayProfile(name),
+
+  /** Start a profile's backend in the background (hover intent) so opening its
+   *  chat is instant. Throttled and silent; a no-op for the live profile. */
+  warmProfile: (name: string): void => prewarmProfileBackend(name),
+
   /** HEAR the gateway stream (message deltas, session lifecycle, tool
    *  activity, …) by event type — `'*'` for everything. Returns a disposer.
    *  Listeners are isolated; a throw can't affect app dispatch. */
@@ -159,7 +202,17 @@ export { COMPOSER_AREAS, type ComposerAttachmentProvider, type ComposerMiddlewar
 // -- ui: the design language --------------------------------------------------
 
 export { PALETTE_AREA, type PaletteContribution } from '@/app/command-palette/contrib'
-export { type RouteContribution, ROUTES_AREA, SIDEBAR_NAV_AREA, type SidebarNavContribution } from '@/app/routes'
+/** THE full-page frame core pages wear (Tiện ích, Kênh tin nhắn, Artifact):
+ *  22px title + one-line description, then search · centered tabs · trailing
+ *  action. A plugin page that uses it reads as part of the app. */
+export { PageSearchShell, type PageShellTab } from '@/app/page-search-shell'
+export {
+  type RouteContribution,
+  ROUTES_AREA,
+  SIDEBAR_NAV_AREA,
+  type SidebarNavContribution,
+  type SidebarNavTint
+} from '@/app/routes'
 /** THE model catalog menu — the same searchable, provider-grouped, family-
  *  collapsing picker the chat composer uses, including the per-row
  *  thinking/effort/fast submenu. Drive it with a `ModelMenuController`: the
@@ -173,8 +226,11 @@ export {
   type ModelMenuController
 } from '@/app/shell/model-catalog-menu'
 export type { StatusbarItem } from '@/app/shell/statusbar-controls'
-
 export type { TitlebarTool } from '@/app/shell/titlebar-controls'
+
+/** The assistant-answer markdown renderer (same typography, code blocks and
+ *  link handling as the chat transcript) for text a plugin already holds. */
+export { MarkdownTextContent as Markdown } from '@/components/assistant-ui/markdown-text'
 /** Pane placement roles. `'floating'` is the one NON-tiling value: the pane is
  *  excluded from the layout tree and rendered as a fixed, draggable card above
  *  it — it takes no width from any zone, has no tab, and can't be docked.
@@ -276,6 +332,9 @@ export {
 /** THE compact-number formatter — every user-facing count/token figure goes
  *  through here (1230 → "1.2k", 1_500_000 → "1.5M"). Don't hand-roll `/1000`. */
 export { compactNumber } from '@/lib/format'
+/** Where a composer middleware's model-facing note starts: the transcript shows
+ *  only the user's words before it. */
+export { HANDOFF_NOTE_MARKER } from '@/lib/handoff-note'
 export { triggerHaptic as haptic } from '@/lib/haptics'
 /** The app's lucide icon set (RefreshCw, LayoutDashboard, Activity, …). */
 export * as icons from '@/lib/icons'

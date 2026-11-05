@@ -12,6 +12,7 @@ import { Tip } from '@/components/ui/tooltip'
 import { useResizeObserver } from '@/hooks/use-resize-observer'
 import { useI18n } from '@/i18n'
 import { latestCompactionAnchor, userOrdinalAt } from '@/lib/compaction-ordinal'
+import { stripHandoffNote } from '@/lib/handoff-note'
 import { triggerHaptic } from '@/lib/haptics'
 import { StopFilled } from '@/lib/icons'
 import { cn } from '@/lib/utils'
@@ -138,7 +139,9 @@ export const UserMessage: FC<{
   const copy = t.assistant.thread
   const messageId = useAuiState(s => s.message.id)
   const content = useAuiState(s => s.message.content)
-  const messageText = messageContentText(content)
+  // A Bot Mode handoff note rides along to the model; the bubble shows the
+  // user's own words (and restore puts only those back in the composer).
+  const messageText = stripHandoffNote(messageContentText(content))
   const threadRunning = useAuiState(s => s.thread.isRunning)
 
   const latestUserId = useAuiState(s => {

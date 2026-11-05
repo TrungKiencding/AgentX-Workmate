@@ -2562,6 +2562,7 @@ export const zhHant = defineLocale({
       renameTitle: '重新命名對話',
       renameDesc: '留空則清除。',
       untitledPlaceholder: '未命名對話',
+      mainConversation: '主對話',
       untitledChat: id => `工作階段 ${id}`,
       ageNow: '剛才',
       ageDay: '天',

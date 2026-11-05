@@ -580,7 +580,8 @@ export const vi: Translations = {
       deviceRevoked: 'Đã thu hồi',
       deviceRevoke: 'Thu hồi thiết bị',
       deviceRevokeConfirmTitle: 'Thu hồi thiết bị này?',
-      deviceRevokeConfirmDesc: name => `${name} sẽ bị chặn truy cập tài khoản. Bản cài đặt này sẽ được chuyển vào lịch sử thu hồi.`,
+      deviceRevokeConfirmDesc: name =>
+        `${name} sẽ bị chặn truy cập tài khoản. Bản cài đặt này sẽ được chuyển vào lịch sử thu hồi.`,
       deviceRotateKey: 'Cấp luôn key model mới',
       deviceRotateKeyDesc:
         'Các thiết bị của bạn dùng chung một key model, nên chỉ thu hồi thôi thì thiết bị đó vẫn còn quyền dùng model. Những thiết bị còn lại sẽ tự nhận key mới.',
@@ -1356,11 +1357,13 @@ export const vi: Translations = {
       hubOpen: 'Mở trên AgentHub',
       hubRemoved: name => `Đã gỡ ${name}. AgentX AgentHub được báo ở lần đồng bộ tới.`,
       hubReplace: 'Thay bằng bản AgentHub…',
-      hubReplaceConfirm: name => `Thay ${name} bằng bản của AgentX AgentHub? Những gì bạn sửa ở lệnh chạy của nó sẽ mất.`,
+      hubReplaceConfirm: name =>
+        `Thay ${name} bằng bản của AgentX AgentHub? Những gì bạn sửa ở lệnh chạy của nó sẽ mất.`,
       hubModified: 'Đã sửa trên máy này: AgentHub không ghi đè.',
       hubNameTaken: 'Một server khác đang dùng tên này trên máy.',
       hubNotRegistered: 'AgentX AgentHub sẽ được báo ngay khi liên lạc được.',
-      hubUnsupported: count => `${count} server của AgentHub chưa chạy được trong Workmate như hiện có — mở trên AgentHub.`,
+      hubUnsupported: count =>
+        `${count} server của AgentHub chưa chạy được trong Workmate như hiện có — mở trên AgentHub.`,
       viaHub: 'Qua AgentX AgentHub',
       signInHere: 'Đăng nhập trên máy',
       hubAdd: 'Thêm',
@@ -1380,7 +1383,8 @@ export const vi: Translations = {
       hubConnectOpened: name => `Kết nối ${name} trên AgentX AgentHub`,
       hubConnectOpenedBody: 'Trang kết nối đã mở trong trình duyệt. Kết nối xong, Workmate tự thêm MCP này.',
       hubAdded: name => `Đã thêm ${name} — agent dùng được ngay.`,
-      toolsetsHint: 'Bộ công cụ bạn gom trên AgentX AgentHub: nhiều MCP sau một địa chỉ, dùng tài khoản AgentX của bạn.',
+      toolsetsHint:
+        'Bộ công cụ bạn gom trên AgentX AgentHub: nhiều MCP sau một địa chỉ, dùng tài khoản AgentX của bạn.',
       gatewaySignIn:
         'Token Gateway của máy này đã hết hạn — đăng nhập lại AgentX để các kết nối qua Gateway chạy tiếp.',
       gatewayTokenDays: days => `Token Gateway của máy này còn ${days} ngày; nó tự gia hạn.`,
@@ -1857,7 +1861,8 @@ export const vi: Translations = {
       otherProfile:
         'AgentX AgentHub chỉ làm việc với hồ sơ mặc định: chuyển sang hồ sơ đó để thêm kỹ năng và MCP từ AgentHub và nhận những gì AgentHub gửi.',
       lastSync: when => `Đồng bộ lần cuối ${when}`,
-      noInstalls: 'Chưa có kỹ năng nào được yêu cầu cài từ AgentHub cho máy này. Bấm “Thêm” trên AgentHub là kỹ năng về đây.',
+      noInstalls:
+        'Chưa có kỹ năng nào được yêu cầu cài từ AgentHub cho máy này. Bấm “Thêm” trên AgentHub là kỹ năng về đây.',
       desired: { installed: 'Cần cài', removed: 'Cần gỡ', disabled: 'Cần tắt' },
       reported: { pending: 'Đang chờ', installed: 'Đã cài', removed: 'Đã gỡ', failed: 'Lỗi', disabled: 'Đã tắt' },
       localDisabled: 'đang tắt trên máy này',
@@ -1912,7 +1917,8 @@ export const vi: Translations = {
       propose: 'Chia sẻ vào workspace',
       title: name => `Tải “${name}” lên AgentX AgentHub`,
       proposeTitle: name => `Chia sẻ “${name}” vào workspace`,
-      description: 'Skill được tải lên thành một phiên bản mới, quét bảo mật rồi xuất bản theo chính sách của AgentHub.',
+      description:
+        'Skill được tải lên thành một phiên bản mới, quét bảo mật rồi xuất bản theo chính sách của AgentHub.',
       proposeDescription:
         'Skill được tải lên với phạm vi “Workspace”: chỉ thành viên workspace thấy, và quản trị AgentHub duyệt trước khi xuất bản.',
       visibility: 'Hiển thị',
@@ -2942,7 +2948,8 @@ export const vi: Translations = {
       hideTabBar: 'Ẩn thanh tab',
       openInNewTab: 'Mở trong tab mới',
       deleteConfirmTitle: title => `Xoá “${title}”?`,
-      deleteConfirmBody: 'Cuộc trò chuyện và mọi tin nhắn trong đó sẽ bị xoá vĩnh viễn, không thể hoàn tác. Nếu có thể cần lại, hãy lưu trữ thay vì xoá.',
+      deleteConfirmBody:
+        'Cuộc trò chuyện và mọi tin nhắn trong đó sẽ bị xoá vĩnh viễn, không thể hoàn tác. Nếu có thể cần lại, hãy lưu trữ thay vì xoá.',
       deleteConfirmAction: 'Xoá cuộc trò chuyện',
       openInSplit: 'Mở ở khung chia đôi',
       copyIdFailed: 'Không sao chép được ID cuộc trò chuyện',
@@ -2960,6 +2967,7 @@ export const vi: Translations = {
       renameTitle: 'Đổi tên cuộc trò chuyện',
       renameDesc: 'Để trống để xoá tên.',
       untitledPlaceholder: 'Cuộc trò chuyện chưa đặt tên',
+      mainConversation: 'Cuộc trò chuyện chính',
       untitledChat: id => `Trò chuyện ${id}`,
       ageNow: 'vừa xong',
       ageDay: 'ngày',

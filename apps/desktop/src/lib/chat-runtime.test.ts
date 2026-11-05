@@ -5,11 +5,13 @@ import type { ComposerAttachment } from '@/store/composer'
 import {
   attachmentDisplayText,
   attachmentId,
+  BOT_CHAT_TITLE,
   coerceThinkingText,
   messageCreatedAt,
   optimisticAttachmentRef,
   parseCommandDispatch,
   parseSlashCommand,
+  sessionTitle,
   toRuntimeMessage
 } from './chat-runtime'
 
@@ -225,5 +227,20 @@ describe('toRuntimeMessage', () => {
     })
 
     expect(runtime.metadata.custom).not.toHaveProperty('errorCode')
+  })
+})
+
+describe('sessionTitle', () => {
+  const session = (title: null | string, preview = '') => ({ id: 's', title, preview }) as never
+
+  it('shows an assistant’s canonical "Bot Chat" as its main conversation, localized', () => {
+    expect(sessionTitle(session(BOT_CHAT_TITLE))).toBe('Main conversation')
+    expect(sessionTitle(session(`  ${BOT_CHAT_TITLE}  `))).toBe('Main conversation')
+  })
+
+  it('keeps every other title, then the preview, then the placeholder', () => {
+    expect(sessionTitle(session('Bot Chat notes'))).toBe('Bot Chat notes')
+    expect(sessionTitle(session('', 'first words'))).toBe('first words')
+    expect(sessionTitle(session(null))).toBe('Untitled session')
   })
 })
