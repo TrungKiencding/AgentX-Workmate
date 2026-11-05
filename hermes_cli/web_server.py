@@ -251,6 +251,18 @@ async def _lifespan(app: "FastAPI"):
             name="desktop-cron-ticker",
         )
         cron_thread.start()
+        # Bot Mode assistants are profiles whose own backend only runs while
+        # they are in use: tick their stores from here (each in an isolated
+        # per-profile child) so their scheduled tasks fire while the app is
+        # open. See cron/bot_profile_sweeper.py.
+        from cron.bot_profile_sweeper import start_bot_profile_sweeper
+
+        threading.Thread(
+            target=start_bot_profile_sweeper,
+            args=(cron_stop,),
+            daemon=True,
+            name="desktop-bot-cron-sweeper",
+        ).start()
 
     # Reap idle/dead keep-alive PTY sessions in the background (30-min TTL).
     pty_reaper_task = asyncio.create_task(run_reaper(PTY_REGISTRY))
