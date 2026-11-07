@@ -229,6 +229,12 @@ _API_CALL_MODULES = frozenset({
 # manually bounded budget keeps governing.
 _MAX_OUTER_LOOP_ERRORS = 8
 
+#: Seconds waited before each resend of a request the AgentX AI Gateway
+#: refused with 401. About seven seconds in all: long enough to outlast the
+#: gateway briefly failing to read its key table, short enough that a key that
+#: really is dead still fails the turn promptly.
+GATEWAY_REFUSAL_RETRY_DELAYS = (1.0, 2.0, 4.0)
+
 
 def _is_interpreter_shutdown_error(exc: Exception) -> bool:
     """Check if *exc* is a fatal interpreter-shutdown failure.
@@ -4651,6 +4657,60 @@ def run_conversation(
                         )
                         agent._persist_session(messages, conversation_history)
                         return turn_refusal(_read_only, messages, api_calls=api_call_count)
+
+                # ── AgentX AI Gateway: a 401 that may be the gateway blinking ──
+                # LiteLLM answers 401 to a valid key while it cannot read its
+                # key table (a Postgres primary switchover did, for ~2s). The
+                # license above is fine, so wait briefly and send the same
+                # request again — picking up a key provisioning may have just
+                # collected — before the credential pool benches the only key
+                # and the turn fails as "your AI key was revoked". Never after
+                # text from this attempt reached the screen: that reply is not
+                # sent twice.
+                if (
+                    status_code == 401
+                    and _retry.gateway_refusal_retries < len(GATEWAY_REFUSAL_RETRY_DELAYS)
+                    and not (getattr(agent, "_current_streamed_assistant_text", "") or "").strip()
+                ):
+                    from hermes_cli.account_license import is_account_gateway
+
+                    if is_account_gateway(str(getattr(agent, "base_url", "") or "")):
+                        _wait = GATEWAY_REFUSAL_RETRY_DELAYS[_retry.gateway_refusal_retries]
+                        _retry.gateway_refusal_retries += 1
+                        logger.warning(
+                            "%sThe AgentX AI Gateway refused the key (HTTP 401); "
+                            "retrying in %.1fs (%d/%d)",
+                            agent.log_prefix, _wait, _retry.gateway_refusal_retries,
+                            len(GATEWAY_REFUSAL_RETRY_DELAYS),
+                        )
+                        agent._buffer_status(
+                            f"⏳ AgentX AI Gateway refused the key (HTTP 401) — retrying in {_wait:.0f}s..."
+                        )
+                        _sleep_end = time.time() + _wait
+                        while time.time() < _sleep_end:
+                            if agent._interrupt_requested:
+                                if agent.clear_interrupt(preserve_redirect=True):
+                                    _retry.restart_with_redirected_messages = True
+                                    break
+                                _interrupt_text = "Operation interrupted while retrying the AgentX AI Gateway."
+                                close_interrupted_tool_sequence(messages, _interrupt_text)
+                                agent._persist_session(messages, conversation_history)
+                                agent.clear_interrupt()
+                                return {
+                                    "final_response": _interrupt_text,
+                                    "messages": messages,
+                                    "api_calls": api_call_count,
+                                    "completed": False,
+                                    "interrupted": True,
+                                }
+                            time.sleep(min(0.2, max(0.0, _sleep_end - time.time())))
+                        if _retry.restart_with_redirected_messages:
+                            break
+                        try:
+                            agent._try_refresh_env_client_credentials()
+                        except Exception:
+                            logger.debug("env credential refresh after a gateway 401 failed", exc_info=True)
+                        continue
 
                 if (
                     classified.reason == FailoverReason.billing

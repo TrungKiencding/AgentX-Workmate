@@ -31,6 +31,7 @@ EXPECTED_FIELDS = {
     "has_retried_429",
     "auth_failover_attempted",
     "license_checked",
+    "gateway_refusal_retries",
     "restart_with_compressed_messages",
     "restart_with_length_continuation",
     "restart_with_rebuilt_messages",
