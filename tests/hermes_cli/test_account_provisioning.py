@@ -83,6 +83,10 @@ class FakeLiteLLM:
         self.records: dict[str, dict] = {}
         self.requests: list[tuple[str, str]] = []
         self.fault: str | None = None
+        # How many more `/v1/models` calls answer 401 whatever the key — what
+        # LiteLLM does while it cannot read its key table (a database
+        # switchover), to a key that is perfectly valid.
+        self.refuse_next = 0
         self.transport = httpx.MockTransport(self.handle)
 
     # -- store ------------------------------------------------------------
@@ -132,6 +136,12 @@ class FakeLiteLLM:
 
         method, path = request.method, request.url.path
         bearer = (request.headers.get("Authorization") or "").split("Bearer ")[-1].strip()
+
+        if path == "/v1/models" and self.refuse_next > 0:
+            self.refuse_next -= 1
+            return httpx.Response(
+                401, json={"error": {"message": "Invalid proxy server token passed"}}
+            )
 
         if path == "/v1/models":
             known = bearer == self.admin_key or any(
@@ -1620,11 +1630,15 @@ class TestUpgradingOntoTheKeysService:
         entry = raw_config(account.home)["providers"]["litellm"]
         assert entry["base_url"] == "https://moved-proxy.test/v1"
 
-    def test_a_key_the_proxy_rejects_and_the_service_still_holds_is_replaced(
-        self, account, service, fake_proxy
+    def test_a_key_the_proxy_keeps_rejecting_and_the_service_still_holds_is_replaced(
+        self, account, service, fake_proxy, monkeypatch
     ):
-        """A 401 means the key is dead for everybody — the service's copy is
-        the same key. Collecting it again on every launch would heal nothing."""
+        """A 401 that outlasts the grace window means the key is dead for
+        everybody — the service's copy is the same key. Collecting it again on
+        every launch would heal nothing, so a replacement is asked for — but
+        only then: the first refusal keeps the key (TestAGatewayThatBriefly401s)."""
+        from hermes_cli import account_provisioning
+
         settings = keys_settings()
         service.grants = list(fake_proxy.catalog)
         client = make_client(fake_proxy)
@@ -1637,7 +1651,18 @@ class TestUpgradingOntoTheKeysService:
         # service still does.
         fake_proxy.records.pop(read_state(account.home)["token"])
         service.requests.clear()
+        clock = [1_000_000.0]
+        monkeypatch.setattr(account_provisioning, "_now", lambda: clock[0])
 
+        held = ensure_account_key(
+            account.identity, account.slug, settings=settings, home=account.home,
+            bearer="tok", device_id="dev-a", keys_transport=service.transport,
+            client=client,
+        )
+        assert held.status == "offline"
+        assert held.masked_key == first.masked_key
+
+        clock[0] += account_provisioning._REJECTED_KEY_GRACE_SECONDS + 1
         result = ensure_account_key(
             account.identity, account.slug, settings=settings, home=account.home,
             bearer="tok", device_id="dev-a", keys_transport=service.transport,
@@ -1645,10 +1670,11 @@ class TestUpgradingOntoTheKeysService:
         )
 
         asked = [json.loads(r.content or b"{}").get("rotate") for r in service.requests]
-        assert asked == [None, True] or asked == [False, True]
+        assert asked == [False, False, True]
         assert result.status == "rotated"
         assert result.masked_key != first.masked_key
         assert fake_proxy.holds_token(read_state(account.home)["token"])
+        assert "key_rejected_since" not in read_state(account.home)
 
     def test_a_proxy_and_a_service_both_out_of_reach_keep_the_key(
         self, account, service, fake_proxy
@@ -1703,6 +1729,148 @@ class TestUpgradingOntoTheKeysService:
         assert result.status == "reused"
         assert env_value(key_env) == issued_key
         assert fake_proxy.paths_hit("/key/delete") == 0
+
+
+class TestAGatewayThatBriefly401s:
+    """A 401 from the proxy is not yet a verdict on the key.
+
+    LiteLLM answers 401 to a perfectly valid key while it cannot read its key
+    table — during the 2026-11-07 Postgres switchover it did, four times in
+    about two seconds. Provisioning runs on every model-picker refresh, and it
+    used to read one such 401 as "this key is dead", find the service holding
+    that same key, and ask for a replacement: retiring the key on every device
+    this person uses, over a blip. Now the probe asks again, a refusal that
+    outlasts that keeps the key and is remembered, and only one still standing
+    after the grace window asks for a new key.
+    """
+
+    @pytest.fixture
+    def provisioned(self, account, service, fake_proxy):
+        service.grants = list(fake_proxy.catalog)
+        client = make_client(fake_proxy)
+        first = ensure_account_key(
+            account.identity, account.slug, settings=keys_settings(),
+            home=account.home, bearer="tok", device_id="dev-a",
+            keys_transport=service.transport, client=client,
+        )
+        assert first.ok
+        service.requests.clear()
+        fake_proxy.requests.clear()
+        return SimpleNamespace(first=first, client=client, key=env_value(provider_key_env("litellm")))
+
+    def _again(self, account, service, client):
+        return ensure_account_key(
+            account.identity, account.slug, settings=keys_settings(),
+            home=account.home, bearer="tok", device_id="dev-a",
+            keys_transport=service.transport, client=client,
+        )
+
+    def test_a_burst_the_probe_outlasts_keeps_the_key_without_asking_the_service(
+        self, account, service, fake_proxy, provisioned
+    ):
+        from hermes_cli import account_provisioning
+
+        slept: list[float] = []
+        provisioned.client._sleep = slept.append
+        fake_proxy.refuse_next = len(account_provisioning._PROBE_REFUSAL_RETRY_DELAYS)
+
+        result = self._again(account, service, provisioned.client)
+
+        assert result.status == "reused"
+        assert result.masked_key == provisioned.first.masked_key
+        assert env_value(provider_key_env("litellm")) == provisioned.key
+        assert service.requests == []
+        assert slept == list(account_provisioning._PROBE_REFUSAL_RETRY_DELAYS)
+        assert fake_proxy.paths_hit("/v1/models") == len(slept) + 1
+
+    def test_a_longer_refusal_collects_the_key_but_never_rotates_it(
+        self, account, service, fake_proxy, provisioned
+    ):
+        fake_proxy.refuse_next = 100
+
+        result = self._again(account, service, provisioned.client)
+
+        asked = [json.loads(r.content or b"{}").get("rotate") for r in service.requests]
+        assert asked == [False]
+        assert result.ok is False
+        assert result.status == "offline"
+        assert result.masked_key == provisioned.first.masked_key
+        assert env_value(provider_key_env("litellm")) == provisioned.key
+        assert fake_proxy.key_is_live_for_tests(provisioned.key)
+
+    def test_the_refusal_is_remembered_by_fingerprint_never_by_key(
+        self, account, service, fake_proxy, provisioned
+    ):
+        fake_proxy.refuse_next = 100
+
+        self._again(account, service, provisioned.client)
+
+        state = read_state(account.home)
+        assert state["key_rejected_fingerprint"]
+        assert state["key_rejected_fingerprint"] not in provisioned.key
+        assert provisioned.key not in json.dumps(state)
+        assert isinstance(state["key_rejected_since"], float)
+
+    def test_refusals_inside_the_grace_window_never_rotate(
+        self, account, service, fake_proxy, provisioned, monkeypatch
+    ):
+        from hermes_cli import account_provisioning
+
+        clock = [5_000.0]
+        monkeypatch.setattr(account_provisioning, "_now", lambda: clock[0])
+        fake_proxy.refuse_next = 1_000
+
+        for _ in range(4):
+            result = self._again(account, service, provisioned.client)
+            assert result.status == "offline"
+            clock[0] += account_provisioning._REJECTED_KEY_GRACE_SECONDS / 5
+
+        asked = [json.loads(r.content or b"{}").get("rotate") for r in service.requests]
+        assert True not in asked
+        assert env_value(provider_key_env("litellm")) == provisioned.key
+
+    def test_a_key_accepted_again_forgets_the_refusal(
+        self, account, service, fake_proxy, provisioned, monkeypatch
+    ):
+        """A later refusal starts its own window — the old one does not count."""
+        from hermes_cli import account_provisioning
+
+        clock = [5_000.0]
+        monkeypatch.setattr(account_provisioning, "_now", lambda: clock[0])
+        fake_proxy.refuse_next = 100
+        self._again(account, service, provisioned.client)
+
+        fake_proxy.refuse_next = 0
+        clock[0] += 10
+        healed = self._again(account, service, provisioned.client)
+        assert healed.status == "reused"
+        assert "key_rejected_since" not in read_state(account.home)
+        assert "key_rejected_fingerprint" not in read_state(account.home)
+
+        service.requests.clear()
+        fake_proxy.refuse_next = 100
+        clock[0] += account_provisioning._REJECTED_KEY_GRACE_SECONDS * 2
+        again = self._again(account, service, provisioned.client)
+
+        assert again.status == "offline"
+        asked = [json.loads(r.content or b"{}").get("rotate") for r in service.requests]
+        assert asked == [False]
+
+    def test_a_key_rotated_on_another_device_is_collected_at_once(
+        self, account, service, fake_proxy, provisioned
+    ):
+        """The grace window is only for the key the service still holds: a
+        different key there is somebody's rotation, collected right away."""
+        rotated = service.rotate_from_another_device("tok")
+        service.requests.clear()
+
+        result = self._again(account, service, provisioned.client)
+
+        asked = [json.loads(r.content or b"{}").get("rotate") for r in service.requests]
+        assert asked == [False]
+        assert result.status == "reused"
+        assert env_value(provider_key_env("litellm")) == rotated["key"]
+        assert "key_rejected_since" not in read_state(account.home)
 
 
 class TestModelListFollowsTheKey:

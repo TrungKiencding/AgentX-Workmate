@@ -94,6 +94,39 @@ STATE_FILENAME = "litellm-account.json"
 
 _STATE_VERSION = 1
 
+#: Seconds to wait before each repeat of a liveness probe the proxy answered
+#: with 401/403. LiteLLM answers 401 to a perfectly good key while it cannot
+#: read its key table — a Postgres primary switchover did exactly that, four
+#: times in two seconds — so one refusal is not yet a verdict on the key.
+_PROBE_REFUSAL_RETRY_DELAYS = (1.0, 2.0)
+
+#: How long the proxy must keep refusing the very key the keys service still
+#: holds before this machine asks for a replacement. A replacement retires the
+#: key on every device this person uses and is rate-limited, so it is the
+#: answer to a key that is dead, not to a gateway that blinked: a refusal is
+#: first recorded (as a fingerprint, never the key) and only one still standing
+#: on a later provisioning, this long after the first, asks for a new key.
+_REJECTED_KEY_GRACE_SECONDS = 180.0
+
+#: Sidecar fields recording that refusal: since when, and of which key.
+_REJECTED_SINCE_FIELD = "key_rejected_since"
+_REJECTED_KEY_FIELD = "key_rejected_fingerprint"
+
+
+def _now() -> float:
+    """Wall-clock seconds; a seam so tests can move time."""
+    import time
+
+    return time.time()
+
+
+def _key_fingerprint(key: str) -> str:
+    """Enough of a hash to recognise *key* again, and nothing to spend."""
+    import hashlib
+
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:16]
+
+
 #: What the account's proxy is CALLED in every picker — Settings → Model, the
 #: composer's model menu, ``agentx model``. The slug stays ``litellm`` (it keys
 #: the ``providers:`` entry, the ``model.provider`` pin, and the key env var, so
@@ -1596,6 +1629,16 @@ def ensure_account_key(
                     return collected
                 # Offline, or nothing to ask with: the key still works, so this
                 # launch keeps it and the next one asks again.
+            if reachable is not None and (
+                _REJECTED_SINCE_FIELD in state or _REJECTED_KEY_FIELD in state
+            ):
+                # The proxy accepts the key again: whatever refused it earlier
+                # was the gateway, not the key, so the refusal is forgotten.
+                state = {
+                    k: v for k, v in state.items()
+                    if k not in (_REJECTED_SINCE_FIELD, _REJECTED_KEY_FIELD)
+                }
+                write_state(home, state)
             models = _tidy_reused_account(settings, state, home, reachable)
             return ProvisionResult(
                 status="reused",
@@ -1739,13 +1782,29 @@ def _probe_key(
     The third value is True only when there was no HTTP answer at all (DNS,
     TLS, connect): the caller uses it to tell "the proxy moved" from "the
     proxy said something other than 401".
+
+    A 401/403 is asked again after ``_PROBE_REFUSAL_RETRY_DELAYS`` before it
+    counts: the proxy refuses a valid key while it cannot read its key table.
     """
     if probe is None:
         return True, None, False
-    try:
-        return True, tuple(probe.list_models(api_key=key)), False
-    except LiteLLMError as exc:
-        return exc.status_code not in (401, 403), None, exc.unreachable
+    sleep = getattr(probe, "_sleep", None)
+    if sleep is None:
+        import time
+
+        sleep = time.sleep
+    delays = iter(_PROBE_REFUSAL_RETRY_DELAYS)
+    while True:
+        try:
+            return True, tuple(probe.list_models(api_key=key)), False
+        except LiteLLMError as exc:
+            refused = exc.status_code in (401, 403)
+            delay = next(delays, None) if refused else None
+            if delay is None:
+                return not refused, None, exc.unreachable
+            # A refusal that may be the proxy failing to read its own key
+            # table: ask again shortly before calling the key rejected.
+            sleep(delay)
 
 
 def _reach_changed(
@@ -1782,6 +1841,40 @@ def _reach_changed(
     return set(reachable) != {str(model) for model in recorded}
 
 
+def _hold_rejected_key(
+    home: Path, state: Mapping[str, Any], key: str
+) -> str | None:
+    """Whether to keep *key* although the proxy refused it; why, when so.
+
+    The first refusal of a key is recorded in the sidecar — when, and a
+    fingerprint of which key — and the key is kept. A refusal of the same key
+    that still stands ``_REJECTED_KEY_GRACE_SECONDS`` after the first returns
+    ``None``: the key is dead, and the caller asks for a replacement. A
+    successful probe or a newly written key forgets the record.
+    """
+    fingerprint = _key_fingerprint(key)
+    now = _now()
+    since: float | None = None
+    if state.get(_REJECTED_KEY_FIELD) == fingerprint:
+        try:
+            since = float(state.get(_REJECTED_SINCE_FIELD))
+        except (TypeError, ValueError):
+            since = None
+    if since is None or since > now:
+        write_state(
+            home,
+            {**state, _REJECTED_SINCE_FIELD: now, _REJECTED_KEY_FIELD: fingerprint},
+        )
+        since = now
+    waited = now - since
+    if waited >= _REJECTED_KEY_GRACE_SECONDS:
+        return None
+    return (
+        f"refused for {int(waited)}s; a replacement is asked for only once it "
+        f"has been refused for {int(_REJECTED_KEY_GRACE_SECONDS)}s"
+    )
+
+
 def _rotate(
     settings: LiteLLMAccountSettings,
     identity: AccountIdentity,
@@ -1808,8 +1901,10 @@ def _rotate(
     that asks for a new one. ``reachable`` is what the proxy just said the key
     reaches, when the caller asked it; it is recorded for the next launch to
     compare against (see ``_reach_changed``). ``rejected_key`` is a key the
-    proxy just refused with a 401: if the service hands that same key back,
-    it is dead for every device and a replacement is asked for.
+    proxy just refused with a 401: if the service hands that same key back
+    and the proxy has been refusing it for ``_REJECTED_KEY_GRACE_SECONDS``, it
+    is dead for every device and a replacement is asked for; until then the
+    key is kept (``_hold_rejected_key``).
     """
     state = read_state(home)
     had_key = bool(state.get("key_alias"))
@@ -1825,10 +1920,32 @@ def _rotate(
             )
             if rejected_key and not rotate and minted.key == rejected_key:
                 # The proxy refused exactly this key moments ago, and the
-                # service has no other: it was retired upstream by hand, or
-                # the proxy's own store lost it. Collecting it again on every
-                # launch heals nothing — only a replacement does, and every
-                # other device collects that on its next call.
+                # service has no other. Either it was retired upstream by
+                # hand, or the proxy's own store lost it — or the proxy could
+                # not read that store for a few seconds, which answers the same
+                # 401. Only a refusal that outlasts the grace window asks for a
+                # replacement: that one retires the key on every device.
+                held = _hold_rejected_key(home, state, rejected_key)
+                if held is not None:
+                    logger.warning(
+                        "the proxy rejects the key the keys service holds for %s; "
+                        "keeping it for now (%s)",
+                        alias,
+                        held,
+                    )
+                    return ProvisionResult(
+                        status="offline",
+                        detail=(
+                            "the AI Gateway refused this account's key, but the "
+                            "keys service still holds it; keeping it, as a "
+                            f"gateway that briefly cannot check keys looks the same ({held})."
+                        ),
+                        provider=settings.provider_name,
+                        key_alias=alias,
+                        masked_key=mask_key(rejected_key),
+                        base_url=settings.base_url,
+                        license=_remember_license(license_sent),
+                    )
                 logger.warning(
                     "the proxy rejects the key the keys service holds for %s; "
                     "asking for a replacement",
