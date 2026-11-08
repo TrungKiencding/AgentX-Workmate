@@ -105,7 +105,7 @@ export async function saveBotMeta(name: string, patch: Partial<BotMeta>): Promis
 
   if ('image' in patch && (patch.image ?? null) !== (prev.image ?? null)) {
     void host
-      .request(
+      .requestPrimary(
         'profiles.set_asset',
         patch.image ? { name, asset: 'avatar', data: patch.image } : { name, asset: 'avatar', clear: true }
       )
@@ -116,7 +116,7 @@ export async function saveBotMeta(name: string, patch: Partial<BotMeta>): Promis
   const { image: _image, ...compact } = next[name]
 
   try {
-    const result = await host.request<{ applied?: Record<string, boolean> }>('profiles.configure', {
+    const result = await host.requestPrimary<{ applied?: Record<string, boolean> }>('profiles.configure', {
       name,
       ui_meta: { [PLUGIN_ID]: compact }
     })
@@ -180,7 +180,7 @@ export function pullServerAvatars(roster: readonly Bot[]): void {
 
     avatarInflight.add(bot.name)
     host
-      .request<{ data?: string; found?: boolean }>('profiles.get_asset', { name: bot.name, asset: 'avatar' })
+      .requestPrimary<{ data?: string; found?: boolean }>('profiles.get_asset', { name: bot.name, asset: 'avatar' })
       .then(res => {
         if (res?.found && res.data) {
           const meta = $botMeta.get()
@@ -263,7 +263,7 @@ export function markSeenAt(name: string, seconds: number): void {
 
 /** Copy a bot: profile (config/skills/persona/memory via clone_from) + look. */
 export async function duplicateBot(bot: Bot, name: string, copySuffix: string): Promise<void> {
-  await host.request('profiles.create', { name, clone_from: bot.name, description: bot.description || '' })
+  await host.requestPrimary('profiles.create', { name, clone_from: bot.name, description: bot.description || '' })
 
   const meta = $botMeta.get()[bot.name]
 
@@ -277,6 +277,34 @@ export async function duplicateBot(bot: Bot, name: string, copySuffix: string): 
   await invalidateRoster()
 }
 
+/** Assistants deleted in this window. A roster fetched before the delete
+ *  (react-query keeps the last good data while a refetch is in flight or
+ *  fails) must not paint them again; a fresh roster that no longer lists a
+ *  name clears it (`settleDeleted`), so a profile that really still exists
+ *  shows up again instead of being hidden forever. */
+export const $recentlyDeleted = atom<ReadonlySet<string>>(new Set())
+
+export function withoutDeleted<T extends Pick<Bot, 'name'>>(roster: readonly T[], deleted: ReadonlySet<string>): T[] {
+  return deleted.size ? roster.filter(bot => !deleted.has(bot.name)) : [...roster]
+}
+
+/** A roster from the server arrived: names it no longer lists are gone for
+ *  good and need no more hiding. */
+export function settleDeleted(roster: readonly Pick<Bot, 'name'>[]): void {
+  const deleted = $recentlyDeleted.get()
+
+  if (!deleted.size) {
+    return
+  }
+
+  const listed = new Set(roster.map(bot => bot.name))
+  const still = [...deleted].filter(name => listed.has(name))
+
+  if (still.length !== deleted.size) {
+    $recentlyDeleted.set(new Set(still))
+  }
+}
+
 /** Delete a bot's profile (never the primary) and forget its local state. */
 export async function deleteBot(name: string): Promise<void> {
   if (isPrimary(name)) {
@@ -284,6 +312,8 @@ export async function deleteBot(name: string): Promise<void> {
   }
 
   await host.deleteProfile(name)
+  $recentlyDeleted.set(new Set([...$recentlyDeleted.get(), name]))
+  forgetRoomMember(name)
 
   const meta = { ...$botMeta.get() }
   delete meta[name]
@@ -328,6 +358,32 @@ export function persistRooms(rooms: Record<string, GroupRoom>): void {
   write(STORAGE.groups, durable)
 }
 
+/** A deleted assistant leaves every room: its per-room session and read
+ *  position go (what it said stays in the log). */
+export function forgetRoomMember(name: string): void {
+  const rooms = $groupChats.get()
+  let changed = false
+  const next: Record<string, GroupRoom> = {}
+
+  for (const [group, room] of Object.entries(rooms)) {
+    if (name in room.sessions || name in room.watermarks) {
+      const sessions = { ...room.sessions }
+      const watermarks = { ...room.watermarks }
+      delete sessions[name]
+      delete watermarks[name]
+      next[group] = { ...room, sessions, watermarks }
+      changed = true
+    } else {
+      next[group] = room
+    }
+  }
+
+  if (changed) {
+    $groupChats.set(next)
+    persistRooms(next)
+  }
+}
+
 /** Test-only reset of module state. */
 export function resetBotState(): void {
   storage = null
@@ -337,6 +393,7 @@ export function resetBotState(): void {
   $seenActivity.set({})
   $groupChats.set({})
   $groupNeedsYou.set({})
+  $recentlyDeleted.set(new Set())
 }
 
 /** Test-only: pretend storage hydration finished (with nothing stored). */

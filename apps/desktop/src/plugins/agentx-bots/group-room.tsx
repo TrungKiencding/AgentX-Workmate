@@ -22,22 +22,45 @@ import {
   Tip,
   useValue
 } from '@agentx/plugin-sdk'
-import { type KeyboardEvent, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  type ClipboardEvent,
+  type DragEvent,
+  type KeyboardEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore
+} from 'react'
 
 import { BotAvatar } from './face'
 import {
+  formatBytes,
+  GROUP_ATTACH_MAX_BYTES,
+  GROUP_ATTACH_MAX_FILES,
+  readAttachments,
+  releaseAttachment
+} from './group-attachments'
+import {
+  answerApproval,
   clearGroup,
+  decorateMentions,
   EVERYONE_HANDLE,
   GROUP_MAX_MEMBERS,
   insertMention,
+  type MentionLabels,
   mentionOptions,
   mentionQuery,
-  sendToGroup
+  mentionSegments,
+  pendingApproval,
+  sendToGroup,
+  stopGroup,
+  subscribeApprovals
 } from './group-chat'
 import { type BotsText, useBots } from './i18n'
 import { botHandle, displayName, knownGroups } from './naming'
 import { $botMeta, $groupChats, $groupNeedsYou, emptyRoom, markSeenAt, saveBotMeta } from './state'
-import type { Bot, BotMeta, GroupEntry, GroupMember } from './types'
+import type { Bot, BotMeta, GroupAttachment, GroupEntry, GroupMember } from './types'
 
 /** Two lines from the same member within this window read as one turn. */
 const CONTINUATION_MS = 5 * 60_000
@@ -50,10 +73,14 @@ export function GroupRoom({ group, members, onBack }: { group: string; members: 
   const meta = useValue($botMeta)
   const room = rooms[group] || emptyRoom()
   const [draft, setDraft] = useState('')
+  const [pending, setPending] = useState<GroupAttachment[]>([])
+  const [dragging, setDragging] = useState(false)
   const [mention, setMention] = useState<{ query: string; start: number } | null>(null)
   const [active, setActive] = useState(0)
   const scroller = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLTextAreaElement>(null)
+  const picker = useRef<HTMLInputElement>(null)
+  const approval = useSyncExternalStore(subscribeApprovals, () => pendingApproval(group))
   const roster = members.slice(0, GROUP_MAX_MEMBERS)
   const benched = members.slice(GROUP_MAX_MEMBERS)
   const tooFew = members.length < 2
@@ -83,7 +110,7 @@ export function GroupRoom({ group, members, onBack }: { group: string; members: 
     if (node) {
       node.scrollTop = node.scrollHeight
     }
-  }, [room.log.length, room.running, room.speaker])
+  }, [room.log.length, room.running, room.speaker, approval])
 
   /** Put `text` in the composer and the caret at `caret` (default: the end). */
   const fill = (text: string, caret = text.length) => {
@@ -127,16 +154,46 @@ export function GroupRoom({ group, members, onBack }: { group: string; members: 
     fill(`${base ? `${base} ` : ''}@${handle} `)
   }
 
+  const addFiles = async (files: File[]) => {
+    if (!files.length || tooFew) {
+      return
+    }
+
+    const room = GROUP_ATTACH_MAX_FILES - pending.length
+    const result = await readAttachments(files, room)
+    const mb = Math.round(GROUP_ATTACH_MAX_BYTES / (1024 * 1024))
+
+    result.tooLarge.forEach(name => host.notify({ kind: 'warning', message: b.groupAttachTooLarge(name, mb) }))
+    result.failed.forEach(name => host.notify({ kind: 'error', message: b.groupAttachFailed(name) }))
+
+    if (result.added.length) {
+      setPending(current => [...current, ...result.added])
+      input.current?.focus()
+    }
+  }
+
+  const unpend = (id: string) => {
+    releaseAttachment(id)
+    setPending(current => current.filter(item => item.id !== id))
+  }
+
   const send = () => {
     const text = draft.trim()
 
-    if (!text || tooFew) {
+    if ((!text && !pending.length) || tooFew) {
       return
     }
 
     setDraft('')
     setMention(null)
-    sendToGroup(group, seats, text)
+    setPending([])
+    sendToGroup(
+      group,
+      seats,
+      text,
+      { failed: b.groupTurnFailed, gone: b.groupMemberGone, timedOut: b.groupTurnTimedOut },
+      pending
+    )
   }
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -174,10 +231,59 @@ export function GroupRoom({ group, members, onBack }: { group: string; members: 
     }
   }
 
+  const onPaste = (event: ClipboardEvent<HTMLTextAreaElement>) => {
+    const files = [...event.clipboardData.files]
+
+    if (files.length) {
+      event.preventDefault()
+      void addFiles(files)
+    }
+  }
+
+  const hasFiles = (event: DragEvent) => [...event.dataTransfer.types].includes('Files')
+
+  const dropZone = tooFew
+    ? {}
+    : {
+        onDragEnter: (event: DragEvent) => {
+          if (hasFiles(event)) {
+            event.preventDefault()
+            setDragging(true)
+          }
+        },
+        onDragOver: (event: DragEvent) => {
+          if (hasFiles(event)) {
+            event.preventDefault()
+            event.dataTransfer.dropEffect = 'copy'
+          }
+        },
+        onDragLeave: (event: DragEvent) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+            setDragging(false)
+          }
+        },
+        onDrop: (event: DragEvent) => {
+          if (hasFiles(event)) {
+            event.preventDefault()
+            setDragging(false)
+            void addFiles([...event.dataTransfer.files])
+          }
+        }
+      }
+
   const speaker = room.speaker ? roster.find(bot => bot.name === room.speaker) : undefined
+  const handles: MentionLabels = { members: seats, everyone: b.groupEveryone, user: b.groupYou }
 
   return (
-    <div className="@container flex h-full min-h-0 flex-col">
+    <div className="@container relative flex h-full min-h-0 flex-col" {...dropZone}>
+      {dragging ? (
+        <div className="pointer-events-none absolute inset-2 z-30 grid place-items-center rounded-(--radius-card) border-2 border-dashed border-(--border-strong) bg-(--bg-app)/90">
+          <p className="flex items-center gap-2 text-sm font-medium text-(--text-secondary)">
+            <icons.FileText className="size-4" />
+            {b.groupDropHint}
+          </p>
+        </div>
+      ) : null}
       <header className="flex shrink-0 items-center gap-3 border-b border-(--border-subtle) px-5 py-3">
         {onBack ? (
           <Button aria-label={b.back} onClick={onBack} size="icon-sm" variant="ghost">
@@ -241,26 +347,30 @@ export function GroupRoom({ group, members, onBack }: { group: string; members: 
                 continued={continues(room.log[index - 1], entry)}
                 entry={entry}
                 first={index === 0}
+                handles={handles}
                 key={`${entry.at}:${index}`}
                 meta={meta}
               />
             ))
           )}
+          {approval ? (
+            <ApprovalCard
+              b={b}
+              command={approval.command}
+              description={approval.description}
+              label={displayName({ name: approval.member }, meta[approval.member], b.primaryName)}
+              onAnswer={choice => void answerApproval(group, choice)}
+            />
+          ) : null}
           {room.running ? (
-            <div aria-live="polite" className="mt-6 flex items-center gap-3" role="status">
-              {speaker ? (
-                <BotAvatar meta={meta[speaker.name]} mood="work" name={speaker.name} size={28} />
-              ) : (
-                <span className="flex -space-x-1.5">
-                  {roster.slice(0, 3).map(bot => (
-                    <BotAvatar key={bot.name} meta={meta[bot.name]} mood="work" name={bot.name} size={22} />
-                  ))}
-                </span>
-              )}
-              <span className="text-sm text-(--text-tertiary)">
-                {speaker ? b.groupSpeaking(nameOf(speaker)) : b.groupWorking}
-              </span>
-            </div>
+            <RoomStatus
+              b={b}
+              meta={meta}
+              onStop={() => stopGroup(group, b.groupStopped)}
+              roster={roster}
+              since={room.speakerSince ?? null}
+              speaker={speaker ? { name: speaker.name, label: nameOf(speaker) } : null}
+            />
           ) : null}
         </div>
       </div>
@@ -272,40 +382,80 @@ export function GroupRoom({ group, members, onBack }: { group: string; members: 
           ) : null}
           <div
             className={cn(
-              'flex items-end gap-2 rounded-(--radius-bubble) border border-(--border-default) bg-(--bg-app) py-1.5 pr-1.5 pl-4',
+              'rounded-(--radius-bubble) border border-(--border-default) bg-(--bg-app)',
               'transition-colors duration-(--dur-micro) focus-within:border-(--border-strong) hover:border-(--border-strong)',
               tooFew && 'opacity-60'
             )}
           >
-            <textarea
-              aria-autocomplete="list"
-              aria-expanded={options.length > 0}
-              aria-label={b.groupComposer(group)}
-              className="field-sizing-content max-h-(--composer-input-max-height) min-h-9 flex-1 resize-none bg-transparent py-1.5 text-md leading-normal text-(--text-primary) outline-none placeholder:text-(--text-tertiary) disabled:cursor-not-allowed"
-              disabled={tooFew}
-              onBlur={() => setMention(null)}
-              onChange={event => {
-                setDraft(event.target.value)
-                syncMention(event.target)
-              }}
-              onClick={event => syncMention(event.currentTarget)}
-              onKeyDown={onKeyDown}
-              onSelect={event => syncMention(event.currentTarget)}
-              placeholder={b.groupComposer(group)}
-              ref={input}
-              role="combobox"
-              rows={1}
-              value={draft}
-            />
-            <button
-              aria-label={b.groupSend}
-              className="mb-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-(--bg-inverse) text-(--text-inverse) transition-opacity duration-(--dur-micro) hover:opacity-88 disabled:bg-transparent disabled:text-(--icon-muted)"
-              disabled={!draft.trim() || tooFew}
-              onClick={send}
-              type="button"
-            >
-              <icons.ArrowUp className="size-4" />
-            </button>
+            {pending.length ? (
+              <ul aria-label={b.groupAttach} className="flex flex-wrap gap-2 px-3 pt-3">
+                {pending.map(item => (
+                  <li key={item.id}>
+                    <AttachmentChip
+                      item={item}
+                      onRemove={() => unpend(item.id)}
+                      removeLabel={b.groupAttachRemove(item.name)}
+                    />
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="flex items-end gap-1.5 py-1.5 pr-1.5 pl-1.5">
+              <Tip label={b.groupAttach}>
+                <Button
+                  aria-label={b.groupAttach}
+                  className="mb-0.5 shrink-0"
+                  disabled={tooFew || pending.length >= GROUP_ATTACH_MAX_FILES}
+                  onClick={() => picker.current?.click()}
+                  size="icon-sm"
+                  variant="ghost"
+                >
+                  <icons.Plus />
+                </Button>
+              </Tip>
+              <input
+                className="hidden"
+                multiple
+                onChange={event => {
+                  const files = [...(event.target.files ?? [])]
+                  event.target.value = ''
+                  void addFiles(files)
+                }}
+                ref={picker}
+                tabIndex={-1}
+                type="file"
+              />
+              <textarea
+                aria-autocomplete="list"
+                aria-expanded={options.length > 0}
+                aria-label={b.groupComposer(group)}
+                className="field-sizing-content max-h-(--composer-input-max-height) min-h-9 flex-1 resize-none bg-transparent py-1.5 text-md leading-normal text-(--text-primary) outline-none placeholder:text-(--text-tertiary) disabled:cursor-not-allowed"
+                disabled={tooFew}
+                onBlur={() => setMention(null)}
+                onChange={event => {
+                  setDraft(event.target.value)
+                  syncMention(event.target)
+                }}
+                onClick={event => syncMention(event.currentTarget)}
+                onKeyDown={onKeyDown}
+                onPaste={onPaste}
+                onSelect={event => syncMention(event.currentTarget)}
+                placeholder={b.groupComposer(group)}
+                ref={input}
+                role="combobox"
+                rows={1}
+                value={draft}
+              />
+              <button
+                aria-label={b.groupSend}
+                className="mb-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-(--bg-inverse) text-(--text-inverse) transition-opacity duration-(--dur-micro) hover:opacity-88 disabled:bg-transparent disabled:text-(--icon-muted)"
+                disabled={(!draft.trim() && !pending.length) || tooFew}
+                onClick={send}
+                type="button"
+              >
+                <icons.ArrowUp className="size-4" />
+              </button>
+            </div>
           </div>
           {benched.length ? (
             <p className="mt-2 px-1 text-xs text-(--text-tertiary)">
@@ -318,9 +468,133 @@ export function GroupRoom({ group, members, onBack }: { group: string; members: 
   )
 }
 
+/** Live "who is answering" line, with how long it has taken and a Stop. */
+function RoomStatus({
+  b,
+  meta,
+  onStop,
+  roster,
+  since,
+  speaker
+}: {
+  b: BotsText
+  meta: Record<string, BotMeta>
+  onStop: () => void
+  roster: Bot[]
+  since: null | number
+  speaker: { label: string; name: string } | null
+}) {
+  const [now, setNow] = useState(() => Date.now())
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+
+    return () => window.clearInterval(timer)
+  }, [])
+
+  const seconds = since ? Math.max(0, Math.floor((now - since) / 1000)) : 0
+
+  return (
+    <div aria-live="polite" className="mt-6 flex items-center gap-3" role="status">
+      {speaker ? (
+        <BotAvatar meta={meta[speaker.name]} mood="work" name={speaker.name} size={28} />
+      ) : (
+        <span className="flex -space-x-1.5">
+          {roster.slice(0, 3).map(bot => (
+            <BotAvatar key={bot.name} meta={meta[bot.name]} mood="work" name={bot.name} size={22} />
+          ))}
+        </span>
+      )}
+      <span className="min-w-0 flex-1 text-sm text-(--text-tertiary)">
+        {speaker ? b.groupSpeaking(speaker.label) : b.groupWorking}
+        {speaker && seconds >= 3 ? <span className="ml-1.5 tabular-nums">· {b.groupElapsed(seconds)}</span> : null}
+      </span>
+      <Button onClick={onStop} size="sm" variant="ghost">
+        <icons.Square className="size-3.5" />
+        {b.groupStop}
+      </Button>
+    </div>
+  )
+}
+
+/** A member asked permission to run something mid-turn. */
+function ApprovalCard({
+  b,
+  command,
+  description,
+  label,
+  onAnswer
+}: {
+  b: BotsText
+  command: string
+  description: string
+  label: string
+  onAnswer: (choice: 'deny' | 'once') => void
+}) {
+  return (
+    <div className="mt-6 grid gap-2.5 rounded-(--radius-card) border border-(--border-default) bg-(--bg-subtle) p-3.5">
+      <p className="flex items-center gap-2 text-sm font-medium text-(--text-primary)">
+        <icons.AlertTriangle className="size-4 shrink-0 text-(--tint-orange)" />
+        {b.groupApprovalTitle(label)}
+      </p>
+      {command ? (
+        <pre className="max-h-40 overflow-auto rounded-(--radius-control) bg-(--bg-app) px-3 py-2 font-mono text-xs whitespace-pre-wrap text-(--text-primary)">
+          {command}
+        </pre>
+      ) : null}
+      {description ? <p className="text-xs text-(--text-secondary)">{description}</p> : null}
+      <div className="flex gap-2">
+        <Button onClick={() => onAnswer('once')} size="sm">
+          {b.groupApprovalAllow}
+        </Button>
+        <Button onClick={() => onAnswer('deny')} size="sm" variant="outline">
+          {b.groupApprovalDeny}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function AttachmentChip({
+  item,
+  onRemove,
+  removeLabel
+}: {
+  item: GroupAttachment
+  onRemove?: () => void
+  removeLabel?: string
+}) {
+  return (
+    <span className="group/att relative flex h-12 max-w-56 items-center gap-2 rounded-(--radius-control) border border-(--border-default) bg-(--bg-app) pr-2.5 pl-1.5">
+      {item.kind === 'image' && item.thumb ? (
+        <img alt="" className="size-9 shrink-0 rounded-[6px] object-cover" src={item.thumb} />
+      ) : (
+        <span className="grid size-9 shrink-0 place-items-center rounded-[6px] bg-(--bg-subtle) text-(--text-tertiary)">
+          {item.kind === 'image' ? <icons.FileImage className="size-4" /> : <icons.FileText className="size-4" />}
+        </span>
+      )}
+      <span className="grid min-w-0">
+        <span className="truncate text-xs font-medium text-(--text-primary)">{item.name}</span>
+        <span className="text-xs text-(--text-tertiary)">{formatBytes(item.size)}</span>
+      </span>
+      {onRemove ? (
+        <button
+          aria-label={removeLabel}
+          className="absolute -top-1.5 -right-1.5 grid size-5 place-items-center rounded-full border border-(--border-default) bg-(--bg-raised) text-(--text-secondary) opacity-0 transition-opacity duration-(--dur-micro) group-hover/att:opacity-100 focus-visible:opacity-100 hover:text-(--text-primary)"
+          onClick={onRemove}
+          type="button"
+        >
+          <icons.X className="size-3" />
+        </button>
+      ) : null}
+    </span>
+  )
+}
+
 function continues(previous: GroupEntry | undefined, entry: GroupEntry): boolean {
   return (
     !!previous &&
+    entry.from.kind === 'member' &&
     previous.from.kind === entry.from.kind &&
     previous.from.name === entry.from.name &&
     entry.at - previous.at < CONTINUATION_MS
@@ -374,22 +648,61 @@ function RoomEntry({
   continued,
   entry,
   first,
+  handles,
   meta
 }: {
   b: BotsText
   continued: boolean
   entry: GroupEntry
   first: boolean
+  handles: MentionLabels
   meta: Record<string, BotMeta>
 }) {
   const gap = first ? '' : continued ? 'mt-2' : 'mt-6'
 
+  if (entry.from.kind === 'notice') {
+    return (
+      <p className={cn('flex items-center justify-center gap-1.5 text-center text-xs text-(--text-tertiary)', gap)}>
+        <icons.Info className="size-3.5 shrink-0" />
+        {entry.text}
+      </p>
+    )
+  }
+
   if (entry.from.kind === 'user') {
     return (
-      <div className={cn('flex justify-end', gap)}>
-        <div className="max-w-(--user-bubble-max-width) rounded-(--radius-bubble) border border-(--dt-user-bubble-border) bg-(--dt-user-bubble) px-3.5 py-2 text-md leading-(--conversation-prose-line-height) wrap-anywhere whitespace-pre-wrap text-(--text-primary)">
-          {entry.text}
-        </div>
+      <div className={cn('flex flex-col items-end gap-2', gap)}>
+        {entry.attachments?.length ? (
+          <ul aria-label={b.groupAttach} className="flex max-w-(--user-bubble-max-width) flex-wrap justify-end gap-2">
+            {entry.attachments.map(item => (
+              <li key={item.id}>
+                {item.kind === 'image' && item.thumb ? (
+                  <img
+                    alt={item.name}
+                    className="max-h-40 max-w-60 rounded-(--radius-control) border border-(--border-subtle) object-cover"
+                    src={item.thumb}
+                    title={item.name}
+                  />
+                ) : (
+                  <AttachmentChip item={item} />
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {entry.text ? (
+          <div className="max-w-(--user-bubble-max-width) rounded-(--radius-bubble) border border-(--dt-user-bubble-border) bg-(--dt-user-bubble) px-3.5 py-2 text-md leading-(--conversation-prose-line-height) wrap-anywhere whitespace-pre-wrap text-(--text-primary)">
+            {mentionSegments(entry.text, handles).map((segment, index) =>
+              segment.mention ? (
+                <strong className="font-semibold" key={index}>
+                  {segment.text}
+                </strong>
+              ) : (
+                segment.text
+              )
+            )}
+          </div>
+        ) : null}
       </div>
     )
   }
@@ -409,7 +722,7 @@ function RoomEntry({
           </div>
         )}
         <div className="text-md text-(--text-primary)">
-          <Markdown isRunning={false} text={entry.text} />
+          <Markdown isRunning={false} text={decorateMentions(entry.text, handles)} />
         </div>
       </div>
     </div>

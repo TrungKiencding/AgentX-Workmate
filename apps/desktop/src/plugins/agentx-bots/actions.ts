@@ -9,13 +9,21 @@ import { botHandle, displayName, isPrimary, uniqueName } from './naming'
 import { $botMeta, duplicateBot, markSeen, saveBotMeta } from './state'
 import type { Bot } from './types'
 
-/** Open the assistant's main conversation (creating it on first use). */
+/** "Message": the main assistant IS the app's ordinary chat, so it gets a
+ *  new chat; any other assistant opens its one ongoing conversation
+ *  (created empty on first use — the user's own words start it). */
 export async function openBot(bot: Bot, b: BotsText): Promise<void> {
   haptic('tap')
   markSeen(bot)
 
+  if (isPrimary(bot.name)) {
+    host.newChat(bot.name)
+
+    return
+  }
+
   try {
-    await openCanonicalChat(bot.name, b.kickoff)
+    await openCanonicalChat(bot.name)
   } catch (error) {
     host.notifyError(error, b.openFailed)
   }

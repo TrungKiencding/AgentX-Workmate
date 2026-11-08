@@ -205,9 +205,21 @@ export function previewSender(preview: string | null | undefined): string | null
   return match ? (match[1] || match[2] || '').trim().toLowerCase() || null : null
 }
 
-/** A preview that reads like a message, not a delivery log line. */
+/** A preview that reads like a message, not a delivery log line or raw
+ *  markdown ("Chào bạn! Mình là **AgentX**…" → "Chào bạn! Mình là AgentX…"). */
 export function cleanPreview(preview: string | null | undefined): string {
-  return (preview || '').trim().replace(A2A_PREFIX_RE, '').trim()
+  const text = (preview || '')
+    .trim()
+    .replace(A2A_PREFIX_RE, '')
+    .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/(\*\*|__|~~|`+)/g, '')
+    .replace(/(^|\s)[*_](\S[^*_]*\S|\S)[*_](?=\s|$|[.,!?;:])/g, '$1$2')
+    .replace(/^\s*(#{1,6}|>|[-*+]|\d+[.)])\s+/gm, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  // A group-room "(pass)" is silence, not something anyone said.
+  return /^\(?\s*pass\s*\)?\.?$/i.test(text) ? '' : text
 }
 
 const GENERIC_TITLES = new Set(['', 'bot chat', 'new chat', 'new conversation', 'conversation', 'chat', 'untitled'])
@@ -234,15 +246,24 @@ export function sessionLabel(session: Pick<ProfileSession, 'preview' | 'title'>,
   return words.length > 42 ? `${words.slice(0, 41)}…` : words
 }
 
-/** A bot counts as "working now" when its last message landed this recently. */
-export const ACTIVE_WINDOW_S = 90
+/** Who is answering right now — only real signals, never "spoke recently":
+ *  the live profile while its gateway streams (unless a group room is the one
+ *  driving turns through it), plus every room's current speaker. */
+export function workingBots(
+  busyProfile: string | null,
+  speakers: ReadonlyArray<null | string | undefined>
+): Set<string> {
+  const out = new Set<string>()
 
-export function isActiveNow(bot: Bot, busyProfile: string | null, nowMs = Date.now()): boolean {
-  if (busyProfile && bot.name === busyProfile) {
-    return true
+  if (busyProfile) {
+    out.add(busyProfile)
   }
 
-  const last = bot.last_session?.last_active || 0
+  for (const speaker of speakers) {
+    if (speaker) {
+      out.add(speaker)
+    }
+  }
 
-  return Boolean(last && nowMs / 1000 - last < ACTIVE_WINDOW_S)
+  return out
 }

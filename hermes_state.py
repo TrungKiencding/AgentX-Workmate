@@ -7117,6 +7117,46 @@ class SessionDB(
             )
         self._execute_write(_do)
 
+    def delete_title_ghost_sessions(self, min_age_seconds: float = 600.0) -> int:
+        """Remove titled, message-less ``unknown`` rows left by mis-routed titling.
+
+        A chat that belongs to ANOTHER profile but runs on this gateway (Bot
+        Mode group rooms, app-global remote mode) used to have its auto-title
+        written through this — the launch — db: auxiliary accounting inserted
+        a bare ``source='unknown'`` row for its id, then the generated title
+        landed on it. Each such row showed up in the main assistant's
+        conversation list as an empty chat named after someone else's work.
+
+        Only that exact shape is removed: ``source='unknown'``, a title, zero
+        messages (counter AND table), not archived, nobody's parent, and
+        older than ``min_age_seconds`` (never a row whose first turn is still
+        being written). Usage rows go with it (``ON DELETE CASCADE``).
+        Returns the number of rows deleted.
+        """
+        cutoff = time.time() - max(0.0, float(min_age_seconds))
+
+        def _do(conn):
+            rows = conn.execute(
+                """
+                SELECT id FROM sessions AS s
+                WHERE s.source = 'unknown'
+                  AND s.title IS NOT NULL AND TRIM(s.title) != ''
+                  AND COALESCE(s.message_count, 0) = 0
+                  AND COALESCE(s.archived, 0) = 0
+                  AND COALESCE(s.started_at, 0) < ?
+                  AND NOT EXISTS (SELECT 1 FROM messages m WHERE m.session_id = s.id)
+                  AND NOT EXISTS (SELECT 1 FROM sessions c WHERE c.parent_session_id = s.id)
+                """,
+                (cutoff,),
+            ).fetchall()
+            ids = [r[0] if isinstance(r, (tuple, list)) else r["id"] for r in rows]
+            if ids:
+                placeholders = ",".join("?" * len(ids))
+                conn.execute(f"DELETE FROM sessions WHERE id IN ({placeholders})", ids)
+            return len(ids)
+
+        return self._execute_write(_do) or 0
+
     def prune_empty_ghost_sessions(self, sessions_dir: "Optional[Path]" = None) -> int:
         """Remove empty TUI ghost sessions (no messages, no title, >24hr old)."""
         cutoff = time.time() - 86400  # Only sessions older than 24 hours

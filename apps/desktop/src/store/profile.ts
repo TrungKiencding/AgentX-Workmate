@@ -12,7 +12,7 @@ import {
   storedStringRecord
 } from '@/lib/storage'
 import { invalidateCronModelImpactScopeState } from '@/store/cron-model-impact-scope'
-import { $gateway, ensureGatewayForProfile, openGatewayForProfile } from '@/store/gateway'
+import { $gateway, ensureGatewayForProfile, openGatewayForProfile, primaryGatewayProfile } from '@/store/gateway'
 import { setConnection } from '@/store/session'
 import { resetStarmapGraph } from '@/store/starmap'
 import type { ProfileInfo } from '@/types/hermes'
@@ -155,14 +155,54 @@ export const $activeGatewayProfile = atom<string>('default')
 // / default, so single-profile users are unaffected.
 export const $newChatProfile = atom<string | null>(null)
 
+// The profile the user LIVES in: the one they picked in the switcher, else the
+// window backend's. Opening another profile's chat from a feature surface (Bot
+// Mode's assistants) is a visit — the live gateway moves, but a plain "New
+// chat" still starts at home instead of silently becoming that assistant.
+export const $homeProfile = atom<string | null>(null)
+
+export function homeProfileKey(): string {
+  return normalizeProfileKey($homeProfile.get() ?? primaryGatewayProfile())
+}
+
+// Point the next plain new chat at home. When a visit left the live gateway on
+// another profile, swap back now (not at first send) so the sidebar, title and
+// composer already belong to home while the user types.
+export function pointNewChatsHome(): void {
+  const home = homeProfileKey()
+
+  if (home === normalizeProfileKey($activeGatewayProfile.get())) {
+    $newChatProfile.set(null)
+
+    return
+  }
+
+  $newChatProfile.set(home)
+  void ensureGatewayProfile(home)
+}
+
 // Bumped whenever the open session should be dropped for a fresh new-session
 // draft: a profile switch/create (below), or deleting the project that owns the
 // currently-open session (store/projects). The chat controller subscribes and
 // resets to the intro draft, so we never strand the user in an orphaned view.
 export const $freshSessionRequest = atom(0)
 
-export function requestFreshSession(): void {
+let freshRequestKeepsRoute = false
+
+// `keepRoute`: drop the open session but stay on the current page — a profile
+// deleted from a full page (Bot Mode's "Trợ lý") must not throw the user into
+// a new chat they never asked for.
+export function requestFreshSession(options: { keepRoute?: boolean } = {}): void {
+  freshRequestKeepsRoute = Boolean(options.keepRoute)
   $freshSessionRequest.set($freshSessionRequest.get() + 1)
+}
+
+/** Read-once: did the pending fresh-session request ask to keep the route? */
+export function takeFreshRequestKeepsRoute(): boolean {
+  const keep = freshRequestKeepsRoute
+  freshRequestKeepsRoute = false
+
+  return keep
 }
 
 // Route profile-scoped REST settings (config/env/skills/tools/model/…) to the
@@ -337,6 +377,8 @@ export const $profileScope = computed([$showAllProfiles, $activeGatewayProfile],
 // $activeGatewayProfile → name, so $profileScope follows).
 export function selectProfile(name: string): void {
   const target = normalizeProfileKey(name)
+  // An explicit pick is where the user lives from now on.
+  $homeProfile.set(target)
   // Switching profiles (or coming back from the all-profiles browse view) starts
   // fresh; re-tapping the profile you're already in leaves your session be.
   const switching = $showAllProfiles.get() || target !== normalizeProfileKey($activeGatewayProfile.get())

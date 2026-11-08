@@ -33,8 +33,8 @@ import {
   toggleSidebarOpen
 } from '@/store/layout'
 import {
-  $newChatProfile,
   cycleProfile,
+  pointNewChatsHome,
   requestProfileCreate,
   switchProfileToSlot,
   switchToDefaultProfile,
@@ -194,10 +194,10 @@ export function useKeybinds(deps: KeybindRuntimeDeps): void {
     'nav.agents': () => navigate(AGENTS_ROUTE),
 
     'session.new': () => {
-      // Match the sidebar New Session button. A plain keyboard new chat should
-      // target the current live profile, not a stale per-profile quick-create
-      // selection from a prior action.
-      $newChatProfile.set(null)
+      // Match the sidebar New Session button: a plain keyboard new chat starts
+      // at home — not on an assistant whose chat was just visited, and not on
+      // a stale per-profile quick-create selection from a prior action.
+      pointNewChatsHome()
       deps.startFreshSession()
       window.dispatchEvent(new CustomEvent('agentx:new-session-shortcut'))
     },

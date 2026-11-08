@@ -11,7 +11,9 @@ const openGatewayForProfile = vi.fn(async (_profile: string) => undefined)
 const $gateway = atom<unknown>({ id: 'live-socket' })
 const resetStarmapGraph = vi.fn()
 
-vi.mock('@/store/gateway', () => ({ $gateway, ensureGatewayForProfile, openGatewayForProfile }))
+const primaryGatewayProfile = vi.fn(() => 'default')
+
+vi.mock('@/store/gateway', () => ({ $gateway, ensureGatewayForProfile, openGatewayForProfile, primaryGatewayProfile }))
 vi.mock('@/hermes', () => ({
   getProfiles: vi.fn(async () => ({ profiles: [] })),
   setApiRequestProfile: vi.fn()
@@ -19,8 +21,21 @@ vi.mock('@/hermes', () => ({
 vi.mock('@/lib/query-client', () => ({ invalidateProfileScopedQueries: vi.fn() }))
 vi.mock('@/store/starmap', () => ({ resetStarmapGraph }))
 
-const { $activeGatewayProfile, $profiles, ensureGatewayProfile, prewarmProfileBackend, refreshProfiles } =
-  await import('./profile')
+const {
+  $activeGatewayProfile,
+  $freshSessionRequest,
+  $homeProfile,
+  $newChatProfile,
+  $profiles,
+  ensureGatewayProfile,
+  homeProfileKey,
+  pointNewChatsHome,
+  prewarmProfileBackend,
+  refreshProfiles,
+  requestFreshSession,
+  selectProfile,
+  takeFreshRequestKeepsRoute
+} = await import('./profile')
 
 const { $connection } = await import('./session')
 const { invalidateProfileScopedQueries } = await import('@/lib/query-client')
@@ -170,5 +185,54 @@ describe('refreshProfiles shared rail list (#49289)', () => {
     await expect(refreshProfiles()).rejects.toThrow('backend unavailable')
 
     expect($profiles.get().map(profile => profile.name)).toEqual(['default', 'test1'])
+  })
+})
+
+describe('home profile (Bot Mode visits never change where new chats go)', () => {
+  beforeEach(() => {
+    $homeProfile.set(null)
+    $newChatProfile.set(null)
+    primaryGatewayProfile.mockReturnValue('default')
+  })
+
+  it("home is the window backend's profile until the user picks one in the switcher", () => {
+    expect(homeProfileKey()).toBe('default')
+
+    selectProfile('work')
+    expect(homeProfileKey()).toBe('work')
+  })
+
+  it('after visiting an assistant, a plain new chat goes home and the gateway swaps back now', async () => {
+    $activeGatewayProfile.set('writer') // opened the assistant's chat
+    ensureGatewayForProfile.mockClear()
+
+    pointNewChatsHome()
+    await Promise.resolve()
+
+    expect($newChatProfile.get()).toBe('default')
+    expect(ensureGatewayForProfile).toHaveBeenCalledWith('default')
+  })
+
+  it('already home: a plain new chat stays put', () => {
+    $activeGatewayProfile.set('default')
+    $newChatProfile.set('writer')
+
+    pointNewChatsHome()
+
+    expect($newChatProfile.get()).toBeNull()
+  })
+})
+
+describe('requestFreshSession', () => {
+  it('can drop the open chat while keeping the page the user is on (read once)', () => {
+    const before = $freshSessionRequest.get()
+
+    requestFreshSession({ keepRoute: true })
+    expect($freshSessionRequest.get()).toBe(before + 1)
+    expect(takeFreshRequestKeepsRoute()).toBe(true)
+    expect(takeFreshRequestKeepsRoute()).toBe(false)
+
+    requestFreshSession()
+    expect(takeFreshRequestKeepsRoute()).toBe(false)
   })
 })

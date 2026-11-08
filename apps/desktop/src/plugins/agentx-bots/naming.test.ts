@@ -6,7 +6,6 @@ import {
   displayName,
   filterBots,
   groupRoster,
-  isActiveNow,
   knownGroups,
   NAME_RE,
   previewSender,
@@ -15,7 +14,8 @@ import {
   showsHandle,
   slugify,
   sortRoster,
-  uniqueName
+  uniqueName,
+  workingBots
 } from './naming'
 import { bot } from './test-utils'
 
@@ -142,12 +142,22 @@ describe('previews', () => {
   })
 })
 
-describe('isActiveNow', () => {
-  it('is true for the busy profile or a very recent message', () => {
-    const now = 1_000_000_000
+describe('workingBots', () => {
+  it('only real signals count: the streaming profile and room speakers, never "spoke recently"', () => {
+    expect([...workingBots('writer', [null, 'nghien-cuu', undefined])].sort()).toEqual(['nghien-cuu', 'writer'])
+    expect(workingBots(null, []).size).toBe(0)
+  })
+})
 
-    expect(isActiveNow(bot('a'), 'a', now)).toBe(true)
-    expect(isActiveNow(bot('a', { last_session: { id: 'x', last_active: now / 1000 - 30 } }), null, now)).toBe(true)
-    expect(isActiveNow(bot('a', { last_session: { id: 'x', last_active: now / 1000 - 600 } }), null, now)).toBe(false)
+describe('cleanPreview', () => {
+  it('reads like a message: no markdown, no relay prefix, no group "(pass)"', () => {
+    expect(cleanPreview('Chào bạn! Mình là **AgentX Workmate**, trợ lý')).toBe(
+      'Chào bạn! Mình là AgentX Workmate, trợ lý'
+    )
+    expect(cleanPreview('# Tiêu đề\n- mục *một* và _hai_')).toBe('Tiêu đề mục một và hai')
+    expect(cleanPreview('xem [tài liệu](http://x) nhé')).toBe('xem tài liệu nhé')
+    expect(cleanPreview('Message from 🤖 Nghiên cứu (@nghien-cuu): số liệu đây')).toBe('số liệu đây')
+    expect(cleanPreview('(pass)')).toBe('')
+    expect(cleanPreview('snake_case_name và a*b')).toBe('snake_case_name và a*b')
   })
 })

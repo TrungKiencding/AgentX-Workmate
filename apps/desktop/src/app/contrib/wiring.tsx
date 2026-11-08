@@ -48,7 +48,8 @@ import {
   ensureGatewayProfile,
   newSessionInProfile,
   normalizeProfileKey,
-  refreshActiveProfile
+  refreshActiveProfile,
+  takeFreshRequestKeepsRoute
 } from '@/store/profile'
 import { $startWorkSessionRequest, followActiveSessionCwd } from '@/store/projects'
 import {
@@ -513,7 +514,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     }
 
     lastFreshRef.current = freshSessionRequest
-    startFreshSessionDraft()
+    startFreshSessionDraft({ preserveRoute: takeFreshRequestKeepsRoute() })
   }, [freshSessionRequest, startFreshSessionDraft])
 
   // Swapping the live gateway to another profile must re-pull that profile's

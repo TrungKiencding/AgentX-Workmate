@@ -24,16 +24,18 @@ import { openSession, type OpenSessionIntent } from '@/app/open-session'
 import { $narrowViewport } from '@/components/pane-shell/tree/store'
 import { onGatewayEvent } from '@/contrib/events'
 import { deleteProfile as deleteProfileRequest, getLogs, getStatus } from '@/hermes'
-import { $gateway } from '@/store/gateway'
+import { $gateway, primaryGateway, primaryGatewayProfile, retireGatewayForProfile } from '@/store/gateway'
 import { notify, notifyError } from '@/store/notifications'
 import {
   $activeGatewayProfile,
+  $homeProfile,
   ensureGatewayProfile,
+  homeProfileKey,
   newSessionInProfile,
   normalizeProfileKey,
   prewarmProfileBackend,
   refreshProfiles,
-  selectProfile,
+  requestFreshSession,
   setActiveProfile
 } from '@/store/profile'
 import { $activeSessionId, $currentCwd, $currentModel, $gatewayState } from '@/store/session'
@@ -141,16 +143,27 @@ export const host = {
   /** Delete a profile the way Settings ▸ Profiles does: the REST delete stops
    *  that profile's backend before removing its folder (a CLI `profile delete`
    *  races a live backend that respawns mid-delete), then the profile list
-   *  refreshes and — when it was the live one — the app falls back to default. */
+   *  refreshes. Before the delete, the app moves off the profile WITHOUT
+   *  leaving the page the user is on (the live gateway goes home, the open chat
+   *  resets in place) and its background socket is retired — a socket left
+   *  dialling would respawn the backend and re-create the deleted folder. */
   deleteProfile: async (name: string): Promise<void> => {
-    const wasActive = normalizeProfileKey(name) === normalizeProfileKey($activeGatewayProfile.get())
+    const key = normalizeProfileKey(name)
+
+    if (key === normalizeProfileKey($activeGatewayProfile.get())) {
+      const home = homeProfileKey() === key ? normalizeProfileKey(primaryGatewayProfile()) : homeProfileKey()
+      await ensureGatewayProfile(home)
+      setActiveProfile(home)
+      requestFreshSession({ keepRoute: true })
+    }
+
+    if ($homeProfile.get() && normalizeProfileKey($homeProfile.get()) === key) {
+      $homeProfile.set(null)
+    }
+
+    retireGatewayForProfile(key)
     await deleteProfileRequest(name)
     await refreshProfiles().catch(() => undefined)
-
-    if (wasActive) {
-      selectProfile('default')
-      setActiveProfile('default')
-    }
   },
 
   /** Re-read the profile list after a plugin created or renamed one, so the
@@ -178,6 +191,21 @@ export const host = {
 
   /** One-shot system status snapshot (platforms, versions, …). */
   status: async () => getStatus(),
+
+  /** Gateway JSON-RPC on the WINDOW backend, whichever profile is active.
+   *  That gateway serves every local profile through a `profile` param, and a
+   *  runtime session id only lives on the gateway that minted it — so work
+   *  that spans several profiles and must outlive a profile switch (Bot Mode
+   *  group rooms, roster reads) talks here instead of following the switch. */
+  requestPrimary: async <T>(method: string, params: Record<string, unknown> = {}): Promise<T> => {
+    const gateway = primaryGateway() ?? $gateway.get()
+
+    if (!gateway) {
+      throw new Error('AgentX gateway unavailable')
+    }
+
+    return gateway.request<T>(method, params)
+  },
 
   /** Gateway JSON-RPC — sessions, config, skills, cron, kanban, everything
    *  the app itself uses. Lazy: resolves the LIVE socket per call. */

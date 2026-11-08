@@ -28,11 +28,12 @@ import { BotDetail } from './bot-detail'
 import { BotList, type Selection, warmBot } from './bot-list'
 import { GroupDialog, GroupRoom } from './group-room'
 import { useBots } from './i18n'
-import { displayName, filterBots, isActiveNow, sortRoster } from './naming'
+import { displayName, filterBots, sortRoster, workingBots } from './naming'
 import {
   $botMeta,
   $groupChats,
   $groupNeedsYou,
+  $recentlyDeleted,
   $seenActivity,
   deleteBot,
   markSeen,
@@ -41,7 +42,9 @@ import {
   noteRoster,
   pullServerAvatars,
   ROSTER_KEY,
-  unreadBots
+  settleDeleted,
+  unreadBots,
+  withoutDeleted
 } from './state'
 import type { Bot, RosterResponse } from './types'
 
@@ -58,7 +61,7 @@ export function useRoster() {
 
   const query = useQuery({
     queryKey: ROSTER_KEY,
-    queryFn: () => host.request<RosterResponse>('profiles.list', {}),
+    queryFn: () => host.requestPrimary<RosterResponse>('profiles.list', {}),
     // Only while the page is open: activity previews and "working" dots.
     refetchInterval: 10_000,
     staleTime: 5_000,
@@ -94,10 +97,11 @@ export function BotsPage() {
   const [editing, setEditing] = useState<Bot | null>(null)
   const [grouping, setGrouping] = useState<Bot | null>(null)
   const [deleting, setDeleting] = useState<Bot | null>(null)
-  const [now, setNow] = useState(() => Date.now())
 
+  const deleted = useValue($recentlyDeleted)
   const live = Array.isArray(data?.profiles) ? data.profiles : null
-  const source = useMemo(() => live ?? (error ? lastRoster : []), [live, error])
+
+  const source = useMemo(() => withoutDeleted(live ?? (error ? lastRoster : []), deleted), [live, error, deleted])
 
   useEffect(() => {
     if (live) {
@@ -105,7 +109,7 @@ export function BotsPage() {
       mergeServerMeta(live)
       pullServerAvatars(live)
       noteRoster(live)
-      setNow(Date.now())
+      settleDeleted(live)
     }
   }, [live])
 
@@ -128,13 +132,15 @@ export function BotsPage() {
   const rooms = useValue($groupChats)
 
   const busy = useMemo(() => {
-    // A busy gateway means the live profile is answering — unless a group
-    // room is the one driving turns through it.
-    const roomRunning = Object.values(rooms).some(room => room.running)
-    const busyProfile = gateway === 'busy' && !roomRunning ? activeProfile : null
+    // A busy gateway means the live profile is answering; a room's speaker is
+    // answering in the room. Nothing else counts as "working".
+    const busyProfile = gateway === 'busy' ? (activeProfile || 'default').trim() || 'default' : null
 
-    return new Set(roster.filter(bot => isActiveNow(bot, busyProfile, now)).map(bot => bot.name))
-  }, [roster, gateway, activeProfile, now, rooms])
+    return workingBots(
+      busyProfile,
+      Object.values(rooms).map(room => (room.running ? room.speaker : null))
+    )
+  }, [gateway, activeProfile, rooms])
 
   // Default selection: the main assistant (or the first one) on wide windows.
   const resolved: Selection | null = useMemo(() => {
@@ -276,10 +282,10 @@ export function BotsPage() {
       <CreateAgentDialog
         onClose={() => setCreating(false)}
         onCreated={name => {
+          // Stay here: the new assistant is selected, its "Message" button is
+          // one click away. Nothing is sent on the user's behalf.
           setCreating(false)
           $selection.set({ kind: 'bot', name })
-          const bot: Bot = { name }
-          void openBot(bot, b)
         }}
         open={creating}
         roster={roster}
@@ -298,11 +304,14 @@ export function BotsPage() {
           }
 
           const label = displayName(deleting, meta[deleting.name], b.primaryName)
-          await deleteBot(deleting.name)
+          const selected = $selection.get()
 
-          if ($selection.get()?.name === deleting.name) {
+          // Unmount its detail first: its polls name the profile being removed.
+          if (selected?.kind === 'bot' && selected.name === deleting.name) {
             $selection.set(null)
           }
+
+          await deleteBot(deleting.name)
 
           host.notify({ kind: 'success', message: b.deleted(label) })
         }}

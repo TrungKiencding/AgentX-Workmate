@@ -77,7 +77,7 @@ const plugin: HermesPlugin = {
         let names: string[] = []
 
         try {
-          const res = await host.request<{ profiles?: Bot[] }>('profiles.list', { include_sessions: false })
+          const res = await host.requestPrimary<{ profiles?: Bot[] }>('profiles.list', { include_sessions: false })
           names = (res?.profiles ?? []).map(profile => profile.name)
         } catch {
           return draft

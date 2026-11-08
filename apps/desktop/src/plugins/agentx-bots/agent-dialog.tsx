@@ -241,7 +241,7 @@ export function CreateAgentDialog({
     const description = state.description.trim()
 
     try {
-      await host.request('profiles.create', {
+      await host.requestPrimary('profiles.create', {
         name: handle,
         description,
         clone_from: state.clone === FRESH ? null : state.clone,
@@ -554,7 +554,7 @@ export function EditAgentDialog({ bot, onClose }: { bot: Bot | null; onClose: ()
     })
 
     host
-      .request<Describe>('profiles.describe', { name: bot.name })
+      .requestPrimary<Describe>('profiles.describe', { name: bot.name })
       .then(res => {
         if (cancelled) {
           return
@@ -630,7 +630,7 @@ export function EditAgentDialog({ bot, onClose }: { bot: Bot | null; onClose: ()
 
     try {
       if (Object.keys(payload).length > 1) {
-        const res = await host.request<{ applied?: Record<string, boolean> }>('profiles.configure', payload)
+        const res = await host.requestPrimary<{ applied?: Record<string, boolean> }>('profiles.configure', payload)
         failed.push(
           ...Object.entries(res?.applied || {})
             .filter(([, ok]) => !ok)
@@ -639,7 +639,7 @@ export function EditAgentDialog({ bot, onClose }: { bot: Bot | null; onClose: ()
       }
 
       if (state.dirty.model && isInheritModel(state.model)) {
-        const res = await host.request<{ blocked?: boolean; code?: number }>('cli.exec', {
+        const res = await host.requestPrimary<{ blocked?: boolean; code?: number }>('cli.exec', {
           argv: ['--profile', bot.name, 'config', 'unset', 'model']
         })
 

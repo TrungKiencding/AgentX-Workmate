@@ -76,13 +76,18 @@ def _(rid, params: dict) -> dict:
                 return None
             from hermes_state import SessionDB
 
-            deny = frozenset({"kanban", "tool"})
+            deny = NON_CONVERSATION_SOURCES
             db = SessionDB(db_path=db_path)
             try:
                 for s in db.list_sessions_rich(
                     source=None, limit=20, order_by_last_active=True, compact_rows=True
                 ):
                     if (s.get("source") or "").strip().lower() in deny:
+                        continue
+                    # Group-room sessions made before they carried their own
+                    # source: the room is the conversation, not this row
+                    # (its preview is a member's "(pass)").
+                    if str(s.get("title") or "").startswith("Group: "):
                         continue
                     row = {
                         "id": s["id"],

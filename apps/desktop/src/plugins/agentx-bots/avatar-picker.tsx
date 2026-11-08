@@ -68,7 +68,7 @@ function useImageGeneration() {
   return useQuery({
     queryKey: [PLUGIN_ID, 'image-probe'],
     queryFn: async () =>
-      Boolean((await host.request<{ available?: boolean }>('image.generate', { probe: true }))?.available),
+      Boolean((await host.requestPrimary<{ available?: boolean }>('image.generate', { probe: true }))?.available),
     staleTime: 60_000,
     retry: false
   })
@@ -115,7 +115,7 @@ export function AvatarPicker({
     try {
       const who = [name, description].filter(Boolean).join(' — ')
 
-      const res = await host.request<{ error?: string; image?: string; image_data?: string; success?: boolean }>(
+      const res = await host.requestPrimary<{ error?: string; image?: string; image_data?: string; success?: boolean }>(
         'image.generate',
         {
           prompt: `Friendly minimal mascot avatar for an AI assistant named "${who}". Bold flat vector style, simple shapes, solid colour background, centered, no text.`,

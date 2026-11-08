@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } fr
 import {
   $botMeta,
   $groupChats,
+  $recentlyDeleted,
   $seenActivity,
   bindStorage,
   deleteBot,
+  emptyRoom,
   markSeen,
   markSeenAt,
   mergeServerMeta,
@@ -14,7 +16,9 @@ import {
   PLUGIN_ID,
   resetBotState,
   saveBotMeta,
-  unreadBots
+  settleDeleted,
+  unreadBots,
+  withoutDeleted
 } from './state'
 import { bot } from './test-utils'
 
@@ -33,7 +37,7 @@ let request: MockInstance
 
 beforeEach(() => {
   resetBotState()
-  request = vi.spyOn(host, 'request')
+  request = vi.spyOn(host, 'requestPrimary')
   vi.spyOn(queryClient, 'invalidateQueries').mockResolvedValue(undefined)
 })
 
@@ -157,5 +161,35 @@ describe('deleteBot', () => {
     expect(remove).toHaveBeenCalledWith('writer')
     expect($botMeta.get()).toEqual({ other: {} })
     expect($seenActivity.get()).toEqual({})
+  })
+
+  it('leaves every room and hides the assistant until a fresh roster drops it', async () => {
+    vi.spyOn(host, 'deleteProfile').mockResolvedValue(undefined)
+    $groupChats.set({
+      Marketing: {
+        ...emptyRoom(),
+        log: [{ from: { kind: 'member', name: 'writer' }, text: 'Bản nháp', at: 1 }],
+        sessions: { writer: 's-w', other: 's-o' },
+        watermarks: { writer: 1, other: 0 }
+      }
+    })
+
+    await deleteBot('writer')
+
+    const room = $groupChats.get().Marketing
+    expect(room.sessions).toEqual({ other: 's-o' })
+    expect(room.watermarks).toEqual({ other: 0 })
+    expect(room.log).toHaveLength(1) // what it said stays
+
+    // A roster fetched before the delete still names it: hidden.
+    const stale = [bot('default'), bot('writer')]
+    settleDeleted(stale)
+    expect(withoutDeleted(stale, $recentlyDeleted.get()).map(row => row.name)).toEqual(['default'])
+
+    // A fresh roster without it: nothing left to hide, and a profile that
+    // really comes back later is shown again.
+    settleDeleted([bot('default')])
+    expect($recentlyDeleted.get().size).toBe(0)
+    expect(withoutDeleted(stale, $recentlyDeleted.get())).toHaveLength(2)
   })
 })

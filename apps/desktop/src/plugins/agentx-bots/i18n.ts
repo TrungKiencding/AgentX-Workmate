@@ -98,6 +98,23 @@ type BotsMessages = {
   groupOutOfRoom: (name: string) => string
   groupEveryone: string
   groupMentionList: string
+  groupAttach: string
+  groupAttachRemove: (name: string) => string
+  groupAttachTooLarge: (name: string, mb: number) => string
+  groupAttachFailed: (name: string) => string
+  groupDropHint: string
+  groupStop: string
+  groupStopped: string
+  groupTurnFailed: (name: string) => string
+  groupTurnTimedOut: (name: string) => string
+  groupElapsed: (seconds: number) => string
+  groupYou: string
+  groupMemberGone: (name: string) => string
+  recentChatsTitle: string
+  recentChatsDescription: string
+  groupApprovalTitle: (name: string) => string
+  groupApprovalAllow: string
+  groupApprovalDeny: string
   you: string
   clearRoom: string
   back: string
@@ -159,7 +176,6 @@ type BotsMessages = {
   savedLocally: string
   partialSave: (sections: string) => string
   createFailed: string
-  kickoff: string
   // delete / group / duplicate
   deleteTitle: (name: string) => string
   deleteBody: string
@@ -305,6 +321,23 @@ const en: BotsMessages = {
   groupOutOfRoom: name => `${name} · not in this room`,
   groupEveryone: 'Everyone',
   groupMentionList: 'Mention an assistant',
+  groupAttach: 'Attach files',
+  groupAttachRemove: name => `Remove ${name}`,
+  groupAttachTooLarge: (name, mb) => `${name} is larger than ${mb} MB and was skipped`,
+  groupAttachFailed: name => `Couldn’t read ${name}`,
+  groupDropHint: 'Drop files to share them with the group',
+  groupStop: 'Stop',
+  groupStopped: 'Stopped — the group waits for your next message.',
+  groupTurnFailed: name => `${name} couldn’t answer this time.`,
+  groupTurnTimedOut: name => `${name} took too long and was skipped.`,
+  groupElapsed: seconds => `${seconds}s`,
+  groupYou: 'you',
+  groupMemberGone: name => `${name} is no longer an assistant here.`,
+  recentChatsTitle: 'Recent conversations',
+  recentChatsDescription: 'Your latest chats with the main assistant. “Message” starts a new one.',
+  groupApprovalTitle: name => `${name} asks permission to run this:`,
+  groupApprovalAllow: 'Allow once',
+  groupApprovalDeny: 'Don’t allow',
   you: 'You',
   clearRoom: 'Clear room history',
   back: 'Back',
@@ -380,7 +413,6 @@ const en: BotsMessages = {
   savedLocally: 'Saved on this computer only — the server didn’t accept the change.',
   partialSave: sections => `Some changes weren’t saved: ${sections}`,
   createFailed: 'Couldn’t create the assistant',
-  kickoff: 'Hi! Briefly introduce yourself and what you can help me with.',
   deleteTitle: name => `Delete ${name}?`,
   deleteBody: 'Its memory, skills, scheduled tasks and every conversation are removed for good.',
   deleteConfirm: 'Delete',
@@ -540,6 +572,23 @@ const vi: BotsMessages = {
   groupOutOfRoom: name => `${name} · chưa vào phòng`,
   groupEveryone: 'Cả nhóm',
   groupMentionList: 'Gọi tên một trợ lý',
+  groupAttach: 'Đính kèm tệp',
+  groupAttachRemove: name => `Bỏ ${name}`,
+  groupAttachTooLarge: (name, mb) => `${name} lớn hơn ${mb} MB nên chưa gửi được`,
+  groupAttachFailed: name => `Không đọc được ${name}`,
+  groupDropHint: 'Thả tệp vào đây để gửi cho cả nhóm',
+  groupStop: 'Dừng',
+  groupStopped: 'Đã dừng — nhóm chờ tin nhắn tiếp theo của bạn.',
+  groupTurnFailed: name => `${name} chưa trả lời được lần này.`,
+  groupTurnTimedOut: name => `${name} trả lời quá lâu nên đã được bỏ qua.`,
+  groupElapsed: seconds => `${seconds} giây`,
+  groupYou: 'bạn',
+  groupMemberGone: name => `${name} không còn là trợ lý ở đây.`,
+  recentChatsTitle: 'Trò chuyện gần đây',
+  recentChatsDescription: 'Những cuộc trò chuyện mới nhất với trợ lý chính. “Nhắn tin” mở một cuộc mới.',
+  groupApprovalTitle: name => `${name} xin phép chạy lệnh này:`,
+  groupApprovalAllow: 'Cho phép lần này',
+  groupApprovalDeny: 'Không cho phép',
   you: 'Bạn',
   clearRoom: 'Xoá lịch sử phòng',
   back: 'Quay lại',
@@ -613,7 +662,6 @@ const vi: BotsMessages = {
   savedLocally: 'Chỉ lưu được trên máy này — máy chủ chưa nhận thay đổi.',
   partialSave: sections => `Một số thay đổi chưa lưu được: ${sections}`,
   createFailed: 'Chưa tạo được trợ lý',
-  kickoff: 'Chào bạn! Hãy giới thiệu ngắn gọn về bạn và những việc bạn có thể giúp mình.',
   deleteTitle: name => `Xoá ${name}?`,
   deleteBody: 'Trí nhớ, kỹ năng, lịch tự động và mọi cuộc trò chuyện của trợ lý này sẽ bị xoá vĩnh viễn.',
   deleteConfirm: 'Xoá',

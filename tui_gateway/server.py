@@ -1414,8 +1414,102 @@ def _get_db():
                 exc,
             )
             return None
+        _sweep_title_ghosts(_db)
     return _db
 
+
+def _sweep_title_ghosts(db) -> None:
+    """Once per process, in the background: drop the empty "ghost" chats that
+    titling other profiles' sessions through this db used to leave in the main
+    assistant's list (see ``SessionDB.delete_title_ghost_sessions``)."""
+
+    def _run():
+        try:
+            removed = db.delete_title_ghost_sessions()
+            if removed:
+                logger.info("removed %d empty ghost conversation(s) left by mis-routed titles", removed)
+        except Exception:
+            logger.debug("ghost conversation sweep failed", exc_info=True)
+
+    threading.Thread(target=_run, name="title-ghost-sweep", daemon=True).start()
+
+
+# Session sources that are app plumbing, never a conversation a person opens:
+# sub-agent runs, kanban workers and Bot Mode group-room turns (each assistant
+# answers a room in its own hidden session; the room itself is the transcript).
+BOT_ROOM_SOURCE = "bot-room"
+NON_CONVERSATION_SOURCES = frozenset({"kanban", "tool", BOT_ROOM_SOURCE})
+
+
+class ProfileHomeGone(FileNotFoundError):
+    """A session is bound to a named profile whose home was deleted."""
+
+
+def _open_profile_session_db(profile_home):
+    """Open a named profile's ``state.db`` — never for a profile that is gone.
+
+    ``SessionDB`` creates its parent directory, so opening the db of a deleted
+    profile through a session that still names its home (a group-room member's
+    hidden session, an idle chat the reaper finalizes later) silently re-created
+    ``profiles/<name>/`` with a bare ``state.db`` — and the deleted assistant
+    came back in every profile list. Raise instead; callers treat it like any
+    other unavailable db.
+    """
+    home = Path(profile_home)
+    if not home.is_dir():
+        raise ProfileHomeGone(f"Profile home no longer exists: {home}")
+    from hermes_state import SessionDB
+
+    return SessionDB(db_path=home / "state.db")
+
+
+def close_sessions_for_profile_home(profile_home, *, end_reason: str = "profile_deleted") -> int:
+    """Tear down every live session bound to ``profile_home``.
+
+    Called by the profile-delete route: a deleted profile's sessions must not
+    linger in this process (their agents hold the old home and would write into
+    it again). Returns how many sessions were closed. Never raises.
+    """
+    try:
+        target = Path(profile_home).resolve()
+    except Exception:
+        return 0
+    with _sessions_lock:
+        victims = []
+        for sid, session in list(_sessions.items()):
+            home = session.get("profile_home") if isinstance(session, dict) else None
+            if not home:
+                continue
+            try:
+                if Path(home).resolve() == target:
+                    victims.append(sid)
+            except Exception:
+                continue
+    closed = 0
+    for sid in victims:
+        try:
+            if _close_session_by_id(sid, end_reason=end_reason):
+                closed += 1
+        except Exception:
+            logger.debug("closing session %s of a deleted profile failed", sid, exc_info=True)
+    return closed
+
+
+
+def _title_db_for(session: dict, agent: Any):
+    """The db an auto-generated title is written to: the session's OWN.
+
+    A session bound to another profile (Bot Mode assistants answering on this
+    gateway, app-global remote mode) persists its turns into that profile's
+    ``state.db`` through the agent's long-lived handle. Titling it through the
+    launch db instead found no title there and wrote one — leaving an empty,
+    sourceless "ghost" conversation (named after the other profile's chat) in
+    the MAIN assistant's list. None when that profile's db isn't available:
+    no title beats a ghost.
+    """
+    if not session.get("profile_home"):
+        return _get_db()
+    return getattr(agent, "_session_db", None)
 
 def _db_for_profile(profile: str | None = None):
     """Return SessionDB for ``params.profile`` when it differs from launch.
@@ -1431,9 +1525,7 @@ def _db_for_profile(profile: str | None = None):
     if profile_home is None:
         return _get_db(), False
     try:
-        from hermes_state import SessionDB
-
-        return SessionDB(db_path=Path(profile_home) / "state.db"), True
+        return _open_profile_session_db(profile_home), True
     except Exception as exc:
         logger.warning(
             "TUI profile session store unavailable for %s: %s",
@@ -2301,10 +2393,12 @@ def _start_agent_build(sid: str, session: dict) -> None:
                     secret_token = set_secret_scope(build_profile_secret_scope(Path(profile_home)))
                 except Exception:
                     pass
+                if not Path(profile_home).is_dir():
+                    # The profile was deleted under this session: building
+                    # would persist its turns into the launch profile's db.
+                    raise ProfileHomeGone(f"Profile home no longer exists: {profile_home}")
                 try:
-                    from hermes_state import SessionDB
-
-                    session_db = SessionDB(db_path=Path(profile_home) / "state.db")
+                    session_db = _open_profile_session_db(profile_home)
                 except Exception:
                     session_db = None
 
@@ -2844,10 +2938,8 @@ def _ensure_session_db_row(session: dict) -> None:
     # unified list mis-tags it, and resume 404s ("session not found").
     profile_home = session.get("profile_home")
     if profile_home:
-        from hermes_state import SessionDB
-
         try:
-            db = SessionDB(db_path=Path(profile_home) / "state.db")
+            db = _open_profile_session_db(profile_home)
         except Exception:
             logger.debug("failed to open profile db for session row", exc_info=True)
             return
@@ -3009,10 +3101,8 @@ def _session_db(session: dict):
     db, close_db = None, False
     profile_home = session.get("profile_home")
     if profile_home:
-        from hermes_state import SessionDB
-
         try:
-            db, close_db = SessionDB(db_path=Path(profile_home) / "state.db"), True
+            db, close_db = _open_profile_session_db(profile_home), True
         except Exception:
             logger.debug("failed to open profile db for session", exc_info=True)
     else:
@@ -6757,9 +6847,7 @@ def _init_session(
         db = session_db
     elif profile_home:
         try:
-            from hermes_state import SessionDB
-
-            db = SessionDB(db_path=Path(profile_home) / "state.db")
+            db = _open_profile_session_db(profile_home)
             _init_owns_db = True
         except Exception:
             db = _get_db()
@@ -10527,7 +10615,7 @@ def _run_prompt_submit(
                     _title_model = getattr(agent, "model", None)
                     _title_provider = getattr(agent, "provider", None)
                     maybe_auto_title(
-                        _get_db(),
+                        _title_db_for(session, agent),
                         _title_key,
                         text,
                         raw,

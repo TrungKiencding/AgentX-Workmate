@@ -84,11 +84,27 @@ export interface GroupMember {
   title: string
 }
 
+/** A file the user shared in a group room. The bytes live in memory only
+ *  (`group-attachments.ts`); the log keeps what a reader needs to see it. */
+export interface GroupAttachment {
+  id: string
+  name: string
+  kind: 'file' | 'image'
+  /** bytes */
+  size: number
+  mime?: string
+  /** Small JPEG data URL so a shared picture survives a restart on screen. */
+  thumb?: string
+}
+
 export interface GroupEntry {
-  from: { kind: 'member' | 'user'; name: string }
+  /** `notice`: a status line from the room itself ("X couldn't answer"),
+   *  never sent to the members. */
+  from: { kind: 'member' | 'notice' | 'user'; name: string }
   text: string
   /** ms epoch */
   at: number
+  attachments?: GroupAttachment[]
 }
 
 export interface GroupRoom {
@@ -102,4 +118,6 @@ export interface GroupRoom {
   running: boolean
   /** Runtime only: the member whose turn is in flight, for "X is replying". */
   speaker?: string | null
+  /** Runtime only: when the current speaker's turn started (ms epoch). */
+  speakerSince?: number | null
 }

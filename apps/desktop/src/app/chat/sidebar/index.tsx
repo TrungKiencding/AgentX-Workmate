@@ -70,11 +70,11 @@ import { $messagingPlatforms, refreshMessagingPlatforms } from '@/store/messagin
 import { $pendingPairingCount } from '@/store/pairing'
 import {
   $activeGatewayProfile,
-  $newChatProfile,
   $profiles,
   $profileScope,
   ALL_PROFILES,
-  normalizeProfileKey
+  normalizeProfileKey,
+  pointNewChatsHome
 } from '@/store/profile'
 import {
   $activeProjectId,
@@ -1290,11 +1290,10 @@ export function ChatSidebar({
                     <SidebarMenuButton
                       className={NAV_ROW}
                       onClick={() => {
-                        // A plain new session lands in whatever profile the live
-                        // gateway is on (= the active switcher context). null →
-                        // no swap. The switcher header is the single place to
-                        // change which profile that is.
-                        $newChatProfile.set(null)
+                        // A plain new session starts at home (the switcher's
+                        // profile). Visiting an assistant's chat moves the live
+                        // gateway but never where new chats go.
+                        pointNewChatsHome()
                         onNavigate(NEW_SESSION_NAV)
                       }}
                       tooltip={{

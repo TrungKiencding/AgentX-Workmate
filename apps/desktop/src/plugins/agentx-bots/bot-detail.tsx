@@ -330,22 +330,37 @@ function useProfileSessions(profile: string) {
   return useQuery({
     queryKey: [PLUGIN_ID, 'sessions', profile],
     queryFn: async () =>
-      (await host.request<{ sessions?: ProfileSession[] }>('session.list', { profile, limit: 100 }))?.sessions ?? [],
+      (
+        await host.requestPrimary<{ sessions?: ProfileSession[] }>('session.list', {
+          profile,
+          limit: 100,
+          strict_profile: true
+        })
+      )?.sessions ?? [],
     refetchInterval: 30_000,
-    staleTime: 10_000
+    staleTime: 10_000,
+    retry: false
   })
+}
+
+/** Rows a person opens: never a group room's plumbing session (older ones
+ *  predate their own source tag and are known by title). */
+export function conversationRows(rows: readonly ProfileSession[]): ProfileSession[] {
+  return rows.filter(row => !(row.title || '').startsWith('Group: ') && row.source !== 'bot-room')
 }
 
 function ChatsSection({ b, bot, onMessage }: { b: BotsText; bot: Bot; onMessage: () => void }) {
   const { data, isLoading } = useProfileSessions(bot.name)
   const [expanded, setExpanded] = useState(false)
   const pinned = useValue($botMeta)[bot.name]?.chat || null
-  const sessions = (data ?? []).filter(session => !(session.title || '').startsWith('Group: '))
+  const primary = isPrimary(bot.name)
+  const sessions = conversationRows(data ?? [])
 
+  // The main assistant's chats ARE the app's chats: no "main conversation",
+  // just the latest ones. Any other assistant leads with its main one.
   const isMain = (session: ProfileSession) =>
-    session.id === pinned || (!pinned && (session.title || '').trim() === BOT_CHAT_TITLE)
+    !primary && (session.id === pinned || (!pinned && (session.title || '').trim() === BOT_CHAT_TITLE))
 
-  // The main conversation leads; the rest keep their recency order.
   const ordered = [...sessions.filter(isMain), ...sessions.filter(session => !isMain(session))]
   const visible = expanded ? ordered : ordered.slice(0, CHAT_PREVIEW_COUNT)
 
@@ -361,7 +376,10 @@ function ChatsSection({ b, bot, onMessage }: { b: BotsText; bot: Bot; onMessage:
 
   return (
     <section className="grid gap-3">
-      <SectionHeader description={b.chatsDescription} title={b.chatsTitle} />
+      <SectionHeader
+        description={primary ? b.recentChatsDescription : b.chatsDescription}
+        title={primary ? b.recentChatsTitle : b.chatsTitle}
+      />
       {isLoading ? (
         <Skeleton className="h-28 w-full rounded-(--radius-card)" />
       ) : ordered.length === 0 ? (
@@ -393,9 +411,9 @@ function ChatsSection({ b, bot, onMessage }: { b: BotsText; bot: Bot; onMessage:
                       </span>
                       {preview ? <span className="truncate text-xs text-(--text-tertiary)">{preview}</span> : null}
                     </span>
-                    {session.last_active ? (
+                    {session.last_active || session.started_at ? (
                       <span className="shrink-0 text-xs text-(--text-tertiary) tabular-nums">
-                        {relativeTime(session.last_active * 1000)}
+                        {relativeTime((session.last_active || session.started_at || 0) * 1000)}
                       </span>
                     ) : null}
                   </button>

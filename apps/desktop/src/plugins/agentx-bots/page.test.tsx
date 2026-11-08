@@ -34,6 +34,7 @@ afterAll(() => disposeLocales())
 let roster: Bot[]
 let jobs: Record<string, CronJob[]>
 let request: MockInstance
+let sessions: Record<string, Array<Record<string, unknown>>>
 
 beforeEach(() => {
   resetBotState()
@@ -64,13 +65,14 @@ beforeEach(() => {
       }
     ]
   }
+  sessions = {}
   $botMeta.set({
     writer: { title: 'Biên tập', group: 'Marketing' },
     'nghien-cuu': { title: 'Nghiên cứu', group: 'Marketing' }
   })
 
   request = vi
-    .spyOn(host, 'request')
+    .spyOn(host, 'requestPrimary')
     .mockImplementation(async (method: string, params: Record<string, unknown> = {}) => {
       switch (method) {
         case 'profiles.list':
@@ -80,7 +82,7 @@ beforeEach(() => {
           return (params.action === 'list' ? { jobs: jobs[String(params.profile)] ?? [] } : { ok: true }) as never
 
         case 'session.list':
-          return { sessions: [] } as never
+          return { sessions: sessions[String(params.profile)] ?? [] } as never
 
         case 'image.generate':
           return { available: false } as never
@@ -177,9 +179,9 @@ describe('Assistants page', () => {
     )
   })
 
-  it('creates an assistant from a template with a diacritic-free handle', async () => {
+  it('creates an assistant from a template and stays on the page with it selected', async () => {
     const activate = vi.spyOn(host, 'activateProfile').mockResolvedValue(undefined)
-    vi.spyOn(host, 'openSession').mockResolvedValue(undefined)
+    const open = vi.spyOn(host, 'openSession').mockResolvedValue(undefined)
     renderPage()
 
     fireEvent.click((await screen.findAllByRole('button', { name: /New assistant/ }))[0])
@@ -190,6 +192,7 @@ describe('Assistants page', () => {
     expect(within(dialog).getByDisplayValue('Secretary')).toBeTruthy()
     expect(within(dialog).getByText('Mention it in any chat as @secretary')).toBeTruthy()
 
+    roster = [...roster, { name: 'secretary', description: 'Notes' }]
     fireEvent.click(within(dialog).getAllByRole('button', { name: 'Create assistant' }).at(-1)!)
 
     await waitFor(() =>
@@ -203,8 +206,66 @@ describe('Assistants page', () => {
 
     expect(create.soul).toContain('# Secretary')
     expect(create.soul).not.toContain('Messaging other agents')
-    await waitFor(() => expect(activate).toHaveBeenCalledWith('secretary'))
     expect($botMeta.get().secretary).toMatchObject({ title: 'Secretary', custom: true })
+    await waitFor(() => expect($selection.get()).toEqual({ kind: 'bot', name: 'secretary' }))
+    // Nothing is sent or opened on the user's behalf.
+    expect(open).not.toHaveBeenCalled()
+    expect(activate).not.toHaveBeenCalled()
+    expect(request.mock.calls.some(([method]) => method === 'prompt.submit' || method === 'session.create')).toBe(false)
+  })
+
+  it('"Message" on the main assistant starts an ordinary new chat', async () => {
+    const newChat = vi.spyOn(host, 'newChat').mockImplementation(() => undefined)
+    const open = vi.spyOn(host, 'openSession').mockResolvedValue(undefined)
+    renderPage()
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Message' }))
+
+    expect(newChat).toHaveBeenCalledWith('default')
+    expect(open).not.toHaveBeenCalled()
+    expect(screen.getByRole('heading', { name: 'Recent conversations' })).toBeTruthy()
+  })
+
+  it('an assistant lists its main conversation first and never its group-room sessions', async () => {
+    sessions.writer = [
+      { id: 'g1', title: 'Group: Marketing', preview: '(pass)', last_active: 30, source: 'bot-room' },
+      { id: 'side', title: 'Ý tưởng tiêu đề', preview: 'Thử 5 tiêu đề', last_active: 20 },
+      { id: 'main', title: 'Bot Chat', preview: 'Bản nháp đây', last_active: 10 }
+    ]
+    $botMeta.set({ ...$botMeta.get(), writer: { ...$botMeta.get().writer, chat: 'main' } })
+    renderPage()
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /^Biên tập/ }))[0])
+
+    const section = (await screen.findByRole('heading', { name: 'Conversations' })).closest('section')!
+    await waitFor(() => expect(within(section).getAllByRole('button').length).toBe(2))
+
+    const rows = within(section).getAllByRole('button')
+
+    expect(rows[0].textContent).toContain('Main conversation')
+    expect(rows[1].textContent).toContain('Ý tưởng tiêu đề')
+    expect(section.textContent).not.toContain('(pass)')
+    expect(request).toHaveBeenCalledWith('session.list', { profile: 'writer', limit: 100, strict_profile: true })
+  })
+
+  it('a deleted assistant leaves the list and its rooms, even if a stale roster still names it', async () => {
+    const remove = vi.spyOn(host, 'deleteProfile').mockResolvedValue(undefined)
+    renderPage()
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /^Biên tập/ }))[0])
+    fireEvent.pointerDown(await screen.findByRole('button', { name: 'More actions' }), {
+      button: 0,
+      pointerType: 'mouse'
+    })
+    fireEvent.click(await screen.findByRole('menuitem', { name: 'Delete assistant…' }))
+    fireEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Delete' }))
+
+    await waitFor(() => expect(remove).toHaveBeenCalledWith('writer'))
+
+    const nav = await screen.findByRole('navigation', { name: 'Assistants' })
+    // The roster mock still lists "writer" (a fetch that raced the delete).
+    await waitFor(() => expect(within(nav).queryByText('Biên tập')).toBeNull())
+    expect($selection.get()).toBeNull()
   })
 
   it('refuses a handle another assistant already uses', async () => {

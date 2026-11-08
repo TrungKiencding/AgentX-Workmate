@@ -18,6 +18,7 @@ import type { ReactNode } from 'react'
 
 import { type BotMenuItem } from './actions'
 import { BotAvatar } from './face'
+import { plainMentions } from './group-chat'
 import type { BotsText } from './i18n'
 import { cleanPreview, displayName, groupRoster, isPrimary, previewSender } from './naming'
 import { $groupChats } from './state'
@@ -213,9 +214,19 @@ function GroupRow({
 
   // The room's latest line, like any conversation row; before the first
   // message, who is in it.
-  const subtitle = last
-    ? `${last.from.kind === 'user' ? b.you : displayName({ name: last.from.name }, meta[last.from.name], b.primaryName)}: ${last.text.replace(/\s+/g, ' ')}`
-    : members.map(bot => displayName(bot, meta[bot.name], b.primaryName)).join(', ')
+  const labels = {
+    everyone: b.groupEveryone,
+    members: members.map(bot => ({ name: bot.name, title: displayName(bot, meta[bot.name], b.primaryName) })),
+    user: b.groupYou
+  }
+
+  const lastText = last ? cleanPreview(plainMentions(last.text, labels)) : ''
+
+  const subtitle = !last
+    ? members.map(bot => displayName(bot, meta[bot.name], b.primaryName)).join(', ')
+    : last.from.kind === 'notice'
+      ? last.text
+      : `${last.from.kind === 'user' ? b.you : displayName({ name: last.from.name }, meta[last.from.name], b.primaryName)}: ${lastText || (last.attachments?.length ? last.attachments.map(item => item.name).join(', ') : '')}`
 
   return (
     <li>

@@ -1,15 +1,14 @@
 import { host } from '@agentx/plugin-sdk'
 import { afterEach, beforeEach, describe, expect, it, type MockInstance, vi } from 'vitest'
 
-import { createCanonicalChat, openCanonicalChat, resetCanonicalChats } from './canonical-chat'
+import { createCanonicalChat, openCanonicalChat, resetCanonicalChats, resolveCanonicalChat } from './canonical-chat'
 import { $botMeta, resetBotState } from './state'
 
 type Handler = (params: Record<string, unknown>) => unknown
 
 let handlers: Record<string, Handler>
-let calls: string[]
+let calls: Array<[string, Record<string, unknown>]>
 let openSession: MockInstance
-let activate: MockInstance
 
 beforeEach(() => {
   resetBotState()
@@ -17,11 +16,11 @@ beforeEach(() => {
   calls = []
   handlers = {
     'profiles.configure': () => ({ applied: { ui_meta: true } }),
-    'session.create': () => ({ session_id: 'rt-1', stored_session_id: 'stored-1' }),
-    'prompt.submit': () => ({ ok: true })
+    'session.create': () => ({ stored_session_id: 'stored-1', persisted: true }),
+    'session.list': () => ({ sessions: [] })
   }
-  vi.spyOn(host, 'request').mockImplementation(async (method: string, params: Record<string, unknown> = {}) => {
-    calls.push(method)
+  vi.spyOn(host, 'requestPrimary').mockImplementation(async (method: string, params: Record<string, unknown> = {}) => {
+    calls.push([method, params])
     const handler = handlers[method]
 
     if (!handler) {
@@ -30,99 +29,98 @@ beforeEach(() => {
 
     return handler(params) as never
   })
-  activate = vi.spyOn(host, 'activateProfile').mockImplementation(async () => {
-    calls.push('activate')
-  })
-  openSession = vi.spyOn(host, 'openSession').mockImplementation(async () => {
-    calls.push('open')
-  })
+  vi.spyOn(host, 'request').mockRejectedValue(new Error('must not follow the live profile'))
+  vi.spyOn(host, 'activateProfile').mockRejectedValue(new Error('must not switch profiles to create'))
+  openSession = vi.spyOn(host, 'openSession').mockResolvedValue(undefined)
 })
 
 afterEach(() => {
   vi.restoreAllMocks()
 })
 
+const methods = () => calls.map(([method]) => method).filter(method => method !== 'profiles.configure')
+
 describe('createCanonicalChat', () => {
-  it('switches to the bot backend first, then creates, opens and kicks off', async () => {
-    await expect(createCanonicalChat('writer', 'Chào bạn!')).resolves.toBe('stored-1')
+  it('persists an EMPTY titled conversation on the window backend and pins it — nothing is sent', async () => {
+    await expect(createCanonicalChat('writer')).resolves.toBe('stored-1')
 
-    expect(activate).toHaveBeenCalledWith('writer')
-    expect(calls.filter(call => call !== 'profiles.configure')).toEqual([
-      'activate',
-      'session.create',
-      'open',
-      'prompt.submit'
-    ])
-    expect($botMeta.get().writer.chat).toBe('stored-1')
+    expect(calls.find(([method]) => method === 'session.create')?.[1]).toEqual({
+      profile: 'writer',
+      title: 'Bot Chat',
+      persist_only: true,
+      strict_profile: true
+    })
+    expect(methods()).not.toContain('prompt.submit')
+    expect($botMeta.get().writer?.chat).toBe('stored-1')
   })
 
-  it('creates the chat with the protocol title', async () => {
-    const create = vi.fn(() => ({ session_id: 'rt', stored_session_id: 's' }))
-    handlers['session.create'] = create
+  it('is single-flight per assistant', async () => {
+    const [a, b] = await Promise.all([createCanonicalChat('writer'), createCanonicalChat('writer')])
 
-    await createCanonicalChat('writer', 'hi')
-
-    expect(create).toHaveBeenCalledWith({ profile: 'writer', title: 'Bot Chat' })
-  })
-
-  it('is single-flight per bot', async () => {
-    const [a, b] = [createCanonicalChat('writer', 'hi'), createCanonicalChat('writer', 'hi')]
-
-    expect(a).toBe(b)
-    await a
-    expect(calls.filter(call => call === 'session.create')).toHaveLength(1)
-  })
-
-  it('clears the pin when the kickoff fails', async () => {
-    handlers['prompt.submit'] = () => {
-      throw new Error('boom')
-    }
-
-    await expect(createCanonicalChat('writer', 'hi')).rejects.toThrow('boom')
-    expect($botMeta.get().writer.chat).toBeNull()
+    expect(a).toBe('stored-1')
+    expect(b).toBe('stored-1')
+    expect(methods().filter(method => method === 'session.create')).toHaveLength(1)
   })
 })
 
-describe('openCanonicalChat', () => {
-  it('opens the pinned chat when it still exists', async () => {
+describe('resolveCanonicalChat', () => {
+  it('keeps a pin whose session still exists', async () => {
     $botMeta.set({ writer: { chat: 'pinned' } })
     handlers['session.list'] = () => ({ sessions: [{ id: 'other' }, { id: 'pinned' }] })
 
-    await expect(openCanonicalChat('writer', 'hi')).resolves.toBe('pinned')
-    expect(openSession).toHaveBeenCalledWith('pinned', { profile: 'writer' })
-    expect(calls).not.toContain('session.create')
+    await expect(resolveCanonicalChat('writer')).resolves.toBe('pinned')
+    expect(methods()).toEqual(['session.list'])
+    expect(calls[0][1]).toEqual({ profile: 'writer', limit: 200, strict_profile: true })
   })
 
-  it('adopts an existing Bot Chat, never an unrelated recent session', async () => {
+  it('adopts an existing Bot Chat on first open', async () => {
     handlers['session.list'] = () => ({
       sessions: [
-        { id: 'recent', title: 'Kế hoạch' },
+        { id: 'x', title: 'Ý tưởng' },
         { id: 'bc', title: 'Bot Chat' }
       ]
     })
 
-    await expect(openCanonicalChat('writer', 'hi')).resolves.toBe('bc')
-    expect($botMeta.get().writer.chat).toBe('bc')
+    await expect(resolveCanonicalChat('writer')).resolves.toBe('bc')
+    expect($botMeta.get().writer?.chat).toBe('bc')
+    expect(methods()).not.toContain('session.create')
   })
 
-  it('creates the chat when the bot has none', async () => {
-    handlers['session.list'] = () => ({ sessions: [{ id: 'recent', title: 'Kế hoạch' }] })
-
-    await expect(openCanonicalChat('writer', 'hi')).resolves.toBe('stored-1')
-  })
-
-  it('re-points a vanished pin at the newest Bot Chat', async () => {
+  it('re-points a stale pin at the newest Bot Chat, else creates one', async () => {
     $botMeta.set({ writer: { chat: 'gone' } })
-    handlers['session.list'] = () => ({ sessions: [{ id: 'bc2', title: 'Bot Chat' }] })
 
-    await expect(openCanonicalChat('writer', 'hi')).resolves.toBe('bc2')
+    await expect(resolveCanonicalChat('writer')).resolves.toBe('stored-1')
+    expect(methods()).toContain('session.create')
+    expect($botMeta.get().writer?.chat).toBe('stored-1')
   })
 
-  it('recreates when the pinned chat cannot be opened', async () => {
+  it('trusts the pin when the list fails (no duplicate conversation)', async () => {
+    $botMeta.set({ writer: { chat: 'pinned' } })
+
+    handlers['session.list'] = () => {
+      throw new Error('offline')
+    }
+
+    await expect(resolveCanonicalChat('writer')).resolves.toBe('pinned')
+    expect(methods()).not.toContain('session.create')
+  })
+})
+
+describe('openCanonicalChat', () => {
+  it('opens the conversation on the assistant (the only profile move)', async () => {
     $botMeta.set({ writer: { chat: 'pinned' } })
     handlers['session.list'] = () => ({ sessions: [{ id: 'pinned' }] })
-    openSession.mockRejectedValueOnce(new Error('resume refused'))
 
-    await expect(openCanonicalChat('writer', 'hi')).resolves.toBe('stored-1')
+    await expect(openCanonicalChat('writer')).resolves.toBe('pinned')
+    expect(openSession).toHaveBeenCalledWith('pinned', { profile: 'writer' })
+  })
+
+  it('starts over once when the row vanished between list and open', async () => {
+    $botMeta.set({ writer: { chat: 'pinned' } })
+    handlers['session.list'] = () => ({ sessions: [{ id: 'pinned' }] })
+    openSession.mockRejectedValueOnce(new Error('session not found'))
+
+    await expect(openCanonicalChat('writer')).resolves.toBe('stored-1')
+    expect(openSession).toHaveBeenLastCalledWith('stored-1', { profile: 'writer' })
   })
 })

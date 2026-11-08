@@ -24,7 +24,7 @@ export function routineActive(job: Pick<CronJob, 'enabled' | 'state'>): boolean 
 }
 
 export async function loadRoutines(profile: string): Promise<CronJob[]> {
-  const res = await host.request<{ jobs?: CronJob[] }>('cron.manage', {
+  const res = await host.requestPrimary<{ jobs?: CronJob[] }>('cron.manage', {
     action: 'list',
     include_disabled: true,
     profile
@@ -51,7 +51,7 @@ export async function routineAction(
   jobId: string,
   action: 'pause' | 'remove' | 'resume'
 ): Promise<void> {
-  await host.request('cron.manage', { action, name: jobId, profile })
+  await host.requestPrimary('cron.manage', { action, name: jobId, profile })
   await invalidateRoutines(profile)
 }
 
@@ -63,7 +63,7 @@ export interface NewRoutine {
 }
 
 export async function addRoutine(profile: string, routine: NewRoutine): Promise<void> {
-  await host.request('cron.manage', {
+  await host.requestPrimary('cron.manage', {
     action: 'add',
     name: routine.title,
     schedule: routine.schedule,

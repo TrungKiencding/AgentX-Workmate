@@ -2,11 +2,17 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildTurnPrompt,
+  cleanReply,
+  decorateMentions,
+  handoffTargets,
   insertMention,
   isPassText,
   mentionOptions,
   mentionQuery,
+  mentionSegments,
   parseMentions,
+  pickReply,
+  plainMentions,
   resolveResponders,
   rotateSpeakers,
   trimRoom
@@ -56,6 +62,12 @@ describe('resolveResponders', () => {
     expect(resolveResponders([user('Chào cả nhóm')], members)).toHaveLength(3)
   })
 
+  it('room notices never count as mentions', () => {
+    const log = [user('Chào'), { from: { kind: 'notice' as const, name: 'room' }, text: '@thu-ky lỗi', at: 2 }]
+
+    expect(resolveResponders(log, members)).toHaveLength(3)
+  })
+
   it('only the mentioned answer, including those a member pulls in', () => {
     const log = [user('@thu-ky ghi lại giúp'), member('thu-ky', 'Ok, @nghien-cuu kiểm tra số liệu nhé')]
 
@@ -86,17 +98,104 @@ describe('trimRoom', () => {
 })
 
 describe('buildTurnPrompt', () => {
-  it('names the room, the peers and only the new lines', () => {
+  it('names the room, who is here, only the new lines, and asks for work now — not promises', () => {
     const prompt = buildTurnPrompt('Marketing', members, members[0], [
       user('Lên kế hoạch'),
-      member('nghien-cuu', 'Đã xong')
+      member('nghien-cuu', 'Đã xong'),
+      { from: { kind: 'notice', name: 'room' }, text: 'Thư ký chưa trả lời được', at: 3 }
     ])
 
-    expect(prompt).toContain('[Group chat: "Marketing"] You are @nghien-cuu')
-    expect(prompt).toContain('Biên tập nội dung (@bien-tap), @thu-ky')
+    expect(prompt).toContain('[Group chat "Marketing"] You are Nghiên cứu (@nghien-cuu)')
+    expect(prompt).toContain('Biên tập nội dung (@bien-tap), @thu-ky, and the user')
     expect(prompt).toContain('User: Lên kế hoạch')
-    expect(prompt).toContain('@nghien-cuu (you): Đã xong')
+    expect(prompt).toContain('Nghiên cứu (@nghien-cuu) (you): Đã xong')
+    expect(prompt).not.toContain('chưa trả lời được') // room notices are not conversation
+    expect(prompt).toContain('Do the work NOW')
     expect(prompt).toContain('"(pass)"')
+  })
+
+  it('tells the member which shared files reached it, and how to open them', () => {
+    const prompt = buildTurnPrompt('Marketing', members, members[0], [user('Xem giúp')], {
+      files: [{ name: 'khach.txt', ref: '@file:uploads/khach.txt' }],
+      images: ['hoadon.png'],
+      missing: ['to.pdf']
+    })
+
+    expect(prompt).toContain('picture "hoadon.png" — attached to this message')
+    expect(prompt).toContain('"khach.txt" → @file:uploads/khach.txt')
+    expect(prompt).toContain('"to.pdf" — could not be delivered')
+  })
+})
+
+describe('cleanReply', () => {
+  const writer = members[1]
+
+  it('drops echoed name prefixes, reasoning blocks and a trailing (pass)', () => {
+    expect(cleanReply('@bien-tap (you): Bản nháp đây', writer)).toBe('Bản nháp đây')
+    expect(cleanReply('**Biên tập nội dung**: Bản nháp đây', writer)).toBe('Bản nháp đây')
+    expect(cleanReply('<think>hmm</think>\nBản nháp đây', writer)).toBe('Bản nháp đây')
+    expect(cleanReply('Bản nháp đây\n\n(pass)', writer)).toBe('Bản nháp đây')
+  })
+
+  it('keeps a prefix that is someone else, and a colon inside a sentence', () => {
+    expect(cleanReply('Nghiên cứu: số liệu ổn', writer)).toBe('Nghiên cứu: số liệu ổn')
+    expect(cleanReply('Lưu ý: hạn là thứ Sáu', writer)).toBe('Lưu ý: hạn là thứ Sáu')
+  })
+
+  it('treats silence, "(pass) …" and "(empty)" as a pass', () => {
+    expect(cleanReply('(pass)', writer)).toBeNull()
+    expect(cleanReply('(pass) — không có gì thêm', writer)).toBeNull()
+    expect(cleanReply('(empty)', writer)).toBeNull()
+    expect(cleanReply('  ', writer)).toBeNull()
+  })
+})
+
+describe('pickReply', () => {
+  it('a trailing pass never hides an earlier real answer; tool rows are skipped', () => {
+    expect(
+      pickReply(
+        [
+          { role: 'assistant', content: 'Kết quả: 3 người' },
+          { role: 'tool', content: '{"ok":true}' },
+          { role: 'assistant', content: '(pass)' }
+        ],
+        members[2]
+      )
+    ).toBe('Kết quả: 3 người')
+    expect(pickReply([{ role: 'assistant', content: [{ type: 'text', text: 'Xong' }] }], members[2])).toBe('Xong')
+    expect(pickReply([{ role: 'assistant', content: '(pass)' }], members[2])).toBeNull()
+  })
+})
+
+describe('handoffTargets', () => {
+  it('a later round belongs only to who a teammate named — never the author', () => {
+    const posted = [member('nghien-cuu', 'Số liệu đây, @bien-tap viết bài nhé. @nghien-cuu sẽ kiểm tra lại')]
+
+    expect(handoffTargets(posted, members).map(row => row.name)).toEqual(['bien-tap'])
+    expect(handoffTargets([member('thu-ky', 'Sẵn sàng hỗ trợ!')], members)).toEqual([])
+    expect(handoffTargets([user('@thu-ky ghi lại')], members)).toEqual([])
+  })
+})
+
+describe('mentions for display', () => {
+  const labels = { everyone: 'Mọi người', members, user: 'bạn' }
+
+  it('turns known handles into bold names, leaves code and strangers alone', () => {
+    expect(decorateMentions('@bien-tap xem nhé, @user quyết giúp', labels)).toBe(
+      '**@Biên tập nội dung** xem nhé, **@bạn** quyết giúp'
+    )
+    expect(decorateMentions('chạy `@bien-tap` và @ghost', labels)).toBe('chạy `@bien-tap` và @ghost')
+    expect(decorateMentions('```\n@bien-tap\n```', labels)).toBe('```\n@bien-tap\n```')
+    expect(decorateMentions('mail@bien-tap.vn', labels)).toBe('mail@bien-tap.vn')
+  })
+
+  it('splits plain text into words and mentions', () => {
+    expect(mentionSegments('@thu-ky ghi lại, @everyone', labels)).toEqual([
+      { mention: true, text: '@thu-ky' },
+      { mention: false, text: ' ghi lại, ' },
+      { mention: true, text: '@Mọi người' }
+    ])
+    expect(plainMentions('Hỏi @nghien-cuu nhé', labels)).toBe('Hỏi @Nghiên cứu nhé')
   })
 })
 
