@@ -715,3 +715,33 @@ happened, what to do, or whom to ask. The words "AgentX reported an error" and
   or broken connection reports `connection_failed` → `network_error` while it
   still retries as a transport timeout. A reply still cut off after the
   continuation attempts reports `response_truncated` → `stream_interrupted`.
+
+## 2026-11 — folders, chosen where you type
+
+**Before.** Where a chat ran was decided out of sight. A new chat inherited the
+folder of whatever chat was focused, or of the project drilled into in the
+sidebar, and nothing on screen said which. Choosing a folder meant switching
+the sidebar into a separate "Projects" mode (a 12px toggle), drilling into a
+project, then starting a chat; adding one meant a dialog with name, folders,
+an IDEA.md textarea and eighteen English idea pills, and "Add folder" opened a
+second dialog holding a single button. Every repo the disk scan found joined
+the project list, and chats without a folder sat under a "Home" bucket.
+
+**After.**
+- **A context bar under the composer** names the folder the chat works in. On
+  a new chat it is a picker — search, projects by recent activity, repos found
+  on the machine, "Open another folder…", "No folder"; once the chat starts it
+  shows the folder and offers a new chat there. The composer itself is
+  unchanged in size.
+- **One sidebar.** "Projects" above "Chats", no flat/grouped toggle. A project
+  row opens in place with its recent chats and "Show all N chats"; opening a
+  chat opens its project. A plain folder's drilled-in list no longer repeats
+  its own name under a git-branch glyph.
+- **Adding is one step.** The Projects "+", ⌘O, the palette and the composer's
+  "Open another folder…" all go straight to the OS folder picker and land on a
+  chat in it. "Add folder…" on a project does the same and confirms with a
+  toast. Rename is the only dialog left, and it works on auto projects too
+  (renaming adopts the folder as a real project).
+- Repos nobody has chatted in stay out of the sidebar (they are offered in
+  the picker); ⌘K lists projects as "New chat in …".
+

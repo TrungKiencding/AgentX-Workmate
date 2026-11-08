@@ -8,22 +8,27 @@ import {
 import type { HermesGitBaseBranch, HermesGitBranch } from '@/global'
 import { getHermesConfig, type HermesGateway } from '@/hermes'
 import { translateNow } from '@/i18n'
-import { desktopDefaultCwd, isDesktopFsRemoteMode, selectDesktopPaths, writeDesktopFileText } from '@/lib/desktop-fs'
+import { desktopDefaultCwd, isDesktopFsRemoteMode, selectDesktopPaths } from '@/lib/desktop-fs'
 import { desktopGit } from '@/lib/desktop-git'
 import { pathLeaf } from '@/lib/display-path'
 import { isMissingRpcMethod } from '@/lib/gateway-rpc'
 import { persistentAtom } from '@/lib/persisted'
 import { $gateway, activeGateway, ensureActiveGatewayOpen } from '@/store/gateway'
-import { setSidebarAgentsGrouped } from '@/store/layout'
-import { aiBlockedMessage, notifyLicenseRefusal } from '@/store/license'
-import { notify } from '@/store/notifications'
+import { restoreAutoProject, setWorkspaceNodeOpen } from '@/store/layout'
+import { notify, notifyError } from '@/store/notifications'
 import { $activeGatewayProfile, requestFreshSession } from '@/store/profile'
 import {
+  $activeSessionId,
   $currentCwd,
+  $newChatWorkspaceTargetGeneration,
   $selectedStoredSessionId,
   $sessions,
   idsShareLineage,
   sessionMatchesStoredId,
+  setCurrentBranch,
+  setCurrentCwd,
+  setCurrentCwdTransient,
+  setNewChatWorkspaceTarget,
   setSessions,
   workspaceCwdForNewSession
 } from '@/store/session'
@@ -139,12 +144,12 @@ export const endSessionMutation = (ids: Array<null | string | undefined>): void 
 export const $reposScanning = atom(false)
 
 // ── Project scope (the "you're inside a project" view, mirroring profile scope)─
-// The sidebar's grouped view is a project switcher: ALL_PROJECTS shows the
-// project overview (a list you drill into), and a concrete id means you've
-// "entered" that project so only its worktrees/branches/sessions show. This is
-// pure view state (localStorage), distinct from the durable active-project
-// pointer in projects.db — though entering a project also makes it active so new
-// chats land there, exactly as selecting a profile does.
+// ALL_PROJECTS is the sidebar overview (every project as a row that opens in
+// place); a concrete id is the "show all" view of one project, where only its
+// worktrees/branches/chats show. This is pure view state (localStorage),
+// distinct from the durable active-project pointer in projects.db — though
+// entering a project also makes it active, and a new chat started from there
+// lands in it (the composer's context bar shows which folder).
 export const ALL_PROJECTS = '__all_projects__'
 
 const PROJECT_SCOPE_KEY = 'agentx.desktop.projectScope'
@@ -179,19 +184,29 @@ export function exitProjectScope(): void {
 export const projectRootCwd = (project: SidebarProjectTree | undefined): string =>
   (project?.path || project?.repos.find(repo => repo.path)?.path || '').trim()
 
-// ⌘K "go to project": flip the sidebar into grouped mode and enter the project
-// — a pure scope switch, same as clicking the overview row (never spends main).
-// With `newSession` (⌘-select / ⌘-Enter) it also lands on a fresh session draft
-// anchored at the project root — stacked as a tab when main already holds a
-// chat (palette opens are opens-from-nowhere). A path-less project (the Home
-// bucket) gets a plain detached draft.
-export function goToProject(id: string, options?: { newSession?: boolean }): void {
-  setSidebarAgentsGrouped(true)
-  enterProject(id)
+// The sidebar row key for a project in the overview. Namespaced so it never
+// collides with a repo/worktree lane that happens to share the project's path
+// (an auto project's id IS its repo root).
+export const projectNodeKey = (id: string): string => `project:${id}`
 
-  if (!options?.newSession) {
-    return
+// Open a project's row in the sidebar overview so its chats show. Never drills
+// in: the overview is where projects live; "Xem tất cả" is the only way in.
+export function revealProjectInSidebar(id: string): void {
+  restoreAutoProject(id)
+  setWorkspaceNodeOpen(projectNodeKey(id), true)
+}
+
+// ⌘K "go to project": work there. Leaves any drilled-in view, opens the
+// project's row, and lands on a fresh chat anchored at the project root —
+// stacked as a tab when main already holds a chat (palette opens are
+// opens-from-nowhere). A path-less project (the Home bucket) gets a plain
+// detached draft.
+export function goToProject(id: string): void {
+  if ($projectScope.get() !== ALL_PROJECTS && $projectScope.get() !== id) {
+    exitProjectScope()
   }
+
+  revealProjectInSidebar(id)
 
   const cwd = projectRootCwd($projectTree.get().find(node => node.id === id))
 
@@ -354,9 +369,10 @@ export function projectNameForCwd(cwd: string): null | string {
 // The active session's agent relocated itself (created/entered another repo or
 // worktree via the terminal — backend re-anchors its cwd and emits session.info).
 // Re-pull projects + tree so a freshly created/auto project and the relocated
-// session row show live, then follow the view into the session's new project
-// (from the overview or a now-stale project alike). Caller gates this on a real
-// same-session cwd move, so a plain session switch never reaches here.
+// session row show live, then make the session's project visible: its row opens
+// in the overview, or a drilled-in view of another project follows it. Caller
+// gates this on a real same-session cwd move (or an explicit "work in this
+// folder"), so a plain session switch never reaches here.
 export async function followActiveSessionCwd(cwd: string): Promise<void> {
   const target = cwd.trim()
 
@@ -369,15 +385,18 @@ export async function followActiveSessionCwd(cwd: string): Promise<void> {
   // Resolve only after the refresh, so a just-created/auto project is in the tree.
   const projectId = projectIdForCwd(target)
 
-  if (projectId) {
-    // The Projects tree only renders in grouped mode, so flip the sidebar into
-    // it — otherwise following from the flat Sessions list would change scope
-    // invisibly. Then drill into the thread's project.
-    setSidebarAgentsGrouped(true)
+  if (!projectId) {
+    return
+  }
 
-    if (projectId !== $projectScope.get()) {
-      enterProject(projectId)
-    }
+  // A drilled-in view of ANOTHER project would hide the chat the user is
+  // looking at, so follow it there; otherwise just open its row.
+  const scope = $projectScope.get()
+
+  if (scope !== ALL_PROJECTS && scope !== projectId) {
+    enterProject(projectId)
+  } else {
+    revealProjectInSidebar(projectId)
   }
 }
 
@@ -449,6 +468,10 @@ interface ProjectTreePayload {
   scoped_session_ids: string[]
 }
 
+// Recent chats each project carries for its open row in the sidebar overview —
+// the same count the row shows before "show all".
+const PROJECT_PREVIEW_LIMIT = 5
+
 let projectTreeRefreshGeneration = 0
 
 async function refreshProjectTreeOn(gateway: HermesGateway): Promise<void> {
@@ -460,7 +483,7 @@ async function refreshProjectTreeOn(gateway: HermesGateway): Promise<void> {
 
   try {
     const res = await gatewayRequestOn<ProjectTreePayload>(gateway, 'projects.tree', {
-      preview_limit: 3
+      preview_limit: PROJECT_PREVIEW_LIMIT
     })
 
     if (generation !== projectTreeRefreshGeneration || activeGateway() !== gateway) {
@@ -698,54 +721,6 @@ export interface CreateProjectInput {
   color?: string
   boardSlug?: string
   use?: boolean
-  // Free-text project idea; written to IDEA.md at the primary folder on create.
-  idea?: string
-}
-
-// Generate a project idea via the stateless llm.oneshot RPC (inherits the live
-// session's model when one exists). Returns "" on failure so the caller can just
-// leave the field untouched. The "🎲" affordance in the new-project dialog.
-export async function generateProjectIdea(name: string): Promise<string> {
-  // A read-only AgentX license: no idea is generated (the button says why).
-  if (aiBlockedMessage()) {
-    return ''
-  }
-
-  try {
-    const res = await gatewayRequest<{ text: string }>('llm.oneshot', {
-      instructions:
-        'You generate a single, concrete project idea as a short IDEA.md body: a one-line summary, ' +
-        'then 3-5 bullet goals. No preamble, no code fences, under 120 words.',
-      input: name.trim() ? `Project name: ${name.trim()}` : 'Surprise me with a fun project.',
-      temperature: 1.0
-    })
-
-    return (res.text || '').trim()
-  } catch (error) {
-    // Failures stay quiet — except a refusal for the license (it turned
-    // read-only while the dialog was open), which the person needs to hear.
-    notifyLicenseRefusal(error)
-
-    return ''
-  }
-}
-
-// Write IDEA.md to a project's primary folder (best-effort). Routes through the
-// remote-aware fs write, so it lands on the backend for a remote gateway and on
-// disk locally — the project is created regardless of whether the file lands.
-async function writeProjectIdea(folder: null | string | undefined, idea: string): Promise<void> {
-  const dir = (folder || '').trim()
-  const body = idea.trim()
-
-  if (!dir || !body) {
-    return
-  }
-
-  try {
-    await writeDesktopFileText(`${dir.replace(/[/\\]+$/, '')}/IDEA.md`, body.endsWith('\n') ? body : `${body}\n`)
-  } catch {
-    // Best-effort: the project is created regardless of whether IDEA.md lands.
-  }
 }
 
 // ── Optimistic cache layer ───────────────────────────────────────────────────
@@ -840,10 +815,6 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectI
   const created = res.project
 
   if (created) {
-    if (input.idea) {
-      void writeProjectIdea(created.primary_path ?? created.folders?.[0]?.path ?? input.primaryPath, input.idea)
-    }
-
     if (!$projects.get().some(proj => proj.id === created.id)) {
       $projects.set([...$projects.get(), created])
     }
@@ -856,7 +827,7 @@ export async function createProject(input: CreateProjectInput): Promise<ProjectI
       $activeProjectId.set(created.id)
     }
 
-    setSidebarAgentsGrouped(true)
+    revealProjectInSidebar(created.id)
   }
 
   reconcileProjects()
@@ -1023,41 +994,60 @@ export async function setActiveProject(id: null | string): Promise<void> {
   $activeProjectId.set(res.active_id ?? null)
 }
 
-// ── Project management dialog ────────────────────────────────────────────────
-// A single dialog mounted in the sidebar reads this atom, so a project node's
-// menu can open create / rename / add-folder flows without prop threading
-// (mirrors $profileCreateRequest).
+// ── Rename dialog ────────────────────────────────────────────────────────────
+// A single dialog mounted in the sidebar reads this atom, so a project row's
+// menu can open it without prop threading (mirrors $profileCreateRequest).
+// Creating a project and adding a folder go straight to the folder picker —
+// there is nothing to type, so there is no dialog for them.
 export interface ProjectDialogState {
-  mode: 'add-folder' | 'create' | 'rename'
-  projectId?: string
-  name?: string
+  mode: 'rename'
+  projectId: string
+  name: string
+  // Set for an auto (inherited) project: it has no record to rename, so the
+  // new name adopts that folder as a real project.
+  adoptPath?: string
 }
 
 export const $projectDialog = atom<null | ProjectDialogState>(null)
 
-export function openProjectCreate(): void {
-  if ($projectsRpcAvailable.get() === false) {
-    notify({
-      kind: 'warning',
-      message: translateNow('sidebar.projects.staleBackend')
-    })
-
-    return
-  }
-
-  $projectDialog.set({ mode: 'create' })
-}
-
-export function openProjectRename(project: { id: string; name: string }): void {
-  $projectDialog.set({ mode: 'rename', name: project.name, projectId: project.id })
-}
-
-export function openProjectAddFolder(project: { id: string; name: string }): void {
-  $projectDialog.set({ mode: 'add-folder', name: project.name, projectId: project.id })
+export function openProjectRename(project: Pick<SidebarProjectTree, 'id' | 'isAuto' | 'label' | 'path'>): void {
+  $projectDialog.set({
+    mode: 'rename',
+    name: project.label,
+    projectId: project.id,
+    ...(project.isAuto && project.path ? { adoptPath: project.path } : {})
+  })
 }
 
 export function closeProjectDialog(): void {
   $projectDialog.set(null)
+}
+
+// Rename, adopting an auto project on the way (its id is just a folder path, so
+// the name needs a projects.db row to live in) — the same adoption a color or
+// icon change does.
+export async function renameProjectOrAdopt(state: ProjectDialogState, name: string): Promise<void> {
+  const trimmed = name.trim()
+
+  if (!trimmed) {
+    return
+  }
+
+  if (!state.adoptPath) {
+    await renameProject(state.projectId, trimmed)
+
+    return
+  }
+
+  const node = $projectTree.get().find(project => project.id === state.projectId)
+
+  await createProject({
+    name: trimmed,
+    folders: [state.adoptPath],
+    primaryPath: state.adoptPath,
+    color: node?.color || undefined,
+    icon: node?.icon || undefined
+  })
 }
 
 // ── Git-driven worktrees ("Start work") ─────────────────────────────────────
@@ -1220,12 +1210,73 @@ export async function pickProjectFolder(): Promise<null | string> {
   return dir || null
 }
 
-// ⌘O / palette "Open folder…": open a folder AS a project, upserting. A folder
-// already covered by a project (explicit or auto) just enters it; anything else
-// becomes a new project named after the folder. Either way the sidebar scopes
-// to the project and a fresh session draft lands anchored at the folder — the
-// one-keystroke version of new project → enter → new session. Like goToProject,
-// this is an open-from-nowhere: an occupied main gets a stacked tab, not stolen.
+// The project a folder the person just CHOSE belongs to, creating one when
+// needed. Only an explicit project counts as already covering it: an auto
+// project is just a folder some chat once ran in, and one that ran in the home
+// directory would otherwise swallow every folder picked from then on. Picking
+// a folder an auto project already stands for adopts it (projects.create with
+// the same folder), so it stays in the sidebar for good. Null when the write
+// failed (stale backend or a refused create) — the folder is still usable as
+// a plain workspace, so callers carry on with the path.
+export async function ensureProjectForFolder(dir: string): Promise<null | string> {
+  const target = dir.trim()
+
+  if (!target) {
+    return null
+  }
+
+  // Refresh first so the check runs against live truth — a project created in
+  // another window since the last pull should be reused, not doubled.
+  await Promise.all([refreshProjects(), refreshProjectTree()])
+
+  const existing = explicitProjectIdForCwd(target)
+
+  if (existing) {
+    revealProjectInSidebar(existing)
+
+    return existing
+  }
+
+  try {
+    // Named after the folder: that is what the person calls it already, and
+    // they can rename it from the row's menu.
+    const created = await createProject({ name: pathLeaf(target) || target, folders: [target], primaryPath: target })
+
+    return created?.id ?? null
+  } catch (err) {
+    notify({ kind: 'warning', message: err instanceof Error ? err.message : String(err) })
+
+    return null
+  }
+}
+
+// The explicit (named) project owning `cwd`, by longest folder match.
+function explicitProjectIdForCwd(cwd: string): null | string {
+  let best: null | string = null
+  let bestLen = -1
+
+  for (const project of $projects.get()) {
+    if (project.archived) {
+      continue
+    }
+
+    for (const folder of project.folders ?? []) {
+      const path = (folder.path || '').trim()
+
+      if (path && underPath(path, cwd) && path.length > bestLen) {
+        bestLen = path.length
+        best = project.id
+      }
+    }
+  }
+
+  return best
+}
+
+// "Add a project": pick a folder, make it a project, and land on a fresh chat
+// in it — the one-gesture version of new project → open → new chat. Shared by
+// the sidebar's "+", ⌘O and the palette. Like goToProject this is an
+// open-from-nowhere: an occupied main gets a stacked tab, never stolen.
 export async function openFolderAsProject(dir?: string): Promise<void> {
   const target = (dir ?? (await pickProjectFolder()) ?? '').trim()
 
@@ -1233,32 +1284,98 @@ export async function openFolderAsProject(dir?: string): Promise<void> {
     return
   }
 
-  // Refresh first so the membership check runs against live truth — a repo
-  // cloned since the last scan should enter its auto project, not double-create.
-  await refreshProjectTree()
-
-  const existing = projectIdForCwd(target)
-
-  if (existing) {
-    setSidebarAgentsGrouped(true)
-    enterProject(existing)
-  } else {
-    // Named after the folder — the same default the create dialog applies to a
-    // single-folder project, so both ways in agree on what a project is called.
-    const name = pathLeaf(target) || target
-
-    try {
-      const created = await createProject({ name, folders: [target], primaryPath: target, use: true })
-
-      if (created) {
-        enterProject(created.id)
-      }
-    } catch (err) {
-      // Stale backend (no projects.* RPC) or a failed write: still open the
-      // folder as a plain workspace session below — the project row can wait.
-      notify({ kind: 'warning', message: err instanceof Error ? err.message : String(err) })
-    }
+  if ($projectScope.get() !== ALL_PROJECTS) {
+    exitProjectScope()
   }
 
+  await ensureProjectForFolder(target)
   requestStartWorkSession(target, undefined, { openTab: true })
+}
+
+// A project row's "Add folder…": straight to the picker, then say what
+// happened — there is nothing else to ask.
+export async function addFolderToProject(project: { id: string; name: string }): Promise<void> {
+  let dir: null | string
+
+  try {
+    dir = await pickProjectFolder()
+  } catch (err) {
+    notifyError(err, translateNow('sidebar.projects.addFolderFailed'))
+
+    return
+  }
+
+  if (!dir) {
+    return
+  }
+
+  try {
+    await addProjectFolder(project.id, dir)
+    notify({
+      kind: 'success',
+      message: translateNow('sidebar.projects.folderAdded', pathLeaf(dir) || dir, project.name)
+    })
+  } catch (err) {
+    notifyError(err, translateNow('sidebar.projects.addFolderFailed'))
+  }
+}
+
+// ── The new chat's folder (composer context bar) ────────────────────────────
+// Point the not-yet-started chat at a folder (or at none, with null). A one-shot
+// workspace target: the first send creates the session there. The backend
+// normalizes the path (symlinks, repo root) and reports the branch; a later
+// pick or a session that started meanwhile wins over a late answer.
+export function setDraftWorkspace(path: null | string): void {
+  const target = (path ?? '').trim()
+
+  if (!target) {
+    setNewChatWorkspaceTarget(null)
+    setCurrentCwdTransient('')
+    setCurrentBranch('')
+
+    return
+  }
+
+  const generation = setNewChatWorkspaceTarget(target)
+
+  setCurrentCwd(target)
+  setCurrentBranch('')
+
+  void gatewayRequest<{ branch?: string; cwd?: string }>('config.get', { key: 'project', cwd: target })
+    .then(info => {
+      if ($newChatWorkspaceTargetGeneration.get() !== generation || $activeSessionId.get()) {
+        return
+      }
+
+      if (info.cwd && info.cwd !== target) {
+        setCurrentCwd(info.cwd)
+        setNewChatWorkspaceTarget(info.cwd)
+      }
+
+      setCurrentBranch(info.branch || '')
+    })
+    .catch(() => undefined)
+}
+
+// "Choose another folder…" in the composer: pick one, keep it as a project so
+// it is one click away next time, and point the new chat at it.
+export async function chooseDraftFolder(): Promise<null | string> {
+  let dir: null | string
+
+  try {
+    dir = await pickProjectFolder()
+  } catch (err) {
+    notifyError(err, translateNow('composer.workspace.pickFailed'))
+
+    return null
+  }
+
+  if (!dir) {
+    return null
+  }
+
+  setDraftWorkspace(dir)
+  await ensureProjectForFolder(dir)
+
+  return dir
 }

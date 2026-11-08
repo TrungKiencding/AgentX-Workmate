@@ -155,3 +155,25 @@ export function pathLeaf(raw: null | string | undefined): string {
 
   return leaf || path
 }
+
+/**
+ * {@link displayPath}, cut to its trailing segments once it runs past `max`
+ * characters. Paths in a list tend to share their start (`~/Desktop/…`) and
+ * differ at the end, so the end is the part worth keeping: `…/clients/acme`.
+ */
+export function tailPath(raw: null | string | undefined, max = 40): string {
+  const path = displayPath(raw)
+
+  if (path.length <= max) {
+    return path
+  }
+
+  const parts = path.split('/').filter(Boolean)
+  let tail = parts.pop() ?? path
+
+  while (parts.length && parts[parts.length - 1].length + tail.length + 3 <= max) {
+    tail = `${parts.pop()}/${tail}`
+  }
+
+  return `…/${tail}`
+}

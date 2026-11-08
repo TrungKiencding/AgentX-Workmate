@@ -12,7 +12,9 @@ import {
   NO_PROJECT_ID,
   overlayLiveLanes,
   overlayLivePreviews,
+  owningProjectId,
   sessionProjectColor,
+  sidebarProjects,
   type SidebarProjectTree,
   type SidebarSessionGroup,
   sortWorktreeGroups
@@ -963,5 +965,100 @@ describe('excludeProjectSessions', () => {
     const overlaid = overlayLiveLanes(filtered, [], new Set(['someone-else']))
 
     expect(overlaid.repos[0].groups.map(g => g.id)).toEqual(['wt'])
+  })
+})
+
+describe('sidebarProjects', () => {
+  it('lists the folders people work in: not Home, not repos nobody chatted in', () => {
+    const projects = [
+      homeNode([]),
+      projectNode({ id: 'p_explicit' }),
+      projectNode({ id: '/repo/used', isAuto: true, sessionCount: 2 }),
+      projectNode({ id: '/repo/scanned', isAuto: true, sessionCount: 0 })
+    ]
+
+    expect(sidebarProjects(projects).map(project => project.id)).toEqual(['p_explicit', '/repo/used'])
+  })
+
+  it('an explicit project stays even with no chats yet — the person added it', () => {
+    expect(sidebarProjects([projectNode({ id: 'p_new', sessionCount: 0 })])).toHaveLength(1)
+  })
+
+  it('a chat started a moment ago counts before the backend snapshot does', () => {
+    const scanned = projectNode({ id: '/repo/fresh', isAuto: true, sessionCount: 0 })
+
+    expect(sidebarProjects([scanned], new Set(['/repo/fresh']))).toEqual([scanned])
+  })
+})
+
+describe('owningProjectId', () => {
+  it('places a chat by its folder: explicit project first, else its repo root', () => {
+    const explicit = [makeProject('p_site', ['/work/site'])]
+
+    expect(owningProjectId(makeSession('/work/site/src'), [], explicit)).toBe('p_site')
+    expect(
+      owningProjectId(makeSession('/repo/app/pkg', { git_repo_root: '/repo/app' }), [], [])
+    ).toBe('/repo/app')
+  })
+
+  it('a chat with no folder belongs to no project', () => {
+    expect(owningProjectId(makeSession(null), [projectNode({ id: '/anything' })], [])).toBeNull()
+  })
+
+  it('a linked worktree outside its repo root goes to the project whose lane holds it', () => {
+    const tree = [
+      projectNode({
+        id: '/repo/app',
+        isAuto: true,
+        repos: [
+          {
+            groups: [lane({ id: 'wt', label: 'feature', path: '/worktrees/app-feature' })],
+            id: '/repo/app',
+            label: 'app',
+            path: '/repo/app',
+            sessionCount: 1
+          }
+        ]
+      })
+    ]
+
+    const session = makeSession('/worktrees/app-feature/src', { git_repo_root: '/repo/app' })
+
+    expect(owningProjectId(session, tree, [])).toBe('/repo/app')
+  })
+
+  it('the deepest folder wins, so a project rooted higher up never claims the chat', () => {
+    const tree = [
+      projectNode({ id: '/Users/me', isAuto: true, path: '/Users/me' }),
+      projectNode({
+        id: 'p_mono',
+        path: '/srv/mono',
+        repos: [
+          {
+            groups: [lane({ id: 'wt', label: 'x', path: '/Users/me/wt/mono-x' })],
+            id: 'r',
+            label: 'mono',
+            path: '/srv/mono',
+            sessionCount: 1
+          }
+        ]
+      })
+    ]
+
+    const session = makeSession('/Users/me/wt/mono-x', { git_repo_root: '/srv/mono' })
+
+    expect(owningProjectId(session, tree, [])).toBe('p_mono')
+  })
+
+  it('trusts the tree when the explicit list lags it (a project made in another window)', () => {
+    const tree = [projectNode({ id: 'p_new', path: '/work/new' })]
+
+    expect(owningProjectId(makeSession('/work/new/docs'), tree, [])).toBe('p_new')
+  })
+
+  it('an auto project around a fresh folder does not claim it; the folder\'s own id waits for the refresh', () => {
+    const tree = [projectNode({ id: '/Users/me', isAuto: true, path: '/Users/me' })]
+
+    expect(owningProjectId(makeSession('/Users/me/fresh'), tree, [])).toBe('/Users/me/fresh')
   })
 })

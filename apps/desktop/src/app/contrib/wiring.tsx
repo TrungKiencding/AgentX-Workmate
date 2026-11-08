@@ -276,28 +276,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     refreshSessions
   } = useSessionListActions({ profileScope })
 
-  const updateActiveSessionRuntimeInfo = useCallback(
-    (info: { branch?: string; cwd?: string }) => {
-      const sessionId = activeSessionIdRef.current
-
-      if (!sessionId) {
-        return
-      }
-
-      updateSessionState(sessionId, state => ({
-        ...state,
-        branch: info.branch ?? state.branch,
-        cwd: info.cwd ?? state.cwd
-      }))
-    },
-    [activeSessionIdRef, updateSessionState]
-  )
-
-  const { refreshProjectBranch } = useCwdActions({
-    activeSessionIdRef,
-    onSessionRuntimeInfo: updateActiveSessionRuntimeInfo,
-    requestGateway
-  })
+  const { refreshProjectBranch } = useCwdActions({ activeSessionIdRef, requestGateway })
 
   const { refreshHermesConfig, sttEnabled, voiceMaxRecordingSeconds } = useHermesConfig({ activeSessionIdRef })
 

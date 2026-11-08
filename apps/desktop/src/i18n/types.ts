@@ -2208,12 +2208,6 @@ export interface Translations {
     sessions: string
     connectedChannels: string
     cronJobs: string
-    groupAriaGrouped: string
-    groupAriaUngrouped: string
-    showProjects: string
-    showSessions: string
-    groupTitleGrouped: string
-    groupTitleUngrouped: string
     allPinned: string
     shiftClickHint: string
     noWorkspace: string
@@ -2221,32 +2215,12 @@ export interface Translations {
     noSessions: string
     projects: {
       sectionLabel: string
-      home: string
-      newButton: string
-      createTitle: string
-      createDesc: string
       renameTitle: string
-      addFolderTitle: string
-      namePlaceholder: string
-      nameFromFolder: string
-      nameRequiredMulti: string
-      foldersLabel: string
-      ideaLabel: string
-      ideaPlaceholder: string
-      ideaGenerate: string
-      ideaGenerating: string
-      ideaShuffle: string
-      noFolders: string
-      addFolder: string
-      primaryBadge: string
-      removeFolder: string
-      create: string
       menu: string
       menuRename: string
       menuAppearance: string
       noColor: string
       menuAddFolder: string
-      menuSetActive: string
       menuDelete: string
       moveToProject: string
       movedTo: (name: string) => string
@@ -2256,7 +2230,6 @@ export interface Translations {
       reveal: string
       copyPath: string
       removeFromSidebar: string
-      createFailed: string
       staleBackend: string
       deleteConfirm: string
       startWork: string
@@ -2282,10 +2255,19 @@ export interface Translations {
       removeWorktreeConfirm: string
       removeWorktreeDirty: string
       forceRemove: string
-      enter: (label: string) => string
       reorder: (label: string) => string
       toggle: (label: string, open: boolean) => string
       back: string
+      addButton: string
+      /** The project list's one-line empty state (it adds a folder). */
+      emptyHint: string
+      /** Under an open project row: drill into its full list of chats. */
+      showAll: (count: number) => string
+      menuNewChat: string
+      menuShowAll: string
+      renameFailed: string
+      addFolderFailed: string
+      folderAdded: (folder: string, project: string) => string
     }
     newSessionIn: (label: string) => string
     showMoreIn: (count: number, label: string) => string
@@ -2341,6 +2323,8 @@ export interface Translations {
       lastWeek: string
       thisMonth: string
     }
+    /** The sidebar list of chats that live in no project. */
+    chats: string
   }
 
   composer: {
@@ -2438,6 +2422,26 @@ export interface Translations {
     snippets: Record<string, { label: string; description: string; text: string }>
     dropFiles: string
     dropSession: string
+    /** The folder control in the context bar under the composer (spec §5.8). */
+    workspace: {
+      pickerLabel: string
+      /** The control before a folder is chosen for a new chat. */
+      none: string
+      chooseHint: string
+      chosen: (path: string) => string
+      /** Tooltip once the chat exists and its folder is settled. */
+      settled: (path: string) => string
+      menuLabel: (label: string) => string
+      search: string
+      noMatch: string
+      projects: string
+      /** Repos the disk scan found that no chat has used yet. */
+      discovered: string
+      chooseOther: string
+      noFolder: string
+      newChatHere: string
+      pickFailed: string
+    }
   }
 
   statusStack: {
@@ -3607,9 +3611,6 @@ export interface Translations {
     undo: string
     unarchiveFailed: string
     archiveFailed: string
-    cwdChangeFailed: string
-    cwdStagedTitle: string
-    cwdStagedMessage: string
     modelSwitchFailed: string
     sessionExported: string
     sessionExportFailed: string

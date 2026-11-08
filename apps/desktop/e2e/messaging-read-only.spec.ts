@@ -101,12 +101,9 @@ test('connected Telegram channel and its transcript stay visible but read-only',
 
   try {
     await waitForAppReady(fixture, 120_000)
-    // Reproduce the workspace-grouped sidebar shown in the bug report. A
-    // Telegram transcript must stay in its platform section, not also appear
-    // as a Home/project preview.
-    await fixture.page.evaluate(() => localStorage.setItem('agentx.desktop.agentsGroupedByWorkspace', 'true'))
-    await fixture.page.reload()
-    await waitForAppReady(fixture, 120_000)
+    // The sidebar lists projects above the chats in none (the grouped view of
+    // the bug report is now the only one). A Telegram transcript must stay in
+    // its platform section, not also appear as a project preview.
 
     const messagingResponse = await fixture.page.evaluate(() => {
       const desktopWindow = window as unknown as {

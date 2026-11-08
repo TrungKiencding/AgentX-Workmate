@@ -20,7 +20,7 @@ import { POPOUT_WIDTH_REM } from '@/store/composer-popout'
 import { parkQueuedPrompts, removeQueuedPrompt, unparkQueuedPrompts } from '@/store/composer-queue'
 import { $licenseReadOnly } from '@/store/license'
 import { toggleReview } from '@/store/review'
-import { $gatewayState } from '@/store/session'
+import { $gatewayState, $selectedStoredSessionId } from '@/store/session'
 import { $threadScrolledUp } from '@/store/thread-scroll'
 import { $autoSpeakReplies } from '@/store/voice-prefs'
 import { useTheme } from '@/themes'
@@ -80,6 +80,7 @@ import { isRedoShortcut, isUndoShortcut } from './undo-history'
 import { UrlDialog } from './url-dialog'
 import { chipTypedUrlOnSpace, linkifyUrls } from './url-refs'
 import { VoiceActivity, VoicePlaybackActivity } from './voice-activity'
+import { WorkspacePicker } from './workspace-picker'
 
 export function ChatBar({
   busy,
@@ -144,6 +145,10 @@ export function ChatBar({
   // Which live composer this instance IS (main | tile) — its attachment set,
   // focus-bus key, and awaiting-input edge. Main scope = the legacy globals.
   const scope = useComposerScope()
+  // The new chat in main, before its first message — the one moment its
+  // folder can still be picked. A tile always carries its own session.
+  const selectedStoredSessionId = useStore($selectedStoredSessionId)
+  const workspaceDraft = scope.target === 'main' && !sessionId && !selectedStoredSessionId
   const attachments = useStore(scope.attachments.$attachments)
   const compacting = useStore(useMemo(() => sessionCompacting(sessionId ?? null), [sessionId]))
   const scrolledUp = useStore($threadScrolledUp)
@@ -1298,6 +1303,10 @@ export function ChatBar({
               the pop-out drag region. Same px as the strip above, so the two
               bracket the composer on one vertical line. */}
           <div className={cn(composerFloatingStrip, 'px-[5px] pt-1.5 empty:hidden')}>
+            {/* The context bar's "where" (spec §5.8): the folder this chat
+                works in. Not while floating — the compact pop-out keeps to
+                one sentence. */}
+            {!poppedOut && <WorkspacePicker cwd={cwd ?? ''} draft={workspaceDraft} />}
             <ContribSlot area={COMPOSER_AREAS.underside} />
           </div>
         </div>

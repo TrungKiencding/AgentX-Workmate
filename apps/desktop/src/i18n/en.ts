@@ -2600,12 +2600,6 @@ export const en: Translations = {
     sessions: 'Recent',
     connectedChannels: 'Connected channels',
     cronJobs: 'Cron jobs',
-    groupAriaGrouped: 'Show chats as a single list',
-    groupAriaUngrouped: 'Group chats by project',
-    showProjects: 'Show projects',
-    showSessions: 'Show chats',
-    groupTitleGrouped: 'Ungroup chats',
-    groupTitleUngrouped: 'Group by project',
     allPinned: 'Everything here is pinned. Unpin a chat to show it in recents.',
     shiftClickHint: 'Pin the chats you keep coming back to.',
     noWorkspace: 'Not in a project',
@@ -2613,32 +2607,12 @@ export const en: Translations = {
     noSessions: 'No chats yet',
     projects: {
       sectionLabel: 'Projects',
-      home: 'Home',
-      newButton: 'New project',
-      createTitle: 'New project',
-      createDesc: 'Name the project and add one or more folders.',
       renameTitle: 'Rename project',
-      addFolderTitle: 'Add folder',
-      namePlaceholder: 'e.g. Skunkworks',
-      nameFromFolder: 'Named after the folder. Change it if you like.',
-      nameRequiredMulti: 'With several folders, give the project a name.',
-      foldersLabel: 'Folders',
-      ideaLabel: 'Idea',
-      ideaPlaceholder: "What's this project about? (saved to IDEA.md)",
-      ideaGenerate: 'Generate idea',
-      ideaGenerating: 'Generating…',
-      ideaShuffle: 'Shuffle templates',
-      noFolders: 'No folders added yet.',
-      addFolder: 'Add folder',
-      primaryBadge: 'primary',
-      removeFolder: 'Remove',
-      create: 'Create',
       menu: 'Actions',
       menuRename: 'Rename',
       menuAppearance: 'Appearance',
       noColor: 'No color',
       menuAddFolder: 'Add folder',
-      menuSetActive: 'Set active',
       menuDelete: 'Delete',
       moveToProject: 'Move to project',
       movedTo: name => `Moved to ${name}`,
@@ -2648,7 +2622,6 @@ export const en: Translations = {
       reveal: 'Reveal in folder',
       copyPath: 'Copy path',
       removeFromSidebar: 'Hide from sidebar',
-      createFailed: 'Could not create project',
       staleBackend:
         'Update the AgentX backend to create projects — your backend is older than this desktop app (Settings → Updates → Backend).',
       deleteConfirm: 'This removes the saved project from AgentX. Files, code folders, and worktrees stay untouched.',
@@ -2677,10 +2650,17 @@ export const en: Translations = {
       removeWorktreeDirty:
         'This worktree has uncommitted changes. Force-remove it (discards those changes), or just hide the lane and keep it on disk.',
       forceRemove: 'Force remove',
-      enter: label => `Open ${label}`,
       reorder: label => `Reorder ${label}`,
       toggle: (label, open) => `${open ? 'Show' : 'Hide'} ${label} chats`,
-      back: 'All projects'
+      back: 'All projects',
+      addButton: 'Add project',
+      emptyHint: 'Add a working folder',
+      showAll: count => `Show all ${count} chats`,
+      menuNewChat: 'New chat',
+      menuShowAll: 'Show all chats',
+      renameFailed: "Couldn't rename the project",
+      addFolderFailed: "Couldn't add the folder",
+      folderAdded: (folder, project) => `Added ${folder} to ${project}`
     },
     newSessionIn: label => `New chat in ${label}`,
     showMoreIn: (count, label) => `Show ${count} more in ${label}`,
@@ -2735,7 +2715,8 @@ export const en: Translations = {
       thisWeek: 'This week',
       lastWeek: 'Last week',
       thisMonth: 'This month'
-    }
+    },
+    chats: 'Chats'
   },
 
   composer: {
@@ -2869,6 +2850,22 @@ export const en: Translations = {
         description: 'Walk through how the selected code works and link to the key files.',
         text: 'Please explain how this works and point me to the key files.'
       }
+    },
+    workspace: {
+      pickerLabel: 'Choose a working folder',
+      none: 'Choose folder',
+      chooseHint: 'Pick a folder for AgentX to read and save files in',
+      chosen: path => `Working in ${path}`,
+      settled: path => `This chat works in ${path}`,
+      menuLabel: label => `Folder: ${label}`,
+      search: 'Search projects…',
+      noMatch: 'No matching project',
+      projects: 'Projects',
+      discovered: 'Found on this computer',
+      chooseOther: 'Open another folder…',
+      noFolder: 'No folder',
+      newChatHere: 'New chat in this folder',
+      pickFailed: "Couldn't open the folder picker"
     }
   },
 
@@ -4251,9 +4248,6 @@ export const en: Translations = {
     undo: 'Undo',
     unarchiveFailed: 'Couldn’t bring the chat back. Find it in Settings → Archived chats.',
     archiveFailed: 'Archive failed',
-    cwdChangeFailed: 'Working directory change failed',
-    cwdStagedTitle: 'Working directory staged',
-    cwdStagedMessage: 'Restart the desktop backend to apply the new working folder to this open chat.',
     modelSwitchFailed: 'Model switch failed',
     sessionExported: 'Chat exported',
     sessionExportFailed: 'Could not export chat',

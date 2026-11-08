@@ -4,6 +4,7 @@ import { Dialog as DialogPrimitive } from 'radix-ui'
 import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 
+import { sidebarProjects } from '@/app/chat/sidebar/projects/workspace-groups'
 import {
   HUD_HEADING,
   HUD_ITEM,
@@ -714,12 +715,11 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
     const settingsTab = (tab: string) => `${SETTINGS_ROUTE}?tab=${tab}`
     const cc = t.commandCenter
 
-    // Projects are the primary way the desktop scopes work, so they're jumpable
-    // from the palette. Plain select is a pure scope switch (sidebar enters the
-    // project — never spends main); ⌘-Enter / ⌘-click also starts a new session
-    // at the project root (stacked as a tab when main holds a chat), previewed
-    // by the label swap while ⌘ is held. Rows carry the project's own codicon,
-    // matching the sidebar. The pinned "Open folder…" row is the ⌘O upsert.
+    // Projects are where work happens, so they're jumpable from the palette:
+    // picking one opens its row in the sidebar and starts a new chat in its
+    // folder (stacked as a tab when main holds a chat). Rows carry the
+    // project's own codicon, matching the sidebar. The pinned "Open folder…"
+    // row is the ⌘O add-a-project.
     const projectGroup: PaletteGroup = {
       heading: cc.projects,
       items: [
@@ -731,15 +731,12 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
           label: cc.openFolder,
           run: () => void openFolderAsProject()
         },
-        ...filterVisibleProjects(projectTree, dismissedAutoProjects).map(project => ({
-          comboHint: 'mod+enter',
-          icon: codiconIcon(project.icon || (project.isNoProject ? 'home' : 'folder-library')),
+        ...sidebarProjects(filterVisibleProjects(projectTree, dismissedAutoProjects)).map(project => ({
+          icon: codiconIcon(project.icon || 'folder'),
           id: `project-${project.id}`,
-          keywords: ['project', 'workspace', 'go to', project.label, ...(project.path ? [project.path] : [])],
-          label: project.label,
-          modLabel: cc.newSessionInProject(project.label),
-          runWithEvent: (event?: { ctrlKey?: boolean; metaKey?: boolean; shiftKey?: boolean }) =>
-            goToProject(project.id, { newSession: Boolean(event?.metaKey || event?.ctrlKey) })
+          keywords: ['project', 'workspace', 'go to', 'folder', project.label, ...(project.path ? [project.path] : [])],
+          label: cc.newSessionInProject(project.label),
+          run: () => goToProject(project.id)
         }))
       ]
     }
