@@ -32,6 +32,7 @@ import {
 } from '@/store/updates'
 
 import { AppUpdateContent } from './app-update-content'
+import { UPDATE_DIALOG_CONTENT_CLASS, UPDATE_DIALOG_MARK_CLASS, UpdateDialogLayout } from './update-dialog-layout'
 
 /**
  * The updates dialog: this app's own update ('client'), or in remote mode the
@@ -85,7 +86,7 @@ export function UpdatesOverlay() {
       {/* This dialog has no inputs, so Radix's default autofocus would land on
           the close button and trigger its tooltip immediately on open. */}
       <DialogContent
-        className="max-w-sm overflow-hidden p-0 gap-0"
+        className={UPDATE_DIALOG_CONTENT_CLASS}
         onOpenAutoFocus={preventCloseButtonAutoFocus}
         showCloseButton={!locked}
       >
@@ -177,49 +178,54 @@ function IdleView({
   const remaining = Math.max(0, behind - shownItems)
 
   return (
-    <div className="grid gap-5 px-6 pb-6 pt-7 pr-8">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <BrandMark className="size-16" />
-
-        <DialogTitle className="text-center text-xl">{u.availableTitleBackend}</DialogTitle>
-        <DialogDescription className="text-center text-sm">
-          {commits.length > 0 ? u.availableBodyBackend : u.availableBodyNoChangelog}
-        </DialogDescription>
-      </div>
-
-      {commits.length > 0 && (
-        <div className="grid gap-3">
-          {groups.length === 0 ? (
-            <p className="text-xs text-foreground">{u.changelogFallback}</p>
-          ) : (
-            groups.map(group => (
-              <div key={group.id}>
-                <p className="text-2xs font-medium text-(--ui-text-tertiary)">{u.changelogGroups[group.id]}</p>
-                <ul className="mt-1.5 grid gap-1.5 text-xs text-foreground">
-                  {group.items.map(item => (
-                    <li className="flex items-start gap-2" key={item}>
-                      <span aria-hidden className="mt-1.5 inline-block size-1 shrink-0 rounded-full bg-primary" />
-                      <span className="leading-snug">{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))
-          )}
+    <UpdateDialogLayout
+      body={
+        commits.length > 0 || remaining > 0 ? (
+          <div className="grid gap-3">
+            {commits.length > 0 &&
+              (groups.length === 0 ? (
+                <p className="text-xs text-foreground">{u.changelogFallback}</p>
+              ) : (
+                groups.map(group => (
+                  <div key={group.id}>
+                    <p className="text-2xs font-medium text-(--ui-text-tertiary)">{u.changelogGroups[group.id]}</p>
+                    <ul className="mt-1.5 grid gap-1.5 text-xs text-foreground">
+                      {group.items.map(item => (
+                        <li className="flex items-start gap-2" key={item}>
+                          <span aria-hidden className="mt-1.5 inline-block size-1 shrink-0 rounded-full bg-primary" />
+                          <span className="leading-snug">{item}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))
+              ))}
+            {remaining > 0 && <p className="text-xs text-muted-foreground">{u.moreChanges(remaining)}</p>}
+          </div>
+        ) : null
+      }
+      bodyLabel={u.availableTitleBackend}
+      footer={
+        <div className="grid gap-2">
+          <Button className="font-semibold" onClick={() => void applyBackendUpdate()} size="lg">
+            {u.updateNow}
+          </Button>
+          <Button className="font-medium" onClick={onLater} type="button" variant="text">
+            {u.maybeLater}
+          </Button>
         </div>
-      )}
+      }
+      header={
+        <div className="flex flex-col items-center gap-3 text-center">
+          <BrandMark className={UPDATE_DIALOG_MARK_CLASS} />
 
-      <div className="grid gap-2">
-        <Button className="font-semibold" onClick={() => void applyBackendUpdate()} size="lg">
-          {u.updateNow}
-        </Button>
-        <Button className="font-medium" onClick={onLater} type="button" variant="text">
-          {u.maybeLater}
-        </Button>
-      </div>
-
-      {remaining > 0 && <p className="text-center text-xs text-muted-foreground">{u.moreChanges(remaining)}</p>}
-    </div>
+          <DialogTitle className="text-center text-xl">{u.availableTitleBackend}</DialogTitle>
+          <DialogDescription className="text-center text-sm">
+            {commits.length > 0 ? u.availableBodyBackend : u.availableBodyNoChangelog}
+          </DialogDescription>
+        </div>
+      }
+    />
   )
 }
 

@@ -274,6 +274,26 @@ function receive(state: AppUpdateState | null | undefined): AppUpdateState | nul
   return state
 }
 
+/**
+ * The updates dialog, opened on this app's update from anywhere (the sidebar
+ * button, About, the command palette), says all its notices say. They would
+ * only float over it, so they go, and the available one counts as seen.
+ */
+function quietNoticesForDialog(): void {
+  if (!dialogIsOpen()) {
+    return
+  }
+
+  const version = $appUpdate.get()?.release?.version
+
+  if (availableUp && version) {
+    closeAvailable(version)
+  }
+
+  dismissNotification(AVAILABLE_TOAST_ID)
+  dismissNotification(READY_TOAST_ID)
+}
+
 /** Mirror main's state into this window. Returns the unsubscribe. */
 export function startAppUpdateSync(): () => void {
   const api = bridge()
@@ -283,13 +303,17 @@ export function startAppUpdateSync(): () => void {
   }
 
   const off = api.onState(state => void receive(state))
+  const offDialog = $updateOverlayOpen.listen(quietNoticesForDialog)
 
   api
     .get()
     .then(receive)
     .catch(() => undefined)
 
-  return off
+  return () => {
+    off()
+    offDialog()
+  }
 }
 
 export async function checkAppUpdate(): Promise<AppUpdateState | null> {

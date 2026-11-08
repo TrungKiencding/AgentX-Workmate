@@ -3032,7 +3032,8 @@ export const ja = defineLocale({
     statusAvailable: version => `AgentX Workmate ${version} が利用可能`,
     statusDownloading: percent => `アップデートをダウンロード中 · ${percent}%`,
     statusReady: version => `${version} の準備ができました — 再起動して更新`,
-    statusInstalling: 'アップデートをインストール中…'
+    statusInstalling: 'アップデートをインストール中…',
+    sidebarAvailable: version => `${version} にアップデート`
   },
 
   install: {

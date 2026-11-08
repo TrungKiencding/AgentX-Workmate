@@ -2611,6 +2611,8 @@ export interface Translations {
     statusDownloading: (percent: number) => string
     statusReady: (version: string) => string
     statusInstalling: string
+    /** The sidebar's update button while a release is waiting to be downloaded. */
+    sidebarAvailable: (version: string) => string
   }
 
   install: {

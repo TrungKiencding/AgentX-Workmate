@@ -41,7 +41,7 @@ const {
   startAppUpdateSync
 } = await import('./app-update')
 
-const { $updateOverlayOpen, $updateOverlayTarget } = await import('./update-overlay')
+const { $updateOverlayOpen, $updateOverlayTarget, openUpdateOverlay } = await import('./update-overlay')
 const { $gatewayState } = await import('./session')
 
 const release = {
@@ -136,8 +136,14 @@ describe('startAppUpdateSync', () => {
 })
 
 describe('notices', () => {
+  let stopSync: () => void = () => undefined
+
   beforeEach(() => {
-    startAppUpdateSync()
+    stopSync = startAppUpdateSync()
+  })
+
+  afterEach(() => {
+    stopSync()
   })
 
   it('announces an available release once, however many states follow', () => {
@@ -268,6 +274,48 @@ describe('notices', () => {
 
     expect(toast('app-update-available')).toHaveLength(0)
     expect(toast('app-update-ready')).toHaveLength(0)
+  })
+
+  it('withdraws its notices when the dialog opens from elsewhere, the available one as seen', () => {
+    push(state({ phase: 'available', release }))
+    expect(toast('app-update-available')).toHaveLength(1)
+    dismissSpy.mockClear()
+
+    // The sidebar button, About and the palette all open it this way.
+    openUpdateOverlay('client')
+
+    expect(dismissSpy).toHaveBeenCalledWith('app-update-available')
+    expect(dismissSpy).toHaveBeenCalledWith('app-update-ready')
+
+    // Seen is seen: a later check in this window does not raise it again.
+    $updateOverlayOpen.set(false)
+    notifySpy.mockClear()
+    resetAppUpdateNotices()
+    push(state({ phase: 'available', release, checkedAt: 3 }))
+    expect(toast('app-update-available')).toHaveLength(0)
+  })
+
+  it('withdraws the restart prompt when the dialog opens, and does not raise it again', () => {
+    push(state({ phase: 'ready', release }))
+    expect(toast('app-update-ready')).toHaveLength(1)
+    dismissSpy.mockClear()
+
+    openUpdateOverlay('client')
+    expect(dismissSpy).toHaveBeenCalledWith('app-update-ready')
+
+    $updateOverlayOpen.set(false)
+    push(state({ phase: 'ready', release, checkedAt: 4 }))
+    expect(toast('app-update-ready')).toHaveLength(1)
+  })
+
+  it('leaves its notices up when the dialog opens on a remote backend’s update', () => {
+    push(state({ phase: 'available', release }))
+    dismissSpy.mockClear()
+
+    openUpdateOverlay('backend')
+
+    expect(dismissSpy).not.toHaveBeenCalled()
+    expect(stored.get('agentx:app-update-snooze')).toBeUndefined()
   })
 
   it('does not repeat the restart prompt after an install that did not take', () => {

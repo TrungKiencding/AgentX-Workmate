@@ -2966,7 +2966,8 @@ export const ar = defineLocale({
     statusAvailable: version => `يتوفر AgentX Workmate ${version}`,
     statusDownloading: percent => `جار تنزيل التحديث · ${percent}%`,
     statusReady: version => `${version} جاهز — أعد التشغيل للتحديث`,
-    statusInstalling: 'جار تثبيت التحديث…'
+    statusInstalling: 'جار تثبيت التحديث…',
+    sidebarAvailable: version => `التحديث إلى ${version}`
   },
   install: {
     stageStates: {

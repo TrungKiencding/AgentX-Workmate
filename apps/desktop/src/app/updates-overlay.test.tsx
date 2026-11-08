@@ -83,6 +83,40 @@ afterEach(() => {
   Object.defineProperty(window, 'agentxDesktop', { configurable: true, value: original })
 })
 
+/**
+ * The dialog is capped at 85% of the window. Whatever it shows, the notes must
+ * be the part that scrolls and the actions must sit outside it, or a short
+ * window cuts the buttons off with nothing to scroll (Workmate 1.0–1.1.2 did).
+ * jsdom does no layout, so this pins the structure that makes it work.
+ */
+function expectActionsOutsideScrollingNotes(note: string, action: { name: RegExp | string }) {
+  const dialog = screen.getByRole('dialog')
+
+  expect(dialog.className).not.toMatch(/\boverflow-hidden\b/)
+  expect(dialog.className).toMatch(/\boverflow-y-auto\b/)
+  expect(dialog.className).toMatch(/\bflex-col\b/)
+
+  const body = dialog.querySelector<HTMLElement>('[data-slot="update-dialog-body"]')
+  const footer = dialog.querySelector<HTMLElement>('[data-slot="update-dialog-footer"]')
+
+  expect(body).toBeTruthy()
+  expect(footer).toBeTruthy()
+  expect(body!.className).toMatch(/\boverflow-y-auto\b/)
+  expect(body!.className).toMatch(/\bmin-h-0\b/)
+  expect(body!.className).toMatch(/\bflex-1\b/)
+  // Keyboard users can scroll the notes too.
+  expect(body!.tabIndex).toBe(0)
+  expect(body!.getAttribute('role')).toBe('region')
+  expect(body!.getAttribute('aria-label')).toBeTruthy()
+  expect(body!.textContent).toContain(note)
+
+  const button = screen.getByRole('button', action)
+
+  expect(body!.contains(button)).toBe(false)
+  expect(footer!.contains(button)).toBe(true)
+  expect(footer!.className).toMatch(/\bshrink-0\b/)
+}
+
 describe('UpdatesOverlay — this app', () => {
   it('shows an available release with its notes and downloads it', async () => {
     bridge.download.mockResolvedValue(state({ phase: 'ready' }))
@@ -210,6 +244,97 @@ describe('UpdatesOverlay — this app', () => {
     expect(openExternal).toHaveBeenCalledWith('https://example.test/#download')
   })
 
+  it('keeps Download and Later on screen however long the notes are', () => {
+    const notes = Array.from({ length: 30 }, (_, index) => `Change number ${index + 1} in this release`)
+
+    open(state({ release: { ...release, notes: { en: notes } } }))
+
+    expectActionsOutsideScrollingNotes('Change number 30 in this release', { name: 'Download update (120 MB)' })
+    expectActionsOutsideScrollingNotes('Change number 1 in this release', { name: 'Later' })
+  })
+
+  it('keeps Restart to update on screen once the release is downloaded', () => {
+    const notes = Array.from({ length: 30 }, (_, index) => `Change ${index + 1}`)
+
+    open(state({ phase: 'ready', release: { ...release, notes: { en: notes } } }))
+
+    expectActionsOutsideScrollingNotes('Change 30', { name: 'Restart to update' })
+  })
+
+  it('leads the scrolling part with what went wrong, keeping every action on screen', () => {
+    const notes = Array.from({ length: 30 }, (_, index) => `Change ${index + 1}`)
+    const reason = 'hdiutil: attach failed. '.repeat(40)
+
+    open(
+      state({
+        phase: 'ready',
+        release: { ...release, notes: { en: notes } },
+        installError: { kind: 'stage', message: reason }
+      })
+    )
+
+    for (const name of ['Restart to update', 'Open the download page', 'Later']) {
+      expectActionsOutsideScrollingNotes('Change 30', { name })
+    }
+
+    const body = screen.getByRole('dialog').querySelector('[data-slot="update-dialog-body"]')!
+    const alert = screen.getByRole('alert')
+
+    // However long main's reason, it scrolls with the notes, above them.
+    expect(body.contains(alert)).toBe(true)
+    expect(body.firstElementChild!.firstElementChild).toBe(alert)
+    expect(alert.textContent).toContain(reason.trim())
+  })
+
+  it('says what went wrong even for a release with no notes', () => {
+    open(state({ release: { ...release, notes: {} }, downloadError: { kind: 'network', message: 'socket hang up' } }))
+
+    const body = screen.getByRole('region')
+
+    expect(body.getAttribute('aria-label')).toBe(
+      'The download stopped because the connection dropped. Check your network and try again.'
+    )
+    expect(body.contains(screen.getByRole('alert'))).toBe(true)
+    expect(screen.queryByText('What’s new')).toBeNull()
+    expectActionsOutsideScrollingNotes('socket hang up', { name: 'Download again' })
+  })
+
+  it('keeps Hide and Cancel on screen while downloading', () => {
+    open(state({ phase: 'downloading', progress: { receivedBytes: 1, totalBytes: 2 } }))
+
+    const footer = screen.getByRole('dialog').querySelector('[data-slot="update-dialog-footer"]')!
+
+    expect(footer.contains(screen.getByRole('button', { name: 'Hide' }))).toBe(true)
+    expect(footer.contains(screen.getByRole('button', { name: 'Cancel download' }))).toBe(true)
+    expect(footer.contains(screen.getByRole('progressbar'))).toBe(true)
+  })
+
+  it('keeps the confirm buttons on screen above the list of running conversations', async () => {
+    bridge.install.mockResolvedValueOnce({
+      started: false,
+      reason: 'active-work',
+      activeWork: { count: 5, titles: ['One', 'Two', 'Three', 'Four', 'Five', 'Six'] }
+    })
+
+    open(state({ phase: 'ready' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Restart to update' }))
+
+    await waitFor(() => expect(screen.getByText('The agent is still working')).toBeTruthy())
+    expectActionsOutsideScrollingNotes('• Five', { name: 'Update anyway' })
+    // Five titles at most; the count says how many there are.
+    expect(screen.queryByText('• Six')).toBeNull()
+  })
+
+  it('needs no scrolling body when a release has no notes in any language', () => {
+    open(state({ release: { ...release, notes: {} } }))
+
+    const dialog = screen.getByRole('dialog')
+
+    expect(dialog.querySelector('[data-slot="update-dialog-body"]')).toBeNull()
+    expect(screen.queryByText('What’s new')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Download update (120 MB)' })).toBeTruthy()
+  })
+
   it('cannot be dismissed while the app is quitting for the installer', () => {
     open(state({ phase: 'installing' }))
 
@@ -242,6 +367,24 @@ describe('UpdatesOverlay — a remote backend', () => {
     expect(screen.getByText('What’s new')).toBeTruthy()
     expect(screen.getByText('Fixed')).toBeTruthy()
     expect(screen.getByText('Offline sessions')).toBeTruthy()
+  })
+
+  it('keeps Update now on screen above a long backend changelog', () => {
+    const commits = Array.from({ length: 40 }, (_, index) => ({
+      sha: `s${index}`,
+      summary: `fix: repair thing ${index + 1}`,
+      author: 'x',
+      at: index
+    }))
+
+    $backendUpdateStatus.set({ supported: true, updateAvailable: true, behind: 60, commits })
+
+    open(null, 'backend')
+
+    const body = screen.getByRole('dialog').querySelector('[data-slot="update-dialog-body"]')!
+
+    expectActionsOutsideScrollingNotes(body.querySelector('li')!.textContent!, { name: 'Update now' })
+    expectActionsOutsideScrollingNotes(body.querySelector('li')!.textContent!, { name: 'Maybe later' })
   })
 
   it('says so honestly when the backend lists no changes', () => {

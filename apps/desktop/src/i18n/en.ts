@@ -3062,7 +3062,8 @@ export const en: Translations = {
     statusAvailable: version => `AgentX Workmate ${version} is available`,
     statusDownloading: percent => `Downloading the update · ${percent}%`,
     statusReady: version => `${version} is ready — restart to update`,
-    statusInstalling: 'Installing the update…'
+    statusInstalling: 'Installing the update…',
+    sidebarAvailable: version => `Update to ${version}`
   },
 
   install: {

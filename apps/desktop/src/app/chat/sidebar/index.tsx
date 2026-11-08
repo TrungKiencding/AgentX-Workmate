@@ -149,6 +149,7 @@ import {
 import { buildSessionByAnyId } from './session-index'
 import { SidebarSessionsSection, VIRTUALIZE_THRESHOLD } from './sessions-section'
 import { CONTEXT_SPLIT_KIT, SplitSubmenu } from './split-submenu'
+import { SidebarUpdateButton } from './update-button'
 
 // Non-session groups (messaging platforms) stay compact: show a few rows up
 // front, reveal more in larger steps on demand. Keeps a busy platform from
@@ -1700,6 +1701,7 @@ export function ChatSidebar({
             <ProfileRail />
           </div>
         )}
+        <SidebarUpdateButton />
         <SidebarAccountRow />
       </SidebarContent>
       <ProjectDialog />

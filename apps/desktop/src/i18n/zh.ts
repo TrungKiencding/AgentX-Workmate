@@ -3133,7 +3133,8 @@ export const zh: Translations = {
     statusAvailable: version => `AgentX Workmate ${version} 已发布`,
     statusDownloading: percent => `正在下载更新 · ${percent}%`,
     statusReady: version => `${version} 已就绪 — 重启以更新`,
-    statusInstalling: '正在安装更新…'
+    statusInstalling: '正在安装更新…',
+    sidebarAvailable: version => `更新到 ${version}`
   },
 
   install: {

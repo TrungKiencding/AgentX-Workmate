@@ -2895,7 +2895,8 @@ export const zhHant = defineLocale({
     statusAvailable: version => `AgentX Workmate ${version} 已發布`,
     statusDownloading: percent => `正在下載更新 · ${percent}%`,
     statusReady: version => `${version} 已就緒 — 重新啟動以更新`,
-    statusInstalling: '正在安裝更新…'
+    statusInstalling: '正在安裝更新…',
+    sidebarAvailable: version => `更新至 ${version}`
   },
 
   install: {

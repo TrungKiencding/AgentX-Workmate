@@ -3301,7 +3301,8 @@ export const vi: Translations = {
     statusAvailable: version => `Đã có AgentX Workmate ${version}`,
     statusDownloading: percent => `Đang tải bản cập nhật · ${percent}%`,
     statusReady: version => `Bản ${version} đã sẵn sàng — khởi động lại để cập nhật`,
-    statusInstalling: 'Đang cài bản cập nhật…'
+    statusInstalling: 'Đang cài bản cập nhật…',
+    sidebarAvailable: version => `Cập nhật lên ${version}`
   },
 
   install: {
