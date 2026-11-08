@@ -767,3 +767,10 @@ wrapped text, the diff count and the send button were cut off on the right.
   carries `STARTED_BY_SEND_ROUTE_STATE`.
 - The composer's grid has one `minmax(0,1fr)` column, so the coding strip's
   path truncates instead of widening it.
+- **Your message shows the moment you send it.** The model-catalog check
+  before an idle send (ec22a902e7) ran ahead of the submit pipeline, so the
+  composer emptied and nothing appeared for the length of a catalog read —
+  3.0s in the mock sandbox. It now rides the pipeline as a `beforeSend` gate
+  after the optimistic message: the message is up in ~0.1s, nothing leaves
+  for the gateway until the check passes, and a refusal or a Stop during it
+  gives the words back to the composer.

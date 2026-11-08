@@ -4,6 +4,7 @@ import { atom } from 'nanostores'
 import type { ReactNode } from 'react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { SubmitTextOptions } from '@/app/session/hooks/use-prompt-actions/utils'
 import type { HermesGateway } from '@/hermes'
 import { $activeGatewayProfile } from '@/store/profile'
 import type { ModelOptionsResponse } from '@/types/hermes'
@@ -44,8 +45,16 @@ function setup() {
     return true
   })
 
-  const submit = vi.fn(async () => {
+  // Stands in for the submit pipeline: the message goes on screen first
+  // ('submit'), then the gate runs, and only then does anything leave ('send').
+  const submit = vi.fn(async (_text: string, submitOptions?: SubmitTextOptions) => {
     order.push('submit')
+
+    if (submitOptions?.beforeSend && !(await submitOptions.beforeSend())) {
+      return false
+    }
+
+    order.push('send')
 
     return true
   })
@@ -105,9 +114,34 @@ describe('chat catalog lifecycle and send validation', () => {
     await act(async () => {
       expect(await h.result.current.submitWithCurrentModel('hello')).toBe(true)
     })
-    expect(h.order).toEqual(['switch', 'submit'])
+    expect(h.order).toEqual(['submit', 'switch', 'send'])
     expect(h.model.get()).toBe('new')
     expect(h.request).toHaveBeenCalledTimes(2)
+  })
+
+  it('hands the send to the pipeline before the catalog answers, and sends only after it does', async () => {
+    const h = setup()
+    await waitFor(() => expect(h.result.current.modelOptionsQuery.isFetching).toBe(false))
+    let finish!: (data: ModelOptionsResponse) => void
+    h.request.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          finish = resolve
+        })
+    )
+    const pending = h.result.current.submitWithCurrentModel('hello')
+
+    // The pipeline already has the words (so they are on screen) while the
+    // catalog read is still out; nothing has left for the gateway yet.
+    expect(h.submit).toHaveBeenCalledWith('hello', expect.objectContaining({ beforeSend: expect.any(Function) }))
+    await waitFor(() => expect(h.request).toHaveBeenCalledTimes(2))
+    expect(h.order).toEqual(['submit'])
+
+    await act(async () => {
+      finish({ ...h.state.catalog, providers: [{ name: 'AgentX AI Gateway', slug: 'litellm', models: ['new'] }] })
+      expect(await pending).toBe(true)
+    })
+    expect(h.order).toEqual(['submit', 'switch', 'send'])
   })
 
   it('leaves the draft unsent after a failed session switch and allows a retry', async () => {
@@ -121,12 +155,12 @@ describe('chat catalog lifecycle and send validation', () => {
     await act(async () => {
       expect(await h.result.current.submitWithCurrentModel('hello')).toBe(false)
     })
-    expect(h.submit).not.toHaveBeenCalled()
+    expect(h.order).not.toContain('send')
     h.select.mockResolvedValue(true)
     await act(async () => {
       expect(await h.result.current.submitWithCurrentModel('hello')).toBe(true)
     })
-    expect(h.submit).toHaveBeenCalledTimes(1)
+    expect(h.order.filter(step => step === 'send')).toHaveLength(1)
   })
 
   it('does not send into another conversation when navigation happens during discovery', async () => {
@@ -146,7 +180,7 @@ describe('chat catalog lifecycle and send validation', () => {
       finish(h.state.catalog)
       expect(await pending).toBe(false)
     })
-    expect(h.submit).not.toHaveBeenCalled()
+    expect(h.order).not.toContain('send')
   })
 
   it('does not reuse a read started before send when the SSO grant changed during that read', async () => {
@@ -166,7 +200,7 @@ describe('chat catalog lifecycle and send validation', () => {
     const oldRead = h.result.current.modelOptionsQuery.refetch()
     await waitFor(() => expect(h.request).toHaveBeenCalledTimes(2))
     const pending = h.result.current.submitWithCurrentModel('hello')
-    expect(h.submit).not.toHaveBeenCalled()
+    expect(h.order).not.toContain('send')
     await act(async () => {
       finish(oldCatalog)
       await oldRead
@@ -174,7 +208,7 @@ describe('chat catalog lifecycle and send validation', () => {
     })
     expect(h.request).toHaveBeenCalledTimes(3)
     expect(h.model.get()).toBe('new')
-    expect(h.order).toEqual(['switch', 'submit'])
+    expect(h.order).toEqual(['submit', 'switch', 'send'])
   })
 
   it('keeps queuing during an active turn without a model switch or extra discovery', async () => {
@@ -186,9 +220,11 @@ describe('chat catalog lifecycle and send validation', () => {
     })
     expect(h.select).not.toHaveBeenCalled()
     expect(h.request).toHaveBeenCalledTimes(1)
+    // No gate rides along: an active turn keeps its model.
+    expect(h.submit).toHaveBeenCalledWith('queue this', undefined)
   })
 
-  it('preserves queuing when another turn starts while send is refreshing the catalog', async () => {
+  it('refuses the send when the profile changes while the catalog is read', async () => {
     const h = setup()
     await waitFor(() => expect(h.result.current.modelOptionsQuery.isFetching).toBe(false))
     let finish!: (data: ModelOptionsResponse) => void
@@ -198,20 +234,15 @@ describe('chat catalog lifecycle and send validation', () => {
           finish = resolve
         })
     )
-    const pending = h.result.current.submitWithCurrentModel('queue this')
+    const pending = h.result.current.submitWithCurrentModel('hello')
     await waitFor(() => expect(h.request).toHaveBeenCalledTimes(2))
     await act(async () => {
-      h.busy.set(true)
-      h.rerender({ ...h.options, busy: true })
-      finish({
-        ...h.state.catalog,
-        providers: [{ name: 'AgentX AI Gateway', slug: 'litellm', models: ['new'] }]
-      })
-      expect(await pending).toBe(true)
+      $activeGatewayProfile.set('work')
+      finish(h.state.catalog)
+      expect(await pending).toBe(false)
     })
     expect(h.select).not.toHaveBeenCalled()
-    expect(h.model.get()).toBe('old')
-    expect(h.submit).toHaveBeenCalledWith('queue this', undefined)
+    expect(h.order).not.toContain('send')
   })
 
   it('keeps the current model when discovery fails, with normal send errors owned by the submit pipeline', async () => {
@@ -223,7 +254,7 @@ describe('chat catalog lifecycle and send validation', () => {
     })
     expect(h.model.get()).toBe('old')
     expect(h.select).not.toHaveBeenCalled()
-    expect(h.submit).toHaveBeenCalledTimes(1)
+    expect(h.order).toEqual(['submit', 'send'])
   })
 
   it('does not refresh hidden or messaging surfaces on focus', async () => {

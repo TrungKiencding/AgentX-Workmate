@@ -1393,7 +1393,10 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 - **Model catalogs follow the account's grant.** Chat refreshes on opening,
   returning to the window, reconnecting, and once a minute while visible;
   opening a model picker also refreshes. An idle send checks again before
-  creating or using its conversation. Preserve a model that is still granted;
+  creating or using its conversation — as the submit pipeline's `beforeSend`
+  gate, so the user's message and the waiting row are already on screen while
+  the check runs; a refusal (or Stop pressed meanwhile) takes the message down
+  and hands the words back to the composer. Preserve a model that is still granted;
   replace a retired one between turns through the existing session switch,
   without discarding history. Keep cached rows during connectivity failures
   and retain Refresh Models as recovery. Refreshing never rotates the account key.

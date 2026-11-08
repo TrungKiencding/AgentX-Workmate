@@ -549,6 +549,11 @@ export function usePromptActions({
       const attachments = options?.attachments ?? $composerAttachments.get()
 
       if (!attachments.length && SLASH_COMMAND_RE.test(visibleText)) {
+        // No optimistic message to show while it runs: gate first, as before.
+        if (options?.beforeSend && !(await options.beforeSend())) {
+          return false
+        }
+
         triggerHaptic('selection')
         // Forward the explicit target (background queue drain, tile) — dropping
         // it ran the command against whatever chat happened to be in front.
