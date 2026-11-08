@@ -2,41 +2,61 @@ import { atom } from 'nanostores'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { NO_PROJECT_ID, type SidebarProjectTree } from '@/app/chat/sidebar/projects/workspace-groups'
-import { $sidebarAgentsGrouped } from '@/store/layout'
+import { $dismissedAutoProjectIds, $sidebarWorkspaceNodeOpen } from '@/store/layout'
 import { $activeGatewayProfile } from '@/store/profile'
-import { $currentCwd, $selectedStoredSessionId, $sessions, applyConfiguredDefaultProjectDir } from '@/store/session'
+import {
+  $activeSessionId,
+  $currentBranch,
+  $currentCwd,
+  $newChatWorkspaceTarget,
+  $selectedStoredSessionId,
+  $sessions,
+  applyConfiguredDefaultProjectDir,
+  setNewChatWorkspaceTarget
+} from '@/store/session'
 
 import {
   $activeProjectId,
+  $projects,
   $projectScope,
   $projectsRpcAvailable,
   $projectTree,
   $removedSessionIds,
   $sessionMutationsInFlight,
+  $startWorkSessionRequest,
   $worktreeRefreshToken,
+  addFolderToProject,
   ALL_PROJECTS,
   beginSessionMutation,
+  chooseDraftFolder,
   createProject,
   endSessionMutation,
+  ensureProjectForFolder,
   enterProject,
   exitProjectScope,
-  openProjectCreate,
+  followActiveSessionCwd,
+  goToProject,
+  openFolderAsProject,
   pickProjectFolder,
   projectNameForCwd,
+  projectNodeKey,
   refreshProjects,
   refreshProjectTree,
   refreshWorktrees,
+  renameProjectOrAdopt,
   resolveNewSessionCwd,
   scanAndRecordRepos,
+  setDraftWorkspace,
   tombstoneSessions
 } from './projects'
 
 vi.mock('@/i18n', () => ({
-  translateNow: (key: string) => key
+  translateNow: (key: string, ...args: unknown[]) => (args.length ? `${key}(${args.join(', ')})` : key)
 }))
 
 vi.mock('@/store/notifications', () => ({
-  notify: vi.fn()
+  notify: vi.fn(),
+  notifyError: vi.fn()
 }))
 
 vi.mock('@/lib/desktop-fs', () => ({
@@ -77,6 +97,50 @@ const agentx = await import('@/hermes')
 const getHermesConfig = vi.mocked(agentx.getHermesConfig)
 const notifications = await import('@/store/notifications')
 const notify = vi.mocked(notifications.notify)
+const notifyError = vi.mocked(notifications.notifyError)
+
+function deferred<T>() {
+  let resolve!: (value: T) => void
+
+  const promise = new Promise<T>(done => {
+    resolve = done
+  })
+
+  return { promise, resolve }
+}
+
+// A gateway whose projects.* answers come from `handlers` (by method), with
+// list/tree reads echoing the cached atoms so reconciles don't wipe them.
+function fakeGateway(handlers: Record<string, (params: Record<string, unknown>) => unknown> = {}) {
+  const request = vi.fn(async (method: string, params: Record<string, unknown> = {}) => {
+    if (handlers[method]) {
+      return handlers[method](params)
+    }
+
+    if (method === 'projects.list') {
+      return { active_id: null, projects: $projects.get() }
+    }
+
+    if (method === 'projects.tree') {
+      return { active_id: null, projects: $projectTree.get(), scoped_session_ids: [] }
+    }
+
+    return {}
+  })
+
+  activeGateway.mockReturnValue({ connectionState: 'open', request } as never)
+
+  return request
+}
+
+const treeNode = (
+  over: Partial<SidebarProjectTree> & Pick<SidebarProjectTree, 'id' | 'label'>
+): SidebarProjectTree => ({
+  path: null,
+  repos: [],
+  sessionCount: 0,
+  ...over
+})
 
 describe('project scope', () => {
   beforeEach(() => {
@@ -196,15 +260,6 @@ describe('resolveNewSessionCwd', () => {
 })
 
 describe('projectNameForCwd', () => {
-  const treeNode = (
-    over: Partial<SidebarProjectTree> & Pick<SidebarProjectTree, 'id' | 'label'>
-  ): SidebarProjectTree => ({
-    path: null,
-    repos: [],
-    sessionCount: 0,
-    ...over
-  })
-
   beforeEach(() => {
     $projectTree.set([])
   })
@@ -302,12 +357,12 @@ describe('pickProjectFolder', () => {
 describe('createProject', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    $sidebarAgentsGrouped.set(false)
+    $sidebarWorkspaceNodeOpen.set({})
     $activeProjectId.set(null)
     $projectsRpcAvailable.set(null)
   })
 
-  it('creates the project and flips into the grouped view so a blank slate shows it', async () => {
+  it('creates the project and opens its row in the sidebar', async () => {
     const created = { folders: [], id: 'p_new', name: 'Demo', primary_path: '/srv/demo' }
 
     const request = vi.fn(async (method: string) => {
@@ -326,7 +381,7 @@ describe('createProject', () => {
 
     expect(result).toEqual(created)
     expect(request).toHaveBeenCalledWith('projects.create', expect.objectContaining({ name: 'Demo' }))
-    expect($sidebarAgentsGrouped.get()).toBe(true)
+    expect($sidebarWorkspaceNodeOpen.get()[projectNodeKey('p_new')]).toBe(true)
     expect($activeProjectId.get()).toBe('p_new')
   })
 
@@ -360,14 +415,23 @@ describe('projects RPC capability', () => {
     expect($projectsRpcAvailable.get()).toBe(false)
   })
 
-  it('blocks opening the create dialog once the backend is known stale', () => {
-    $projectsRpcAvailable.set(false)
+  it('still opens a folder as a plain workspace when the backend predates projects', async () => {
+    const missing = (method: string) => () => {
+      throw new Error(`unknown method: ${method}`)
+    }
 
-    openProjectCreate()
+    fakeGateway({
+      'projects.create': missing('projects.create'),
+      'projects.list': missing('projects.list'),
+      'projects.tree': missing('projects.tree')
+    })
+
+    await openFolderAsProject('/srv/legacy')
 
     expect(notify).toHaveBeenCalledWith(
       expect.objectContaining({ kind: 'warning', message: 'sidebar.projects.staleBackend' })
     )
+    expect($startWorkSessionRequest.get()).toMatchObject({ openTab: true, path: '/srv/legacy' })
   })
 })
 
@@ -542,5 +606,328 @@ describe('tombstone pruning', () => {
     await refreshProjectTree()
 
     expect($removedSessionIds.get().has('sess-1')).toBe(false)
+  })
+})
+
+describe('the new chat\'s folder (setDraftWorkspace)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    $activeSessionId.set(null)
+    $currentCwd.set('')
+    $currentBranch.set('')
+    setNewChatWorkspaceTarget(undefined)
+  })
+
+  afterEach(() => {
+    $currentCwd.set('')
+    $currentBranch.set('')
+    setNewChatWorkspaceTarget(undefined)
+  })
+
+  it('points the draft at the folder, then adopts the backend\'s normalized path and branch', async () => {
+    const info = deferred<{ branch?: string; cwd?: string }>()
+    fakeGateway({ 'config.get': () => info.promise })
+
+    setDraftWorkspace('/work/site')
+
+    expect($newChatWorkspaceTarget.get()).toBe('/work/site')
+    expect($currentCwd.get()).toBe('/work/site')
+
+    info.resolve({ branch: 'main', cwd: '/real/work/site' })
+    await vi.waitFor(() => expect($currentBranch.get()).toBe('main'))
+
+    expect($currentCwd.get()).toBe('/real/work/site')
+    expect($newChatWorkspaceTarget.get()).toBe('/real/work/site')
+  })
+
+  it('null starts the chat with no folder, and a late answer for an older pick changes nothing', async () => {
+    const info = deferred<{ branch?: string; cwd?: string }>()
+    fakeGateway({ 'config.get': () => info.promise })
+
+    setDraftWorkspace('/stale')
+    setDraftWorkspace(null)
+
+    expect($newChatWorkspaceTarget.get()).toBeNull()
+    expect($currentCwd.get()).toBe('')
+
+    info.resolve({ branch: 'main', cwd: '/stale-normalized' })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect($newChatWorkspaceTarget.get()).toBeNull()
+    expect($currentCwd.get()).toBe('')
+    expect($currentBranch.get()).toBe('')
+  })
+
+  it('ignores the answer once the chat has started', async () => {
+    const info = deferred<{ branch?: string; cwd?: string }>()
+    fakeGateway({ 'config.get': () => info.promise })
+
+    setDraftWorkspace('/work/site')
+    $activeSessionId.set('runtime-1')
+    info.resolve({ branch: 'dev', cwd: '/elsewhere' })
+    await Promise.resolve()
+    await Promise.resolve()
+
+    expect($currentCwd.get()).toBe('/work/site')
+    expect($currentBranch.get()).toBe('')
+    $activeSessionId.set(null)
+  })
+
+  it('"Open another folder…" keeps the pick as a project and points the draft at it', async () => {
+    isDesktopFsRemoteMode.mockReturnValue(false)
+    selectDesktopPaths.mockResolvedValue(['/work/new-client'])
+    $projects.set([])
+    $projectTree.set([])
+
+    const request = fakeGateway({
+      'config.get': () => ({}),
+      'projects.create': params => ({
+        project: { folders: [{ path: '/work/new-client' }], id: 'p_client', name: params.name }
+      })
+    })
+
+    await expect(chooseDraftFolder()).resolves.toBe('/work/new-client')
+
+    expect($newChatWorkspaceTarget.get()).toBe('/work/new-client')
+    expect(request).toHaveBeenCalledWith(
+      'projects.create',
+      expect.objectContaining({ folders: ['/work/new-client'], name: 'new-client' })
+    )
+  })
+
+  it('a cancelled picker leaves the draft alone', async () => {
+    isDesktopFsRemoteMode.mockReturnValue(false)
+    selectDesktopPaths.mockResolvedValue([])
+    setDraftWorkspace(null)
+
+    await expect(chooseDraftFolder()).resolves.toBeNull()
+    expect($newChatWorkspaceTarget.get()).toBeNull()
+  })
+})
+
+describe('adding a folder as a project', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.localStorage.clear()
+    $projectScope.set(ALL_PROJECTS)
+    $projectsRpcAvailable.set(null)
+    $projects.set([])
+    $projectTree.set([])
+    $sidebarWorkspaceNodeOpen.set({})
+    $dismissedAutoProjectIds.set([])
+  })
+
+  it('reuses the explicit project that already covers the folder', async () => {
+    $projects.set([{ folders: [{ path: '/work/acme' }], id: 'p_acme', name: 'Acme' } as never])
+    const request = fakeGateway()
+
+    await expect(ensureProjectForFolder('/work/acme/reports')).resolves.toBe('p_acme')
+
+    expect(request).not.toHaveBeenCalledWith('projects.create', expect.anything())
+    expect($sidebarWorkspaceNodeOpen.get()[projectNodeKey('p_acme')]).toBe(true)
+  })
+
+  it('does not let an auto project that merely contains the folder swallow it', async () => {
+    // A chat once ran in the home directory, so an auto project sits there.
+    $projectTree.set([treeNode({ id: '/Users/me', isAuto: true, label: 'me', path: '/Users/me', sessionCount: 3 })])
+
+    const request = fakeGateway({
+      'projects.create': () => ({ project: { folders: [{ path: '/Users/me/clients' }], id: 'p_c', name: 'clients' } })
+    })
+
+    await expect(ensureProjectForFolder('/Users/me/clients')).resolves.toBe('p_c')
+    expect(request).toHaveBeenCalledWith('projects.create', expect.objectContaining({ name: 'clients' }))
+  })
+
+  it('the sidebar "+" leaves a drilled-in view, adds the folder and opens a chat in it', async () => {
+    $projectScope.set('p_other')
+    isDesktopFsRemoteMode.mockReturnValue(false)
+    selectDesktopPaths.mockResolvedValue(['/work/brand'])
+
+    fakeGateway({
+      'projects.create': () => ({ project: { folders: [{ path: '/work/brand' }], id: 'p_brand', name: 'brand' } })
+    })
+
+    await openFolderAsProject()
+
+    expect($projectScope.get()).toBe(ALL_PROJECTS)
+    expect($sidebarWorkspaceNodeOpen.get()[projectNodeKey('p_brand')]).toBe(true)
+    expect($startWorkSessionRequest.get()).toMatchObject({ openTab: true, path: '/work/brand' })
+  })
+
+  it('a cancelled picker does nothing', async () => {
+    isDesktopFsRemoteMode.mockReturnValue(false)
+    selectDesktopPaths.mockResolvedValue([])
+    const before = $startWorkSessionRequest.get()
+    const request = fakeGateway()
+
+    await openFolderAsProject()
+
+    expect(request).not.toHaveBeenCalled()
+    expect($startWorkSessionRequest.get()).toBe(before)
+  })
+
+  it('a chat moving into a folder whose auto project was hidden brings the project back', async () => {
+    $dismissedAutoProjectIds.set(['/work/old'])
+    $projectTree.set([treeNode({ id: '/work/old', isAuto: true, label: 'old', path: '/work/old', sessionCount: 1 })])
+    fakeGateway()
+
+    await followActiveSessionCwd('/work/old')
+
+    expect($dismissedAutoProjectIds.get()).toEqual([])
+    expect($sidebarWorkspaceNodeOpen.get()[projectNodeKey('/work/old')]).toBe(true)
+  })
+})
+
+describe('a project row\'s "Add folder…"', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    isDesktopFsRemoteMode.mockReturnValue(false)
+    $projects.set([{ folders: [{ path: '/work/acme' }], id: 'p_acme', name: 'Acme' } as never])
+    $projectTree.set([treeNode({ id: 'p_acme', label: 'Acme', path: '/work/acme' })])
+  })
+
+  it('goes straight to the picker and says what it added', async () => {
+    selectDesktopPaths.mockResolvedValue(['/shared/acme-assets'])
+    const request = fakeGateway()
+
+    await addFolderToProject({ id: 'p_acme', name: 'Acme' })
+
+    expect(request).toHaveBeenCalledWith(
+      'projects.add_folder',
+      expect.objectContaining({ id: 'p_acme', path: '/shared/acme-assets' })
+    )
+    expect(notify).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: 'success', message: 'sidebar.projects.folderAdded(acme-assets, Acme)' })
+    )
+  })
+
+  it('writes nothing when the picker is cancelled', async () => {
+    selectDesktopPaths.mockResolvedValue([])
+    const request = fakeGateway()
+
+    await addFolderToProject({ id: 'p_acme', name: 'Acme' })
+
+    expect(request).not.toHaveBeenCalled()
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('a refused write rolls the folder back and says so', async () => {
+    selectDesktopPaths.mockResolvedValue(['/shared/acme-assets'])
+
+    fakeGateway({
+      'projects.add_folder': () => {
+        throw new Error('nope')
+      }
+    })
+
+    await addFolderToProject({ id: 'p_acme', name: 'Acme' })
+
+    expect(notifyError).toHaveBeenCalledWith(expect.any(Error), 'sidebar.projects.addFolderFailed')
+    expect($projects.get()[0]?.folders).toEqual([{ path: '/work/acme' }])
+  })
+})
+
+describe('renaming a project', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    $projects.set([])
+    $projectTree.set([])
+  })
+
+  it('renames an explicit project in place', async () => {
+    $projects.set([{ folders: [], id: 'p_1', name: 'Old' } as never])
+    $projectTree.set([treeNode({ id: 'p_1', label: 'Old' })])
+    const request = fakeGateway()
+
+    await renameProjectOrAdopt({ mode: 'rename', name: 'Old', projectId: 'p_1' }, '  New  ')
+
+    expect(request).toHaveBeenCalledWith('projects.update', expect.objectContaining({ id: 'p_1', name: 'New' }))
+    expect($projectTree.get()[0]?.label).toBe('New')
+  })
+
+  it('adopts an auto project as a real one carrying the new name and its look', async () => {
+    $projectTree.set([
+      treeNode({ color: '#f00', icon: 'rocket', id: '/work/site', isAuto: true, label: 'site', path: '/work/site' })
+    ])
+
+    const request = fakeGateway({
+      'projects.create': () => ({ project: { folders: [{ path: '/work/site' }], id: 'p_site', name: 'Website' } })
+    })
+
+    await renameProjectOrAdopt(
+      { adoptPath: '/work/site', mode: 'rename', name: 'site', projectId: '/work/site' },
+      'Website'
+    )
+
+    expect(request).toHaveBeenCalledWith(
+      'projects.create',
+      expect.objectContaining({
+        color: '#f00',
+        folders: ['/work/site'],
+        icon: 'rocket',
+        name: 'Website',
+        primary_path: '/work/site'
+      })
+    )
+  })
+
+  it('a blank name writes nothing', async () => {
+    const request = fakeGateway()
+
+    await renameProjectOrAdopt({ mode: 'rename', name: 'Old', projectId: 'p_1' }, '   ')
+
+    expect(request).not.toHaveBeenCalled()
+  })
+})
+
+describe('going to a project', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.localStorage.clear()
+    $projectScope.set(ALL_PROJECTS)
+    $sidebarWorkspaceNodeOpen.set({})
+    $projectTree.set([treeNode({ id: 'p_site', label: 'Site', path: '/work/site' })])
+  })
+
+  it('opens its row and starts a chat in its folder, leaving any other drilled-in view', () => {
+    $projectScope.set('p_other')
+
+    goToProject('p_site')
+
+    expect($projectScope.get()).toBe(ALL_PROJECTS)
+    expect($sidebarWorkspaceNodeOpen.get()[projectNodeKey('p_site')]).toBe(true)
+    expect($startWorkSessionRequest.get()).toMatchObject({ openTab: true, path: '/work/site' })
+  })
+})
+
+describe('following the active chat into another folder', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.localStorage.clear()
+    $projectScope.set(ALL_PROJECTS)
+    $sidebarWorkspaceNodeOpen.set({})
+    $projects.set([])
+    $projectTree.set([
+      treeNode({ id: 'p_a', label: 'A', path: '/work/a' }),
+      treeNode({ id: 'p_b', label: 'B', path: '/work/b' })
+    ])
+    fakeGateway()
+  })
+
+  it('opens the new project\'s row at the overview — it never drills in', async () => {
+    await followActiveSessionCwd('/work/b/src')
+
+    expect($projectScope.get()).toBe(ALL_PROJECTS)
+    expect($sidebarWorkspaceNodeOpen.get()[projectNodeKey('p_b')]).toBe(true)
+  })
+
+  it('moves a drilled-in view along, so the chat stays in sight', async () => {
+    $projectScope.set('p_a')
+
+    await followActiveSessionCwd('/work/b')
+
+    expect($projectScope.get()).toBe('p_b')
   })
 })

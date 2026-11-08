@@ -23,12 +23,14 @@ import { MoreVertical, Palette } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import { $panesFlipped, dismissAutoProject } from '@/store/layout'
 import {
+  addFolderToProject,
   copyPath,
   deleteProject,
-  openProjectAddFolder,
+  enterProject,
   openProjectRename,
+  projectRootCwd,
+  requestStartWorkSession,
   revealPath,
-  setActiveProject,
   setProjectAppearance
 } from '@/store/projects'
 
@@ -36,26 +38,23 @@ import { ProjectAppearancePicker } from './project-appearance'
 import type { SidebarProjectTree } from './workspace-groups'
 
 // Shared per-project state + handlers, so the kebab dropdown and the row's
-// right-click menu drive the exact same actions. Modeled on git GUIs (GitHub
-// Desktop / GitKraken): reveal in the file manager, copy path, and "Remove from
-// sidebar" (never deletes files — auto projects are dismissed, explicit ones
-// drop their entry). Explicit projects additionally get rename / add folder /
-// set active.
+// right-click menu drive the exact same actions: start a chat there, see all of
+// its chats, name and theme it, reveal / copy its folder, and remove it (never
+// deletes files — an auto project is hidden, an explicit one drops its entry).
+// Renaming or theming an auto project adopts its folder as a real project.
 function useProjectActions({
   project,
-  isActive,
   scoped,
   onExitScope
 }: {
   project: SidebarProjectTree
-  isActive: boolean
   scoped: boolean
   onExitScope?: () => void
 }) {
   const { t } = useI18n()
   const p = t.sidebar.projects
-  const target = { id: project.id, name: project.label }
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const root = projectRootCwd(project)
 
   const removeAuto = () => {
     dismissAutoProject(project.id)
@@ -73,27 +72,37 @@ function useProjectActions({
     }
   }
 
-  // Rename / add folder / set active — explicit projects only (auto ones lack a
-  // materialized record). Appearance is handled per-surface (popover vs submenu)
-  // by the caller since its picker chrome differs.
-  const identityItems: ActionItemSpec[] = project.isAuto
-    ? []
-    : [
-        { icon: 'edit', key: 'rename', label: p.menuRename, onSelect: () => openProjectRename(target) },
-        {
-          icon: 'new-folder',
-          key: 'add-folder',
-          label: p.menuAddFolder,
-          onSelect: () => openProjectAddFolder(target)
-        },
-        {
-          disabled: isActive,
-          icon: 'target',
-          key: 'set-active',
-          label: p.menuSetActive,
-          onSelect: () => void setActiveProject(project.id)
-        }
-      ]
+  // Where-to-go first: a new chat in it, and (from the overview) every chat it
+  // holds. Then its identity — the name for any project with a folder (an auto
+  // one adopts on rename), and more folders for an explicit one.
+  const openItems: ActionItemSpec[] = [
+    {
+      disabled: !root,
+      icon: 'comment-discussion',
+      key: 'new-chat',
+      label: p.menuNewChat,
+      onSelect: () => requestStartWorkSession(root, undefined, { openTab: true })
+    },
+    ...(scoped
+      ? []
+      : [{ icon: 'list-flat', key: 'open', label: p.menuShowAll, onSelect: () => enterProject(project.id) }])
+  ]
+
+  const identityItems: ActionItemSpec[] = [
+    ...(!project.isAuto || project.path
+      ? [{ icon: 'edit', key: 'rename', label: `${p.menuRename}…`, onSelect: () => openProjectRename(project) }]
+      : []),
+    ...(project.isAuto
+      ? []
+      : [
+          {
+            icon: 'new-folder',
+            key: 'add-folder',
+            label: `${p.menuAddFolder}…`,
+            onSelect: () => void addFolderToProject({ id: project.id, name: project.label })
+          }
+        ])
+  ]
 
   const pathItems: ActionItemSpec[] = [
     {
@@ -134,7 +143,7 @@ function useProjectActions({
     />
   )
 
-  return { confirmDialog, dangerItem, identityItems, pathItems }
+  return { confirmDialog, dangerItem, identityItems, openItems, pathItems }
 }
 
 // Per-project actions. The kebab keeps its row-anchored Appearance popover; the
@@ -142,13 +151,11 @@ function useProjectActions({
 // as a submenu. Hidden until the row is hovered, matching the + affordance.
 export function ProjectMenu({
   project,
-  isActive,
   scoped = false,
   onExitScope,
   anchorRef
 }: {
   project: SidebarProjectTree
-  isActive: boolean
   // True when rendered in the entered-project header, so removal can leave the
   // now-defunct scope.
   scoped?: boolean
@@ -166,8 +173,7 @@ export function ProjectMenu({
   // when the panes are flipped (sidebar on the right).
   const panesFlipped = useStore($panesFlipped)
 
-  const { confirmDialog, dangerItem, identityItems, pathItems } = useProjectActions({
-    isActive,
+  const { confirmDialog, dangerItem, identityItems, openItems, pathItems } = useProjectActions({
     onExitScope,
     project,
     scoped
@@ -230,24 +236,14 @@ export function ProjectMenu({
           onCloseAutoFocus={event => event.preventDefault()}
           sideOffset={6}
         >
-          {project.isAuto ? (
-            // Inherited (auto) repos can still be themed — the change adopts the
-            // repo as a real project. Rename / add-folder / set-active stay out
-            // until then (they need the materialized record).
-            project.path && (
-              <>
-                {appearanceItem}
-                <DropdownMenuSeparator />
-              </>
-            )
-          ) : (
-            <>
-              {identityItems.slice(0, 1).map(item => renderActionItem(DROPDOWN_KIT, item))}
-              {appearanceItem}
-              {identityItems.slice(1).map(item => renderActionItem(DROPDOWN_KIT, item))}
-              <DropdownMenuSeparator />
-            </>
-          )}
+          {openItems.map(item => renderActionItem(DROPDOWN_KIT, item))}
+          <DropdownMenuSeparator />
+          {identityItems.slice(0, 1).map(item => renderActionItem(DROPDOWN_KIT, item))}
+          {/* Theming an auto project adopts its folder as a real project, so
+              it needs a folder to adopt. */}
+          {(!project.isAuto || project.path) && appearanceItem}
+          {identityItems.slice(1).map(item => renderActionItem(DROPDOWN_KIT, item))}
+          {(identityItems.length > 0 || !project.isAuto || project.path) && <DropdownMenuSeparator />}
           {pathItems.map(item => renderActionItem(DROPDOWN_KIT, item))}
           <DropdownMenuSeparator />
           {renderActionItem(DROPDOWN_KIT, dangerItem)}
@@ -275,7 +271,6 @@ export function ProjectMenu({
 
 interface ProjectContextMenuProps {
   project: SidebarProjectTree
-  isActive: boolean
   scoped?: boolean
   onExitScope?: () => void
   children: React.ReactNode
@@ -286,7 +281,6 @@ interface ProjectContextMenuProps {
 // here Appearance is a submenu with the same swatch + icon picker.
 export function ProjectContextMenu({
   project,
-  isActive,
   scoped = false,
   onExitScope,
   children
@@ -294,8 +288,7 @@ export function ProjectContextMenu({
   const { t } = useI18n()
   const p = t.sidebar.projects
 
-  const { confirmDialog, dangerItem, identityItems, pathItems } = useProjectActions({
-    isActive,
+  const { confirmDialog, dangerItem, identityItems, openItems, pathItems } = useProjectActions({
     onExitScope,
     project,
     scoped
@@ -309,6 +302,8 @@ export function ProjectContextMenu({
 
   const items = (kit: MenuKit) => (
     <>
+      {openItems.map(item => renderActionItem(kit, item))}
+      <kit.Separator />
       {identityItems.map(item => renderActionItem(kit, item))}
       {canTheme && (
         <kit.Sub>

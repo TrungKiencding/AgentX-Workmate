@@ -2572,12 +2572,6 @@ export const ja = defineLocale({
     sessions: '最近',
     connectedChannels: '接続済みチャンネル',
     cronJobs: 'Cronジョブ',
-    groupAriaGrouped: 'チャットを単一リストとして表示',
-    groupAriaUngrouped: 'プロジェクトごとにチャットをグループ化',
-    showProjects: 'プロジェクトを表示',
-    showSessions: 'チャットを表示',
-    groupTitleGrouped: 'チャットのグループ化を解除',
-    groupTitleUngrouped: 'プロジェクトでグループ化',
     allPinned: 'ここにあるものはすべてピン留めされています。チャットのピン留めを解除すると最近のものに表示されます。',
     shiftClickHint: 'よく戻ってくるチャットをピン留めしましょう。',
     noWorkspace: 'プロジェクトなし',
@@ -2585,37 +2579,16 @@ export const ja = defineLocale({
     noSessions: 'チャットはまだありません',
     projects: {
       sectionLabel: 'プロジェクト',
-      home: 'ホーム',
-      newButton: '新規プロジェクト',
-      createTitle: '新規プロジェクト',
-      createDesc: 'プロジェクトに名前を付け、1つ以上のフォルダを追加します。',
       renameTitle: 'プロジェクト名を変更',
-      addFolderTitle: 'フォルダを追加',
-      namePlaceholder: '例: Skunkworks',
-      nameFromFolder: 'フォルダー名を使っています。必要なら変更してください。',
-      nameRequiredMulti: 'フォルダーが複数あるので、プロジェクト名を付けてください。',
-      foldersLabel: 'フォルダ',
-      ideaLabel: 'アイデア',
-      ideaPlaceholder: 'このプロジェクトは何ですか？（IDEA.md に保存）',
-      ideaGenerate: 'アイデアを生成',
-      ideaGenerating: '生成中…',
-      ideaShuffle: 'テンプレートをシャッフル',
-      noFolders: 'まだフォルダがありません。',
-      addFolder: 'フォルダを追加',
-      primaryBadge: 'メイン',
-      removeFolder: '削除',
-      create: '作成',
       menu: 'アクション',
       menuRename: '名前を変更',
       menuAppearance: '外観',
       noColor: '色なし',
       menuAddFolder: 'フォルダを追加',
-      menuSetActive: 'アクティブに設定',
       menuDelete: '削除',
       reveal: 'フォルダで表示',
       copyPath: 'パスをコピー',
       removeFromSidebar: 'サイドバーから削除',
-      createFailed: 'プロジェクトを作成できませんでした',
       staleBackend:
         'プロジェクトを作成するには AgentX バックエンドを更新してください。バックエンドがこのデスクトップアプリより古いです（設定 → 更新 → バックエンド）。',
       deleteConfirm:
@@ -2645,7 +2618,6 @@ export const ja = defineLocale({
       removeWorktreeDirty:
         'このワークツリーにはコミットされていない変更があります。強制削除（変更を破棄）するか、レーンを隠してディスク上に残します。',
       forceRemove: '強制削除',
-      enter: label => `${label} を開く`,
       moveToProject: 'プロジェクトに移動',
       movedTo: name => `${name} に移動しました`,
       moveFailed: 'チャットを移動できませんでした',
@@ -2653,7 +2625,15 @@ export const ja = defineLocale({
       moveNoProjects: 'ほかのプロジェクトはありません',
       reorder: label => `${label} を並べ替え`,
       toggle: (label, open) => `${label} のチャットを${open ? '表示' : '非表示'}`,
-      back: 'すべてのプロジェクト'
+      back: 'すべてのプロジェクト',
+      addButton: 'プロジェクトを追加',
+      emptyHint: '作業フォルダーを追加',
+      showAll: count => `${count} 件のチャットをすべて表示`,
+      menuNewChat: '新しいチャット',
+      menuShowAll: 'すべてのチャットを表示',
+      renameFailed: 'プロジェクト名を変更できませんでした',
+      addFolderFailed: 'フォルダーを追加できませんでした',
+      folderAdded: (folder, project) => `${folder} を ${project} に追加しました`
     },
     newSessionIn: label => `${label} で新しいチャット`,
     showMoreIn: (count, label) => `${label} でさらに ${count} 件を表示`,
@@ -2705,7 +2685,8 @@ export const ja = defineLocale({
       thisWeek: '今週',
       lastWeek: '先週',
       thisMonth: '今月'
-    }
+    },
+    chats: 'チャット'
   },
 
   composer: {
@@ -2840,7 +2821,23 @@ export const ja = defineLocale({
         text: 'これがどのように機能するか説明し、主要なファイルを教えてください。'
       }
     },
-    steer: '現在の実行に指示を追加'
+    steer: '現在の実行に指示を追加',
+    workspace: {
+      pickerLabel: '作業フォルダーを選択',
+      none: 'フォルダーを選択',
+      chooseHint: 'AgentX がファイルを読み書きするフォルダーを選びます',
+      chosen: path => `${path} で作業中`,
+      settled: path => `このチャットは ${path} で作業しています`,
+      menuLabel: label => `フォルダー: ${label}`,
+      search: 'プロジェクトを検索…',
+      noMatch: '一致するプロジェクトはありません',
+      projects: 'プロジェクト',
+      discovered: 'このコンピューターで見つかったもの',
+      chooseOther: '別のフォルダーを開く…',
+      noFolder: 'フォルダーなし',
+      newChatHere: 'このフォルダーで新しいチャット',
+      pickFailed: 'フォルダーの選択画面を開けませんでした'
+    }
   },
 
   statusStack: {
@@ -4242,10 +4239,6 @@ export const ja = defineLocale({
     deleteFailed: '削除に失敗しました',
     archived: 'アーカイブしました',
     archiveFailed: 'アーカイブに失敗しました',
-    cwdChangeFailed: '作業ディレクトリの変更に失敗しました',
-    cwdStagedTitle: '作業ディレクトリがステージングされました',
-    cwdStagedMessage:
-      'この開いているチャットに新しい作業フォルダを適用するには、デスクトップバックエンドを再起動してください。',
     modelSwitchFailed: 'モデルの切り替えに失敗しました',
     sessionExported: 'チャットをエクスポートしました',
     sessionExportFailed: 'チャットをエクスポートできませんでした',

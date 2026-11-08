@@ -2849,12 +2849,6 @@ export const vi: Translations = {
     sessions: 'Gần đây',
     connectedChannels: 'Kênh đã kết nối',
     cronJobs: 'Tác vụ cron',
-    groupAriaGrouped: 'Hiện các cuộc trò chuyện thành một danh sách duy nhất',
-    groupAriaUngrouped: 'Nhóm các cuộc trò chuyện theo dự án',
-    showProjects: 'Hiện dự án',
-    showSessions: 'Hiện cuộc trò chuyện',
-    groupTitleGrouped: 'Bỏ nhóm các cuộc trò chuyện',
-    groupTitleUngrouped: 'Nhóm theo dự án',
     allPinned: 'Mọi mục ở đây đều đã ghim. Bỏ ghim một cuộc trò chuyện để nó hiện trong phần gần đây.',
     shiftClickHint: 'Ghim những cuộc trò chuyện bạn hay quay lại.',
     noWorkspace: 'Không thuộc dự án nào',
@@ -2862,32 +2856,12 @@ export const vi: Translations = {
     noSessions: 'Chưa có cuộc trò chuyện nào',
     projects: {
       sectionLabel: 'Dự án',
-      home: 'Trang chính',
-      newButton: 'Dự án mới',
-      createTitle: 'Dự án mới',
-      createDesc: 'Đặt tên cho dự án và thêm một hoặc nhiều thư mục.',
       renameTitle: 'Đổi tên dự án',
-      addFolderTitle: 'Thêm thư mục',
-      namePlaceholder: 'ví dụ Skunkworks',
-      nameFromFolder: 'Lấy theo tên thư mục, sửa nếu bạn muốn.',
-      nameRequiredMulti: 'Có nhiều thư mục, hãy đặt tên cho dự án.',
-      foldersLabel: 'Thư mục',
-      ideaLabel: 'Ý tưởng',
-      ideaPlaceholder: 'Dự án này về cái gì? (được lưu vào IDEA.md)',
-      ideaGenerate: 'Tạo ý tưởng',
-      ideaGenerating: 'Đang tạo…',
-      ideaShuffle: 'Đổi mẫu khác',
-      noFolders: 'Chưa thêm thư mục nào.',
-      addFolder: 'Thêm thư mục',
-      primaryBadge: 'chính',
-      removeFolder: 'Gỡ',
-      create: 'Tạo',
       menu: 'Thao tác',
       menuRename: 'Đổi tên',
       menuAppearance: 'Giao diện',
       noColor: 'Không màu',
       menuAddFolder: 'Thêm thư mục',
-      menuSetActive: 'Đặt làm dự án hiện tại',
       menuDelete: 'Xoá',
       moveToProject: 'Chuyển sang dự án',
       movedTo: name => `Đã chuyển sang ${name}`,
@@ -2897,7 +2871,6 @@ export const vi: Translations = {
       reveal: 'Hiện trong thư mục',
       copyPath: 'Sao chép đường dẫn',
       removeFromSidebar: 'Ẩn khỏi thanh bên',
-      createFailed: 'Không tạo được dự án',
       staleBackend:
         'Hãy cập nhật backend AgentX để tạo được dự án — backend của bạn cũ hơn ứng dụng desktop này (Cài đặt → Cập nhật → Backend).',
       deleteConfirm: 'Thao tác này gỡ dự án đã lưu khỏi AgentX. Tệp, thư mục mã nguồn và worktree vẫn giữ nguyên.',
@@ -2926,10 +2899,17 @@ export const vi: Translations = {
       removeWorktreeDirty:
         'Worktree này còn thay đổi chưa commit. Gỡ cưỡng bức (bỏ luôn các thay đổi đó), hoặc chỉ ẩn khỏi thanh bên và giữ lại trên đĩa.',
       forceRemove: 'Gỡ cưỡng bức',
-      enter: label => `Mở ${label}`,
       reorder: label => `Sắp xếp lại ${label}`,
       toggle: (label, open) => `${open ? 'Hiện' : 'Ẩn'} các cuộc trò chuyện của ${label}`,
-      back: 'Tất cả dự án'
+      back: 'Tất cả dự án',
+      addButton: 'Thêm dự án',
+      emptyHint: 'Thêm thư mục làm việc',
+      showAll: count => `Xem tất cả ${count} cuộc trò chuyện`,
+      menuNewChat: 'Trò chuyện mới',
+      menuShowAll: 'Xem tất cả cuộc trò chuyện',
+      renameFailed: 'Không đổi tên được dự án',
+      addFolderFailed: 'Không thêm được thư mục',
+      folderAdded: (folder, project) => `Đã thêm ${folder} vào ${project}`
     },
     newSessionIn: label => `Trò chuyện mới trong ${label}`,
     showMoreIn: (count, label) => `Xem thêm ${count} mục trong ${label}`,
@@ -2984,7 +2964,8 @@ export const vi: Translations = {
       thisWeek: 'Tuần này',
       lastWeek: 'Tuần trước',
       thisMonth: 'Tháng này'
-    }
+    },
+    chats: 'Trò chuyện'
   },
 
   composer: {
@@ -3118,6 +3099,22 @@ export const vi: Translations = {
         description: 'Giải thích đoạn code đang chọn hoạt động thế nào và chỉ ra các tệp quan trọng.',
         text: 'Hãy giải thích phần này hoạt động thế nào và chỉ cho tôi các tệp quan trọng.'
       }
+    },
+    workspace: {
+      pickerLabel: 'Chọn thư mục làm việc',
+      none: 'Chọn thư mục',
+      chooseHint: 'Chọn một thư mục để AgentX đọc và lưu tệp ở đó',
+      chosen: path => `Làm việc trong ${path}`,
+      settled: path => `Cuộc trò chuyện này làm việc trong ${path}`,
+      menuLabel: label => `Thư mục: ${label}`,
+      search: 'Tìm dự án…',
+      noMatch: 'Không có dự án nào khớp',
+      projects: 'Dự án',
+      discovered: 'Tìm thấy trên máy',
+      chooseOther: 'Mở thư mục khác…',
+      noFolder: 'Không dùng thư mục',
+      newChatHere: 'Trò chuyện mới trong thư mục này',
+      pickFailed: 'Không mở được bộ chọn thư mục'
     }
   },
 
@@ -4518,10 +4515,6 @@ export const vi: Translations = {
     undo: 'Hoàn tác',
     unarchiveFailed: 'Không khôi phục được cuộc trò chuyện. Bạn có thể mở lại ở Cài đặt → Trò chuyện đã lưu trữ.',
     archiveFailed: 'Lưu trữ thất bại',
-    cwdChangeFailed: 'Đổi thư mục làm việc thất bại',
-    cwdStagedTitle: 'Đã ghi nhận thư mục làm việc',
-    cwdStagedMessage:
-      'Hãy khởi động lại backend desktop để áp dụng thư mục làm việc mới cho cuộc trò chuyện đang mở này.',
     modelSwitchFailed: 'Đổi model thất bại',
     sessionExported: 'Đã xuất cuộc trò chuyện',
     sessionExportFailed: 'Không xuất được cuộc trò chuyện',

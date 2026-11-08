@@ -141,8 +141,25 @@ what most primitives write; either is fine, a hex is not.
 - **One action, one home.** A command may have keyboard, palette, and visible
   affordances, but they invoke the same action and state. Do not fork behavior
   per entry point.
-- **Projects own workspace cwd.** Use Sidebar → Projects for local folders and
-  worktrees; do not reintroduce a per-session/right-sidebar folder-picker flow.
+- **Projects own workspace cwd, chosen before the first message.** A project
+  is a folder (or a few) and is added straight from the OS folder picker — the
+  Projects "+", ⌘O, the palette, or "Open another folder…" under the composer —
+  never through a form. A new chat's folder is picked in the context bar under
+  the composer (`WorkspacePicker`, spec §5.8: an inline control, recent
+  projects first, then repos found on disk, then "Open another folder…" / "No
+  folder"). Once the chat exists its folder is settled: the same control only
+  shows it and offers a new chat there; moving a chat is the row menu's "Move
+  to project". Do not reintroduce a right-sidebar folder picker or a mid-chat
+  cwd switch, and never let a hidden state (a drilled-in project, an inherited
+  folder) decide where a chat runs without the context bar saying so.
+- **One sidebar, no modes.** Projects sit above Chats: each project is a row
+  that opens and closes in place (collapsed by default, remembered, opened for
+  you when you open one of its chats) with its five most recent chats and a
+  "Show all N chats" row that drills into its full list and lanes. Chats lists
+  only what no listed project holds — no folder, or a hidden project — so
+  nothing shows twice and nothing is lost. Repos the disk scan found stay out
+  of the sidebar until someone chats in them (`sidebarProjects`); the folder
+  picker offers them. Ownership is one rule, `owningProjectId`.
 
 Navigation must preserve context. A background session finishing, a tool result
 arriving, or a project refresh may update badges and cached data; it must not
