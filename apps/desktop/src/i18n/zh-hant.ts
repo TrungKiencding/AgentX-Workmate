@@ -3311,25 +3311,46 @@ export const zhHant = defineLocale({
     modelMenu: {
       search: '搜尋模型',
       noModels: '找不到模型',
-      editModels: '編輯模型…',
-      refreshModels: '重新整理模型',
-      fast: '快速'
+      editModels: '管理模型'
     },
     modelOptions: {
-      noOptions: '此模型沒有可用選項',
-      options: '選項',
-      thinking: '思考',
-      fast: '快速',
-      effort: '推理強度',
-      minimal: '最小',
+      thinkingLevel: '思考',
+      none: '關閉',
+      minimal: '最少',
       low: '低',
       medium: '中',
       high: '高',
       xhigh: '極高',
       max: '最高',
       ultra: '超高',
+      effortShort: {
+        none: '不思考',
+        minimal: '最少',
+        low: '低',
+        medium: '中',
+        high: '高',
+        xhigh: '極高',
+        max: '最高',
+        ultra: '超高'
+      },
+      effortHint: {
+        none: '不先思考，回答最快',
+        minimal: '稍作思考即回答',
+        low: '適合簡單任務',
+        medium: '適合大多數任務',
+        high: '適合複雜任務，回答較慢',
+        xhigh: '適合難題，成本更高',
+        max: '盡力思考，最慢、成本最高',
+        ultra: 'AgentX 最高檔，以模型上限為準'
+      },
+      defaultMark: '預設',
+      scaleStart: '更快',
+      scaleEnd: '更深',
+      fast: '速度優先',
+      fastMode: '速度優先',
+      fastHint: '回覆更快，價格更高',
       updateFailed: '模型選項更新失敗',
-      fastFailed: '快速模式更新失敗'
+      fastFailed: '速度優先更新失敗'
     },
     gatewayMenu: {
       gateway: '閘道',

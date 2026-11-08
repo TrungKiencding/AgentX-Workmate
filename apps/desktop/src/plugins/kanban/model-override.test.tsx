@@ -55,6 +55,12 @@ describe('override label', () => {
     expect(isInherited(depthOnly)).toBe(false)
     expect(overrideLabel(depthOnly, 'Profile default')).toBe('Profile default · Ultra')
   })
+
+  it('names the depth in the UI language when given the words for it', () => {
+    const inVietnamese = (effort: string) => ({ high: 'Kỹ' })[effort] ?? effort
+
+    expect(overrideLabel({ effort: 'high', model: 'm', provider: 'p' }, 'x', inVietnamese)).toBe('p: m · Kỹ')
+  })
 })
 
 // The override drives the SHARED composer menu through a controller. This is
@@ -69,6 +75,7 @@ describe('the shared catalog menu, driven by an override controller', () => {
       current: { effort: value.effort, fast: false, model: value.model, provider: value.provider },
       presetFor: () => ({}),
       select: (model, provider) => onChange({ ...value, model, provider }),
+      options: { fast: false },
       setOptions: (patch, row) => {
         if (patch.effort !== undefined) {
           onChange({ effort: patch.effort, model: row.model, provider: row.provider })
@@ -101,6 +108,14 @@ describe('the shared catalog menu, driven by an override controller', () => {
 
     expect(picked.model).toBe('gemini-3.1-pro')
     expect(picked.provider).toBe('google')
+  })
+
+  it('a depth picked on the dial pins model + depth together', async () => {
+    const onChange = renderMenu({ effort: '', model: 'gemini-3.1-pro', provider: 'google' })
+
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'High' }))
+
+    expect(onChange).toHaveBeenLastCalledWith({ effort: 'high', model: 'gemini-3.1-pro', provider: 'google' })
   })
 
   it('never renders MoA presets — a preset is not a worker model', async () => {

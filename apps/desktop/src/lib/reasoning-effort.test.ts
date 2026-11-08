@@ -2,12 +2,13 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_REASONING_EFFORT,
+  effectiveReasoningEffort,
   isReasoningEffort,
-  isThinkingEnabled,
   REASONING_EFFORT_VALUES,
   REASONING_EFFORTS,
   reasoningEffortLabel,
-  resolveReasoningEffort
+  THINKING_STOPS,
+  thinkingStops
 } from './reasoning-effort'
 
 describe('reasoning-effort', () => {
@@ -34,20 +35,34 @@ describe('reasoning-effort', () => {
     expect(isReasoningEffort('bogus')).toBe(false)
   })
 
-  it('treats empty as inherit and only `none` as off', () => {
-    expect(isThinkingEnabled('none')).toBe(false)
-    expect(isThinkingEnabled('high')).toBe(true)
-    // Empty inherits the fallback, so an off fallback reads as off.
-    expect(isThinkingEnabled('', 'none')).toBe(false)
-    expect(isThinkingEnabled('', 'high')).toBe(true)
+  it('resolves the level a surface really runs at: inherit, off, or clamp', () => {
+    expect(effectiveReasoningEffort('high')).toBe('high')
+    expect(effectiveReasoningEffort('HIGH ')).toBe('high')
+    // Empty inherits the profile default rather than snapping to medium.
+    expect(effectiveReasoningEffort('', 'ultra')).toBe('ultra')
+    expect(effectiveReasoningEffort('', '')).toBe(DEFAULT_REASONING_EFFORT)
+
+    // Every spelling the backend reads as "thinking off" is off here too.
+    for (const off of ['none', 'false', 'disabled', 'off']) {
+      expect(effectiveReasoningEffort(off)).toBe('none')
+    }
+
+    expect(effectiveReasoningEffort('', 'false')).toBe('none')
+    // A garbage value never shows as a phantom level.
+    expect(effectiveReasoningEffort('bogus')).toBe(DEFAULT_REASONING_EFFORT)
   })
 
-  it('resolves a scale value: inherit, off, or clamp', () => {
-    expect(resolveReasoningEffort('high')).toBe('high')
-    // Empty inherits the profile default rather than snapping to medium.
-    expect(resolveReasoningEffort('', 'ultra')).toBe('ultra')
-    // Off selects nothing on the scale.
-    expect(resolveReasoningEffort('none')).toBe('')
-    expect(resolveReasoningEffort('bogus')).toBe(DEFAULT_REASONING_EFFORT)
+  it('offers the wire-distinct stops, low to high, starting with off', () => {
+    expect(THINKING_STOPS[0]).toBe('none')
+    expect([...THINKING_STOPS]).toEqual(
+      REASONING_EFFORT_VALUES.filter(value => THINKING_STOPS.includes(value as never))
+    )
+  })
+
+  it('adds an off-dial level in ladder order only while it is the selection', () => {
+    expect(thinkingStops('medium')).toEqual([...THINKING_STOPS])
+    expect(thinkingStops('minimal')).toEqual(['none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'])
+    expect(thinkingStops('ultra')).toEqual(['none', 'low', 'medium', 'high', 'xhigh', 'max', 'ultra'])
+    expect(thinkingStops('bogus')).toEqual([...THINKING_STOPS])
   })
 })

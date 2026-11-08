@@ -2982,15 +2982,13 @@ export interface Translations {
       search: string
       noModels: string
       editModels: string
-      refreshModels: string
-      fast: string
     }
     modelOptions: {
-      noOptions: string
-      options: string
-      thinking: string
-      fast: string
-      effort: string
+      /** The options section's heading over the thinking dial. */
+      thinkingLevel: string
+      /** Level names: the slider's heading, Settings' select, accessible
+       *  names. `none` is thinking switched off. */
+      none: string
       minimal: string
       low: string
       medium: string
@@ -2998,6 +2996,19 @@ export interface Translations {
       xhigh: string
       max: string
       ultra: string
+      /** Level names for the composer pill and the list (say "no thinking"
+       *  where a bare "Off" would be ambiguous beside a model name). */
+      effortShort: Record<'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra', string>
+      /** One plain-language line per level: what it trades off. */
+      effortHint: Record<'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra', string>
+      /** Appended to the hint while the profile default is the chosen level. */
+      defaultMark: string
+      /** The slider's two ends: what moving toward each side buys you. */
+      scaleStart: string
+      scaleEnd: string
+      fast: string
+      fastMode: string
+      fastHint: string
       updateFailed: string
       fastFailed: string
     }

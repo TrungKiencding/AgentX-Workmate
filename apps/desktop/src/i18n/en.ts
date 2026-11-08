@@ -1250,7 +1250,7 @@ export const en: Translations = {
       model: 'Model',
       applying: 'Applying...',
       defaultsLabel: 'Defaults',
-      reasoning: 'Reasoning',
+      reasoning: 'Thinking',
       reasoningOff: 'Off',
       defaultsFailed: 'Failed to save model defaults',
       auxiliaryTitle: 'Auxiliary models',
@@ -3508,25 +3508,46 @@ export const en: Translations = {
     modelMenu: {
       search: 'Search models',
       noModels: 'No models found',
-      editModels: 'Edit Models…',
-      refreshModels: 'Refresh Models',
-      fast: 'Fast'
+      editModels: 'Manage models'
     },
     modelOptions: {
-      noOptions: 'No options for this model',
-      options: 'Options',
-      thinking: 'Thinking',
-      fast: 'Fast',
-      effort: 'Effort',
+      thinkingLevel: 'Thinking',
+      none: 'Off',
       minimal: 'Minimal',
       low: 'Low',
       medium: 'Medium',
       high: 'High',
-      xhigh: 'Extra High',
+      xhigh: 'Extra high',
       max: 'Max',
       ultra: 'Ultra',
+      effortShort: {
+        none: 'No thinking',
+        minimal: 'Minimal',
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        xhigh: 'Extra high',
+        max: 'Max',
+        ultra: 'Ultra'
+      },
+      effortHint: {
+        none: 'Answers right away, fastest',
+        minimal: 'A quick glance before answering',
+        low: 'For simple tasks',
+        medium: 'Right for most tasks',
+        high: 'For complex work, takes longer',
+        xhigh: 'For hard problems, costs more',
+        max: 'Thinks as hard as it can, costs the most',
+        ultra: "AgentX's top level, capped by the model"
+      },
+      defaultMark: 'Default',
+      scaleStart: 'Faster',
+      scaleEnd: 'Deeper',
+      fast: 'Fast',
+      fastMode: 'Priority speed',
+      fastHint: 'Faster replies at a higher price',
       updateFailed: 'Model option update failed',
-      fastFailed: 'Fast mode update failed'
+      fastFailed: 'Priority speed update failed'
     },
     gatewayMenu: {
       gateway: 'Gateway',

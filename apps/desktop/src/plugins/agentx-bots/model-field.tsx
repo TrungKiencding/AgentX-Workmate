@@ -47,7 +47,9 @@ export function ModelField({
     current: { effort: '', fast: false, model: value.model, provider: value.provider },
     presetFor: () => ({}),
     select: (model, provider) => onChange({ model, provider }),
-    // An assistant stores a model, not a thinking depth: options are ignored.
+    // An assistant stores a model, not a thinking depth or a speed — so the
+    // menu offers neither rather than showing controls that would do nothing.
+    options: { effort: false, fast: false },
     setOptions: () => undefined
   }
 

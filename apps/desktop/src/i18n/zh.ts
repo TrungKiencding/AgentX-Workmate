@@ -3549,25 +3549,46 @@ export const zh: Translations = {
     modelMenu: {
       search: '搜索模型',
       noModels: '未找到模型',
-      editModels: '编辑模型…',
-      refreshModels: '刷新模型',
-      fast: '快速'
+      editModels: '管理模型'
     },
     modelOptions: {
-      noOptions: '此模型没有可用选项',
-      options: '选项',
-      thinking: '思考',
-      fast: '快速',
-      effort: '推理强度',
-      minimal: '最小',
+      thinkingLevel: '思考',
+      none: '关闭',
+      minimal: '最少',
       low: '低',
       medium: '中',
       high: '高',
       xhigh: '极高',
       max: '最高',
       ultra: '超高',
+      effortShort: {
+        none: '不思考',
+        minimal: '最少',
+        low: '低',
+        medium: '中',
+        high: '高',
+        xhigh: '极高',
+        max: '最高',
+        ultra: '超高'
+      },
+      effortHint: {
+        none: '不先思考，回答最快',
+        minimal: '稍作思考即回答',
+        low: '适合简单任务',
+        medium: '适合大多数任务',
+        high: '适合复杂任务，回答较慢',
+        xhigh: '适合难题，成本更高',
+        max: '尽力思考，最慢、成本最高',
+        ultra: 'AgentX 最高档，以模型上限为准'
+      },
+      defaultMark: '默认',
+      scaleStart: '更快',
+      scaleEnd: '更深',
+      fast: '速度优先',
+      fastMode: '速度优先',
+      fastHint: '回复更快，价格更高',
       updateFailed: '模型选项更新失败',
-      fastFailed: '快速模式更新失败'
+      fastFailed: '速度优先更新失败'
     },
     gatewayMenu: {
       gateway: '网关',

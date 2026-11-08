@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  conciseModelName,
-  currentPickerSelection,
-  displayModelName,
-  formatModelStatusLabel
-} from './model-status-label'
+import { conciseModelName, currentPickerSelection, displayModelName, modelDisplayParts } from './model-status-label'
 import { reasoningEffortLabel } from './reasoning-effort'
 
 describe('model-status-label', () => {
@@ -29,26 +24,9 @@ describe('model-status-label', () => {
     expect(reasoningEffortLabel('')).toBe('')
   })
 
-  it('appends fast + effort session state to the status label', () => {
-    expect(formatModelStatusLabel('openai/gpt-5.5', { fastMode: true, reasoningEffort: 'high' })).toBe(
-      'GPT-5.5 · Fast High'
-    )
-  })
-
-  it('falls back to the profile default effort, then to medium', () => {
-    expect(formatModelStatusLabel('openai/gpt-5.5', { reasoningEffort: 'medium' })).toBe('GPT-5.5 · Med')
-    expect(formatModelStatusLabel('openai/gpt-5.5')).toBe('GPT-5.5 · Med')
-    // No session-level effort → the configured profile default is advertised,
-    // not AgentX' built-in medium.
-    expect(formatModelStatusLabel('openai/gpt-5.5', { defaultEffort: 'high' })).toBe('GPT-5.5 · High')
-    // An explicit session effort still wins over the profile default.
-    expect(formatModelStatusLabel('openai/gpt-5.5', { defaultEffort: 'high', reasoningEffort: 'low' })).toBe(
-      'GPT-5.5 · Low'
-    )
-  })
-
-  it('returns just the placeholder name when there is no model', () => {
-    expect(formatModelStatusLabel('')).toBe('No model')
+  it('title-cases Gemini names and keeps the variant as a separate tag', () => {
+    expect(displayModelName('google/gemini-3-pro')).toBe('Gemini 3 Pro')
+    expect(modelDisplayParts('google/gemini-3-pro-preview')).toEqual({ name: 'Gemini 3 Pro', tag: 'Preview' })
   })
 
   describe('currentPickerSelection', () => {
@@ -93,7 +71,7 @@ describe('conciseModelName', () => {
   })
 
   it('never carries session state', () => {
-    // No " · Med" / " · Fast" suffix — that is formatModelStatusLabel's job.
+    // No " · Med" / " · Fast" suffix — the pill renders the level itself.
     expect(conciseModelName('openai/gpt-5.5')).not.toContain('·')
   })
 

@@ -6,7 +6,15 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import type { ChatBarState } from '@/app/chat/composer/types'
 import { type SessionView, SessionViewProvider } from '@/app/chat/session-view'
-import { $activeSessionId, $currentModel, setCurrentModel, setCurrentModelSource } from '@/store/session'
+import {
+  $activeSessionId,
+  $currentModel,
+  setCurrentFastMode,
+  setCurrentModel,
+  setCurrentModelSource,
+  setCurrentReasoningEffort,
+  setDefaultReasoningEffort
+} from '@/store/session'
 
 import { ModelPill } from './model-pill'
 
@@ -26,7 +34,13 @@ afterEach(() => {
   $activeSessionId.set(null)
   setCurrentModel('')
   setCurrentModelSource('')
+  setCurrentReasoningEffort('')
+  setCurrentFastMode(false)
+  setDefaultReasoningEffort('')
 })
+
+// The level beside the name is its own quieter span; read the pill as a whole.
+const pillText = () => screen.getByRole('button').textContent
 
 // #62055: a manual composer pick is sticky and silently overrides the
 // Settings → Model default for every NEW chat. The pill must say so.
@@ -116,24 +130,67 @@ describe('ModelPill per-surface model label', () => {
       </SessionViewProvider>
     )
 
-    expect(screen.getByText('Sonnet · High')).toBeTruthy()
+    expect(pillText()).toBe('SonnetHigh')
+    expect(screen.getByTestId('model-pill-level').textContent).toBe('High')
     expect(screen.queryByText(/primary/i)).toBeNull()
   })
 })
 
-// Outside a coding context the pill is the model's short name and nothing
-// else; inside one it keeps the full label with the session's effort.
-describe('ModelPill concise label', () => {
-  it('shows the short name alone when concise', () => {
+// Like Claude's composer, the pill carries the thinking level beside the name.
+// Outside a coding context (concise) the name is the short one and the level
+// only shows once it differs from the default, so the everyday case reads as
+// just the model.
+describe('ModelPill label', () => {
+  it('concise: the short name alone while on the default level', () => {
     render(<ModelPill concise disabled={false} model={modelState({ model: 'Qwen3.5 122B A10B FP8' })} />)
 
-    expect(screen.getByText('Qwen3.5')).toBeTruthy()
-    expect(screen.queryByText(/Med|FP8/)).toBeNull()
+    expect(pillText()).toBe('Qwen3.5')
+    expect(screen.queryByTestId('model-pill-level')).toBeNull()
   })
 
-  it('keeps the full label with effort by default', () => {
+  it('concise: a level you changed is shown', () => {
+    setCurrentReasoningEffort('high')
+
+    render(<ModelPill concise disabled={false} model={modelState({ model: 'Qwen3.5 122B A10B FP8' })} />)
+
+    expect(screen.getByTestId('model-pill-level').textContent).toBe('High')
+  })
+
+  it('concise: the default is the profile default, not the built-in medium', () => {
+    setDefaultReasoningEffort('high')
+    setCurrentReasoningEffort('high')
+
+    render(<ModelPill concise disabled={false} model={modelState({ model: 'Qwen3.5 122B A10B FP8' })} />)
+
+    expect(screen.queryByTestId('model-pill-level')).toBeNull()
+  })
+
+  it('says thinking is off in words, not a bare "Off"', () => {
+    setCurrentReasoningEffort('none')
+
+    render(<ModelPill concise disabled={false} model={modelState({ model: 'Qwen3.5 122B A10B FP8' })} />)
+
+    expect(screen.getByTestId('model-pill-level').textContent).toBe('No thinking')
+  })
+
+  it('full: the full name with the level, default included', () => {
     render(<ModelPill disabled={false} model={modelState({ model: 'Qwen3.5 122B A10B FP8' })} />)
 
-    expect(screen.getByText('Qwen3.5 122B A10B FP8 · Med')).toBeTruthy()
+    expect(pillText()).toBe('Qwen3.5 122B A10B FP8Medium')
+  })
+
+  it('marks fast mode with a glyph, for the speed param and for a -fast variant alike', () => {
+    setCurrentFastMode(true)
+
+    const { unmount } = render(<ModelPill concise disabled={false} model={modelState({ model: 'openai/gpt-5.5' })} />)
+
+    expect(screen.getByRole('img', { name: 'Priority speed' })).toBeTruthy()
+    unmount()
+    setCurrentFastMode(false)
+
+    render(<ModelPill concise disabled={false} model={modelState({ model: 'anthropic/claude-opus-4.8-fast' })} />)
+
+    expect(pillText()).toBe('Opus 4.8')
+    expect(screen.getByRole('img', { name: 'Priority speed' })).toBeTruthy()
   })
 })

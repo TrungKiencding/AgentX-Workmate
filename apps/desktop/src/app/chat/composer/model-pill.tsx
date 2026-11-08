@@ -10,9 +10,10 @@ import { GlyphSpinner } from '@/components/ui/glyph-spinner'
 import { releaseTypingFocus } from '@/components/ui/keyboard-first'
 import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
-import { ChevronDown } from '@/lib/icons'
+import { ChevronDown, Zap } from '@/lib/icons'
 import { refreshModelCatalogQueries } from '@/lib/model-options'
-import { conciseModelName, formatModelStatusLabel } from '@/lib/model-status-label'
+import { conciseModelName, displayModelName, modelBaseId } from '@/lib/model-status-label'
+import { effectiveReasoningEffort } from '@/lib/reasoning-effort'
 import { cn } from '@/lib/utils'
 import { $activeGatewayProfile } from '@/store/profile'
 import { $currentModelSource, $defaultReasoningEffort, setModelPickerOpen } from '@/store/session'
@@ -24,7 +25,7 @@ import type { ChatBarState } from './types'
 // 28px tall (a step below the 32px control row, it's a label-ish affordance),
 // 12px text; radius comes from the Button base.
 const PILL = cn(
-  'h-(--control-h-sm) max-w-40 shrink-0 gap-1 px-2 text-xs font-normal',
+  'h-(--control-h-sm) max-w-60 shrink-0 gap-1 px-2 text-xs font-normal',
   'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground'
 )
 
@@ -36,10 +37,12 @@ const PILL = cn(
  * Display follows THIS surface's SessionView (primary or tile) — never the
  * primary-only globals — so side-by-side panes each show their own model.
  *
- * `concise` is the composer's non-coding voice: outside a git repo the label
- * is the model's short name alone (`Qwen3.5`, not `Qwen3.5 122B A10B FP8 ·
- * Med`) — the build and the effort are developer facts, and the tooltip and
- * the picker still carry them.
+ * The label is the model's name with its thinking level beside it, quieter
+ * (`MiniMax M3  Cân bằng`) — like Claude's composer, the level you're running at is
+ * visible without opening anything. `concise` is the non-coding voice: outside
+ * a git repo the name is the short one (`Qwen3.5`, not `Qwen3.5 122B A10B
+ * FP8`) and the level only shows once it differs from the default — the
+ * everyday case reads as just the model.
  */
 export function ModelPill({
   compact = false,
@@ -52,7 +55,9 @@ export function ModelPill({
   disabled: boolean
   model: ChatBarState['model']
 }) {
-  const copy = useI18n().t.shell.statusbar
+  const { t } = useI18n()
+  const copy = t.shell.statusbar
+  const optionCopy = t.shell.modelOptions
   const view = useSessionView()
   const queryClient = useQueryClient()
   // Prefer the chat-bar snapshot (already view-scoped by ChatView); fall back
@@ -117,16 +122,25 @@ export function ModelPill({
   // The model resolves a beat after the gateway/session comes up. Rather than
   // flash a literal "No model", show a quiet loader (inherits the pill text
   // color at half opacity) until a model lands.
+  const level = effectiveReasoningEffort(reasoningEffort, defaultEffort)
+  const showLevel = !concise || level !== effectiveReasoningEffort('', defaultEffort)
+  // Fast is on via the speed param OR because the model IS a `…-fast` variant.
+  const fastOn = fastMode || /-fast$/i.test(modelBaseId(currentModel))
+
   const label = compact ? (
     <ChevronDown className="size-3.5 shrink-0 opacity-70" />
   ) : (
     <>
       {currentModel.trim() ? (
-        <span className="truncate">
-          {concise
-            ? conciseModelName(currentModel)
-            : formatModelStatusLabel(currentModel, { defaultEffort, fastMode, reasoningEffort })}
-        </span>
+        <>
+          <span className="truncate">{concise ? conciseModelName(currentModel) : displayModelName(currentModel)}</span>
+          {fastOn || showLevel ? (
+            <span className="ml-0.5 flex shrink-0 items-center gap-0.5 opacity-70" data-testid="model-pill-level">
+              {fastOn ? <Zap aria-label={optionCopy.fastMode} className="size-3" role="img" /> : null}
+              {showLevel ? optionCopy.effortShort[level] : null}
+            </span>
+          ) : null}
+        </>
       ) : (
         <GlyphSpinner className="opacity-50" spinner="braille" />
       )}
@@ -183,7 +197,7 @@ export function ModelPill({
           </Button>
         </DropdownMenuTrigger>
       </Tip>
-      <DropdownMenuContent align="end" className="w-64 p-0" side="top" sideOffset={8}>
+      <DropdownMenuContent align="end" className="w-80 p-0" side="top" sideOffset={8}>
         <ModelMenuCloseContext.Provider value={() => setMenuOpen(false)}>
           {model.modelMenuContent}
         </ModelMenuCloseContext.Provider>

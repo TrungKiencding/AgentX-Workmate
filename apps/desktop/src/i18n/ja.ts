@@ -3482,16 +3482,11 @@ export const ja = defineLocale({
     modelMenu: {
       search: 'モデルを検索',
       noModels: 'モデルが見つかりません',
-      editModels: 'モデルを編集…',
-      refreshModels: 'モデルを更新',
-      fast: '高速'
+      editModels: 'モデルを管理'
     },
     modelOptions: {
-      noOptions: 'このモデルにはオプションがありません',
-      options: 'オプション',
-      thinking: '思考',
-      fast: '高速',
-      effort: '努力度',
+      thinkingLevel: '思考',
+      none: 'オフ',
       minimal: '最小',
       low: '低',
       medium: '中',
@@ -3499,8 +3494,34 @@ export const ja = defineLocale({
       xhigh: '特高',
       max: '最大',
       ultra: 'ウルトラ',
+      effortShort: {
+        none: '思考なし',
+        minimal: '最小',
+        low: '低',
+        medium: '中',
+        high: '高',
+        xhigh: '特高',
+        max: '最大',
+        ultra: 'ウルトラ'
+      },
+      effortHint: {
+        none: '考えずにすぐ答える。最速',
+        minimal: '軽く考えてから答える',
+        low: '簡単な作業向け',
+        medium: 'ほとんどの作業向け',
+        high: '複雑な作業向け。時間がかかる',
+        xhigh: '難しい問題向け。コスト高め',
+        max: '全力で考える。最も遅く高コスト',
+        ultra: 'AgentX の最上位。モデルの上限まで'
+      },
+      defaultMark: 'デフォルト',
+      scaleStart: '速い',
+      scaleEnd: '深い',
+      fast: '速度優先',
+      fastMode: '速度優先',
+      fastHint: '応答が速く、料金は高め',
       updateFailed: 'モデルオプションの更新に失敗しました',
-      fastFailed: '高速モードの更新に失敗しました'
+      fastFailed: '速度優先の更新に失敗しました'
     },
     gatewayMenu: {
       gateway: 'ゲートウェイ',

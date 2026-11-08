@@ -3369,23 +3369,46 @@ export const ar = defineLocale({
     modelMenu: {
       search: 'البحث عن نموذج...',
       noModels: 'لا توجد نماذج',
-      editModels: 'تحرير النماذج',
-      refreshModels: 'تحديث النماذج',
-      fast: 'سريع'
+      editModels: 'إدارة النماذج'
     },
     modelOptions: {
-      noOptions: 'لا توجد خيارات لهذا النموذج',
-      options: 'الخيارات',
-      thinking: 'التفكير',
-      fast: 'سريع',
-      effort: 'الجهد',
+      thinkingLevel: 'التفكير',
+      none: 'إيقاف',
       minimal: 'أدنى',
       low: 'منخفض',
       medium: 'متوسط',
       high: 'عالٍ',
+      xhigh: 'عالٍ جدًا',
       max: 'أقصى',
+      ultra: 'فائق',
+      effortShort: {
+        none: 'بدون تفكير',
+        minimal: 'أدنى',
+        low: 'منخفض',
+        medium: 'متوسط',
+        high: 'عالٍ',
+        xhigh: 'عالٍ جدًا',
+        max: 'أقصى',
+        ultra: 'فائق'
+      },
+      effortHint: {
+        none: 'يجيب فورًا، الأسرع',
+        minimal: 'تفكير خاطف قبل الإجابة',
+        low: 'للمهام البسيطة',
+        medium: 'مناسب لمعظم المهام',
+        high: 'للمهام المعقدة، أبطأ',
+        xhigh: 'للمسائل الصعبة، أعلى تكلفة',
+        max: 'أقصى تفكير، الأبطأ والأعلى تكلفة',
+        ultra: 'أعلى مستوى في AgentX، بحدود النموذج'
+      },
+      defaultMark: 'افتراضي',
+      scaleStart: 'أسرع',
+      scaleEnd: 'أعمق',
+      fast: 'أولوية السرعة',
+      fastMode: 'أولوية السرعة',
+      fastHint: 'ردود أسرع بسعر أعلى',
       updateFailed: 'فشل تحديث خيار النموذج',
-      fastFailed: 'فشل تحديث الوضع السريع'
+      fastFailed: 'فشل تحديث أولوية السرعة'
     },
     gatewayMenu: {
       gateway: 'البوابة',

@@ -297,6 +297,22 @@
   --ui-scrollbar-thumb-overlay-hover: var(--gray-600);
 }
 
+/* Menus sit on --bg-raised, which in dark IS gray-850 — the same rung as
+   --bg-hover, so a hovered or keyboard-highlighted row painted nothing at all.
+   Inside the floating list surfaces the row states step one rung up instead
+   (hover 800, selected 750), keeping hover < selected as on the page. */
+:root.dark[data-agentx-theme='quiet']
+  :is(
+    [data-slot='dropdown-menu-content'],
+    [data-slot='dropdown-menu-sub-content'],
+    [data-slot='context-menu-content'],
+    [data-slot='context-menu-sub-content'],
+    [data-slot='select-content']
+  ) {
+  --bg-hover: var(--gray-800);
+  --bg-selected: var(--gray-750);
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    High-contrast mode (spec §10: `forced-colors: active` must lose neither
    edges nor focus). The OS forces box-shadow to none, and every elevation

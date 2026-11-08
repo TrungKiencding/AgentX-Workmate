@@ -214,11 +214,13 @@ export {
   type SidebarNavTint
 } from '@/app/routes'
 /** THE model catalog menu — the same searchable, provider-grouped, family-
- *  collapsing picker the chat composer uses, including the per-row
- *  thinking/effort/fast submenu. Drive it with a `ModelMenuController`: the
- *  menu renders and navigates, your controller decides what a selection MEANS
- *  (write to a session, hold a per-task override, …). Never fork it — a copy
- *  drifts from the composer the first time either side changes. */
+ *  collapsing picker the chat composer uses, including the inline
+ *  thinking-level dial and fast switch for the selected model. Drive it with
+ *  a `ModelMenuController`: the menu renders and navigates, your controller
+ *  decides what a selection MEANS (write to a session, hold a per-task
+ *  override, …) and, via `options`, which settings the surface can carry.
+ *  Never fork it — a copy drifts from the composer the first time either side
+ *  changes. */
 export {
   ModelCatalogMenu,
   type ModelChoice,
