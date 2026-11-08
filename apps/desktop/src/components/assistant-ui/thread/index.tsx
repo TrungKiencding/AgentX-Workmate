@@ -8,7 +8,6 @@ import { ThreadTimeline } from '@/components/assistant-ui/thread/timeline'
 import { type RestoreMessageTarget } from '@/components/assistant-ui/thread/types'
 import { UserEditComposer } from '@/components/assistant-ui/thread/user-edit-composer'
 import { UserMessage } from '@/components/assistant-ui/thread/user-message'
-import { Intro, type IntroProps } from '@/components/chat/intro'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
 import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
@@ -18,7 +17,6 @@ interface ThreadProps {
   clampToComposer?: boolean
   cwd?: string | null
   gateway?: HermesGateway | null
-  intro?: IntroProps
   /** 'session' overlays the centered spinner while a routed session hydrates.
    *  The awaiting-a-response state needs no prop: while the session is busy
    *  with no reply yet, the runtime synthesizes a running placeholder message
@@ -44,7 +42,6 @@ export const Thread = memo(function Thread({
   clampToComposer = false,
   cwd = null,
   gateway = null,
-  intro,
   loading,
   onBranchInNewChat,
   onCancel,
@@ -142,12 +139,6 @@ export const Thread = memo(function Thread({
     [hasBranchInNewChat, hasCancel, hasDismissError, hasRestoreToMessage, readOnly, requestRestoreConfirm]
   )
 
-  const emptyPlaceholder = intro ? (
-    <div className="flex min-h-0 w-full flex-col items-center justify-center pt-[var(--composer-measured-height)]">
-      <Intro {...intro} />
-    </div>
-  ) : undefined
-
   // Stable element identity, for the same reason the component map above is
   // memoized: this is a prop of the memo'd ThreadMessageList, so a fresh
   // element every render defeats the bail-out and drags the whole transcript
@@ -160,7 +151,6 @@ export const Thread = memo(function Thread({
       <ThreadMessageList
         clampToComposer={clampToComposer}
         components={messageComponents}
-        emptyPlaceholder={emptyPlaceholder}
         loadingIndicator={loadingIndicator}
         sessionKey={sessionKey}
       />

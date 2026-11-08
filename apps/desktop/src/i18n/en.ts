@@ -2726,7 +2726,7 @@ export const en: Translations = {
     placeholderReconnecting: 'Reconnecting to AgentX…',
     placeholderReadOnly: 'Read-only mode — requests to AI are turned off',
     placeholderFollowUp: 'Send follow-up',
-    newSessionPlaceholders: ['What do you need today?'],
+    newSessionPlaceholders: ['Work with AgentX'],
     newSessionPlaceholdersRepo: ['Ask about the code or hand over a task…'],
     followUpPlaceholders: [
       'Send a follow-up',
@@ -3850,39 +3850,7 @@ export const en: Translations = {
       greetingMorning: name => (name ? `Good morning, ${name}` : 'Good morning'),
       greetingAfternoon: name => (name ? `Good afternoon, ${name}` : 'Good afternoon'),
       greetingEvening: name => (name ? `Good evening, ${name}` : 'Good evening'),
-      bodyVariants: [
-        'Ask a question, paste an error, or point me at a folder. I read documents and code, run tools, and help you get the work done.',
-        'Describe the task in your own words: summarise a document, draft an email, fix a piece of code. I pick the right tools and check in before risky steps.',
-        'Drop in a file, a spreadsheet, or a rough idea. I investigate, suggest next steps, and keep everything reversible.',
-        "Search the repo, edit files, run tests, open PRs. Tell me the goal and I'll handle the mechanical parts.",
-        "From a weekly report to a project plan: type a task or a question. I remember the session, cite my sources, and stop to ask when I'm unsure."
-      ],
-      quickStart: 'Quick start',
-      resume: title => `Resume “${title}”`,
-      starterExplainLabel: 'Explain this code folder',
-      starterExplainPrompt: 'Explain what this code folder does and how the code is organised.',
-      starterPlanLabel: 'Plan a change',
-      starterPlanPrompt:
-        'I want to make a change. Ask me what you need to know, then propose a plan before writing code.',
-      starterExplainFolderLabel: 'Explain this folder',
-      starterExplainFolderPrompt: 'Explain what is in the current working folder and how it is organised.',
-      starterSummarizeLabel: 'Summarise a document',
-      starterSummarizePrompt:
-        'I want to summarise a document. Ask me for the file or the text, then give me the key points and anything I should act on.',
-      starterDraftLabel: 'Draft an email',
-      starterDraftPrompt:
-        'Help me draft an email. Ask me who it is for, what it needs to say, and the tone, then write a version I can send.',
-      starterPlanWeekLabel: 'Plan my week',
-      starterPlanWeekPrompt:
-        'Help me plan this week. Ask me what is on my plate and the deadlines, then lay it out day by day with the most important work first.',
-      starterExplainDesc: 'What the code here does and how it is laid out',
-      starterExplainFolderDesc: 'What is in this folder',
-      starterPlanDesc: 'Ask first, then propose an approach',
-      starterPlanWeekDesc: 'Lay the week out day by day',
-      starterSummarizeDesc: 'Pull the key points from a file or a passage',
-      starterDraftDesc: 'From a few notes to something you can send',
-      resumeDesc: 'Pick up your latest chat',
-      projectDesc: 'Start in this project’s folder'
+      headlines: ['What would you like to do today?', 'Where would you like to start?', 'How can I help?']
     },
     thread: {
       loadingSession: 'Loading chat',

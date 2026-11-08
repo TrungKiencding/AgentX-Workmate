@@ -1211,7 +1211,7 @@ export function ChatBar({
             <div className="relative w-full rounded-[inherit]">
               <div
                 className={cn(
-                  'group/composer-surface relative z-4 isolate grid grid-rows-[auto_1fr] overflow-hidden rounded-[inherit] border',
+                  'group/composer-surface relative z-4 isolate grid grid-cols-1 grid-rows-[auto_1fr] overflow-hidden rounded-[inherit] border',
                   COMPOSER_DROP_FADE_CLASS,
                   dragActive && COMPOSER_DROP_ACTIVE_CLASS
                 )}

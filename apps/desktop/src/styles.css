@@ -615,9 +615,6 @@
     --switch-md-track-width: 2rem; /* 32px — spec §5.6, one step up */
     --switch-md-track-height: 1.125rem; /* 18px */
     --switch-md-thumb: 0.875rem; /* 14px */
-    /* Home-surface task cards: the minimum height of one card, so a row of
-       cards with and without a description still lines up. */
-    --intro-card-min-height: 3.5rem; /* 56px */
     /* Page list rows — the Tiện ích lists (skills / tools / connections) read
        at 48px so a two-line row is a comfortable target, and the Artifact
        library's file rows at 52px so a 24px type icon plus two lines still
@@ -1895,21 +1892,6 @@ code {
   padding-inline: 1.5rem;
 }
 
-/* `safe center`: centred while it fits; once a short window can't hold the
-   greeting, the line and the cards, the block starts at the top and the
-   overflow goes DOWN into the scroller — never split above the top edge and
-   under the composer, which left the first line cut and the last card hidden. */
-[data-slot='aui_intro'] {
-  align-items: center;
-  justify-content: safe center;
-  padding-bottom: var(--composer-measured-height);
-  text-align: center;
-}
-
-[data-slot='aui_intro'] > div {
-  max-width: min(var(--composer-width), 82vw);
-}
-
 /* The chat backdrop on an empty chat — blank paper that a click lets ink into:
    a ring of small monospaced characters spreads from the pointer, swells into
    the accent and fades back to nothing (see components/glyph-field). The host
@@ -1943,37 +1925,51 @@ code {
   color: var(--dt-primary);
 }
 
-/* The one "human" moment in the product: a serif line that greets the person
-   by name, a muted line that says what this surface is for, and a row of ways
-   in. The composer stays the only CTA — this block leads the eye down to it.
-   Roman, never italic, never all-caps. */
-.intro-greeting {
-  margin: 0;
-  font-weight: 400;
+/* ── Home surface ─────────────────────────────────────────────────────────
+   The empty chat, in the platform's own manner: a small greeting beside the
+   time of day, one large serif line, and — on a new chat — a short inset list
+   of the folders it can work in.
+   The composer stays docked at the foot; the block sits centred in the room
+   above it (`safe center`: once a short window can't hold it, it starts at
+   the top and scrolls rather than splitting under the titlebar). The block
+   itself lets clicks through to the glyph field; only the list takes them. */
+.home-surface {
+  position: absolute;
+  inset: 0 0 var(--composer-measured-height);
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: safe center;
+  overflow-y: auto;
+  padding: 2rem 1.5rem 1.5rem;
+  pointer-events: none;
 }
 
-.intro-body {
-  max-width: 38rem;
-  margin: 0.5rem auto 0;
-  color: var(--ui-text-tertiary);
-  font-size: var(--text-md);
-  line-height: 1.5;
+.home-hero {
+  display: flex;
+  width: min(100%, 25rem);
+  flex-direction: column;
+  align-items: center;
+  animation: home-hero-in var(--dur-long) var(--ease-out) both;
 }
 
-/* The glyph field runs right up to the words, so the greeting and its line sit
-   in a pool of clear paper: the surface colour, spread and blurred past the
-   text block. Painted rather than cut out of the field, it moves with the text
-   (the entrance, a reflow, a card arriving) and needs no measuring; with the
-   backdrop off it is the surface on the surface, i.e. nothing. */
-.intro-head {
+.home-hero-head {
   position: relative;
   z-index: 0;
-  width: fit-content;
+  display: flex;
   max-width: 100%;
-  margin-inline: auto;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  text-align: center;
 }
 
-.intro-head::before {
+/* The glyph field runs right up to the words, so they sit in a pool of clear
+   paper: the surface colour, spread and blurred past the text block. Painted
+   rather than cut out of the field, it moves with the text and needs no
+   measuring; with the backdrop off it is the surface on the surface. */
+.home-hero-head::before {
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -1981,50 +1977,152 @@ code {
   background: var(--ui-chat-surface-background);
   box-shadow: 0 0 2.5rem 2rem var(--ui-chat-surface-background);
   content: '';
-  pointer-events: none;
 }
 
-/* The intro measures its own column (tiles can be narrow while the window is
-   wide), so the card grid folds on the surface's width, not the viewport's. */
-[data-slot='aui_intro'] {
-  container-type: inline-size;
+.home-hero-greeting {
+  display: inline-flex;
+  max-width: 100%;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0;
+  color: var(--ui-text-secondary);
+  font-size: var(--text-base);
+  line-height: var(--text-base--line-height);
 }
 
-/* The ways in: at most four task cards on a two-column grid. A card that
-   names something of yours (resume) spans both columns and leads — see
-   introCardSpan() — so the row is asymmetric on purpose. Below ~30rem the
-   grid folds to one column and every card is the same width. */
-.intro-cards {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.5rem;
+/* The time of day in its own colour, as the platform's widgets draw it — the
+   sun at its morning yellow, the sunset orange, the night indigo. */
+.home-hero-time {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.home-hero-time[data-time='morning'] {
+  color: var(--tint-yellow);
+}
+
+.home-hero-time[data-time='afternoon'] {
+  color: var(--tint-orange);
+}
+
+.home-hero-time[data-time='evening'] {
+  color: var(--tint-indigo);
+}
+
+/* Newsreader at 400 on the 30px display rung. Roman, never italic, never
+   all-caps; balanced so a long translation breaks into even halves. */
+.home-hero-headline {
+  max-width: 100%;
+  margin: 0;
+  color: var(--ui-text-primary);
+  font-size: var(--text-3xl);
+  font-weight: 400;
+  line-height: var(--text-3xl--line-height);
+}
+
+.home-workspaces {
   width: 100%;
-  max-width: 40rem;
-  margin: 1.25rem auto 0;
+  margin-top: 2.25rem;
+  pointer-events: auto;
 }
 
-.intro-cards > [data-span='2'] {
-  grid-column: span 2;
+/* An inset grouped list: one sheet, hairline rows, the platform's 44px row. */
+.home-workspaces-sheet {
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-card);
+  background: var(--bg-app);
+  box-shadow: var(--elevation-home-card);
 }
 
-@container (max-width: 30rem) {
-  .intro-cards {
-    grid-template-columns: minmax(0, 1fr);
+.home-workspace-row {
+  position: relative;
+  display: grid;
+  width: 100%;
+  height: 2.75rem;
+  grid-template-columns: auto minmax(0, 1fr) 1rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding-inline: 0.75rem;
+  color: var(--ui-text-primary);
+  font-size: var(--text-base);
+  text-align: left;
+  transition: background-color var(--dur-micro) var(--ease-out);
+}
+
+.home-workspace-row:hover {
+  background: var(--bg-hover);
+}
+
+.home-workspace-row:active {
+  background: var(--bg-pressed);
+}
+
+/* Inside a clipped sheet an outer ring would be cut off: draw it inset. */
+.home-workspace-row:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+/* Separators start where the text does, past the tile — and step aside for
+   a highlighted row, so the highlight reads as one clean band. The first
+   system row ("no folder") gets a full-width rule: a new group. */
+.home-workspace-row + .home-workspace-row::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 3rem;
+  height: 1px;
+  background: var(--border-default);
+  content: '';
+}
+
+.home-workspace-row[data-system]::before {
+  left: 0;
+}
+
+.home-workspace-row:hover::before,
+.home-workspace-row:hover + .home-workspace-row::before {
+  opacity: 0;
+}
+
+.home-workspace-row[data-action] {
+  color: var(--accent);
+}
+
+.home-workspace-check {
+  width: 1rem;
+  height: 1rem;
+  color: var(--accent);
+}
+
+.home-workspaces-footnote {
+  margin: 0.5rem 0.75rem 0;
+  color: var(--ui-text-tertiary);
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+}
+
+/* Every arrival fades in — a new chat, or back from a conversation. */
+@keyframes home-hero-in {
+  from {
+    opacity: 0;
   }
 
-  .intro-cards > [data-span='2'] {
-    grid-column: auto;
+  to {
+    opacity: 1;
   }
 }
 
 /* ONE entrance, once per app launch (the component owns the `data-entrance`
-   latch). Greeting rises over --dur-long; the body and each chip follow on a
-   40ms step at --dur-short, so the last chip has settled by 400ms. Motion
-   follows state — nothing here delays the surface being usable. */
+   latch): the greeting, the headline and the list rise into place on a 60ms
+   step. Motion follows state —
+   nothing here delays the surface being usable. */
 @keyframes intro-enter {
   from {
     opacity: 0;
-    transform: translateY(0.5rem);
+    transform: translateY(0.375rem);
   }
 
   to {
@@ -2033,29 +2131,15 @@ code {
   }
 }
 
-@keyframes intro-enter-fade {
-  from {
-    opacity: 0;
-  }
-
-  to {
-    opacity: 1;
-  }
-}
-
-[data-slot='aui_intro'][data-entrance] .intro-enter {
-  animation: intro-enter var(--dur-short) var(--ease-out) both;
-  animation-delay: calc(var(--intro-step, 0) * 40ms);
-}
-
-[data-slot='aui_intro'][data-entrance] .intro-greeting {
-  animation-duration: var(--dur-long);
+.home-hero[data-entrance] .intro-enter {
+  animation: intro-enter var(--dur-long) var(--ease-out) both;
+  animation-delay: calc(var(--intro-step, 0) * 60ms);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  [data-slot='aui_intro'][data-entrance] .intro-enter,
-  [data-slot='aui_intro'][data-entrance] .intro-greeting {
-    animation: intro-enter-fade 150ms linear both;
+  .home-hero,
+  .home-hero[data-entrance] .intro-enter {
+    animation: home-hero-in 150ms linear both;
     animation-delay: 0ms;
   }
 }

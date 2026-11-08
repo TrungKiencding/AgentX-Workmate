@@ -745,3 +745,25 @@ the project list, and chats without a folder sat under a "Home" bucket.
 - Repos nobody has chatted in stay out of the sidebar (they are offered in
   the picker); ⌘K lists projects as "New chat in …".
 
+## 2026-11 — the home surface is a greeting and a folder list
+
+**Before.** An empty chat opened on a serif greeting, a two-line paragraph
+explaining what the app does, and up to four task cards ("Resume …",
+"Summarise a document", "Draft an email" …) — the eye went down the page past
+four choices before reaching the one thing to do. In a git folder a long
+working-directory path widened the composer's grid past its own edge, so
+wrapped text, the diff count and the send button were cut off on the right.
+
+**After.**
+- **A greeting, one plain question, and where to work.** The time of day
+  beside the greeting (sun, sunset, moon in their own colours), one serif
+  headline a person would actually say ("Hôm nay bạn muốn làm gì?"), and on a
+  new chat an inset grouped list of the three most recent folders, "no folder"
+  and "Open another folder…", checked where the chat will run. The cards, the
+  paragraph and `Button variant="card"` are gone; the composer stays docked.
+- **No greeting flash under the first send.** Re-homing a fresh draft onto the
+  session its send created left that session's slice empty for ~60ms, which
+  read as "empty chat" and flashed the greeting back up; that route now
+  carries `STARTED_BY_SEND_ROUTE_STATE`.
+- The composer's grid has one `minmax(0,1fr)` column, so the coding strip's
+  path truncates instead of widening it.

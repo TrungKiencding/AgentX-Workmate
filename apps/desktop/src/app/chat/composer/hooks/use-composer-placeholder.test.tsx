@@ -41,12 +41,12 @@ describe('useComposerPlaceholder', () => {
   it('re-picks the new-chat starter in display.language once the config loads', async () => {
     const { result } = renderPlaceholder({ sessionId: null })
 
-    expect(result.current.placeholder).toBe('Bạn cần làm gì hôm nay?')
+    expect(result.current.placeholder).toBe('Làm việc cùng AgentX')
 
     await waitFor(() => expect(result.current.i18n.isLoadingConfig).toBe(false))
 
     expect(result.current.i18n.locale).toBe('en')
-    expect(result.current.placeholder).toBe('What do you need today?')
+    expect(result.current.placeholder).toBe('Work with AgentX')
   })
 
   it('re-picks a conversation follow-up in the language chosen in settings', async () => {
@@ -66,13 +66,13 @@ describe('useComposerPlaceholder', () => {
     const { rerender, result } = renderPlaceholder({ sessionId: null })
 
     await waitFor(() => expect(result.current.i18n.isLoadingConfig).toBe(false))
-    expect(result.current.placeholder).toBe('What do you need today?')
+    expect(result.current.placeholder).toBe('Work with AgentX')
 
     rerender({ sessionId: 'session-1' })
-    expect(result.current.placeholder).toBe('What do you need today?')
+    expect(result.current.placeholder).toBe('Work with AgentX')
 
     await act(() => result.current.i18n.setLocale('vi'))
-    expect(result.current.placeholder).toBe('Bạn cần làm gì hôm nay?')
+    expect(result.current.placeholder).toBe('Làm việc cùng AgentX')
 
     // Moving to a genuinely different conversation still re-rolls, to a follow-up.
     rerender({ sessionId: 'session-2' })
@@ -83,7 +83,7 @@ describe('useComposerPlaceholder', () => {
     const { rerender, result } = renderPlaceholder({ codingContext: false, sessionId: null })
 
     await waitFor(() => expect(result.current.i18n.isLoadingConfig).toBe(false))
-    expect(result.current.placeholder).toBe('What do you need today?')
+    expect(result.current.placeholder).toBe('Work with AgentX')
 
     rerender({ codingContext: true, sessionId: null })
     expect(result.current.placeholder).toBe('Ask about the code or hand over a task…')

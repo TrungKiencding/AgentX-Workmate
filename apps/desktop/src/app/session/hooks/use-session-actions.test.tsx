@@ -44,7 +44,7 @@ import {
 import { $sessionTiles } from '@/store/session-states'
 import type { RpcEvent } from '@/types/hermes'
 
-import { NEW_CHAT_ROUTE, sessionRoute } from '../../routes'
+import { NEW_CHAT_ROUTE, sessionRoute, STARTED_BY_SEND_ROUTE_STATE } from '../../routes'
 import type { ClientSessionState } from '../../types'
 
 import { _submitInFlight } from './use-prompt-actions/utils'
@@ -446,6 +446,38 @@ describe('startFreshSessionDraft', () => {
     expect(navigate).not.toHaveBeenCalled()
     expect($currentCwd.get()).toBe('')
     expect($newChatWorkspaceTarget.get()).toBeNull()
+  })
+})
+
+describe('createBackendSessionForSend route', () => {
+  afterEach(() => cleanup())
+
+  it('re-homes onto the created chat marked as started by a send', async () => {
+    const navigate = vi.fn()
+
+    const requestGateway = vi.fn(async (method: string) =>
+      method === 'session.create'
+        ? ({ session_id: 'runtime-sent', stored_session_id: 'stored-sent' } as never)
+        : ({} as never)
+    )
+
+    setCurrentCwd('')
+    setNewChatWorkspaceTarget(undefined)
+
+    let handle: HarnessHandle | null = null
+    render(<Harness navigate={navigate} onReady={h => (handle = h)} requestGateway={requestGateway} />)
+    await waitFor(() => expect(handle).not.toBeNull())
+
+    await act(async () => {
+      await handle!.createBackendSessionForSend('hello')
+    })
+
+    // The home surface reads this state to keep its greeting off the chat
+    // during the beat its slice is still empty.
+    expect(navigate).toHaveBeenCalledWith(sessionRoute('stored-sent'), {
+      replace: true,
+      state: STARTED_BY_SEND_ROUTE_STATE
+    })
   })
 })
 

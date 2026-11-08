@@ -3,14 +3,14 @@ import { useStore } from '@nanostores/react'
 import type { ReadableAtom } from 'nanostores'
 import type * as React from 'react'
 import { memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { useLocation } from 'react-router'
 
 import { PlatformAvatar } from '@/app/messaging/platform-icon'
-import { openSession } from '@/app/open-session'
 import type { SubmitTextOptions } from '@/app/session/hooks/use-prompt-actions/utils'
 import type { ModelSelection } from '@/app/shell/model-menu-panel'
 import { Thread } from '@/components/assistant-ui/thread'
 import { TranscriptWindowProvider } from '@/components/assistant-ui/thread/transcript-window'
+import { Intro } from '@/components/chat/intro'
 import { COMPOSER_HEART_CONFIG, HeartField } from '@/components/chat/vibe-hearts'
 import { GlyphField } from '@/components/glyph-field'
 import { usePaneVisible } from '@/components/pane-shell/pane-visibility'
@@ -49,7 +49,7 @@ import {
 } from '@/store/session'
 import { isSecondaryWindow, isWatchWindow } from '@/store/windows'
 
-import { primaryRouteSelectedSessionId, routeSessionId } from '../routes'
+import { primaryRouteSelectedSessionId, routeSessionId, routeStartedBySend } from '../routes'
 import { titlebarHeaderBaseClass, titlebarHeaderTitleClass } from '../shell/titlebar'
 
 import { ChatDropOverlay } from './chat-drop-overlay'
@@ -59,6 +59,7 @@ import { requestComposerInsert } from './composer/focus'
 import { droppedFileInlineRefs } from './composer/inline-refs'
 import { useComposerScope } from './composer/scope'
 import type { ChatBarState } from './composer/types'
+import { HomeWorkspaces } from './home-workspaces'
 import { useChatModelCatalog } from './hooks/use-chat-model-catalog'
 import { type DroppedFile, partitionDroppedFiles } from './hooks/use-composer-actions'
 import { type DragKind, useFileDropZone } from './hooks/use-file-drop-zone'
@@ -355,7 +356,6 @@ export const ChatView = memo(function ChatView({
   onDismissError
 }: ChatViewProps) {
   const location = useLocation()
-  const navigate = useNavigate()
   const { t } = useI18n()
   const paneVisible = usePaneVisible()
   // The view this surface renders: the primary route-driven session (global
@@ -465,15 +465,6 @@ export const ChatView = memo(function ChatView({
   // waiting for the resume effect (which paints a frame later) to clear them.
   const routeSessionMismatch = isRoutedSessionView && routedSessionId !== selectedSessionId
 
-  // Resuming from the home surface's quick-start row. Navigation belongs to
-  // the route, not to the presentational intro — the chip is handed the action.
-  const resumeFromIntro = useCallback(
-    (sessionId: string) => {
-      openSession(sessionId, navigate)
-    },
-    [navigate]
-  )
-
   // Session is still loading if the route references a session we haven't
   // resumed yet. Once `activeSessionId` is set (runtime has resumed), the
   // session exists — even if it has zero messages (a brand-new routed
@@ -496,8 +487,11 @@ export const ChatView = memo(function ChatView({
   // project" lands here — as long as it has actually resumed, nothing is
   // running, and the route isn't mid-swap. Display only: the runtime, the
   // resume path and the composer are untouched, and the once-per-launch
-  // entrance latch lives in the Intro itself. The compact new-session pop-out
-  // skips it — that's a scratch window, not the full-height empty state.
+  // entrance latch lives in the Intro itself. The chat a draft's first send
+  // just created is never one of them, though its slice is empty for a beat
+  // after the route re-homes onto it (STARTED_BY_SEND_ROUTE_STATE). The
+  // compact new-session pop-out skips it — that's a scratch window, not the
+  // full-height empty state.
   const freshDraftEmpty = freshDraftReady && !isRoutedSessionView && !selectedSessionId && !activeSessionId
 
   const routedChatEmpty =
@@ -507,7 +501,8 @@ export const ChatView = memo(function ChatView({
     !resumeExhausted &&
     Boolean(activeSessionId) &&
     !busy &&
-    !awaitingResponse
+    !awaitingResponse &&
+    !routeStartedBySend(location.state)
 
   const showIntro =
     !isMessagingConversation &&
@@ -659,11 +654,6 @@ export const ChatView = memo(function ChatView({
             clampToComposer={showChatBar}
             cwd={currentCwd}
             gateway={gateway}
-            intro={
-              showIntro
-                ? { onResumeSession: resumeFromIntro, personality: introPersonality, seed: introSeed }
-                : undefined
-            }
             loading={loadingSession ? 'session' : undefined}
             onBranchInNewChat={onBranchInNewChat}
             onCancel={haltRun}
@@ -673,6 +663,16 @@ export const ChatView = memo(function ChatView({
             sessionId={activeSessionId}
             sessionKey={threadKey}
           />
+          {/* The home surface: centred in the room the transcript would use,
+              above the docked composer. Only the fresh draft can still pick
+              its folder, so only it gets the folder card. */}
+          {showIntro && (
+            <div className="home-surface" data-slot="home-surface">
+              <Intro personality={introPersonality} seed={introSeed}>
+                {freshDraftEmpty && <HomeWorkspaces cwd={currentCwd} />}
+              </Intro>
+            </div>
+          )}
           {resumeExhausted && routedSessionId && (
             <div className="absolute inset-0 z-10 grid place-items-center bg-(--ui-chat-surface-background) px-8 py-10">
               <ErrorState

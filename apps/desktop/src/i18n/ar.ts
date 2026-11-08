@@ -2651,7 +2651,7 @@ export const ar = defineLocale({
     placeholderReconnecting: 'جار إعادة الاتصال...',
     placeholderReadOnly: 'وضع القراءة فقط — لا يمكن إرسال طلبات إلى الذكاء الاصطناعي',
     placeholderFollowUp: 'اكتب متابعة...',
-    newSessionPlaceholders: ['ماذا تحتاج اليوم؟'],
+    newSessionPlaceholders: ['اعمل مع AgentX'],
     newSessionPlaceholdersRepo: ['اسأل عن الكود أو أسند مهمة…'],
     followUpPlaceholders: ['اكتب متابعة...', 'أضف توجيها...', 'اسأل سؤالا آخر...'],
     startVoice: 'بدء الصوت',
@@ -3643,49 +3643,7 @@ export const ar = defineLocale({
       greetingMorning: name => (name ? `صباح الخير، ${name}` : 'صباح الخير'),
       greetingAfternoon: name => (name ? `نهارك سعيد، ${name}` : 'نهارك سعيد'),
       greetingEvening: name => (name ? `مساء الخير، ${name}` : 'مساء الخير'),
-      bodyVariants: [
-        'اطرح سؤالًا، أو الصق خطأ، أو أرشدني إلى مجلد. أقرأ المستندات والكود، وأشغّل الأدوات، وأساعدك على إنهاء العمل.',
-        'صف المهمة بكلماتك: لخّص مستندًا، أو صِغ بريدًا، أو أصلح جزءًا من الكود. أختار الأداة المناسبة وأستأذنك قبل الخطوات الحساسة.',
-        'أضف ملفًا أو جدولًا أو فكرة أولية. أبحث، وأقترح الخطوة التالية، وأبقي كل شيء قابلًا للتراجع.',
-        'ابحث في مجلد الكود، وعدّل الملفات، وشغّل الاختبارات. حدّد الهدف وسأتولى الجزء الآلي.',
-        'من التقرير الأسبوعي إلى خطة المشروع: اكتب مهمة أو سؤالًا. أتذكر المحادثة، وأذكر المصادر، وأتوقف لأسأل عندما لا أكون متأكدًا.'
-      ],
-      quickStart: 'ابدأ بسرعة',
-      resume: title => `متابعة «${title}»`,
-      starterExplainLabel: 'اشرح مجلد الكود هذا',
-      starterExplainPrompt: 'اشرح ما يفعله مجلد الكود هذا وكيف نُظّم الكود فيه.',
-      starterPlanLabel: 'خطّط لتغيير',
-      starterPlanPrompt: 'أريد إجراء تغيير. اسألني عما تحتاج معرفته، ثم اقترح خطة قبل كتابة الكود.',
-      starterExplainFolderLabel: 'اشرح هذا المجلد',
-      starterExplainFolderPrompt: 'اشرح ما يوجد في مجلد العمل الحالي وكيف هو منظم.',
-      starterSummarizeLabel: 'لخّص مستندًا',
-      starterSummarizePrompt:
-        'أريد تلخيص مستند. اطلب مني الملف أو النص، ثم أعطني النقاط الرئيسية وما يجب أن أتصرف بشأنه.',
-      starterDraftLabel: 'صِغ بريدًا إلكترونيًا',
-      starterDraftPrompt:
-        'ساعدني في صياغة بريد إلكتروني. اسألني لمن هو، وماذا يجب أن يقول، وبأي نبرة، ثم اكتب نسخة يمكنني إرسالها.',
-      starterPlanWeekLabel: 'خطّط لأسبوعي',
-      starterPlanWeekPrompt:
-        'ساعدني في التخطيط لهذا الأسبوع. اسألني عن مهامي ومواعيدها النهائية، ثم رتّبها يومًا بيوم مع أهم الأعمال أولًا.',
-      starterExplainDesc: 'ماذا يفعل الكود هنا وكيف هو مرتّب',
-      starterExplainFolderDesc: 'ما الذي يوجد في هذا المجلد',
-      starterPlanDesc: 'اسأل أولًا، ثم اقترح طريقة العمل',
-      starterPlanWeekDesc: 'رتّب الأسبوع يومًا بيوم',
-      starterSummarizeDesc: 'استخرج النقاط الرئيسية من ملف أو فقرة',
-      starterDraftDesc: 'من بضع ملاحظات إلى بريد جاهز للإرسال',
-      resumeDesc: 'تابع آخر محادثة لك',
-      projectDesc: 'ابدأ في مجلد هذا المشروع'
-    },
-    toolRun: {
-      categories: {
-        delegate: { past: 'فوّض', present: 'يفوّض', noun: count => (count === 1 ? 'مهمة' : 'مهام') },
-        edit: { past: 'عدّل', present: 'يعدّل', noun: count => (count === 1 ? 'ملف' : 'ملفات') },
-        explore: { past: 'استكشف', present: 'يستكشف', noun: count => (count === 1 ? 'ملف' : 'ملفات') },
-        other: { past: 'استخدم', present: 'يستخدم', noun: count => (count === 1 ? 'أداة' : 'أدوات') },
-        run: { past: 'شغّل', present: 'يشغّل', noun: count => (count === 1 ? 'أمر' : 'أوامر') }
-      },
-      compacting: 'جارٍ تلخيص المحادثة',
-      searchResults: 'نتائج البحث'
+      headlines: ['ماذا تريد أن تفعل اليوم؟', 'من أين تريد أن تبدأ؟', 'كيف يمكنني مساعدتك؟']
     },
     thread: {
       loadingSession: 'جارٍ تحميل المحادثة…',

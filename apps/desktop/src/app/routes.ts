@@ -198,6 +198,19 @@ export function sessionRoute(sessionId: string): string {
   return `${SESSION_ROUTE_PREFIX}${encodeURIComponent(sessionId)}`
 }
 
+/**
+ * History state of the route a fresh draft's first send re-homes onto. That
+ * session was created BY a message, so it is never an empty chat — not even
+ * for the frames between the route switching to its (still empty) slice and
+ * the optimistic message landing in it, which used to flash the home greeting
+ * back up under the send.
+ */
+export const STARTED_BY_SEND_ROUTE_STATE = { startedBySend: true } as const
+
+export function routeStartedBySend(state: unknown): boolean {
+  return typeof state === 'object' && state !== null && (state as { startedBySend?: unknown }).startedBySend === true
+}
+
 export function appViewForPath(pathname: string): AppView {
   const path = routePathname(pathname)
 
