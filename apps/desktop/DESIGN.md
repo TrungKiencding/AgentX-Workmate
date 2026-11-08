@@ -103,7 +103,8 @@ what most primitives write; either is fine, a hex is not.
 
 1. **Flat, not boxed.** No card-in-card, no divider borders inside a panel.
    Group with whitespace and a single hairline, never nested rounded boxes.
-   Cards and the composer carry a border, never a shadow.
+   Cards and the composer carry a border, never a shadow — with one
+   exception: the folder list on the home surface (§ Chat).
 2. **Elevation is a level, not a look.** Something that floats takes elevation
    level 1 (`shadow-md`) or level 2 (`shadow-nous`), and each level brings its
    own 1px edge. No per-surface shadows, no glows, no backdrop blur.
@@ -290,6 +291,7 @@ takes one of two levels, and each level's shadow carries its own 1px
 | Level | Token | Recipe | Surfaces |
 | --- | --- | --- | --- |
 | 0 | `shadow-xs` and `shadow-composer` = `none`; `shadow-sm` = the 1px ring alone | — | page, cards, the composer, the active segment |
+| home | `--elevation-home-card` | a 1px contact shadow under a soft `0 10px 28px -14px` drop (stronger in dark); no ring — the sheet keeps its hairline | the home surface's folder list, the only object on an empty page, and nothing else |
 | 1 | `shadow-md` = `--elevation-1` | `0 4px 16px rgb(0 0 0 / .08)` + ring | popover, menu, select, toast, the "Mới nhất" pill, composer drawers, the thread timeline popover |
 | 2 | `shadow-nous` = `shadow-lg` = `--elevation-2` | `0 16px 48px rgb(0 0 0 / .16)` + ring | dialog, command palette, session switcher, route overlays |
 
@@ -505,7 +507,6 @@ belong to the home greeting and onboarding.
 - `--switch-md-track-width/-height` (32×18px) · `--switch-md-thumb` (14px) —
   the Switch (spec §5.6's 28×16 / 12, one step up). `--status-pill-h-sm/-md`
   (24/30px; `md` rides `--control-h-sm`) — the `StatusPill`.
-  `--intro-card-min-height` (56px) — the home surface's task card.
 - **Radius rungs are fixed** (spec §3.8) — `--radius-scalar` is gone, and the
   `rounded-*` utilities no longer ride it:
 
@@ -546,7 +547,6 @@ overrides.
 | `text` | boxless secondary ink, underline on hover | inline "Huỷ", "Xoá bộ lọc" |
 | `textStrong` | medium primary ink, underlined in `--border-strong` | the actionable word in a row ("Đổi", "Mở log") |
 | `chip` | the spec's **inline control**: 14px (`text-sm`) secondary label + 18px glyph, a `--bg-hover` frame only on hover; pair with `size="chip"` | context-bar items, in-row pickers, "Thêm" |
-| `card` | an **interactive card**: a flat `--bg-app` tile under `--border-default`; hover firms the edge to `--border-strong`, pressed `--bg-subtle` — never a lift, never a shadow; pair with `size="card"` | the home surface's ways in |
 
 **Sizes** ride the `--control-h-*` ramp. Labels are 15px (`text-base`), 14px
 at `sm`, weight 500 only at `lg`:
@@ -561,7 +561,6 @@ at `sm`, weight 500 only at `lg`:
 | `inline` | flush, zero box | buttons inside a heading/sentence |
 | `micro` | flush, 13px text, 14px glyph | status-stack headers, table footers, the toast stack's row |
 | `chip` | 28px, 8px padding | the `chip` variant's size |
-| `card` | padding-driven (12×16), 56px floor, left-aligned, 18px glyph | the `card` variant's size |
 | `icon` / `icon-sm` / `icon-lg` | 36/30/44px square; 20/18/20px glyph | icon-only actions |
 | `icon-xs` | 24px square, 14px glyph | inline icon actions and pane-header chrome (`ICON_BUTTON` in `master-detail.tsx` pairs with it) — the hit-target floor |
 | `icon-titlebar` | 24px (`--titlebar-control-size` / `-height`) | the titlebar's own controls — off the ramp, never under the 24px floor |
@@ -1119,49 +1118,51 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 
 ## Chat, tools & boot surfaces
 
-- **The home surface is the empty transcript** (`components/chat/intro.tsx`):
-  a greeting at the 30px display rung in the Newsreader serif
-  (`font-serif-display text-3xl`, regular weight, `tracking-display`,
-  `text-balance`), one muted
-  16px line (`text-md`, the catalog's `bodyVariants`; `intro-copy.jsonl` only
-  in English with a personality) capped at 38rem, then **at most four task
-  cards** (`Button variant="card"` on the `.intro-cards` two-column grid,
-  capped at 40rem): an 18px Tabler glyph before a 15px medium title over a
-  14px one-line description. The composer stays the only CTA; the block leads
-  the eye down to it. **The block centres with `justify-content: safe
-  center`**: centred while it fits, and once a short window can't hold the
-  greeting, the line and the cards it starts at the top and overflows *down*
-  into the scroller — never split above the top edge and under the composer,
-  which cut the first line and hid the last card. It fronts
-  the fresh draft *and* a routed conversation that exists but has no messages
-  yet (a new chat in a project) once it has resumed and nothing is running.
-  - Every card is grounded in something the app already knows — the session you
-    were last in, a project you already added — plus four fixed starters whose
-    title, description *and* prompt live in the locale files. **The starters
-    take the folder's side**: inside a git repository the coding pair leads
-    (explain the code folder, plan a change), anywhere else the office pair
-    leads (summarise a document, draft an email, then plan the week and
-    explain "this folder"). The same `repoStatusForCwd` probe the composer's
-    coding rail uses decides it, so cards, placeholder and branch strip never
-    disagree. **Nothing here invents a suggestion**: no recent session, no
-    resume card. The selection rule is the pure `introChipSources()` in
-    `intro-chips.ts` and the wide slot is `introCardSpan()` (the resume card
-    spans both columns and leads — the row is asymmetric on purpose), so both
-    are testable without a renderer; `Intro` only renders. Clicking a card runs
-    one *existing* action (`openSession`, `requestStartWorkSession`,
-    `requestComposerInsert`) — the home surface owns no navigation of its own.
+- **The home surface is a greeting and a folder list** (`components/chat/intro.tsx`,
+  `app/chat/home-workspaces.tsx`), centred in the room above the docked
+  composer (`.home-surface`, `justify-content: safe center` — once a short
+  window can't hold it, it starts at the top and scrolls instead of splitting
+  under the titlebar). Top to bottom:
+  - a 15px greeting in secondary ink beside the time of day, drawn the way the
+    platform's widgets mark it — the sun in `--tint-yellow` until noon, the
+    sunset in `--tint-orange` until six, the moon in `--tint-indigo` after;
+  - one **headline** at the 30px display rung in the Newsreader serif
+    (`font-serif-display text-3xl`, regular weight, `tracking-display`,
+    `text-balance`): a plain question a person would ask ("Hôm nay bạn muốn
+    làm gì?") from the catalog's `assistant.intro.headlines` (`intro-copy.jsonl`
+    only in English with a personality), the same line while a chat stays
+    empty, a new one per chat. Keep these short and literal — no slogans;
+  - on a fresh draft only (the one moment its folder can still be chosen), an
+    **inset grouped list** of where the chat will work: the three most recent
+    folders in the composer picker's own order (`pickableWorkspaces`), the
+    chosen one always among them with an accent check, then "no folder" under
+    a full-width rule and an accent "Open another folder…" row. 44px rows, a
+    24px soft `IconTile` per folder, separators inset to the text that step
+    aside for a highlighted row, one sheet with `--elevation-home-card`, and a
+    13px footnote under it. Row choice is the pure `homeWorkspaceRows()`; a
+    folder no project names takes the last slot, so picking a listed one never
+    slides the rows under the pointer. It is the same choice as the context
+    bar under the composer, which stays.
+  No suggestion cards, no paragraph about the product: the composer is the
+  call to action.
+  - It fronts the fresh draft *and* a routed conversation that exists but has
+    no messages yet (a new chat in a project) once it has resumed and nothing
+    is running — but never the chat a draft's first send just created, whose
+    slice is empty for a beat after the route re-homes onto it
+    (`STARTED_BY_SEND_ROUTE_STATE` in `routes.ts`); that beat used to flash the
+    greeting back up under the send.
   - The greeting names the user only when the account store actually has a
     display name, and then in full, as the account spells it ("Chào buổi
     chiều, Lê Trung Kiên"). No name, no comma, no invented placeholder.
   - **One entrance, once per app launch** — not once per empty state. The
-    greeting rises at `--dur-long`; the body and each card follow on a 40ms
-    step at `--dur-short`, all settled by 400ms. `prefers-reduced-motion`
+    greeting, the headline and the folder list rise 6px at `--dur-long` on a
+    60ms step; every later arrival is a plain fade. `prefers-reduced-motion`
     collapses it to an instant crossfade — the app-wide reduced-motion
     kill-switch (0.01ms, top of `styles.css`) outranks the intro's own fade —
     with no stagger and no transform.
   - **The ground is the glyph field** (`components/glyph-field`, the model in
     `lib/glyph-field.ts`). At rest it is blank paper. A primary click anywhere
-    on the chat surface — the greeting, a card, the composer — sends a ring of
+    on the chat surface — the greeting, the composer — sends a ring of
     10px JetBrains Mono characters out from the pointer: each one flashes in
     the accent as the edge reaches it and settles into a grey trace, brightest
     where the ring crosses the strokes of a hidden drawing (one per app
@@ -1171,10 +1172,9 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
     bitmap and no animation frame. It grounds the empty chat only — characters
     behind a transcript compete with the text — and reduced motion gets blank
     paper. Off is Settings → Appearance → Nền cuộc trò chuyện.
-  - The greeting and its line sit in a pool of clear paper (`.intro-head`: the
-    surface colour, spread and blurred past the text block), and the cards are
-    opaque flat tiles on the page colour, so the field runs right up to the
-    words but never under them.
+  - The greeting and headline sit in a pool of clear paper (`.home-hero::before`:
+    the surface colour, spread and blurred past the text block), so the field
+    runs right up to the words but never under them.
 - The transcript and composer are built on `@assistant-ui/react`. Extend the
   existing components under `src/components/assistant-ui` and
   `src/app/chat/composer`; do not fork a second markdown, message, tool-call, or
@@ -1393,7 +1393,10 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 - **Model catalogs follow the account's grant.** Chat refreshes on opening,
   returning to the window, reconnecting, and once a minute while visible;
   opening a model picker also refreshes. An idle send checks again before
-  creating or using its conversation. Preserve a model that is still granted;
+  creating or using its conversation — as the submit pipeline's `beforeSend`
+  gate, so the user's message and the waiting row are already on screen while
+  the check runs; a refusal (or Stop pressed meanwhile) takes the message down
+  and hands the words back to the composer. Preserve a model that is still granted;
   replace a retired one between turns through the existing session switch,
   without discarding history. Keep cached rows during connectivity failures
   and retain Refresh Models as recovery. Refreshing never rotates the account key.
@@ -1545,7 +1548,7 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 | Anything leaving | the property it entered on | the paired `--dur-*-exit` · `--ease-in` |
 | Reaction / particle / reorder settle | `transform`, `opacity` | `--dur-long-exit` · `--spring-pop` (no overshoot) |
 | Page-tab underline sliding (`PageTabs`) | `transform`, `opacity` (its width snaps) | `--dur-short` · `--ease-in-out`; reduced motion → a jump |
-| Card hover (`Button variant="card"`, `StoreCard`) | `border-color` (`--border-default` → `--border-strong`) | `--dur-micro` · `--ease-out` — never translate, never scale, never a shadow |
+| Card hover (`StoreCard`) | `border-color` (`--border-default` → `--border-strong`) | `--dur-micro` · `--ease-out` — never translate, never scale, never a shadow |
 | Skeleton (`animate-skeleton`) | `opacity` 1 ↔ 0.6 | 1.6s · `--ease-in-out`, starting after 300ms; reduced motion → shown, still |
 | Glyph field ring (canvas, see § Chat) | each character's alpha and tint, every frame while a ring flashes; the trace's fade as the canvas's `opacity` | edge eases out over 2.4s; flash 420ms and trace 3.2s time constants (`lib/glyph-field.ts`); reduced motion → no ring |
 | Thinking row (`TypingDots` + the label's `shimmer`) | each dot's `opacity` and `translateY` (2px), a beat apart; the shimmer band | 1.4s lap (`--thinking-lap-ms`), `--ease-in-out`, dots 15% apart; shimmer 1.8s with a 0.4s rest; unfocused, hidden or reduced motion → still dots, plain label |
@@ -1755,7 +1758,8 @@ The detailed state contract lives in the scoped
 - [ ] No `className` overriding a primitive's padding / size / radius / chrome?
 - [ ] One primary (`--bg-inverse`) action per context, rightmost, never the
       accent or the brand?
-- [ ] Cards and the composer carry a border, not a shadow; a floating surface
+- [ ] Cards and the composer carry a border, not a shadow (the home folder
+      list's lift is the one exception); a floating surface
       takes `shadow-md` (level 1) or `shadow-nous` (level 2) and nothing else?
 - [ ] Hierarchy by ink, not by size — nothing under 13px, no uppercase, no
       tracking?

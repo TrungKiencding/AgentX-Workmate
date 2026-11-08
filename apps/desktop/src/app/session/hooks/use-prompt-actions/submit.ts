@@ -454,6 +454,20 @@ export function useSubmitPrompt(deps: SubmitPromptDeps) {
         scope.setMessages(current => [...current, buildUserMessage()])
       }
 
+      // The caller's gate (the model-catalog check) runs with the message
+      // already showing, and before any resume, create or submit — a refusal
+      // here has nothing on the gateway to undo. The waiting row offers Stop
+      // meanwhile; a Stop that lands during the gate ends this send too, or
+      // the words would go out behind a turn the user already stopped.
+      if (options?.beforeSend) {
+        const allowed = await options.beforeSend()
+        const stoppedMeanwhile = targetIsCurrentView() && !busyRef.current
+
+        if (!allowed || stoppedMeanwhile) {
+          return abortForSessionSwitch(sessionId)
+        }
+      }
+
       if (!sessionId && routedStoredSessionId && routedSessionNeedsResume) {
         // The URL still names a durable conversation, but a profile
         // swap/reconnect left its volatile session binding incomplete or

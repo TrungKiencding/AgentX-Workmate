@@ -93,6 +93,28 @@ export function workspaceLabel(projects: readonly SidebarProjectTree[], cwd: str
   return pathLeaf(cwd) || cwd
 }
 
+/**
+ * The folders a new chat can be pointed at: the projects people chat in, most
+ * recent activity first, then the repos the disk scan found that no chat has
+ * used yet. Shared by this picker and the home surface's folder card, so the
+ * two always offer the same folders in the same order.
+ */
+export function pickableWorkspaces(projects: readonly SidebarProjectTree[]): {
+  discovered: SidebarProjectTree[]
+  recent: SidebarProjectTree[]
+} {
+  const byActivity = [...projects]
+    .filter(project => !project.isNoProject && projectRootCwd(project))
+    .sort((a, b) => (b.lastActive ?? 0) - (a.lastActive ?? 0) || a.label.localeCompare(b.label))
+
+  const listed = new Set(sidebarProjects(byActivity).map(project => project.id))
+
+  return {
+    discovered: byActivity.filter(project => !listed.has(project.id)),
+    recent: byActivity.filter(project => listed.has(project.id))
+  }
+}
+
 interface WorkspacePickerProps {
   /** The folder this composer's chat works in ('' = none). */
   cwd: string
@@ -140,17 +162,7 @@ function DraftWorkspacePicker({
   const copy = t.composer.workspace
   const [open, setOpen] = useState(false)
 
-  // Projects people chat in first (most recent activity), then the repos the
-  // disk scan found that no chat has used yet.
-  const [recent, discovered] = useMemo(() => {
-    const byActivity = [...projects]
-      .filter(project => !project.isNoProject && projectRootCwd(project))
-      .sort((a, b) => (b.lastActive ?? 0) - (a.lastActive ?? 0) || a.label.localeCompare(b.label))
-
-    const listed = new Set(sidebarProjects(byActivity).map(project => project.id))
-
-    return [byActivity.filter(project => listed.has(project.id)), byActivity.filter(project => !listed.has(project.id))]
-  }, [projects])
+  const { discovered, recent } = useMemo(() => pickableWorkspaces(projects), [projects])
 
   const current = projectForCwd(projects, cwd)
 
@@ -170,7 +182,10 @@ function DraftWorkspacePicker({
         onSelect={() => choose(root)}
         value={`project:${project.id}`}
       >
-        <span className="grid size-4.5 shrink-0 place-items-center" style={project.color ? { color: project.color } : undefined}>
+        <span
+          className="grid size-4.5 shrink-0 place-items-center"
+          style={project.color ? { color: project.color } : undefined}
+        >
           <Codicon name={project.icon || 'folder'} size="0.9375rem" />
         </span>
         <span className="flex min-w-0 flex-1 flex-col">

@@ -86,44 +86,44 @@ export function useChatModelCatalog({
   })
 
   const submitWithCurrentModel = useCallback(
-    async (value: string, options?: SubmitTextOptions) => {
+    (value: string, options?: SubmitTextOptions) => {
       // Queuing/steering an active turn keeps its existing semantics. Idle
       // sends join an ongoing refresh and validate before creating a session.
       if (view.$busy.get() || !onSelectModel) {
         return onSubmit(value, options)
       }
 
+      // The check is handed to the submit pipeline as its `beforeSend` gate
+      // rather than awaited here: the pipeline puts the message on screen
+      // first, so the catalog round trip (seconds against a slow gateway) is
+      // spent under the user's own words and the waiting row, not under an
+      // emptied composer. It is bound to the conversation and profile the
+      // send started in — a move to another while it runs refuses the send.
       const sessionId = view.$runtimeId.get()
       const storedId = view.$storedId.get()
-      const fresh = await refreshForAction()
 
-      if (
-        view.$runtimeId.get() !== sessionId ||
-        view.$storedId.get() !== storedId ||
-        $activeGatewayProfile.get() !== profile
-      ) {
-        return false
+      const stillHere = () =>
+        view.$runtimeId.get() === sessionId &&
+        view.$storedId.get() === storedId &&
+        $activeGatewayProfile.get() === profile
+
+      const beforeSend = async (): Promise<boolean> => {
+        const fresh = await refreshForAction()
+
+        if (!stillHere()) {
+          return false
+        }
+
+        // Offline discovery preserves the last working selection. The normal
+        // send path still owns connectivity errors and leaves the draft intact.
+        if (!fresh.isError && !(await synchronizeModel(fresh.data))) {
+          return false
+        }
+
+        return stillHere()
       }
 
-      if (view.$busy.get()) {
-        return onSubmit(value, options)
-      }
-
-      // Offline discovery preserves the last working selection. The normal
-      // send path still owns connectivity errors and leaves the draft intact.
-      if (!fresh.isError && !(await synchronizeModel(fresh.data))) {
-        return false
-      }
-
-      if (
-        view.$runtimeId.get() !== sessionId ||
-        view.$storedId.get() !== storedId ||
-        $activeGatewayProfile.get() !== profile
-      ) {
-        return false
-      }
-
-      return onSubmit(value, options)
+      return onSubmit(value, { ...options, beforeSend })
     },
     [profile, onSelectModel, onSubmit, refreshForAction, synchronizeModel, view]
   )

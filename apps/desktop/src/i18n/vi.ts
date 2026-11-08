@@ -2975,7 +2975,7 @@ export const vi: Translations = {
     placeholderReconnecting: 'Đang kết nối lại AgentX…',
     placeholderReadOnly: 'Chế độ chỉ xem — không gửi được yêu cầu tới AI',
     placeholderFollowUp: 'Gửi tiếp',
-    newSessionPlaceholders: ['Bạn cần làm gì hôm nay?'],
+    newSessionPlaceholders: ['Làm việc cùng AgentX'],
     newSessionPlaceholdersRepo: ['Hỏi về mã nguồn hoặc giao việc…'],
     followUpPlaceholders: [
       'Gửi tiếp một tin',
@@ -4088,39 +4088,7 @@ export const vi: Translations = {
       greetingMorning: name => (name ? `Chào buổi sáng, ${name}` : 'Chào buổi sáng'),
       greetingAfternoon: name => (name ? `Chào buổi chiều, ${name}` : 'Chào buổi chiều'),
       greetingEvening: name => (name ? `Chào buổi tối, ${name}` : 'Chào buổi tối'),
-      bodyVariants: [
-        'Hỏi một câu, dán một lỗi hoặc chỉ một thư mục. AgentX đọc tài liệu lẫn code, chạy công cụ và cùng bạn đưa việc về đích.',
-        'Mô tả việc cần làm theo cách của bạn: tóm tắt tài liệu, soạn email, sửa một đoạn code. AgentX chọn đúng công cụ và hỏi lại trước những bước rủi ro.',
-        'Thả vào một tệp, một bảng số liệu hay một ý tưởng còn thô. AgentX tìm hiểu, gợi ý bước tiếp theo và giữ mọi thứ có thể hoàn tác.',
-        'Tìm trong thư mục mã nguồn, sửa tệp, chạy kiểm thử. Bạn nêu mục tiêu, phần việc máy móc để AgentX lo.',
-        'Từ báo cáo tuần tới kế hoạch dự án: gõ một việc hay một câu hỏi. AgentX nhớ cuộc trò chuyện, dẫn nguồn rõ ràng và dừng lại hỏi khi chưa chắc.'
-      ],
-      quickStart: 'Bắt đầu nhanh',
-      resume: title => `Tiếp tục “${title}”`,
-      starterExplainLabel: 'Giải thích thư mục mã nguồn này',
-      starterExplainPrompt: 'Giải thích thư mục mã nguồn này làm gì và mã được tổ chức ra sao.',
-      starterPlanLabel: 'Lên kế hoạch cho một thay đổi',
-      starterPlanPrompt:
-        'Tôi muốn thực hiện một thay đổi. Hãy hỏi tôi những gì bạn cần biết, rồi đề xuất kế hoạch trước khi viết code.',
-      starterExplainFolderLabel: 'Giải thích thư mục này',
-      starterExplainFolderPrompt: 'Giải thích thư mục làm việc hiện tại chứa gì và được tổ chức ra sao.',
-      starterSummarizeLabel: 'Tóm tắt một tài liệu',
-      starterSummarizePrompt:
-        'Tôi muốn tóm tắt một tài liệu. Hãy hỏi tôi tệp hoặc nội dung, rồi nêu các ý chính và những việc tôi cần làm.',
-      starterDraftLabel: 'Soạn một email',
-      starterDraftPrompt:
-        'Giúp tôi soạn một email. Hãy hỏi tôi người nhận, nội dung cần nói và giọng điệu, rồi viết bản tôi có thể gửi ngay.',
-      starterPlanWeekLabel: 'Lập kế hoạch tuần',
-      starterPlanWeekPrompt:
-        'Giúp tôi lập kế hoạch cho tuần này. Hãy hỏi tôi những việc đang có và thời hạn, rồi xếp thành lịch theo ngày, việc quan trọng nhất lên trước.',
-      starterExplainDesc: 'Mã ở đây làm gì và sắp xếp ra sao',
-      starterExplainFolderDesc: 'Trong thư mục này có gì',
-      starterPlanDesc: 'Hỏi rõ trước, rồi mới đề xuất cách làm',
-      starterPlanWeekDesc: 'Xếp việc trong tuần theo từng ngày',
-      starterSummarizeDesc: 'Rút ý chính từ một tệp hay đoạn văn',
-      starterDraftDesc: 'Từ vài ý thành bản gửi được ngay',
-      resumeDesc: 'Mở lại cuộc trò chuyện gần nhất của bạn',
-      projectDesc: 'Bắt đầu trong thư mục của dự án này'
+      headlines: ['Hôm nay bạn muốn làm gì?', 'Bạn muốn bắt đầu từ đâu?', 'Mình giúp gì được cho bạn?']
     },
     thread: {
       loadingSession: 'Đang tải cuộc trò chuyện',

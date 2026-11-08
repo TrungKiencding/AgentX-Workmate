@@ -1,34 +1,14 @@
-import { useStore } from '@nanostores/react'
-import { useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 
-import { requestComposerFocus, requestComposerInsert } from '@/app/chat/composer/focus'
-import { Button } from '@/components/ui/button'
 import { useKeycloakAccount } from '@/hooks/use-keycloak-account'
 import { useI18n } from '@/i18n/context'
-import { Clock, FileText, FolderOpen, Mail, NotebookTabs, Search } from '@/lib/icons'
-import { $repoStatus } from '@/store/coding-status'
-import { $desktopOnboarding } from '@/store/onboarding'
-import { $profileScope, $showAllProfiles } from '@/store/profile'
-import { $projectTree, requestStartWorkSession } from '@/store/projects'
-import { $currentCwd, $sessions } from '@/store/session'
+import { Moon, Sun, Sunset } from '@/lib/icons'
 
-import {
-  introCardSpan,
-  type IntroChipSource,
-  introChipSources,
-  introGreetingSlot,
-  type IntroStarterId
-} from './intro-chips'
-import { resolveIntroBody } from './intro-copy'
+import { introGreetingSlot, resolveIntroHeadline } from './intro-copy'
 
 export type IntroProps = {
-  /**
-   * Open an existing session. Navigation belongs to the route that owns this
-   * surface, so the resume card is handed the action rather than reaching for
-   * a router from inside a presentational component. Without it the card is
-   * simply not offered.
-   */
-  onResumeSession?: (sessionId: string) => void
+  /** What follows the headline — the home surface's folder card. */
+  children?: ReactNode
   personality?: string
   seed?: number
 }
@@ -38,187 +18,64 @@ export type IntroProps = {
 // exactly the lifetime we want — it resets when the window reloads.
 let entrancePlayed = false
 
-/** Card glyphs. Tabler only, one per kind — see design.md § Iconography. */
-const CARD_ICON = {
-  draft: Mail,
-  explain: Search,
-  plan: NotebookTabs,
-  project: FolderOpen,
-  resume: Clock,
-  summarize: FileText
-} as const
+// Which headline a launch starts on. `seed` (bumped per new chat) walks the
+// pool from here, so the line is the same for as long as a chat stays empty —
+// across re-mounts — and new per chat.
+const LAUNCH_SEED = Math.floor(Math.random() * 100000)
 
-/** What a card says: a title (a verb), one line under it, and the prompt it inserts. */
-type CardCopy = { desc: string; prompt?: string; title: string }
+/** The time of day, drawn the way the platform's own widgets mark it. */
+const SLOT_ICON = { afternoon: Sunset, evening: Moon, morning: Sun } as const
 
-export function Intro({ onResumeSession, personality, seed }: IntroProps) {
-  const [mountSeed] = useState(() => Math.floor(Math.random() * 100000))
+/**
+ * The empty chat's hero: a small greeting that names the person beside the
+ * time of day, one large serif line that asks what to do, then whatever the
+ * surface hands it (the folder card). Nothing in the text is clickable — the
+ * composer stays the call to action. See DESIGN.md § Home surface.
+ */
+export function Intro({ children, personality, seed }: IntroProps) {
   const [playEntrance] = useState(() => !entrancePlayed)
   const { locale, t } = useI18n()
-
   const account = useKeycloakAccount()
-  const onboarding = useStore($desktopOnboarding)
-  const sessions = useStore($sessions)
-  const projects = useStore($projectTree)
-  const profileScope = useStore($profileScope)
-  const showAllProfiles = useStore($showAllProfiles)
-  const activeCwd = useStore($currentCwd)
-  // Null off a repository — the composer's coding rail runs the same probe, so
-  // the cards and the branch strip never disagree about what the folder is.
-  const cwdIsRepo = useStore($repoStatus) !== null
 
   useEffect(() => {
     entrancePlayed = true
   }, [])
 
-  // Onboarding owns the screen while it's up; and `configured === null` just
-  // means the first runtime check hasn't answered yet, so hold the row back
-  // rather than flash cards and pull them away.
-  const onboardingActive = onboarding.manual || onboarding.configured !== true
-
-  const chips = useMemo(
-    () =>
-      introChipSources({
-        activeCwd,
-        canResume: Boolean(onResumeSession),
-        cwdIsRepo,
-        onboardingActive,
-        profileScope,
-        projects,
-        sessions,
-        showAllProfiles
-      }),
-    [activeCwd, cwdIsRepo, onResumeSession, onboardingActive, profileScope, projects, sessions, showAllProfiles]
-  )
-
   const intro = t.assistant.intro
 
-  const body = resolveIntroBody({
-    bodyVariants: intro.bodyVariants,
+  const headline = resolveIntroHeadline({
+    headlines: intro.headlines,
     locale,
     personality,
-    seed: mountSeed + (seed ?? 0)
+    seed: LAUNCH_SEED + (seed ?? 0)
   })
 
-  const name = account.displayName?.trim() ?? ''
+  const name = account.displayName?.trim() || undefined
   const slot = introGreetingSlot(new Date().getHours())
+  const SlotIcon = SLOT_ICON[slot]
 
   const greeting =
     slot === 'morning'
-      ? intro.greetingMorning(name || undefined)
+      ? intro.greetingMorning(name)
       : slot === 'afternoon'
-        ? intro.greetingAfternoon(name || undefined)
-        : intro.greetingEvening(name || undefined)
-
-  // Title, description and prompt per starter. The starters take the folder's
-  // side: inside a repository "explain" speaks of the code folder and "plan"
-  // plans a change; anywhere else "explain" speaks of the folder and "plan"
-  // plans the week — the same folder probe the card order uses.
-  const starterCopy = (starter: IntroStarterId): CardCopy => {
-    switch (starter) {
-      case 'explain':
-        return cwdIsRepo
-          ? { desc: intro.starterExplainDesc, prompt: intro.starterExplainPrompt, title: intro.starterExplainLabel }
-          : {
-              desc: intro.starterExplainFolderDesc,
-              prompt: intro.starterExplainFolderPrompt,
-              title: intro.starterExplainFolderLabel
-            }
-
-      case 'plan':
-        return cwdIsRepo
-          ? { desc: intro.starterPlanDesc, prompt: intro.starterPlanPrompt, title: intro.starterPlanLabel }
-          : { desc: intro.starterPlanWeekDesc, prompt: intro.starterPlanWeekPrompt, title: intro.starterPlanWeekLabel }
-
-      case 'summarize':
-        return {
-          desc: intro.starterSummarizeDesc,
-          prompt: intro.starterSummarizePrompt,
-          title: intro.starterSummarizeLabel
-        }
-
-      case 'draft':
-        return { desc: intro.starterDraftDesc, prompt: intro.starterDraftPrompt, title: intro.starterDraftLabel }
-    }
-  }
-
-  const cardCopy = (chip: IntroChipSource): CardCopy => {
-    if (chip.kind === 'resume') {
-      return { desc: intro.resumeDesc, title: intro.resume(chip.title) }
-    }
-
-    if (chip.kind === 'project') {
-      return { desc: intro.projectDesc, title: t.sidebar.newSessionIn(chip.label) }
-    }
-
-    return starterCopy(chip.starter)
-  }
-
-  // One existing action per card — nothing here is a new navigation path.
-  const runChip = (chip: IntroChipSource) => {
-    if (chip.kind === 'resume') {
-      onResumeSession?.(chip.sessionId)
-
-      return
-    }
-
-    if (chip.kind === 'project') {
-      requestStartWorkSession(chip.path)
-
-      return
-    }
-
-    requestComposerInsert(starterCopy(chip.starter).prompt ?? '', { target: 'main' })
-    requestComposerFocus('main')
-  }
+        ? intro.greetingAfternoon(name)
+        : intro.greetingEvening(name)
 
   return (
-    <div
-      className="pointer-events-none flex w-full min-w-0 flex-col items-center justify-[safe_center] px-0.5 py-6 text-center text-muted-foreground sm:px-6 lg:px-8"
-      data-entrance={playEntrance ? '' : undefined}
-      data-slot="aui_intro"
-    >
-      <div className="w-full min-w-0">
-        <div className="intro-head">
-          <h2 className="intro-greeting intro-enter font-serif-display text-3xl tracking-display text-balance text-(--text-primary)">
-            {greeting}
-          </h2>
-
-          <p className="intro-body intro-enter" style={{ '--intro-step': 1 } as React.CSSProperties}>
-            {body}
-          </p>
-        </div>
-
-        {chips.length > 0 && (
-          <div aria-label={intro.quickStart} className="intro-cards pointer-events-auto" role="group">
-            {chips.map((chip, index) => {
-              const Icon = CARD_ICON[chip.kind === 'starter' ? chip.starter : chip.kind]
-              const copy = cardCopy(chip)
-
-              return (
-                <Button
-                  // A sheet of its own over the glyph field: the elevated fill
-                  // at rest, a step toward the ink on hover — never the
-                  // see-through hover tint, which would let the characters in.
-                  className="intro-enter bg-(--ui-bg-elevated) hover:bg-[color-mix(in_srgb,var(--ui-bg-elevated)_96%,var(--ui-base))]"
-                  data-span={introCardSpan(chip)}
-                  key={chip.kind === 'starter' ? chip.starter : `${chip.kind}:${copy.title}`}
-                  onClick={() => runChip(chip)}
-                  size="card"
-                  style={{ '--intro-step': index + 2 } as React.CSSProperties}
-                  variant="card"
-                >
-                  <Icon className="text-(--ui-text-tertiary)" />
-                  <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-                    <span className="truncate text-base font-medium">{copy.title}</span>
-                    <span className="truncate text-sm font-normal text-(--ui-text-tertiary)">{copy.desc}</span>
-                  </span>
-                </Button>
-              )
-            })}
-          </div>
-        )}
+    <div className="home-hero" data-entrance={playEntrance ? '' : undefined} data-slot="aui_intro">
+      <div className="home-hero-head">
+        <p className="home-hero-greeting intro-enter">
+          <SlotIcon aria-hidden="true" className="home-hero-time" data-time={slot} />
+          <span className="min-w-0 truncate">{greeting}</span>
+        </p>
+        <h2
+          className="home-hero-headline intro-enter font-serif-display tracking-display text-balance"
+          style={{ '--intro-step': 1 } as React.CSSProperties}
+        >
+          {headline}
+        </h2>
       </div>
+      {children}
     </div>
   )
 }

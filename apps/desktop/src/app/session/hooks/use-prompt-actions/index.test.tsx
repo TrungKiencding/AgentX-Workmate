@@ -4715,3 +4715,158 @@ describe('usePromptActions stale-closure session routing', () => {
     }
   })
 })
+
+// The chat surface's model-catalog check rides the submit as `beforeSend`. It
+// can take seconds against a slow gateway, so the pipeline runs it with the
+// user's message already on screen — and nothing may leave until it agrees.
+describe('usePromptActions beforeSend gate', () => {
+  beforeEach(() => {
+    setMessages([])
+    $busy.set(false)
+  })
+
+  afterEach(() => {
+    cleanup()
+    vi.restoreAllMocks()
+    setMessages([])
+    $busy.set(false)
+  })
+
+  const userTexts = () =>
+    $messages
+      .get()
+      .filter(message => message.role === 'user')
+      .map(message => message.parts.map(part => ('text' in part ? part.text : '')).join(''))
+
+  function gate() {
+    let open!: (allowed: boolean) => void
+
+    const beforeSend = vi.fn(
+      () =>
+        new Promise<boolean>(resolve => {
+          open = resolve
+        })
+    )
+
+    return { beforeSend, open: (allowed: boolean) => open(allowed) }
+  }
+
+  async function renderDraft() {
+    const requestGateway = vi.fn(async () => ({}) as never)
+    const activeSessionIdRef: MutableRefObject<string | null> = { current: null }
+
+    // Like the real create: the surface re-homes onto the chat it minted.
+    const createBackendSessionForSend = vi.fn(async () => {
+      activeSessionIdRef.current = RUNTIME_SESSION_ID
+
+      return RUNTIME_SESSION_ID
+    })
+
+    let handle: HarnessHandle | null = null
+
+    await actRender(
+      <Harness
+        activeSessionId={null}
+        activeSessionIdRef={activeSessionIdRef}
+        createBackendSessionForSend={createBackendSessionForSend}
+        onReady={h => (handle = h)}
+        refreshSessions={async () => undefined}
+        requestGateway={requestGateway}
+        storedSessionId={null}
+      />
+    )
+
+    return { createBackendSessionForSend, handle: handle!, requestGateway }
+  }
+
+  it('shows the message and the waiting state while the gate runs, and creates nothing until it opens', async () => {
+    const { createBackendSessionForSend, handle, requestGateway } = await renderDraft()
+    const { beforeSend, open } = gate()
+
+    const sent = handle.submitTextRaw('hello there', { beforeSend })
+
+    await waitFor(() => expect(beforeSend).toHaveBeenCalledTimes(1))
+    expect(userTexts()).toEqual(['hello there'])
+    expect($busy.get()).toBe(true)
+    expect(createBackendSessionForSend).not.toHaveBeenCalled()
+    expect(requestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything(), expect.anything())
+
+    await act(async () => {
+      open(true)
+      expect(await sent).toBe(true)
+    })
+
+    expect(createBackendSessionForSend).toHaveBeenCalledTimes(1)
+    expect(requestGateway).toHaveBeenCalledWith(
+      'prompt.submit',
+      expect.objectContaining({ session_id: RUNTIME_SESSION_ID, text: 'hello there' }),
+      1_800_000
+    )
+  })
+
+  it('takes the message back down and sends nothing when the gate refuses', async () => {
+    const { createBackendSessionForSend, handle, requestGateway } = await renderDraft()
+
+    // False hands the words back to the composer (use-composer-submit restores
+    // the draft on a false resolve).
+    expect(await handle.submitText('refused', { beforeSend: async () => false })).toBe(false)
+
+    expect(userTexts()).toEqual([])
+    expect($busy.get()).toBe(false)
+    expect(createBackendSessionForSend).not.toHaveBeenCalled()
+    expect(requestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything(), expect.anything())
+  })
+
+  it('ends the send when Stop lands while the gate runs, even if the gate then opens', async () => {
+    const { createBackendSessionForSend, handle, requestGateway } = await renderDraft()
+    const { beforeSend, open } = gate()
+
+    const sent = handle.submitTextRaw('never mind', { beforeSend })
+    await waitFor(() => expect(beforeSend).toHaveBeenCalledTimes(1))
+
+    await handle.cancelRun()
+
+    await act(async () => {
+      open(true)
+      expect(await sent).toBe(false)
+    })
+
+    expect(userTexts()).toEqual([])
+    expect(createBackendSessionForSend).not.toHaveBeenCalled()
+    expect(requestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything(), expect.anything())
+  })
+
+  it('takes the message out of an existing chat and leaves it idle when the gate refuses', async () => {
+    const seeds: Record<string, unknown>[] = []
+    const requestGateway = vi.fn(async () => ({}) as never)
+    let handle: HarnessHandle | null = null
+
+    await actRender(
+      <Harness
+        onReady={h => (handle = h)}
+        onSeedState={s => seeds.push(s)}
+        refreshSessions={async () => undefined}
+        requestGateway={requestGateway}
+      />
+    )
+
+    expect(await handle!.submitText('into the chat', { beforeSend: async () => false })).toBe(false)
+
+    const last = seeds.at(-1) as { busy: boolean; messages: { role: string }[] }
+    expect(last.busy).toBe(false)
+    expect(last.messages.filter(message => message.role === 'user')).toEqual([])
+    expect(requestGateway).not.toHaveBeenCalledWith('prompt.submit', expect.anything(), expect.anything())
+  })
+
+  it('gates a slash command before it runs, since it shows no message first', async () => {
+    const requestGateway = vi.fn(async () => ({}) as never)
+    let handle: HarnessHandle | null = null
+
+    await actRender(
+      <Harness onReady={h => (handle = h)} refreshSessions={async () => undefined} requestGateway={requestGateway} />
+    )
+
+    expect(await handle!.submitText('/compress', { beforeSend: async () => false })).toBe(false)
+    expect(requestGateway).not.toHaveBeenCalled()
+  })
+})

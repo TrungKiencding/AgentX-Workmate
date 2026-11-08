@@ -399,6 +399,14 @@ export interface SubmitTextOptions {
    *  body — model-facing scaffolding the UI must never render — so the slash
    *  dispatcher passes the invocation (`/work fix the leak`) here. */
   displayText?: string
+  /** A gate the send waits on before anything leaves for the gateway — the
+   *  chat surface's model-catalog check (useChatModelCatalog). The prompt
+   *  pipeline runs it AFTER the optimistic message and the waiting state are
+   *  on screen, so a slow check never looks like a dropped send; a slash
+   *  command, which has no optimistic message, runs it first. Resolving false
+   *  takes the message back down and returns the words to the composer
+   *  (the send resolves false). */
+  beforeSend?: () => Promise<boolean>
   fromQueue?: boolean
   /** Runtime session id to submit into. Queue drains pass this so a
    *  backgrounded/source session cannot be replaced by the current foreground

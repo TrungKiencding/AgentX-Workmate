@@ -3311,38 +3311,17 @@ export interface Translations {
       compacting: string
       searchResults: string
     }
-    /** The empty chat home surface — greeting + quick-start chips. */
+    /** The empty chat home surface — a greeting over one large line, both
+     *  sitting on top of the composer. Nothing in it is clickable. */
     intro: {
       greetingMorning: (name?: string) => string
       greetingAfternoon: (name?: string) => string
       greetingEvening: (name?: string) => string
-      /** The line under the greeting; one is picked per mount. English copy
-       *  flavoured per personality lives in intro-copy.jsonl — see intro-copy.ts. */
-      bodyVariants: readonly string[]
-      quickStart: string
-      resume: (title: string) => string
-      starterExplainLabel: string
-      starterExplainPrompt: string
-      starterPlanLabel: string
-      starterPlanPrompt: string
-      starterExplainFolderLabel: string
-      starterExplainFolderPrompt: string
-      starterSummarizeLabel: string
-      starterSummarizePrompt: string
-      starterDraftLabel: string
-      starterDraftPrompt: string
-      /** The office-context plan starter ("Plan my week"); `starterPlan*` is the coding one. */
-      starterPlanWeekLabel: string
-      starterPlanWeekPrompt: string
-      /** One-line descriptions under each task card on the home surface. */
-      starterExplainDesc: string
-      starterExplainFolderDesc: string
-      starterPlanDesc: string
-      starterPlanWeekDesc: string
-      starterSummarizeDesc: string
-      starterDraftDesc: string
-      resumeDesc: string
-      projectDesc: string
+      /** The large line over the composer; one is picked per mount. Keep each a
+       *  short question or invitation — it is a headline, not instructions.
+       *  English copy flavoured per personality lives in intro-copy.jsonl —
+       *  see intro-copy.ts. */
+      headlines: readonly string[]
     }
     thread: {
       loadingSession: string

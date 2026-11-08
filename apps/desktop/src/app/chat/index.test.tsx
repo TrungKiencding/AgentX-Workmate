@@ -58,6 +58,10 @@ vi.mock('@/lib/model-options', async importOriginal => ({
 vi.mock('./chat-drop-overlay', () => ({ ChatDropOverlay: () => null }))
 vi.mock('./chat-swap-overlay', () => ({ ChatSwapOverlay: () => null }))
 vi.mock('./composer', () => ({ ChatBar: () => <div data-testid="chat-bar" />, ChatBarFallback: () => null }))
+vi.mock('@/components/chat/intro', () => ({
+  Intro: ({ children }: { children?: React.ReactNode }) => <div data-testid="home-intro">{children}</div>
+}))
+vi.mock('./home-workspaces', () => ({ HomeWorkspaces: () => <div data-testid="home-workspaces" /> }))
 vi.mock('./hooks/use-file-drop-zone', () => ({
   useFileDropZone: () => ({ dragKind: null, dropHandlers: {} })
 }))
@@ -71,6 +75,7 @@ vi.mock('./sidebar/session-actions-menu', async () => {
 })
 
 const { ChatView } = await import('./index')
+const { STARTED_BY_SEND_ROUTE_STATE } = await import('../routes')
 
 function assistantMessage(id: string, text: string): ChatMessage {
   return {
@@ -328,7 +333,7 @@ describe('ChatView render isolation', () => {
     renderAt('/stored-1')
 
     expect(screen.getByTestId('glyph-field').dataset.active).toBe('false')
-    expect(lastThreadProps.current.intro).toBeUndefined()
+    expect(screen.queryByTestId('home-intro')).toBeNull()
     cleanup()
 
     // The fresh draft: the greeting fronts it, and the field is armed with it.
@@ -338,7 +343,61 @@ describe('ChatView render isolation', () => {
     $freshDraftReady.set(true)
     renderAt('/')
 
+    // The greeting, with the folder card: a fresh draft can still pick its folder.
     expect(screen.getByTestId('glyph-field').dataset.active).toBe('true')
-    expect(lastThreadProps.current.intro).toBeDefined()
+    expect(screen.getByTestId('home-intro')).toBeTruthy()
+    expect(screen.getByTestId('home-workspaces')).toBeTruthy()
+  })
+
+  // A draft's first send creates its chat and re-homes the route onto it; the
+  // new slice is empty for a beat before the optimistic message lands in it.
+  // That beat must not read as an empty chat — it flashed the greeting (and
+  // bounced the composer back to the centre) under the send.
+  it('keeps the greeting off the chat a send just created', () => {
+    const props = {
+      gateway: null,
+      onAddContextRef: vi.fn(),
+      onAddUrl: vi.fn(),
+      onAttachDroppedItems: vi.fn(),
+      onAttachImageBlob: vi.fn(),
+      onCancel: vi.fn(),
+      onDeleteSelectedSession: vi.fn(),
+      onEdit: vi.fn(),
+      onPasteClipboardImage: vi.fn(),
+      onPickFiles: vi.fn(),
+      onPickFolders: vi.fn(),
+      onPickImages: vi.fn(),
+      onReload: vi.fn(),
+      onRemoveAttachment: vi.fn(),
+      onRetryResume: vi.fn(),
+      onSteer: vi.fn(),
+      onSubmit: vi.fn(),
+      onThreadMessagesChange: vi.fn(),
+      onToggleSelectedPin: vi.fn()
+    }
+
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+    $messages.set([])
+
+    const renderAt = (entry: { pathname: string; state?: unknown }) =>
+      render(
+        <QueryClientProvider client={queryClient}>
+          <MemoryRouter initialEntries={[entry]}>
+            <ChatView {...props} />
+          </MemoryRouter>
+        </QueryClientProvider>
+      )
+
+    // A routed chat that really is empty (a new chat in a project): greeted,
+    // but its folder is settled — no folder card.
+    renderAt({ pathname: '/stored-1' })
+    expect(screen.getByTestId('home-intro')).toBeTruthy()
+    expect(screen.queryByTestId('home-workspaces')).toBeNull()
+    cleanup()
+
+    // The same empty slice, reached by the send's own re-home: not greeted.
+    renderAt({ pathname: '/stored-1', state: STARTED_BY_SEND_ROUTE_STATE })
+    expect(screen.getByTestId('glyph-field').dataset.active).toBe('false')
+    expect(screen.queryByTestId('home-intro')).toBeNull()
   })
 })

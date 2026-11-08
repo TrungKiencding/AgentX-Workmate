@@ -2696,7 +2696,7 @@ export const ja = defineLocale({
     placeholderReconnecting: 'AgentX に再接続中…',
     placeholderReadOnly: '閲覧専用モード — AI へのリクエストは送信できません',
     placeholderFollowUp: 'フォローアップを送信',
-    newSessionPlaceholders: ['今日は何をしましょうか？'],
+    newSessionPlaceholders: ['AgentX と一緒に作業'],
     newSessionPlaceholdersRepo: ['コードについて質問するか、仕事を任せてください…'],
     followUpPlaceholders: [
       'フォローアップを送信',
@@ -3812,38 +3812,7 @@ export const ja = defineLocale({
       greetingMorning: name => (name ? `おはようございます、${name}さん` : 'おはようございます'),
       greetingAfternoon: name => (name ? `こんにちは、${name}さん` : 'こんにちは'),
       greetingEvening: name => (name ? `こんばんは、${name}さん` : 'こんばんは'),
-      bodyVariants: [
-        '質問する、エラーを貼り付ける、フォルダを指定する。ドキュメントもコードも読み、ツールを実行して、仕事を最後までお手伝いします。',
-        'やりたいことを自分の言葉で説明してください。ドキュメントの要約、メールの下書き、コードの修正。適切なツールを選び、リスクのある手順の前には確認します。',
-        'ファイル、表計算、大まかなアイデアを投げてください。調査して次の一手を提案し、いつでも元に戻せるように進めます。',
-        'リポジトリ検索、ファイル編集、テスト実行、PR 作成。ゴールを伝えてもらえれば、機械的な部分は引き受けます。',
-        '週報からプロジェクト計画まで。タスクや質問を入力してください。セッションを記憶し、出典を示し、確信が持てないときは立ち止まって確認します。'
-      ],
-      quickStart: 'すぐはじめる',
-      resume: title => `「${title}」を再開`,
-      starterExplainLabel: 'このコードフォルダを説明',
-      starterExplainPrompt: 'このコードフォルダが何をするものか、コードがどう構成されているかを説明してください。',
-      starterPlanLabel: '変更を計画',
-      starterPlanPrompt: '変更を加えたいです。必要なことを質問してから、コードを書く前に計画を提案してください。',
-      starterExplainFolderLabel: 'このフォルダを説明',
-      starterExplainFolderPrompt: '現在の作業フォルダに何があり、どう構成されているかを説明してください。',
-      starterSummarizeLabel: 'ドキュメントを要約',
-      starterSummarizePrompt:
-        'ドキュメントを要約したいです。ファイルか本文を尋ねてから、要点と私が対応すべき事項を教えてください。',
-      starterDraftLabel: 'メールを下書き',
-      starterDraftPrompt:
-        'メールの下書きを手伝ってください。宛先、伝えたい内容、トーンを尋ねてから、そのまま送れる文面を書いてください。',
-      starterPlanWeekLabel: '今週の計画を立てる',
-      starterPlanWeekPrompt:
-        '今週の計画を手伝ってください。抱えている仕事と期限を尋ねてから、重要なものを先に、日ごとに並べてください。',
-      starterExplainDesc: 'ここのコードが何をし、どう配置されているか',
-      starterExplainFolderDesc: 'このフォルダに何があるか',
-      starterPlanDesc: 'まず質問し、それから進め方を提案',
-      starterPlanWeekDesc: '一週間の仕事を日ごとに並べる',
-      starterSummarizeDesc: 'ファイルや文章から要点を抜き出す',
-      starterDraftDesc: 'メモ数行から、そのまま送れる文面へ',
-      resumeDesc: '最近のチャットを再開',
-      projectDesc: 'このプロジェクトのフォルダで始める'
+      headlines: ['今日は何をしましょうか？', 'どこから始めますか？', '何かお手伝いできることは？']
     },
     thread: {
       loadingSession: 'チャットを読み込み中',

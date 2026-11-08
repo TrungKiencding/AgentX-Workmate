@@ -2,7 +2,16 @@ import { describe, expect, it } from 'vitest'
 
 import { registry } from '@/contrib/registry'
 
-import { contributedRoutes, NEW_CHAT_ROUTE, primaryRouteSelectedSessionId, ROUTES_AREA, sessionRoute, SETTINGS_ROUTE } from './routes'
+import {
+  contributedRoutes,
+  NEW_CHAT_ROUTE,
+  primaryRouteSelectedSessionId,
+  ROUTES_AREA,
+  routeStartedBySend,
+  sessionRoute,
+  SETTINGS_ROUTE,
+  STARTED_BY_SEND_ROUTE_STATE
+} from './routes'
 
 const SESS_A = 'sess-a'
 const SESS_B = 'sess-b'
@@ -61,6 +70,16 @@ describe('contributedRoutes', () => {
       expect(routes.map(route => route.path)).toEqual(['/explicit'])
     } finally {
       dispose()
+    }
+  })
+})
+
+describe('routeStartedBySend', () => {
+  it('recognises only the state a send re-homes with', () => {
+    expect(routeStartedBySend(STARTED_BY_SEND_ROUTE_STATE)).toBe(true)
+
+    for (const state of [undefined, null, 'startedBySend', {}, { startedBySend: 'true' }, { startedBySend: 1 }]) {
+      expect(routeStartedBySend(state)).toBe(false)
     }
   })
 })
