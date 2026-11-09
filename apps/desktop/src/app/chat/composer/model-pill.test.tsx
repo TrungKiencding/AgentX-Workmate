@@ -194,3 +194,31 @@ describe('ModelPill label', () => {
     expect(screen.getByRole('img', { name: 'Priority speed' })).toBeTruthy()
   })
 })
+
+// Docked, the pill is a line of text in the strip under the composer — name,
+// then the level in a quieter ink, no chevron (Claude's context bar). Floating,
+// it is the compact chevron in the control row and says nothing more.
+describe('ModelPill placements', () => {
+  it('under the composer: the name and the level, no chevron glyph', () => {
+    setCurrentReasoningEffort('high')
+
+    render(<ModelPill disabled={false} model={modelState({ model: 'MiniMax-M3', modelMenuContent: <div /> })} />)
+
+    const trigger = screen.getByRole('button')
+
+    expect(trigger.textContent).toBe('MiniMax M3High')
+    expect(trigger.querySelector('svg')).toBeNull()
+  })
+
+  it('floating: just the chevron, with the model in its accessible name', () => {
+    render(
+      <ModelPill compact disabled={false} model={modelState({ model: 'MiniMax-M3', modelMenuContent: <div /> })} />
+    )
+
+    const trigger = screen.getByRole('button')
+
+    expect(trigger.textContent).toBe('')
+    expect(trigger.querySelector('svg')).not.toBeNull()
+    expect(trigger.getAttribute('aria-label')).toContain('MiniMax-M3')
+  })
+})

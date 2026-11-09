@@ -2,6 +2,7 @@ import { useStore } from '@nanostores/react'
 import { useMemo, useState } from 'react'
 
 import { sidebarProjects, type SidebarProjectTree } from '@/app/chat/sidebar/projects/workspace-groups'
+import { composerUndersideControl } from '@/components/chat/composer-dock'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
 import {
@@ -42,11 +43,9 @@ import {
 // inline control — no frame, no chip — that names the folder this chat works
 // in. Before the first message it is a picker; once the chat exists its folder
 // is settled, and the control only offers to show it, copy it, or start a new
-// chat there.
-const INLINE_CONTROL = cn(
-  'h-7 max-w-64 shrink-0 gap-1.5 rounded-md px-2 text-sm font-normal',
-  'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary) data-[state=open]:bg-(--bg-hover)'
-)
+// chat there. It shares the strip with the model control on the right, so a
+// long folder name gives way (truncates) rather than pushing the model off.
+const INLINE_CONTROL = cn(composerUndersideControl, 'min-w-0 max-w-64 shrink')
 
 const underPath = (parent: string, child: string): boolean =>
   child === parent || child.startsWith(parent.endsWith('/') ? parent : `${parent}/`)

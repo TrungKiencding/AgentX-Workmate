@@ -59,6 +59,7 @@ import { useComposerMicroActions } from './hooks/use-micro-actions'
 import { useSlashCompletions } from './hooks/use-slash-completions'
 import { useSessionStatusPresence } from './hooks/use-status-presence'
 import { ActionBadges } from './micro-actions'
+import { ModelPill } from './model-pill'
 import { chipTypedPathOnSpace, pathifyRefs } from './path-refs'
 import { QueuePanel } from './queue-panel'
 import {
@@ -303,7 +304,7 @@ export function ChatBar({
     return onCancel()
   }, [activeQueueSessionKeyRef, onCancel])
 
-  const { compactPill, stacked } = useComposerMetrics({
+  const { stacked } = useComposerMetrics({
     composerDockRef,
     composerRef,
     composerSurfaceRef,
@@ -949,8 +950,6 @@ export function ChatBar({
       busy={busy}
       busyAction={busyAction}
       canSubmit={canSubmit}
-      compactModelPill={poppedOut || compactPill}
-      conciseModelPill={!codingContext}
       conversation={{
         active: voiceConversationActive,
         level: conversation.level,
@@ -963,6 +962,7 @@ export function ChatBar({
       }}
       disabled={disabled}
       hasComposerPayload={hasComposerPayload}
+      inlineModelPill={poppedOut}
       onDictate={dictate}
       onQueue={queueDraft}
       onToggleAutoSpeak={handleToggleAutoSpeak}
@@ -1302,12 +1302,20 @@ export function ChatBar({
               for the same reason as the micro actions — it must not fall inside
               the pop-out drag region. Same px as the strip above, so the two
               bracket the composer on one vertical line. */}
-          <div className={cn(composerFloatingStrip, 'px-[5px] pt-1.5 empty:hidden')}>
-            {/* The context bar's "where" (spec §5.8): the folder this chat
-                works in. Not while floating — the compact pop-out keeps to
-                one sentence. */}
+          {/* One line, never wrapped: the folder and the model each truncate
+              before the model would drop onto a second row in a narrow pane. */}
+          <div className={cn(composerFloatingStrip, 'flex-nowrap px-[5px] pt-1.5 empty:hidden')}>
+            {/* The context bar (spec §5.8), like Claude's: the folder this
+                chat works in on the left, the model it runs on at the right.
+                Not while floating — the compact pop-out keeps to one sentence
+                and carries its model control in the row inside. */}
             {!poppedOut && <WorkspacePicker cwd={cwd ?? ''} draft={workspaceDraft} />}
             <ContribSlot area={COMPOSER_AREAS.underside} />
+            {!poppedOut && (
+              <div className="ml-auto flex min-w-0 justify-end" data-slot="composer-model">
+                <ModelPill concise={!codingContext} disabled={disabled} model={state.model} />
+              </div>
+            )}
           </div>
         </div>
       </ComposerPrimitive.Unstable_TriggerPopoverRoot>

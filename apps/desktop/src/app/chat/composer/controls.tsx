@@ -57,23 +57,26 @@ interface ConversationProps {
 }
 
 /**
- * The control row reads as three stops — model · voice · send — and the send
+ * The control row reads as two stops — voice · send — and the send
  * slot says one of two things: an up arrow when there is something to send,
  * a microphone when the box is empty ("or just talk"). The voice toggles
  * (dictation, read replies aloud, the wake word) sit behind one ⋯ menu while
  * voice is enabled, so the resting row is never a strip of crossed-out icons;
  * a dictation in progress surfaces its stop control in that slot instead.
+ *
+ * The model is not one of them: docked, it lives in the strip under the
+ * composer. Only the floating composer, which has no strip, keeps a compact
+ * model control here (`inlineModelPill`).
  */
 export function ComposerControls({
   autoSpeak,
   busy,
   busyAction,
   canSubmit,
-  compactModelPill = false,
-  conciseModelPill = false,
   conversation,
   disabled,
   hasComposerPayload,
+  inlineModelPill = false,
   state,
   voiceStatus,
   onDictate,
@@ -84,12 +87,12 @@ export function ComposerControls({
   busy: boolean
   busyAction: 'steer' | 'queue' | 'stop'
   canSubmit: boolean
-  compactModelPill?: boolean
-  /** Outside a coding context the pill wears the model's short name only. */
-  conciseModelPill?: boolean
   conversation: ConversationProps
   disabled: boolean
   hasComposerPayload: boolean
+  /** The floating composer has no underside strip: its compact model control
+   *  rides in this row instead. */
+  inlineModelPill?: boolean
   state: ChatBarState
   voiceStatus: VoiceStatus
   onDictate: () => void
@@ -109,7 +112,7 @@ export function ComposerControls({
 
   return (
     <div className="ml-auto flex shrink-0 items-center gap-(--composer-control-gap)">
-      <ModelPill compact={compactModelPill} concise={conciseModelPill} disabled={disabled} model={state.model} />
+      {inlineModelPill && <ModelPill compact disabled={disabled} model={state.model} />}
       {state.voice.enabled &&
         (dictating ? (
           <DictationButton disabled={disabled} onToggle={onDictate} state={state.voice} status={voiceStatus} />

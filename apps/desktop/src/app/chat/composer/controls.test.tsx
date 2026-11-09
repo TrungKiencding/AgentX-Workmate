@@ -202,16 +202,20 @@ describe('voice menu', () => {
   })
 })
 
+// Docked, the model lives in the strip under the composer, not in this row.
+// Only the floating composer, which has no strip, carries it here — compact.
 describe('ComposerControls model pill', () => {
-  it('hands the pill its concise voice outside a coding context', () => {
-    renderControls({ conciseModelPill: true })
-
-    expect(modelPillSpy).toHaveBeenLastCalledWith(expect.objectContaining({ compact: false, concise: true }))
-  })
-
-  it('keeps the full label inside a repo', () => {
+  it('leaves the model out of the docked control row', () => {
+    modelPillSpy.mockClear()
     renderControls()
 
-    expect(modelPillSpy).toHaveBeenLastCalledWith(expect.objectContaining({ concise: false }))
+    expect(modelPillSpy).not.toHaveBeenCalled()
+  })
+
+  it('carries a compact model control in the floating composer', () => {
+    modelPillSpy.mockClear()
+    renderControls({ inlineModelPill: true })
+
+    expect(modelPillSpy).toHaveBeenLastCalledWith(expect.objectContaining({ compact: true }))
   })
 })

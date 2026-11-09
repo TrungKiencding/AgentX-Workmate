@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import { useSessionView } from '@/app/chat/session-view'
 import { ModelMenuCloseContext } from '@/app/shell/model-menu-panel'
+import { composerUndersideControl } from '@/components/chat/composer-dock'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { GlyphSpinner } from '@/components/ui/glyph-spinner'
@@ -22,27 +23,37 @@ import { onComposerModelMenuRequest } from './focus'
 import { useComposerScope } from './scope'
 import type { ChatBarState } from './types'
 
-// 28px tall (a step below the 32px control row, it's a label-ish affordance),
-// 12px text; radius comes from the Button base.
-const PILL = cn(
-  'h-(--control-h-sm) max-w-60 shrink-0 gap-1 px-2 text-xs font-normal',
-  'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground'
+// The resting trigger: a line of text in the strip under the composer, sized
+// and inked like the folder control beside it so the two read as one context
+// bar. It may shrink — the name truncates — so a long model name gives way in a
+// narrow pane instead of wrapping the strip onto a second line.
+const UNDERSIDE_TRIGGER = cn(composerUndersideControl, 'min-w-0 max-w-72 shrink')
+
+// The floating (popped-out) composer keeps to one line, so there the model
+// lives in the control row as a snug square holding just the chevron, sized
+// to match the composer's other icon buttons.
+const COMPACT_TRIGGER = cn(
+  'size-(--composer-control-size) shrink-0 justify-center gap-0 p-0',
+  'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground',
+  'data-[state=open]:bg-(--chrome-action-hover) data-[state=open]:text-foreground'
 )
 
 /**
- * Composer model selector — the relocated status-bar pill. Reuses the live
- * `model.options` dropdown (`modelMenuContent`) verbatim; falls back to the
- * full picker when the gateway is closed and no live menu exists.
+ * Composer model selector. Docked, it sits at the right end of the strip under
+ * the composer — the model's name with its thinking level beside it in a
+ * quieter ink (`MiniMax M3  Medium`), the way Claude's desktop app shows what
+ * you are running at without opening anything. Popped out, it is the compact
+ * chevron in the control row (`compact`).
+ *
+ * Reuses the live `model.options` dropdown (`modelMenuContent`) verbatim; falls
+ * back to the full picker when the gateway is closed and no live menu exists.
  *
  * Display follows THIS surface's SessionView (primary or tile) — never the
  * primary-only globals — so side-by-side panes each show their own model.
  *
- * The label is the model's name with its thinking level beside it, quieter
- * (`MiniMax M3  Cân bằng`) — like Claude's composer, the level you're running at is
- * visible without opening anything. `concise` is the non-coding voice: outside
- * a git repo the name is the short one (`Qwen3.5`, not `Qwen3.5 122B A10B
- * FP8`) and the level only shows once it differs from the default — the
- * everyday case reads as just the model.
+ * `concise` is the non-coding voice: outside a git repo the name is the short
+ * one (`Qwen3.5`, not `Qwen3.5 122B A10B FP8`) and the level only shows once it
+ * differs from the default — the everyday case reads as just the model.
  */
 export function ModelPill({
   compact = false,
@@ -119,9 +130,6 @@ export function ModelPill({
   const pinnedOverride =
     view.kind === 'primary' && !runtimeId && modelSource === 'manual' && Boolean(currentModel.trim())
 
-  // The model resolves a beat after the gateway/session comes up. Rather than
-  // flash a literal "No model", show a quiet loader (inherits the pill text
-  // color at half opacity) until a model lands.
   const level = effectiveReasoningEffort(reasoningEffort, defaultEffort)
   const showLevel = !concise || level !== effectiveReasoningEffort('', defaultEffort)
   // Fast is on via the speed param OR because the model IS a `…-fast` variant.
@@ -129,41 +137,38 @@ export function ModelPill({
 
   const label = compact ? (
     <ChevronDown className="size-3.5 shrink-0 opacity-70" />
-  ) : (
+  ) : currentModel.trim() ? (
     <>
-      {currentModel.trim() ? (
-        <>
-          <span className="truncate">{concise ? conciseModelName(currentModel) : displayModelName(currentModel)}</span>
-          {fastOn || showLevel ? (
-            <span className="ml-0.5 flex shrink-0 items-center gap-0.5 opacity-70" data-testid="model-pill-level">
-              {fastOn ? <Zap aria-label={optionCopy.fastMode} className="size-3" role="img" /> : null}
-              {showLevel ? optionCopy.effortShort[level] : null}
-            </span>
-          ) : null}
-        </>
-      ) : (
-        <GlyphSpinner className="opacity-50" spinner="braille" />
-      )}
+      {/* Name in the primary ink, level in the tertiary: the two greys the
+          strip would otherwise use (secondary/tertiary) sit too close to read
+          as a hierarchy, and tertiary is already the lightest ink that keeps
+          AA contrast. */}
+      <span className="min-w-0 truncate text-(--text-primary)">{concise ? conciseModelName(currentModel) : displayModelName(currentModel)}</span>
+      {fastOn || showLevel ? (
+        <span
+          className="flex shrink-0 items-center gap-1 text-(--text-tertiary) transition-colors duration-(--dur-micro)"
+          data-testid="model-pill-level"
+        >
+          {fastOn ? <Zap aria-label={optionCopy.fastMode} className="size-3.5" role="img" /> : null}
+          {showLevel ? optionCopy.effortShort[level] : null}
+        </span>
+      ) : null}
       {pinnedOverride && (
         <span
           aria-label={copy.modelPinned}
-          className="size-1 shrink-0 rounded-full bg-(--ui-accent)"
+          className="size-1.5 shrink-0 rounded-full bg-(--ui-accent)"
           data-testid="model-pinned-dot"
           role="img"
         />
       )}
-      <ChevronDown className="size-2.5 shrink-0 opacity-50" />
     </>
+  ) : (
+    // The model resolves a beat after the gateway/session comes up. Rather
+    // than flash a literal "No model", show a quiet loader until it lands.
+    <GlyphSpinner className="text-(--text-tertiary)" spinner="braille" />
   )
 
-  // Compact (floating composer): a snug square holding just the chevron — no pill
-  // padding, sized to match the other composer icon buttons.
-  const pillClass = compact
-    ? cn(
-        'size-(--composer-control-size) shrink-0 justify-center gap-0 p-0',
-        'text-(--ui-text-tertiary) hover:bg-(--chrome-action-hover) hover:text-foreground'
-      )
-    : PILL
+  const pillClass = compact ? COMPACT_TRIGGER : UNDERSIDE_TRIGGER
 
   const baseTitle = currentProvider
     ? copy.modelTitle(currentProvider, currentModel || copy.modelNone)
