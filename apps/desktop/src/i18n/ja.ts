@@ -2759,6 +2759,23 @@ export const ja = defineLocale({
   },
 
   composer: {
+    quota: {
+      stale: '前回の使用状況',
+      title: 'モデル利用枠',
+      remaining: '残り',
+      used: '使用済み',
+      unlimited: '上限なし',
+      resets: 'リセット日時',
+      noReset: '自動リセットなし',
+      unknownReset: 'リセット日時は不明です',
+      pendingReset: 'リセットの確認待ち',
+      offline: '使用状況を取得できません。更新してください。',
+      unsupported: 'サーバーが使用状況を公開していません。管理者にお問い合わせください。',
+      warning: '利用枠が残りわずかです',
+      exhausted: '利用枠を使い切りました',
+      view: '利用枠を表示',
+      loading: '利用枠を読み込み中…'
+    },
     message: 'メッセージ',
     wakingProfile: profile => `${profile} を起動中…`,
     placeholderStarting: 'AgentX を起動中...',

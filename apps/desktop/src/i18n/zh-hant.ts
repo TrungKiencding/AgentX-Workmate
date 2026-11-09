@@ -2622,6 +2622,23 @@ export const zhHant = defineLocale({
   },
 
   composer: {
+    quota: {
+      stale: '上次用量資料',
+      title: '模型用量額度',
+      remaining: '剩餘',
+      used: '已用',
+      unlimited: '無限制',
+      resets: '重設時間',
+      noReset: '不自動重設',
+      unknownReset: '重設時間未知',
+      pendingReset: '等待確認重設',
+      offline: '暫時無法取得用量，請重新整理。',
+      unsupported: '伺服器未開放用量查詢，請聯絡管理員。',
+      warning: '額度即將用盡',
+      exhausted: '額度已用盡',
+      view: '查看額度',
+      loading: '正在載入額度…'
+    },
     message: '訊息',
     wakingProfile: profile => `正在喚醒 ${profile}…`,
     placeholderStarting: '正在啟動 AgentX...',

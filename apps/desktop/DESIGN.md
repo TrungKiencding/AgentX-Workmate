@@ -788,6 +788,21 @@ running — while staying quieter than the content they frame.
   is up, so a launch-time read can say "not configured"; the hook re-reads
   whenever the gateway opens while no one shows as signed in, so the name
   appears on its own instead of only after Settings → Account re-reads it.
+- **The model allowance** (`ComposerAccountQuota`, `app/chat/composer/account-quota.tsx`)
+  sits at the far right of the context strip below the chat composer, after the
+  model selector. It shares `composerUndersideControl` with the model and folder:
+  one quiet 28px row, a 16px ring and remaining percentage, with a tooltip for
+  its label. The model truncates before the quota shrinks or the row wraps.
+  Clicking opens the shared Popover upward, aligned to the right edge:
+  remaining percentage first, then used
+  percentage and the server's reset timestamp in local time. Never show monetary
+  amounts, descriptive footer copy or the last-check timestamp in this surface.
+  Signal blue is normal, warning at 20% remaining, danger at zero; copy carries
+  the warning as well as colour. Unlimited, unknown, stale and exhausted are
+  distinct. Never infer a reset or replenish money locally. Keep cached values
+  visibly stale through transient failures; clear them on identity changes or
+  denied access. The feature-owned atom refreshes on focus, after turns and
+  every 30 seconds while visible. It adds no model tools or prompt content.
 - **The projects tree keeps Codicon only for data.** A project's icon is a
   Codicon name the user picked, and the tree's lead glyphs (home, branch,
   kanban, repo) share that column, so they stay Codicon as file-tree

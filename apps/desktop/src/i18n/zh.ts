@@ -2860,6 +2860,23 @@ export const zh: Translations = {
   },
 
   composer: {
+    quota: {
+      stale: '上次用量数据',
+      title: '模型用量额度',
+      remaining: '剩余',
+      used: '已用',
+      unlimited: '无限制',
+      resets: '重置时间',
+      noReset: '不自动重置',
+      unknownReset: '重置时间未知',
+      pendingReset: '等待确认重置',
+      offline: '暂时无法获取用量，请刷新。',
+      unsupported: '服务器未开放用量查询，请联系管理员。',
+      warning: '额度即将用尽',
+      exhausted: '额度已用尽',
+      view: '查看额度',
+      loading: '正在加载额度…'
+    },
     message: '消息',
     wakingProfile: profile => `正在唤醒 ${profile}…`,
     placeholderStarting: '正在启动 AgentX…',

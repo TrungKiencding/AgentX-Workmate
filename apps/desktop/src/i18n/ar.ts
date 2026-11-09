@@ -2711,6 +2711,23 @@ export const ar = defineLocale({
     chats: 'المحادثات'
   },
   composer: {
+    quota: {
+      stale: 'آخر استخدام معروف',
+      title: 'رصيد استخدام النماذج',
+      remaining: 'المتبقي',
+      used: 'المستخدم',
+      unlimited: 'بلا حدود',
+      resets: 'موعد التجديد',
+      noReset: 'لا يوجد تجديد تلقائي',
+      unknownReset: 'موعد التجديد غير متاح',
+      pendingReset: 'بانتظار تأكيد التجديد',
+      offline: 'الاستخدام غير متاح مؤقتًا. حاول التحديث.',
+      unsupported: 'الخادم لا يتيح تفاصيل الاستخدام. تواصل مع المسؤول.',
+      warning: 'الرصيد أوشك على النفاد',
+      exhausted: 'نفد الرصيد',
+      view: 'عرض الرصيد',
+      loading: 'جارٍ تحميل الرصيد…'
+    },
     message: 'الرسالة',
     wakingProfile: profile => `جار إيقاظ ${profile}`,
     placeholderStarting: 'جار بدء AgentX...',

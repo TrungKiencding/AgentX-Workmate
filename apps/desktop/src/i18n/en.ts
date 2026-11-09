@@ -2789,6 +2789,23 @@ export const en: Translations = {
   },
 
   composer: {
+    quota: {
+      stale: 'Last known usage',
+      title: 'Model allowance',
+      remaining: 'Remaining',
+      used: 'Used',
+      unlimited: 'Unlimited',
+      resets: 'Resets',
+      noReset: 'No automatic reset',
+      unknownReset: 'Reset time unavailable',
+      pendingReset: 'Awaiting reset confirmation',
+      offline: 'Usage is temporarily unavailable. Try refreshing.',
+      unsupported: 'Your server does not share usage details. Contact your administrator.',
+      warning: 'Nearly used up',
+      exhausted: 'Allowance used up',
+      view: 'View allowance',
+      loading: 'Loading allowance…'
+    },
     message: 'Message',
     wakingProfile: profile => `Waking up ${profile}…`,
     placeholderStarting: 'Starting AgentX...',

@@ -10787,6 +10787,15 @@ async function callAccountRoute(
   }
 }
 
+ipcMain.handle('agentx:account:quota', async () =>
+  callAccountRoute(
+    '/api/account/quota',
+    { timeoutMs: 12_000 },
+    detail => ({ status: /^(404|405):/.test(detail) ? 'unsupported' : 'offline', quota: null }),
+    'quota'
+  )
+)
+
 async function callDeviceRoute(path: string, options: any = {}): Promise<any> {
   return callAccountRoute(path, options, detail => ({ current: '', detail, devices: [], status: 'offline' }), 'devices')
 }

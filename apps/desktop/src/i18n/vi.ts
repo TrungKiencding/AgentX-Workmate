@@ -3039,6 +3039,23 @@ export const vi: Translations = {
   },
 
   composer: {
+    quota: {
+      stale: 'Số liệu gần nhất',
+      title: 'Hạn mức sử dụng',
+      remaining: 'Còn lại',
+      used: 'Đã dùng',
+      unlimited: 'Không giới hạn',
+      resets: 'Đặt lại lúc',
+      noReset: 'Không tự động đặt lại',
+      unknownReset: 'Chưa có thời gian đặt lại',
+      pendingReset: 'Đang chờ xác nhận đặt lại',
+      offline: 'Tạm thời chưa tải được usage. Hãy thử làm mới.',
+      unsupported: 'Máy chủ chưa cho phép xem usage. Hãy liên hệ quản trị viên.',
+      warning: 'Sắp hết hạn mức',
+      exhausted: 'Đã hết hạn mức',
+      view: 'Xem hạn mức',
+      loading: 'Đang tải hạn mức…'
+    },
     message: 'Tin nhắn',
     wakingProfile: profile => `Đang đánh thức ${profile}…`,
     placeholderStarting: 'Đang khởi động AgentX...',

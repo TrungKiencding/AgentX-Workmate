@@ -113,6 +113,7 @@ contextBridge.exposeInMainWorld('agentxDesktop', {
   // and the state of the model key provisioned for them. There is no `set` —
   // the account is whoever signed in, never a renderer choice.
   account: {
+    quota: () => ipcRenderer.invoke('agentx:account:quota'),
     status: () => ipcRenderer.invoke('agentx:account:status'),
     provision: options => ipcRenderer.invoke('agentx:account:provision', options),
     // The AgentX key gate: whether this account must hold an AgentX key and

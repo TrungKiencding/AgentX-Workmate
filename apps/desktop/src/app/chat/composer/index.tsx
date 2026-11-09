@@ -25,6 +25,7 @@ import { $threadScrolledUp } from '@/store/thread-scroll'
 import { $autoSpeakReplies } from '@/store/voice-prefs'
 import { useTheme } from '@/themes'
 
+import { ComposerAccountQuota } from './account-quota'
 import { AttachmentList } from './attachments'
 import {
   acceptsTriggerCompletion,
@@ -1306,14 +1307,20 @@ export function ChatBar({
               before the model would drop onto a second row in a narrow pane. */}
           <div className={cn(composerFloatingStrip, 'flex-nowrap px-[5px] pt-1.5 empty:hidden')}>
             {/* The context bar (spec §5.8), like Claude's: the folder this
-                chat works in on the left, the model it runs on at the right.
+                chat works in on the left, the model and allowance at the right.
                 Not while floating — the compact pop-out keeps to one sentence
                 and carries its model control in the row inside. */}
             {!poppedOut && <WorkspacePicker cwd={cwd ?? ''} draft={workspaceDraft} />}
             <ContribSlot area={COMPOSER_AREAS.underside} />
             {!poppedOut && (
-              <div className="ml-auto flex min-w-0 justify-end" data-slot="composer-model">
-                <ModelPill concise={!codingContext} disabled={disabled} model={state.model} />
+              <div
+                className="ml-auto flex min-w-0 items-center justify-end gap-1"
+                data-slot="composer-context-controls"
+              >
+                <div className="flex min-w-0 justify-end" data-slot="composer-model">
+                  <ModelPill concise={!codingContext} disabled={disabled} model={state.model} />
+                </div>
+                <ComposerAccountQuota />
               </div>
             )}
           </div>

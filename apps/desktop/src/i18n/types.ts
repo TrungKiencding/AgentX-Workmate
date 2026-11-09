@@ -2346,6 +2346,23 @@ export interface Translations {
   }
 
   composer: {
+    quota: {
+      stale: string
+      title: string
+      remaining: string
+      used: string
+      unlimited: string
+      resets: string
+      noReset: string
+      unknownReset: string
+      pendingReset: string
+      offline: string
+      unsupported: string
+      warning: string
+      exhausted: string
+      view: string
+      loading: string
+    }
     message: string
     wakingProfile: (profile: string) => string
     placeholderStarting: string
