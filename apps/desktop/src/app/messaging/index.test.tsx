@@ -171,6 +171,33 @@ describe('MessagingView pairing', () => {
     expect(screen.getAllByText(/Bee/).length).toBeGreaterThan(0)
   })
 
+  it('explains an expired request and drops the dead row', async () => {
+    // A 404 is a row that aged out (or was handled elsewhere). The operator
+    // gets a localized next step instead of the backend's English, and the
+    // authoritative refetch removes the row so it cannot be clicked again.
+    const { notify, notifyError } = await import('@/store/notifications')
+    getMessagingPlatforms.mockResolvedValue({ platforms: [platform()] })
+    getPairing.mockResolvedValueOnce({ approved: [], pending: [pendingUser] })
+    getPairing.mockResolvedValue({ approved: [], pending: [] })
+    approvePairing.mockRejectedValue(
+      new Error("404: Pairing request or code not found or expired for platform 'teams'.")
+    )
+
+    await renderMessaging()
+
+    await act(async () => {
+      fireEvent.click(await screen.findByRole('button', { name: 'Allow' }))
+    })
+
+    await waitFor(() =>
+      expect(notify).toHaveBeenCalledWith(
+        expect.objectContaining({ kind: 'error', message: expect.stringContaining('expired') })
+      )
+    )
+    expect(notifyError).not.toHaveBeenCalled()
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Allow' })).toBeNull())
+  })
+
   it('shows no pairing affordance when nobody is waiting', async () => {
     // Approvals are rare; an always-present empty state would be permanent
     // chrome on a page that is otherwise about credentials.

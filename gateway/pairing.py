@@ -34,9 +34,10 @@ from gateway.whatsapp_identity import (
     normalize_whatsapp_identifier,
 )
 from hermes_constants import (
-    get_default_hermes_root,
     get_hermes_dir,
     get_hermes_home,
+    get_user_root,
+    split_home_scope,
 )
 from utils import atomic_replace
 
@@ -432,6 +433,21 @@ def _secure_write(path: Path, data: str) -> None:
         raise
 
 
+def _profile_home(profile: str) -> Path:
+    """AGENTX_HOME of ``profile``, resolved the way ``hermes_cli.profiles`` does.
+
+    Profiles hang off the *user* root — the signed-in account's home
+    (``<root>/accounts/<slug>``) when an account is active, the install root
+    otherwise. Anchoring on the install root instead (``get_default_hermes_root``)
+    sent every profile-scoped store of a signed-in desktop user to
+    ``~/.agentx/platforms/pairing`` while their gateway wrote requests under
+    ``~/.agentx/accounts/<slug>/…`` — so the desktop's "Allow" button listed
+    the request but approving it always answered "not found or expired".
+    """
+    root = get_user_root()
+    return root if profile == "default" else root / "profiles" / profile
+
+
 class PairingStore:
     """
     Manages pairing codes and approved user lists.
@@ -442,8 +458,9 @@ class PairingStore:
       - _rate_limits.json         : rate limit tracking
 
     When constructed with ``profile="<name>"``, storage resolves from that
-    profile's own AGENTX_HOME using the same legacy/consolidated layout rules
-    as ``agentx -p <name> pairing ...``. This keeps multiplex gateways and
+    profile's own AGENTX_HOME — inside the signed-in account when there is
+    one — using the same legacy/consolidated layout rules as
+    ``agentx [--account <slug>] -p <name> pairing ...``. This keeps multiplex gateways and
     profile-scoped CLI approvals on one whitelist. Without a profile, storage
     is the global pairing directory for the current AGENTX_HOME.
     """
@@ -452,18 +469,15 @@ class PairingStore:
         # Resolve storage directory lazily — tests use a temp AGENTX_HOME
         # and PairingStore may be constructed before the env is set.
         if profile:
-            root = get_default_hermes_root()
-            profile_home = (
-                root
-                if profile == "default"
-                else root / "profiles" / profile
-            )
+            profile_home = _profile_home(profile)
+            self._home = profile_home
             self._dir = get_hermes_dir(
                 "platforms/pairing",
                 "pairing",
                 home=profile_home,
             )
         else:
+            self._home = get_hermes_home()
             self._dir = _default_pairing_dir()
         self._dir.mkdir(parents=True, exist_ok=True)
         if profile:
@@ -484,6 +498,27 @@ class PairingStore:
     def profile(self) -> Optional[str]:
         """Profile name this store is scoped to, or None for the global store."""
         return self._profile
+
+    def cli_scope_args(self) -> str:
+        """Argv prefix that makes a standalone ``agentx`` open this same store.
+
+        ``"--account <slug> -p <name> "`` (each part only when it applies, with
+        a trailing space so callers can splice it in front of ``pairing``), or
+        ``""`` for the install root's default profile. A signed-in desktop
+        keeps its gateway's pairing data inside ``accounts/<slug>``; a bare
+        ``agentx pairing approve`` reads the install root's store instead and
+        can never find the request the bot just told the user to relay.
+        """
+        try:
+            account, profile = split_home_scope(self._home)
+        except Exception:
+            return ""
+        parts = []
+        if account:
+            parts += ["--account", account]
+        if profile and profile != "default":
+            parts += ["-p", profile]
+        return " ".join(parts) + " " if parts else ""
 
     def _pending_path(self, platform: str) -> Path:
         return self._dir / f"{platform}-pending.json"

@@ -2210,6 +2210,7 @@ export const zh: Translations = {
     revokedUser: name => `已撤销 ${name}`,
     failedApprove: name => `批准 ${name} 失败`,
     failedRevoke: name => `撤销 ${name} 失败`,
+    pairingExpired: '此请求已过期。请让对方再次给机器人发消息以生成新请求，然后在此批准。',
     pairingLockedOut: '批准失败次数过多，该平台已被暂时锁定，请稍后再试。',
     waitingSince: minutes => (minutes < 1 ? '刚刚' : `${minutes} 分钟前`),
     fieldCopy: {

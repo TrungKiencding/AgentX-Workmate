@@ -2244,6 +2244,7 @@ export const ja = defineLocale({
     revokedUser: name => `${name} の承認を取り消しました`,
     failedApprove: name => `${name} の承認に失敗しました`,
     failedRevoke: name => `${name} の取り消しに失敗しました`,
+    pairingExpired: 'このリクエストは期限切れです。ボットにもう一度メッセージを送ってもらい、新しいリクエストをここで承認してください。',
     pairingLockedOut:
       '承認の失敗が続いたため、このプラットフォームは一時的にロックされています。しばらくしてからもう一度お試しください。',
     waitingSince: minutes => (minutes < 1 ? 'たった今' : `${minutes} 分前`)

@@ -2234,6 +2234,7 @@ export const ar = defineLocale({
     revokedUser: name => `تم إلغاء وصول ${name}`,
     failedApprove: name => `تعذّر اعتماد ${name}`,
     failedRevoke: name => `تعذّر إلغاء وصول ${name}`,
+    pairingExpired: 'انتهت صلاحية هذا الطلب. اطلب منهم مراسلة البوت مجددًا للحصول على طلب جديد، ثم اعتمده هنا.',
     pairingLockedOut: 'كثرت محاولات الاعتماد الفاشلة — هذه المنصة مقفلة مؤقتًا. حاول مجددًا لاحقًا.',
     waitingSince: minutes => (minutes < 1 ? 'للتو' : `منذ ${minutes} د`)
   },

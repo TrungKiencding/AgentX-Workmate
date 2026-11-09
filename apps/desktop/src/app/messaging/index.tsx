@@ -446,9 +446,22 @@ export function MessagingView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
       await refreshPairing()
     } catch (err) {
       setPairing(snapshot)
+      const text = err instanceof Error ? err.message : String(err)
+
+      // 404 means the row aged out (codes live an hour) or was handled
+      // elsewhere: say what to do in the user's language rather than echo
+      // the backend's English, and refetch so a dead row cannot be clicked
+      // again.
+      if (/\b404\b|not found or expired/i.test(text)) {
+        notify({ kind: 'error', title: m.failedApprove(pairingLabel(user)), message: m.pairingExpired })
+        void refreshPairing()
+
+        return
+      }
+
       // 429 is the code path's brute-force lockout — a distinct condition the
       // operator can only wait out, so it gets its own message.
-      const lockedOut = err instanceof Error && err.message.includes('429')
+      const lockedOut = text.includes('429')
       notifyError(err, lockedOut ? m.pairingLockedOut : m.failedApprove(pairingLabel(user)))
     } finally {
       setApproving(null)

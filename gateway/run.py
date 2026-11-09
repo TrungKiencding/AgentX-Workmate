@@ -15518,19 +15518,31 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 if code:
                     adapter = self._adapter_for_source(source)
                     if adapter:
-                        store_profile = getattr(pairing_store, "profile", None)
-                        profile_arg = (
-                            f"-p {store_profile} "
-                            if isinstance(store_profile, str)
-                            and store_profile
-                            and store_profile != "default"
-                            else ""
-                        )
+                        # The argv that opens *this* store from a terminal —
+                        # including ``--account`` on a signed-in desktop,
+                        # whose pairing data lives under accounts/<slug>.
+                        profile_arg = None
+                        scope_args = getattr(pairing_store, "cli_scope_args", None)
+                        if callable(scope_args):
+                            try:
+                                profile_arg = scope_args()
+                            except Exception:
+                                profile_arg = None
+                        if not isinstance(profile_arg, str):
+                            store_profile = getattr(pairing_store, "profile", None)
+                            profile_arg = (
+                                f"-p {store_profile} "
+                                if isinstance(store_profile, str)
+                                and store_profile
+                                and store_profile != "default"
+                                else ""
+                            )
                         await adapter.send(
                             source.chat_id,
                             f"Hi~ I don't recognize you yet!\n\n"
                             f"Here's your pairing code: `{code}`\n\n"
-                            f"Ask the bot owner to run:\n"
+                            f"Ask the bot owner to approve you in the AgentX "
+                            f"app (Messaging channels), or to run:\n"
                             f"`agentx {profile_arg}pairing approve "
                             f"{platform_name} {code}`"
                         )

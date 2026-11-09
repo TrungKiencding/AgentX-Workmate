@@ -2129,6 +2129,7 @@ export const zhHant = defineLocale({
     revokedUser: name => `已撤銷 ${name}`,
     failedApprove: name => `核准 ${name} 失敗`,
     failedRevoke: name => `撤銷 ${name} 失敗`,
+    pairingExpired: '此請求已過期。請對方再次傳訊息給機器人以產生新請求，然後在這裡核准。',
     pairingLockedOut: '核准失敗次數過多 — 這個平台已被暫時鎖定，請稍後再試。',
     waitingSince: minutes => (minutes < 1 ? '剛剛' : `${minutes} 分鐘前`)
   },

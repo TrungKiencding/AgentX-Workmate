@@ -2327,6 +2327,7 @@ export const vi: Translations = {
     revokedUser: name => `Đã thu hồi ${name}`,
     failedApprove: name => `Duyệt ${name} thất bại`,
     failedRevoke: name => `Thu hồi ${name} thất bại`,
+    pairingExpired: 'Yêu cầu này đã hết hạn. Hãy nhờ người đó nhắn lại cho bot để có yêu cầu mới, rồi bấm Cho phép ở đây.',
     pairingLockedOut: 'Quá nhiều lần duyệt thất bại — nền tảng này đang bị khoá. Hãy thử lại sau.',
     waitingSince: minutes => (minutes < 1 ? 'vừa xong' : `${minutes} phút trước`),
     fieldCopy: {

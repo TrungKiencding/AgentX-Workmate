@@ -1862,6 +1862,7 @@ export interface Translations {
     revokedUser: (name: string) => string
     failedApprove: (name: string) => string
     failedRevoke: (name: string) => string
+    pairingExpired: string
     pairingLockedOut: string
     waitingSince: (minutes: number) => string
     fieldCopy: Record<string, { label?: string; help?: string; placeholder?: string }>

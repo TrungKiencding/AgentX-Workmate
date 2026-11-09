@@ -402,6 +402,149 @@ class TestPairingEndpoints:
         assert self.client.get("/api/pairing?profile=ghost").status_code == 404
 
 
+class TestPairingEndpointsSignedIn:
+    """Pairing from a signed-in desktop, where AGENTX_HOME is an account home.
+
+    The desktop tags every write with ``profile: "default"`` (or the active
+    profile's name). Those writes must reach the store the account's gateway
+    fills — ``~/.agentx/accounts/<slug>/…`` — not the install root's. They
+    used to resolve from the install root, so "Allow" on a request the page
+    had just listed always failed with "not found or expired".
+    """
+
+    SLUG = "xuan-1234abcd"
+
+    @pytest.fixture(autouse=True)
+    def _setup(self, _isolate_hermes_home, tmp_path, monkeypatch):
+        from pathlib import Path
+
+        from hermes_constants import get_default_hermes_root
+
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData" / "Local"))
+        monkeypatch.delenv("AGENTX_HOME", raising=False)
+        self.root = get_default_hermes_root()
+        self.account_home = self.root / "accounts" / self.SLUG
+        self.account_home.mkdir(parents=True)
+        monkeypatch.setenv("AGENTX_HOME", str(self.account_home))
+        self.monkeypatch = monkeypatch
+        self.client, _ = _client()
+
+    def _gateway_store(self):
+        # What a gateway launched under this AGENTX_HOME writes into.
+        from gateway.pairing import PairingStore
+
+        return PairingStore()
+
+    def test_store_for_default_profile_is_the_account_store(self):
+        from gateway.pairing import PairingStore
+
+        gateway_dir = self._gateway_store()._dir
+        assert gateway_dir == self.account_home / "platforms" / "pairing"
+        assert PairingStore(profile="default")._dir == gateway_dir
+
+    def test_desktop_approve_finds_the_request_its_list_showed(self):
+        self._gateway_store().generate_code("telegram", "935154431", "Xuan Hung Ho")
+
+        pending = self.client.get("/api/pairing").json()["pending"]
+        assert [row["user_id"] for row in pending] == ["935154431"]
+
+        r = self.client.post(
+            "/api/pairing/approve",
+            json={
+                "platform": "telegram",
+                "request_id": pending[0]["request_id"],
+                "profile": "default",
+            },
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["user"]["user_id"] == "935154431"
+
+        # The grant lands where the account's gateway checks it...
+        assert self._gateway_store().is_approved("telegram", "935154431") is True
+        # ...and nothing was written into the shared install root.
+        assert not (self.root / "platforms" / "pairing" / "telegram-approved.json").exists()
+        listed = self.client.get("/api/pairing?profile=default").json()
+        assert listed["pending"] == []
+        assert [row["user_id"] for row in listed["approved"]] == ["935154431"]
+
+    def test_desktop_revoke_and_clear_reach_the_account_store(self):
+        store = self._gateway_store()
+        store.generate_code("telegram", "u-approve", "Approve Me")
+        request_id = store.list_pending("telegram")[0]["request_id"]
+        assert store.approve_request("telegram", request_id)
+        store.generate_code("telegram", "u-pending", "Still Waiting")
+
+        r = self.client.post(
+            "/api/pairing/revoke",
+            json={"platform": "telegram", "user_id": "u-approve", "profile": "default"},
+        )
+        assert r.status_code == 200, r.text
+        assert self._gateway_store().is_approved("telegram", "u-approve") is False
+
+        r = self.client.post("/api/pairing/clear-pending?profile=default")
+        assert r.status_code == 200 and r.json()["cleared"] == 1
+        assert self._gateway_store().list_pending() == []
+
+    def test_relayed_code_approves_in_the_account_store(self):
+        code = self._gateway_store().generate_code("telegram", "tg-7", "Relayed")
+
+        r = self.client.post(
+            "/api/pairing/approve",
+            json={"platform": "telegram", "code": code.lower(), "profile": "default"},
+        )
+        assert r.status_code == 200, r.text
+        assert self._gateway_store().is_approved("telegram", "tg-7") is True
+
+    def test_named_profile_inside_the_account(self):
+        from gateway.pairing import PairingStore
+
+        work_home = self.account_home / "profiles" / "work"
+        work_home.mkdir(parents=True)
+        work = PairingStore(profile="work")
+        assert work._dir == work_home / "platforms" / "pairing"
+        work.generate_code("telegram", "work-1", "WorkGal")
+
+        listed = self.client.get("/api/pairing?profile=work").json()["pending"]
+        assert [row["user_id"] for row in listed] == ["work-1"]
+        r = self.client.post(
+            "/api/pairing/approve",
+            json={
+                "platform": "telegram",
+                "request_id": listed[0]["request_id"],
+                "profile": "work",
+            },
+        )
+        assert r.status_code == 200, r.text
+        assert PairingStore(profile="work").is_approved("telegram", "work-1") is True
+        assert self._gateway_store().is_approved("telegram", "work-1") is False
+
+    def test_pooled_profile_backend_agrees_with_its_own_gateway(self):
+        """The desktop serves a non-primary profile from its own backend
+        (AGENTX_HOME = accounts/<slug>/profiles/<name>) and still puts the
+        profile name in the body — both must land in that profile's store."""
+        from gateway.pairing import PairingStore
+
+        work_home = self.account_home / "profiles" / "work"
+        work_home.mkdir(parents=True)
+        self.monkeypatch.setenv("AGENTX_HOME", str(work_home))
+
+        PairingStore().generate_code("telegram", "pool-1", "Pooled")
+        listed = self.client.get("/api/pairing").json()["pending"]
+        assert [row["user_id"] for row in listed] == ["pool-1"]
+
+        r = self.client.post(
+            "/api/pairing/approve",
+            json={
+                "platform": "telegram",
+                "request_id": listed[0]["request_id"],
+                "profile": "work",
+            },
+        )
+        assert r.status_code == 200, r.text
+        assert PairingStore().is_approved("telegram", "pool-1") is True
+
+
 class TestWebhookEndpoints:
     @pytest.fixture(autouse=True)
     def _setup(self, _isolate_hermes_home):

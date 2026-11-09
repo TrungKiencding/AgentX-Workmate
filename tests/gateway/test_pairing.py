@@ -58,12 +58,12 @@ class TestProfileScopedDiscovery:
         global_dir = tmp_path / "global-pairing"
         global_dir.mkdir(parents=True)
 
-        # A profile's store anchors to the agentx ROOT, not the current
+        # A profile's store anchors to the user ROOT, not the current
         # AGENTX_HOME — the current home may itself be a profile, and nesting
         # profiles inside profiles is how a `-p work` CLI and its gateway end
         # up reading different files. Patch that seam, not get_hermes_home.
         with patch("gateway.pairing.PAIRING_DIR", global_dir), patch(
-            "gateway.pairing.get_default_hermes_root", return_value=home
+            "gateway.pairing.get_user_root", return_value=home
         ):
             store = PairingStore(profile="alice")
             # Scoped under the mocked root's profile dir, using the same

@@ -2081,6 +2081,7 @@ export const en: Translations = {
     revokedUser: name => `${name} revoked`,
     failedApprove: name => `Failed to approve ${name}`,
     failedRevoke: name => `Failed to revoke ${name}`,
+    pairingExpired: 'This request has expired. Ask them to message the bot again for a new one, then allow it here.',
     pairingLockedOut: 'Too many failed approvals — this platform is locked out. Try again later.',
     waitingSince: minutes => (minutes < 1 ? 'just now' : `${minutes}m ago`),
     fieldCopy: {
