@@ -5224,9 +5224,31 @@ def _guard_named_profile_under_multiplexer(force: bool = False) -> None:
     if not suffix:
         return  # default profile (or unrecognized) — this guard doesn't apply
 
+    # A signed-in account's own home is that person's *default* profile even
+    # though its suffix is the account slug: it is the multiplexer, never one
+    # of the profiles a multiplexer serves. Without this, a stale install-root
+    # gateway (from before the machine signed anyone in) made the account's
+    # own gateway refuse to start after a messaging-channel change.
     try:
-        from hermes_constants import get_default_hermes_root
-        default_root = get_default_hermes_root()
+        from hermes_constants import split_home_scope
+
+        account, named_profile = split_home_scope(get_hermes_home())
+    except Exception:
+        account, named_profile = None, None
+    if account and not named_profile:
+        return
+    if named_profile:
+        suffix = named_profile
+
+    try:
+        from hermes_constants import (
+            get_active_account,
+            get_default_hermes_root,
+            get_user_root,
+        )
+        # The multiplexer serving this profile is its owner's default gateway:
+        # the account home when signed in, the install root otherwise.
+        default_root = get_user_root() if get_active_account() else get_default_hermes_root()
         # (b) Is the default-profile gateway running?
         from gateway.status import get_running_pid as _default_running_pid  # noqa
     except Exception:

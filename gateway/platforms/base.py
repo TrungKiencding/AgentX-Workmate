@@ -565,7 +565,12 @@ sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 
 from gateway.config import Platform, PlatformConfig
 from gateway.session import SessionSource, build_session_key
-from hermes_constants import get_default_hermes_root, get_hermes_dir, get_hermes_home
+from hermes_constants import (
+    get_default_hermes_root,
+    get_hermes_dir,
+    get_hermes_home,
+    get_user_root,
+)
 
 if TYPE_CHECKING:
     from agent.display import ToolPreview
@@ -1263,15 +1268,61 @@ def _profile_cache_roots() -> List[Path]:
     denied prefix and $HOME is not that prefix). See issue #31733.
     """
     roots: List[Path] = []
-    profiles_dir = _AGENTX_ROOT / "profiles"
-    try:
-        profile_dirs = [p for p in profiles_dir.iterdir() if p.is_dir()]
-    except OSError:
-        return roots
+    # Profiles hang off the user root: the signed-in account's home on the
+    # desktop, the install root otherwise.
+    profile_dirs: List[Path] = []
+    for profiles_dir in _unique_paths([_AGENTX_ROOT / "profiles", _user_root() / "profiles"]):
+        profile_dirs.extend(_child_dirs(profiles_dir))
     for profile_dir in profile_dirs:
         for subdir in _MEDIA_DELIVERY_CACHE_SUBDIRS:
             roots.append(profile_dir / "cache" / subdir)
     return roots
+
+
+def _user_root() -> Path:
+    """The signed-in account's home, else the install root (never raises)."""
+    try:
+        return get_user_root()
+    except Exception:
+        return _AGENTX_ROOT
+
+
+def _child_dirs(directory: Path) -> List[Path]:
+    try:
+        return [p for p in directory.iterdir() if p.is_dir()]
+    except OSError:
+        return []
+
+
+def _unique_paths(paths) -> List[Path]:
+    seen = set()
+    unique: List[Path] = []
+    for path in paths:
+        try:
+            key = Path(path).expanduser().resolve(strict=False)
+        except (OSError, RuntimeError, ValueError):
+            key = Path(path)
+        if key not in seen:
+            seen.add(key)
+            unique.append(Path(path))
+    return unique
+
+
+def _agentx_homes_on_install() -> List[Path]:
+    """Every AgentX home on this install whose secrets must stay unattachable.
+
+    The active home and the install root were the only two covered, but a
+    signed-in desktop keeps its homes under ``<root>/accounts/<slug>`` (and
+    ``…/profiles/<name>``): a profile gateway there could attach its own
+    account's ``.env`` / ``auth.json`` — or another account's — to a chat
+    reply. Enumerated at check time so homes created after startup count.
+    """
+    homes: List[Path] = [_AGENTX_HOME, _AGENTX_ROOT, _user_root()]
+    homes.extend(_child_dirs(_AGENTX_ROOT / "profiles"))
+    for account_home in _child_dirs(_AGENTX_ROOT / "accounts"):
+        homes.append(account_home)
+        homes.extend(_child_dirs(account_home / "profiles"))
+    return _unique_paths(homes)
 
 
 def _kanban_attachment_roots() -> List[Path]:
@@ -1280,7 +1331,9 @@ def _kanban_attachment_roots() -> List[Path]:
     if override:
         return [Path(override).expanduser()]
     home_override = os.environ.get("AGENTX_KANBAN_HOME", "").strip()
-    root = Path(home_override).expanduser() if home_override else _AGENTX_ROOT
+    # Same anchor as kanban_db.kanban_home(): the user root, so a signed-in
+    # account's board is found where it actually lives.
+    root = Path(home_override).expanduser() if home_override else _user_root()
     roots = [root / "kanban" / "attachments"]
     boards_root = root / "kanban" / "boards"
     try:
@@ -1395,10 +1448,14 @@ def _media_delivery_denied_paths() -> List[Path]:
     # tag can't deliver a live bearer token as a native attachment.
     # (session/kanban SQLite stores are handled by #41071 — kept out here.)
     _ROOT_CREDENTIAL_DIRS = (
+        # Pairing stores (who may talk to the bot, salted code hashes). Both
+        # the legacy and the consolidated layout — only the legacy name was
+        # listed, so ``platforms/pairing/*.json`` stayed attachable.
         "pairing",
+        os.path.join("platforms", "pairing"),
         "mcp-tokens",
     )
-    for hermes_root in (_AGENTX_HOME, _AGENTX_ROOT):
+    for hermes_root in _agentx_homes_on_install():
         for rel in _ROOT_CREDENTIAL_FILES:
             denied.append(hermes_root / rel)
         for rel in _ROOT_CREDENTIAL_DIRS:
