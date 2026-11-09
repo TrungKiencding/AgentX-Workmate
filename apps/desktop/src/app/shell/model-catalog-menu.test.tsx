@@ -4,6 +4,7 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vite
 
 import { DropdownMenu, DropdownMenuContent } from '@/components/ui/dropdown-menu'
 import {
+  $knownModels,
   $modelVisibilityOpen,
   $visibleModels,
   modelVisibilityKey,
@@ -29,6 +30,7 @@ vi.mock('@/hermes', () => ({
 
 beforeEach(() => {
   $visibleModels.set(null)
+  $knownModels.set(null)
   setModelVisibilityOpen(false)
   getGlobalModelOptions.mockResolvedValue({
     providers: [{ models: ['gemini-3.1-pro', 'gemini-2.5-flash'], name: 'Google', slug: 'google' }]
@@ -73,9 +75,13 @@ function renderMenu(over: Partial<ModelMenuController> = {}) {
 // to whichever surface mounted it. If a host had to opt in, the composer and
 // the kanban board would end up disagreeing about what "my models" means —
 // which is exactly the drift extracting this component was meant to prevent.
+// The catalog the user curated against — the dialog always records it, so a
+// model it lists and the user left off reads as hidden, not as newly granted.
+const GOOGLE_CATALOG = [{ models: ['gemini-3.1-pro', 'gemini-2.5-flash'], name: 'Google', slug: 'google' }]
+
 describe('the catalog owns model curation', () => {
   it('honours the stored Edit Models shortlist', async () => {
-    setVisibleModels(new Set([modelVisibilityKey('google', 'gemini-2.5-flash')]))
+    setVisibleModels(new Set([modelVisibilityKey('google', 'gemini-2.5-flash')]), GOOGLE_CATALOG)
 
     renderMenu()
 
@@ -84,7 +90,7 @@ describe('the catalog owns model curation', () => {
   })
 
   it('still finds a hidden model by search — curation narrows the default view, not the catalog', async () => {
-    setVisibleModels(new Set([modelVisibilityKey('google', 'gemini-2.5-flash')]))
+    setVisibleModels(new Set([modelVisibilityKey('google', 'gemini-2.5-flash')]), GOOGLE_CATALOG)
 
     renderMenu()
     await screen.findByText(/Gemini 2\.5 Flash/i)
@@ -199,5 +205,20 @@ describe('the catalog offers only the options a surface can carry', () => {
     await screen.findByText(/Gemini 3\.1 Pro/i)
 
     expect(screen.queryByRole('menuitemradio')).toBeNull()
+  })
+})
+
+describe('a model granted after the shortlist was saved', () => {
+  it('shows in the menu without opening Manage models', async () => {
+    // Curated while the gateway granted only Gemini 2.5 Flash.
+    setVisibleModels(new Set([modelVisibilityKey('google', 'gemini-2.5-flash')]), [
+      { models: ['gemini-2.5-flash'], name: 'Google', slug: 'google' }
+    ])
+
+    // The gateway has since granted Gemini 3.1 Pro (the mocked catalog).
+    renderMenu()
+
+    await screen.findByText(/Gemini 2\.5 Flash/i)
+    expect(screen.queryByText(/Gemini 3\.1 Pro/i)).not.toBeNull()
   })
 })

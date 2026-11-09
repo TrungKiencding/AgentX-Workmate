@@ -15,6 +15,7 @@ import { modelCatalogQueryPolicy, modelOptionsQueryKey, requestModelOptions } fr
 import { displayModelName, modelDisplayParts } from '@/lib/model-status-label'
 import { normalize } from '@/lib/text'
 import {
+  $knownModels,
   $visibleModels,
   collapseModelFamilies,
   effectiveVisibleKeys,
@@ -45,6 +46,7 @@ export function ModelVisibilityDialog({
   const copy = t.modelVisibility
   const [search, setSearch] = useState('')
   const stored = useStore($visibleModels)
+  const known = useStore($knownModels)
   const collapsedProviders = useStore($collapsedProviders)
 
   const modelOptions = useQuery({
@@ -59,14 +61,22 @@ export function ModelVisibilityDialog({
     [modelOptions.data]
   )
 
-  const visible = effectiveVisibleKeys(stored, providers)
+  const visible = effectiveVisibleKeys(stored, providers, known)
 
+  // Each write records the catalog it was made against (see `$knownModels`), so
+  // a model the gateway grants after this edit shows instead of hiding.
   const toggle = (provider: ModelOptionProvider, model: string) => {
-    setVisibleModels(toggleModelVisibility($visibleModels.get(), providers, provider.slug, model))
+    setVisibleModels(
+      toggleModelVisibility($visibleModels.get(), providers, provider.slug, model, $knownModels.get()),
+      providers
+    )
   }
 
   const setProviderVisible = (provider: ModelOptionProvider, next: boolean) => {
-    setVisibleModels(setProviderVisibility($visibleModels.get(), providers, provider.slug, next))
+    setVisibleModels(
+      setProviderVisibility($visibleModels.get(), providers, provider.slug, next, $knownModels.get()),
+      providers
+    )
   }
 
   const q = normalize(search)

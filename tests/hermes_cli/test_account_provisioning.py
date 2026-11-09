@@ -970,6 +970,13 @@ class FakeKeysService:
             held["transcription_model"] = transcription
         record["models"] = [*record["models"], *(m for m in roles if m not in record["models"])]
 
+    def grant_model(self, subject: str, model: str) -> None:
+        """The service's policy save added *model*: row and allowlist both carry it."""
+        held = self.keys[subject]
+        record = self.proxy.records[held["token"]]
+        held["models"] = [*held["models"], model]
+        record["models"] = [*record["models"], model]
+
     def retire_model(self, subject: str, model: str) -> None:
         """What the service's grant pass does when the proxy retires a model.
 
@@ -2104,6 +2111,28 @@ class TestModelListFollowsTheProxy:
 
         assert read_state(account.home)["models"] == ["chat-a"]
         assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {"chat-a"}
+
+    def test_a_model_the_service_grants_reaches_the_picker_without_a_rotation(
+        self, account, service, fake_proxy
+    ):
+        service.grants = ["chat-a", "chat-b"]
+        self._sign_in(account, service, fake_proxy)
+        key_env = provider_key_env("litellm")
+        held = env_value(key_env)
+
+        # An operator added chat-c to the policy; the service's save pushed it
+        # onto the key this laptop holds at once.
+        service.grant_model("tok", "chat-c")
+
+        result = self._sign_in(account, service, fake_proxy)
+
+        assert result.ok is True
+        assert read_state(account.home)["models"] == ["chat-a", "chat-b", "chat-c"]
+        assert set(raw_config(account.home)["providers"]["litellm"]["models"]) == {
+            "chat-a", "chat-b", "chat-c",
+        }
+        # Learning that a model arrived is not a new key.
+        assert env_value(key_env) == held
 
     def test_an_answer_reaching_nothing_recorded_changes_nothing(
         self, account, service, fake_proxy

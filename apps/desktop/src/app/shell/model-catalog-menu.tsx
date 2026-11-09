@@ -25,6 +25,7 @@ import { DEFAULT_REASONING_EFFORT, effectiveReasoningEffort } from '@/lib/reason
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 import {
+  $knownModels,
   $visibleModels,
   collapseModelFamilies,
   DEFAULT_VISIBLE_PER_PROVIDER,
@@ -148,6 +149,7 @@ export function ModelCatalogMenu({
   // catalog must show the same shortlist. A per-caller opt-in is how the board
   // and the composer would end up disagreeing about what "my models" means.
   const visibleModels = useStore($visibleModels)
+  const knownModels = useStore($knownModels)
 
   const modelOptions = useQuery({
     ...modelCatalogQueryPolicy,
@@ -186,8 +188,8 @@ export function ModelCatalogMenu({
   // provider list would otherwise resolve to an empty key set that reads as
   // "user hid everything" and blanks the menu on first open.
   const shownKeys = useMemo(
-    () => effectiveVisibleKeys(visibleModels, pickerProviders),
-    [visibleModels, pickerProviders]
+    () => effectiveVisibleKeys(visibleModels, pickerProviders, knownModels),
+    [visibleModels, pickerProviders, knownModels]
   )
 
   const groups = useMemo(
