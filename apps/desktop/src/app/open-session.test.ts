@@ -22,6 +22,7 @@ vi.mock('@/store/windows', () => ({
 
 vi.mock('./routes', () => ({
   $workspaceIsPage: { get: () => workspaceIsPageGet() },
+  routePathname: (to: string) => new URL(to, 'https://test.invalid').pathname,
   sessionRoute: (id: string) => `/c/${encodeURIComponent(id)}`
 }))
 
@@ -82,6 +83,7 @@ describe('openSession', () => {
   const navigate = vi.fn()
 
   beforeEach(() => {
+    window.history.replaceState(null, '', '#/c/s1')
     navigate.mockClear()
     focusOpenSession.mockReset()
     openSessionTile.mockReset()
@@ -99,6 +101,21 @@ describe('openSession', () => {
     expect(focusOpenSession).toHaveBeenCalledWith('s1')
     expect(navigate).not.toHaveBeenCalled()
     expect(openSessionTile).not.toHaveBeenCalled()
+  })
+
+  it('honours the last task click when a different route is already pending', () => {
+    focusOpenSession.mockReturnValueOnce(null).mockReturnValue('main')
+
+    const navigateLive = vi.fn((to: string) => {
+      window.location.hash = to
+    })
+
+    openSession('other', navigateLive)
+    openSession('s1', navigateLive)
+    openSession('s1', navigateLive)
+
+    expect(window.location.hash).toBe('#/c/s1')
+    expect(navigateLive.mock.calls.map(([to]) => to)).toEqual(['/c/other', '/c/s1'])
   })
 
   it('in-place focuses main when already selected and not on a page', () => {

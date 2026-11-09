@@ -12,6 +12,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { registry } from '@/contrib/registry'
+import { host } from '@/sdk'
 
 import {
   $workspaceIsPage,
@@ -54,6 +55,29 @@ function contributeRoute(): () => void {
 const fronted = () =>
   vi.mocked(revealTreePane).mock.calls.some(([pane]) => pane === 'workspace') &&
   vi.mocked(noteActiveTreeGroup).mock.calls.some(([group]) => group === null)
+
+describe('plugin navigation', () => {
+  it('fronts a contributed page on repeated clicks without adding history', () => {
+    const dispose = contributeRoute()
+    const previous = window.location.hash
+
+    try {
+      window.history.replaceState(null, '', '#/kanban?board=current')
+      const length = window.history.length
+
+      for (let index = 0; index < 20; index += 1) {
+        host.navigate('#/kanban?board=current')
+      }
+
+      expect(fronted()).toBe(true)
+      expect(window.location.hash).toBe('#/kanban?board=current')
+      expect(window.history.length).toBe(length)
+    } finally {
+      dispose()
+      window.history.replaceState(null, '', previous || '#/')
+    }
+  })
+})
 
 beforeEach(() => {
   vi.mocked(revealTreePane).mockClear()

@@ -21,6 +21,7 @@
 import { atom, type ReadableAtom } from 'nanostores'
 
 import { openSession, type OpenSessionIntent } from '@/app/open-session'
+import { navigateToWorkspacePage } from '@/app/routes'
 import { $narrowViewport } from '@/components/pane-shell/tree/store'
 import { onGatewayEvent } from '@/contrib/events'
 import { deleteProfile as deleteProfileRequest, getLogs, getStatus } from '@/hermes'
@@ -100,7 +101,11 @@ export const host = {
 
   /** Navigate the app router (hash routes, e.g. '/command-center?section=system'). */
   navigate: (path: string) => {
-    window.location.hash = path.startsWith('#') ? path : `#${path}`
+    const target = path.startsWith('#') ? path.slice(1) : path
+
+    navigateToWorkspacePage(to => {
+      window.location.hash = `#${to}`
+    }, target)
   },
 
   /** Open a stored session the way core surfaces do (focus an existing
@@ -235,8 +240,10 @@ export { PALETTE_AREA, type PaletteContribution } from '@/app/command-palette/co
  *  action. A plugin page that uses it reads as part of the app. */
 export { PageSearchShell, type PageShellTab } from '@/app/page-search-shell'
 export {
+  isOverlayRoute,
   type RouteContribution,
   ROUTES_AREA,
+  SIDEBAR_HEADER_AREA,
   SIDEBAR_NAV_AREA,
   type SidebarNavContribution,
   type SidebarNavTint

@@ -3,7 +3,7 @@
  * picture, memory, skills, scheduled tasks and ONE ongoing conversation.
  *
  * Surfaces (all from this plugin, no core view edits):
- *  - a Work / Assistants switch in the title bar → the `/bots` page;
+ *  - a Work / Assistants switch at the top of the sidebar → the `/bots` page;
  *  - a title-bar chip naming the assistant you're chatting with;
  *  - ⌘K commands to open the page or create an assistant;
  *  - composer middleware: "@writer …" in any chat hands the request to that
@@ -26,6 +26,7 @@ import {
   type PaletteContribution,
   type RouteContribution,
   ROUTES_AREA,
+  SIDEBAR_HEADER_AREA,
   TITLEBAR_AREAS
 } from '@agentx/plugin-sdk'
 
@@ -98,7 +99,7 @@ const plugin: HermesPlugin = {
       },
       {
         id: 'workspace-switcher',
-        area: TITLEBAR_AREAS.left,
+        area: SIDEBAR_HEADER_AREA,
         render: () => <WorkspaceSwitcher />
       },
       {

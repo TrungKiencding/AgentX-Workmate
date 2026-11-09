@@ -1,5 +1,5 @@
 import { host } from '@agentx/plugin-sdk'
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 // eslint-disable-next-line no-restricted-imports -- register real bundles as the plugin loader does
@@ -27,6 +27,52 @@ afterEach(() => {
 })
 
 describe('Work / Assistants navigation', () => {
+  it('returns to the task after a temporary overlay was opened from Assistants', async () => {
+    window.history.replaceState(null, '', '#/task-a')
+    render(<WorkspaceSwitcher />)
+    fireEvent.click(screen.getByRole('button', { name: 'Assistants' }))
+    await waitFor(() => expect(window.location.hash).toBe('#/bots'))
+    window.location.hash = '/cron'
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Work' }).getAttribute('aria-pressed')).toBe('true'))
+    window.location.hash = '/bots'
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Assistants' }).getAttribute('aria-pressed')).toBe('true')
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Work' }))
+    await waitFor(() => expect(window.location.hash).toBe('#/task-a'))
+  })
+
+  it('honours the last click when alternating before hashchange is delivered', async () => {
+    render(<WorkspaceSwitcher />)
+    const work = screen.getByRole('button', { name: 'Work' })
+    const assistants = screen.getByRole('button', { name: 'Assistants' })
+
+    act(() => {
+      for (let index = 0; index < 20; index += 1) {
+        assistants.click()
+        work.click()
+      }
+    })
+
+    expect(window.location.hash).toBe('#/')
+    await waitFor(() => expect(work.getAttribute('aria-pressed')).toBe('true'))
+  })
+
+  it('remembers a newly selected task before its deferred hashchange', async () => {
+    render(<WorkspaceSwitcher />)
+
+    act(() => {
+      window.location.hash = '/task-b?view=details'
+      screen.getByRole('button', { name: 'Assistants' }).click()
+    })
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Assistants' }).getAttribute('aria-pressed')).toBe('true')
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Work' }))
+    await waitFor(() => expect(window.location.hash).toBe('#/task-b?view=details'))
+  })
+
   it('returns to the exact workspace destination, including its query, without resetting a chat', async () => {
     window.history.replaceState(null, '', '#/session%3Aone?view=details')
     const newChat = vi.spyOn(host, 'newChat')

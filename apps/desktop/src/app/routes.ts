@@ -115,6 +115,8 @@ function isContributedPath(pathname: string): boolean {
 // while the app is there.
 
 export const SIDEBAR_NAV_AREA = 'sidebar.nav'
+/** Rendered controls above the sidebar navigation, without a duplicate row. */
+export const SIDEBAR_HEADER_AREA = 'sidebar.header'
 
 /** Payload of a `sidebar.nav` data contribution. */
 export interface SidebarNavContribution {
@@ -223,6 +225,11 @@ export function appViewForPath(pathname: string): AppView {
   }
 
   return APP_VIEW_BY_PATH.get(path) ?? 'chat'
+}
+
+/** Temporary route tasks must not replace a remembered workspace destination. */
+export function isOverlayRoute(to: string): boolean {
+  return isOverlayView(appViewForPath(to))
 }
 
 /** Does `to` land on a full page rendered INSIDE the workspace pane

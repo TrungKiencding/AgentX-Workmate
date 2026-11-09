@@ -142,10 +142,15 @@ what most primitives write; either is fine, a hex is not.
 - **One action, one home.** A command may have keyboard, palette, and visible
   affordances, but they invoke the same action and state. Do not fork behavior
   per entry point.
-- **Work and Assistants share the titlebar.** Bot Mode contributes a labelled
-  `SegmentedControl` to `titleBar.left`, using the existing control motion and
+- **Work and Assistants share the sidebar header.** Bot Mode contributes a labelled
+  `SegmentedControl` to `sidebar.header`, using the existing control motion and
   focus treatment. It navigates to the assistant roster and returns to the
   workspace destination the user left; it does not create or reset a session.
+  Keep the control inside the rail above New chat, full-width with two equal
+  segments. Read the live route on click so fast toggles honour the last click.
+  Temporary overlays such as Schedules and Settings never replace the Work
+  destination. A main-session re-click must also cancel a pending route to a
+  different chat, while a stable re-click preserves navigation history.
   Schedules occupies the former Assistants sidebar position and opens the
   existing Cron overlay. Keep it visible even when no jobs exist or the
   statusbar is hidden; creating and repairing a schedule needs a clear home.

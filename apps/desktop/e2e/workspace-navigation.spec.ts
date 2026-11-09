@@ -26,7 +26,7 @@ test.afterAll(async () => {
   await fixture?.cleanup()
 })
 
-test('titlebar switches destinations without replacing the Work draft', async () => {
+test('sidebar header switches destinations without replacing the Work draft', async () => {
   const { page } = fixture
   await page.screenshot({ path: test.info().outputPath('workspace-navigation-light.png') })
   const composer = page.locator('[contenteditable="true"]').first()
@@ -37,8 +37,9 @@ test('titlebar switches destinations without replacing the Work draft', async ()
   await expect(page).toHaveURL(/#\/bots$/)
   await expect(page.getByRole('button', { name: assistants, exact: true })).toHaveAttribute('aria-pressed', 'true')
   await expect(
-    page.locator('[data-sidebar-surface]').getByRole('button', { name: assistants, exact: true })
-  ).toHaveCount(0)
+    page.locator('[data-sidebar="header"]').getByRole('button', { name: assistants, exact: true })
+  ).toHaveCount(1)
+  await expect(page.getByRole('button', { name: assistants, exact: true })).toHaveCount(1)
 
   const work = page.getByRole('button', { name: 'Work', exact: true })
   await work.focus()
@@ -46,6 +47,30 @@ test('titlebar switches destinations without replacing the Work draft', async ()
   await expect(work).toHaveAttribute('aria-pressed', 'true')
   await expect.poll(() => new URL(page.url()).hash).toBe(workRoute)
   await expect(composer).toHaveText('Keep this unfinished draft')
+})
+
+test('rapid repeated clicks honour the last destination without losing the draft', async () => {
+  const { page, mock } = fixture
+  await page.locator('[contenteditable="true"]').first().fill('Keep this unfinished draft')
+  const before = mock.receivedPrompts.length
+  const navigation = page.locator('[data-sidebar="header"]').getByRole('group')
+  const workRoute = new URL(page.url()).hash
+
+  await navigation.evaluate(group => {
+    const [work, assistants] = group.querySelectorAll('button')
+
+    for (let index = 0; index < 30; index += 1) {
+      assistants.click()
+      assistants.click()
+      work.click()
+      work.click()
+    }
+  })
+
+  await expect.poll(() => new URL(page.url()).hash).toBe(workRoute)
+  await expect(page.getByRole('button', { name: 'Work', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(page.locator('[contenteditable="true"]').first()).toHaveText('Keep this unfinished draft')
+  expect(mock.receivedPrompts.length).toBe(before)
 })
 
 test('Schedules remains accessible with the statusbar hidden and saves an explicit model pin', async () => {
@@ -93,11 +118,45 @@ test('labelled controls remain clickable in a narrow window and reduced motion',
   const assistant = page.getByRole('button', { name: assistants, exact: true })
   await expect(work).toBeInViewport()
   await expect(assistant).toBeInViewport()
+  const header = page.locator('[data-sidebar="header"]')
+  const sidebar = page.locator('[data-sidebar-surface]').first()
+  const headerRect = await header.boundingBox()
+  const sidebarRect = await sidebar.boundingBox()
+  expect(headerRect!.x).toBeGreaterThanOrEqual(sidebarRect!.x)
+  expect(headerRect!.x + headerRect!.width).toBeLessThanOrEqual(sidebarRect!.x + sidebarRect!.width)
   await assistant.click()
   await expect(assistant).toHaveAttribute('aria-pressed', 'true')
   await work.click()
   await expect(work).toHaveAttribute('aria-pressed', 'true')
   await page.screenshot({ path: test.info().outputPath('workspace-navigation.png') })
+})
+
+test('collapsing and reopening the sidebar preserves the selected destination', async () => {
+  const { page } = fixture
+  await page.locator('[contenteditable="true"]').first().fill('Keep this unfinished draft')
+  await page.getByRole('button', { name: assistants, exact: true }).click()
+  const shortcut = process.platform === 'darwin' ? 'Meta+Backslash' : 'Control+Backslash'
+  await page.keyboard.press(shortcut)
+  await expect(page.locator('[data-sidebar="header"]')).not.toBeVisible()
+  await page.keyboard.press(shortcut)
+  await expect(page.locator('[data-sidebar="header"]')).toBeVisible()
+  await expect(page.getByRole('button', { name: assistants, exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.getByRole('button', { name: 'Work', exact: true }).click()
+  await expect(page.locator('[contenteditable="true"]').first()).toHaveText('Keep this unfinished draft')
+})
+
+test('an overlay opened from Assistants does not replace the remembered Work task', async () => {
+  const { page } = fixture
+  await page.locator('[contenteditable="true"]').first().fill('Keep this unfinished draft')
+  const route = new URL(page.url()).hash
+  await page.getByRole('button', { name: assistants, exact: true }).click()
+  await page.locator('[data-sidebar-surface]').getByRole('button', { name: schedules, exact: true }).click()
+  await expect(page).toHaveURL(/#\/cron$/)
+  await page.keyboard.press('Escape')
+  await expect(page).toHaveURL(/#\/bots$/)
+  await page.getByRole('button', { name: 'Work', exact: true }).click()
+  await expect.poll(() => new URL(page.url()).hash).toBe(route)
+  await expect(page.locator('[contenteditable="true"]').first()).toHaveText('Keep this unfinished draft')
 })
 
 test('long contributed context stays between navigation and system controls', async () => {

@@ -124,6 +124,7 @@ import { SidebarAccountRow } from './account-row'
 import { ConnectedChannels } from './connected-channels'
 import { contributedNavItems } from './contributed-nav'
 import { SidebarCronJobsSection } from './cron-jobs-section'
+import { SidebarHeaderSlot } from './header-slot'
 import { SidebarLoadMoreRow } from './load-more-row'
 import { orderByIds, reconcileOrderIds, resolveManualSessionOrderIds, sameIds } from './order'
 import { ProfileRail } from './profile-switcher'
@@ -1289,6 +1290,7 @@ export function ChatSidebar({
       data-sidebar-surface=""
     >
       <SidebarContent className="gap-0 overflow-hidden bg-transparent px-2">
+        <SidebarHeaderSlot />
         <SidebarGroup className="shrink-0 p-0 pb-2 pt-[calc(var(--titlebar-height)+0.375rem)]">
           <SidebarGroupContent>
             {/* 2px between rows (spec §3.7) — enough for each hover fill to
