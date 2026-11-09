@@ -2112,6 +2112,43 @@ export const zh: Translations = {
   },
 
   messaging: {
+    guide: {
+      title: '连接指南',
+      replay: '查看分步指南',
+      skip: '跳过',
+      finish: '结束指南',
+      docs: '图文指南',
+      source: '打开设置页面',
+      secret: '这是您的私人凭据。请直接粘贴到字段中，不要分享给他人。',
+      connectBody: '先在屏幕底部保存更改，再打开下方开关。如果显示“需要重启”，请重启AgentX以应用更改。',
+      testTitle: '发送测试消息',
+      testBody: '等待“已连接”，然后在消息应用中向已设置的机器人或账号发送问候。Telegram需要先点击Start。',
+      testNote: '如果机器人请求访问权限，请回到此处批准您自己的请求。结束指南不代表连接成功，请确认机器人回复。',
+      fieldFallback: '从平台管理页面获取此值。请打开图文指南查看位置和填写格式。',
+      progress: (current, total) => `指南 · ${current}/${total}`,
+      fieldHelp: label => `${label}填写指南`
+    },
+    fieldGuide: {
+      TELEGRAM_BOT_TOKEN:
+        '在Telegram打开@BotFather → 发送/newbot → 设置名称及以bot结尾的用户名。复制“HTTP API”下方的完整令牌，不是t.me链接或@bot名称。',
+      TELEGRAM_ALLOWED_USERS:
+        '在Telegram打开@userinfobot → 点击Start → 复制Id旁的数字。多个ID用逗号分隔。留空时可在Workmate批准私信请求，不会自动允许所有人访问。',
+      DISCORD_BOT_TOKEN:
+        'Discord Developer Portal → Applications → 您的应用 → Bot → Reset Token。复制新令牌，并在同一页面启用Message Content Intent。',
+      DISCORD_ALLOWED_USERS:
+        'Discord → User Settings → Advanced → 启用Developer Mode。右键个人资料 → Copy User ID。粘贴数字ID，不是显示名称。',
+      SLACK_BOT_TOKEN:
+        'Slack应用设置 → OAuth & Permissions → Install to Workspace。授权后复制以xoxb-开头的Bot User OAuth Token，此处不要使用xapp-令牌。',
+      SLACK_APP_TOKEN:
+        'Slack应用 → Basic Information → App-Level Tokens → Generate Token and Scopes → 添加connections:write。复制xapp-令牌，再启用Socket Mode。',
+      SLACK_ALLOWED_USERS: '在Slack打开成员资料 → 三点菜单 → Copy member ID。粘贴以U或W开头的ID，多个ID用逗号分隔。',
+      EMAIL_PASSWORD:
+        'Gmail：Google账号 → 安全 → 启用两步验证 → 应用专用密码。为AgentX创建并粘贴16位密码，不是Gmail登录密码。如无此选项，请联系邮箱管理员。',
+      TWILIO_ACCOUNT_SID:
+        'Twilio Console → Account Dashboard → Account Info → Account SID。复制以AC开头的完整值，这是账号标识，不是电话号码。',
+      TWILIO_AUTH_TOKEN:
+        'Twilio Console → Account Dashboard → Account Info → Auth Token → Show。复制令牌。还需Twilio号码和接收SMS的webhook，请先查看图文指南。'
+    },
     pageTitle: '消息',
     pageDescription: '在你常用的应用里给 AgentX 发消息。',
     groupInUse: '正在使用',
@@ -2214,6 +2251,22 @@ export const zh: Translations = {
     pairingLockedOut: '批准失败次数过多，该平台已被暂时锁定，请稍后再试。',
     waitingSince: minutes => (minutes < 1 ? '刚刚' : `${minutes} 分钟前`),
     fieldCopy: {
+      EMAIL_ADDRESS: { label: 'AgentX邮箱地址', help: '使用AgentX专用邮箱，填写完整地址，如agentx@example.com。' },
+      EMAIL_PASSWORD: { label: '应用专用密码', help: '从邮箱服务的应用专用密码设置获取。Gmail需要启用两步验证。' },
+      EMAIL_IMAP_HOST: {
+        label: '收件服务器（IMAP）',
+        help: 'Gmail填写imap.gmail.com。企业邮箱请向管理员索取IMAP主机，不加https://或端口。'
+      },
+      EMAIL_SMTP_HOST: {
+        label: '发件服务器（SMTP）',
+        help: 'Gmail填写smtp.gmail.com。企业邮箱请向管理员索取SMTP主机，不加https://或端口。'
+      },
+      TWILIO_ACCOUNT_SID: {
+        label: 'Twilio账号SID',
+        help: '在Twilio Console → Account Dashboard → Account Info获取，以AC开头。'
+      },
+      TWILIO_AUTH_TOKEN: { label: 'Twilio认证令牌', help: '在同一Account Info中找到Auth Token，点击Show后复制。' },
+
       TELEGRAM_BOT_TOKEN: {
         label: 'Bot 令牌',
         help: '用 @BotFather 创建一个机器人，然后粘贴它给你的令牌。',
@@ -2221,7 +2274,7 @@ export const zh: Translations = {
       },
       TELEGRAM_ALLOWED_USERS: {
         label: '允许的 Telegram 用户 ID',
-        help: '推荐。来自 @userinfobot 的逗号分隔数字 ID。不设置则任何人都能私信你的机器人。'
+        help: '在Telegram打开@userinfobot → 点击Start → 复制Id旁的数字。多个ID用逗号分隔。留空时可在Workmate批准私信请求，不会自动允许所有人访问。'
       },
       TELEGRAM_PROXY: { label: '代理 URL', help: '仅在 Telegram 被屏蔽的网络中需要。' },
       DISCORD_BOT_TOKEN: { label: 'Bot 令牌', help: '在 Discord 开发者门户创建应用，添加机器人，然后粘贴其令牌。' },

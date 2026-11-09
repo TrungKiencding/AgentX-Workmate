@@ -2229,6 +2229,48 @@ export const vi: Translations = {
   },
 
   messaging: {
+    guide: {
+      title: 'Hướng dẫn kết nối',
+      replay: 'Xem hướng dẫn từng bước',
+      skip: 'Bỏ qua',
+      finish: 'Xong hướng dẫn',
+      docs: 'Hướng dẫn có hình ảnh',
+      source: 'Mở trang thiết lập',
+      secret: 'Đây là mã riêng của bạn. Dán trực tiếp vào ô; không gửi mã cho người khác.',
+      connectBody:
+        'Lưu thay đổi ở cuối màn hình trước, rồi bật công tắc bên dưới. Nếu hiện “Cần khởi động lại”, bấm “Khởi động lại AgentX” để áp dụng.',
+      testTitle: 'Gửi thử một tin nhắn',
+      testBody:
+        'Chờ trạng thái “Đã kết nối”, rồi mở ứng dụng nhắn tin và gửi một lời chào cho bot hoặc tài khoản đã thiết lập. Với Telegram, bấm Start trước khi gửi.',
+      testNote:
+        'Nếu bot yêu cầu quyền truy cập, quay lại đây và bấm “Cho phép” ở yêu cầu của chính bạn. Xong hướng dẫn không đồng nghĩa kết nối đã thành công; hãy kiểm tra bot có trả lời.',
+      fieldFallback:
+        'Lấy giá trị từ trang quản lý của nền tảng. Mở hướng dẫn có hình ảnh để xem cách tìm và định dạng cần điền.',
+      progress: (current, total) => `Hướng dẫn · ${current}/${total}`,
+      fieldHelp: label => `Hướng dẫn điền ${label}`
+    },
+    fieldGuide: {
+      TELEGRAM_BOT_TOKEN:
+        'Trong Telegram, mở @BotFather → gửi /newbot → chọn tên và username kết thúc bằng bot. Sao chép toàn bộ mã sau dòng “HTTP API”. Đây không phải đường dẫn t.me hay tên @bot.',
+      TELEGRAM_ALLOWED_USERS:
+        'Mở @userinfobot trong Telegram → bấm Start → sao chép số ở dòng Id. Điền ID của bạn; nhiều ID ngăn bằng dấu phẩy. Có thể bỏ trống và duyệt yêu cầu nhắn riêng tại Workmate; bỏ trống không tự cho mọi người quyền truy cập.',
+      DISCORD_BOT_TOKEN:
+        'Discord Developer Portal → Applications → ứng dụng của bạn → Bot → Reset Token. Sao chép token vừa tạo. Bật Message Content Intent trong cùng trang để bot đọc nội dung tin nhắn.',
+      DISCORD_ALLOWED_USERS:
+        'Discord → User Settings → Advanced → bật Developer Mode. Nhấp phải vào hồ sơ của bạn → Copy User ID. Dán số ID, không dùng tên hiển thị.',
+      SLACK_BOT_TOKEN:
+        'Trang quản lý Slack app → OAuth & Permissions → Install to Workspace. Sau khi cấp quyền, sao chép Bot User OAuth Token bắt đầu bằng xoxb-. Không dùng token xapp- cho ô này.',
+      SLACK_APP_TOKEN:
+        'Slack app → Basic Information → App-Level Tokens → Generate Token and Scopes → thêm connections:write. Sao chép mã xapp-, rồi bật Socket Mode trong mục cùng tên.',
+      SLACK_ALLOWED_USERS:
+        'Trong Slack, mở hồ sơ người dùng → dấu ba chấm → Copy member ID. Dán ID bắt đầu bằng U hoặc W; nhiều ID ngăn bằng dấu phẩy.',
+      EMAIL_PASSWORD:
+        'Với Gmail: Tài khoản Google → Bảo mật → bật Xác minh 2 bước → Mật khẩu ứng dụng. Tạo mật khẩu cho AgentX và dán mã 16 ký tự. Không dùng mật khẩu đăng nhập Gmail. Nếu không có mục này, hỏi quản trị viên email.',
+      TWILIO_ACCOUNT_SID:
+        'Twilio Console → Account Dashboard → Account Info → Account SID. Sao chép toàn bộ giá trị bắt đầu bằng AC. Đây là định danh tài khoản, không phải số điện thoại.',
+      TWILIO_AUTH_TOKEN:
+        'Twilio Console → Account Dashboard → Account Info → Auth Token → Show. Sao chép mã vào đây. Bạn vẫn cần số Twilio và webhook nhận SMS; xem hướng dẫn có hình ảnh trước khi bật.'
+    },
     pageTitle: 'Kênh tin nhắn',
     pageDescription: 'Nhắn cho AgentX từ ứng dụng bạn đang dùng.',
     search: 'Tìm trong phần tin nhắn...',
@@ -2327,10 +2369,36 @@ export const vi: Translations = {
     revokedUser: name => `Đã thu hồi ${name}`,
     failedApprove: name => `Duyệt ${name} thất bại`,
     failedRevoke: name => `Thu hồi ${name} thất bại`,
-    pairingExpired: 'Yêu cầu này đã hết hạn. Hãy nhờ người đó nhắn lại cho bot để có yêu cầu mới, rồi bấm Cho phép ở đây.',
+    pairingExpired:
+      'Yêu cầu này đã hết hạn. Hãy nhờ người đó nhắn lại cho bot để có yêu cầu mới, rồi bấm Cho phép ở đây.',
     pairingLockedOut: 'Quá nhiều lần duyệt thất bại — nền tảng này đang bị khoá. Hãy thử lại sau.',
     waitingSince: minutes => (minutes < 1 ? 'vừa xong' : `${minutes} phút trước`),
     fieldCopy: {
+      EMAIL_ADDRESS: {
+        label: 'Địa chỉ email của AgentX',
+        help: 'Dùng một hộp thư riêng cho AgentX. Điền địa chỉ đầy đủ, ví dụ agentx@example.com.'
+      },
+      EMAIL_PASSWORD: {
+        label: 'Mật khẩu ứng dụng',
+        help: 'Lấy từ phần Mật khẩu ứng dụng của nhà cung cấp email. Với Gmail, cần bật Xác minh 2 bước.'
+      },
+      EMAIL_IMAP_HOST: {
+        label: 'Máy chủ nhận thư (IMAP)',
+        help: 'Với Gmail: imap.gmail.com. Với email công ty, hỏi quản trị viên địa chỉ IMAP; không thêm https:// hay số cổng.'
+      },
+      EMAIL_SMTP_HOST: {
+        label: 'Máy chủ gửi thư (SMTP)',
+        help: 'Với Gmail: smtp.gmail.com. Với email công ty, hỏi quản trị viên địa chỉ SMTP; không thêm https:// hay số cổng.'
+      },
+      TWILIO_ACCOUNT_SID: {
+        label: 'ID tài khoản Twilio',
+        help: 'Lấy trong Twilio Console → Account Dashboard → Account Info. Giá trị bắt đầu bằng AC.'
+      },
+      TWILIO_AUTH_TOKEN: {
+        label: 'Mã xác thực Twilio',
+        help: 'Lấy ở cùng mục Account Info → Auth Token. Bấm Show để xem rồi sao chép.'
+      },
+
       TELEGRAM_BOT_TOKEN: {
         label: 'Mã bot',
         help: 'Tạo một bot với @BotFather rồi dán mã nó đưa cho bạn vào đây.',
@@ -2338,7 +2406,7 @@ export const vi: Translations = {
       },
       TELEGRAM_ALLOWED_USERS: {
         label: 'Ai được phép nhắn cho bot',
-        help: 'Nên đặt. Các số ID cách nhau bằng dấu phẩy, lấy từ @userinfobot. Bỏ trống thì ai cũng nhắn riêng được cho bot của bạn.',
+        help: 'Mở @userinfobot trong Telegram → bấm Start → sao chép số ở dòng Id. Điền ID của bạn; nhiều ID ngăn bằng dấu phẩy. Có thể bỏ trống và duyệt yêu cầu nhắn riêng tại Workmate; bỏ trống không tự cho mọi người quyền truy cập.',
         placeholder: 'Ví dụ: 12345678, 87654321'
       },
       TELEGRAM_PROXY: { label: 'Địa chỉ proxy', help: 'Chỉ cần khi mạng của bạn chặn Telegram.' },

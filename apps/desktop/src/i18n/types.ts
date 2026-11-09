@@ -1793,6 +1793,23 @@ export interface Translations {
   }
 
   messaging: {
+    guide: {
+      title: string
+      replay: string
+      skip: string
+      finish: string
+      docs: string
+      source: string
+      secret: string
+      connectBody: string
+      testTitle: string
+      testBody: string
+      testNote: string
+      fieldFallback: string
+      progress: (current: number, total: number) => string
+      fieldHelp: (label: string) => string
+    }
+    fieldGuide: Record<string, string>
     pageTitle: string
     pageDescription: string
     search: string

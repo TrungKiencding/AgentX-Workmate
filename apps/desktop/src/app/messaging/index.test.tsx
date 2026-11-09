@@ -50,6 +50,12 @@ function platform(patch: Partial<MessagingPlatformInfo> = {}): MessagingPlatform
 }
 
 beforeEach(() => {
+  window.localStorage.clear()
+
+  for (const id of ['teams', 'telegram']) {
+    window.localStorage.setItem(`agentx-desktop:global:messaging-guide:v1:${id}`, 'seen')
+  }
+
   updateMessagingPlatform.mockResolvedValue({ ok: true, platform: 'teams' })
   getPairing.mockResolvedValue({ approved: [], pending: [] })
 })
@@ -253,5 +259,176 @@ describe('MessagingView pairing', () => {
       $platformsChangeTick.set($platformsChangeTick.get() + 1)
     })
     expect(getPairing).not.toHaveBeenCalled()
+  })
+})
+
+const telegramFields = [
+  {
+    advanced: false,
+    key: 'TELEGRAM_BOT_TOKEN',
+    required: true,
+    is_password: true,
+    description: '',
+    prompt: 'Token',
+    is_set: false,
+    redacted_value: null,
+    url: 'https://t.me/BotFather'
+  },
+  {
+    advanced: false,
+    key: 'TELEGRAM_ALLOWED_USERS',
+    required: false,
+    is_password: false,
+    description: '',
+    prompt: 'Users',
+    is_set: false,
+    redacted_value: null,
+    url: null
+  },
+  {
+    advanced: false,
+    key: 'TELEGRAM_PROXY',
+    required: false,
+    is_password: false,
+    description: '',
+    prompt: 'Proxy',
+    is_set: false,
+    redacted_value: null,
+    url: null
+  }
+]
+
+function mockTelegramGuide() {
+  window.localStorage.removeItem('agentx-desktop:global:messaging-guide:v1:telegram')
+  getMessagingPlatforms.mockResolvedValue({
+    platforms: [
+      platform({
+        id: 'telegram',
+        name: 'Telegram',
+        env_vars: telegramFields,
+        docs_url: 'https://core.telegram.org/bots/tutorial'
+      })
+    ]
+  })
+}
+
+const coach = () => screen.getByRole('region', { name: 'Connection guide' })
+const continueGuide = () => fireEvent.click(screen.getByRole('button', { name: 'Continue' }))
+
+describe('MessagingView guided setup', () => {
+  it('opens once, skips without saving, replays from help, and retains unsaved fields', async () => {
+    mockTelegramGuide()
+    await renderMessaging()
+    expect(coach()).toBeTruthy()
+    expect(screen.getByText(/Guide · 1\//)).toBeTruthy()
+    continueGuide()
+    const token = screen.getByLabelText('Bot token')
+    expect(token.getAttribute('type')).toBe('password')
+    fireEvent.change(token, { target: { value: 'my-private-token' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+    expect(screen.queryByRole('region', { name: 'Connection guide' })).toBeNull()
+    expect((screen.getByLabelText('Bot token') as HTMLInputElement).value).toBe('my-private-token')
+    expect(updateMessagingPlatform).not.toHaveBeenCalled()
+    expect(JSON.stringify(window.localStorage)).not.toContain('my-private-token')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Help with Bot token' }))
+    expect(coach().textContent).toContain('HTTP API')
+    expect((screen.getByLabelText('Bot token') as HTMLInputElement).value).toBe('my-private-token')
+    fireEvent.keyDown(coach(), { key: 'Escape' })
+    expect(window.document.activeElement).toBe(screen.getByRole('button', { name: 'Show step-by-step guide' }))
+
+    cleanup()
+    await renderMessaging()
+    expect(screen.queryByRole('region', { name: 'Connection guide' })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Show step-by-step guide' }))
+    expect(coach()).toBeTruthy()
+    expect(screen.getByText(/Guide · 1\//)).toBeTruthy()
+  })
+
+  it('walks required, optional, and advanced fields without mutating configuration', async () => {
+    mockTelegramGuide()
+    await renderMessaging()
+    continueGuide()
+    expect(screen.getByLabelText('Bot token')).toBeTruthy()
+    continueGuide()
+    expect(screen.getByLabelText('Who may message the bot')).toBeTruthy()
+    expect(coach().textContent).toContain('does not grant access to everyone')
+    continueGuide()
+    expect(screen.getByLabelText('Proxy URL')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Back' }))
+    expect(screen.getByLabelText('Who may message the bot')).toBeTruthy()
+    continueGuide()
+    continueGuide()
+    expect(screen.getByRole('switch', { name: 'Enable Telegram' })).toBeTruthy()
+    continueGuide()
+    expect(screen.getByText('Send a test message')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Finish guide' }))
+    expect(screen.queryByRole('region', { name: 'Connection guide' })).toBeNull()
+    expect(updateMessagingPlatform).not.toHaveBeenCalled()
+  })
+
+  it('saves through the existing API while guided, leaving completion user-controlled', async () => {
+    mockTelegramGuide()
+    await renderMessaging()
+    continueGuide()
+    fireEvent.change(screen.getByLabelText('Bot token'), { target: { value: '  test-credential  ' } })
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    })
+    expect(updateMessagingPlatform).toHaveBeenCalledWith('telegram', { env: { TELEGRAM_BOT_TOKEN: 'test-credential' } })
+    expect(coach()).toBeTruthy()
+    expect(screen.getByLabelText('Bot token')).toBeTruthy()
+  })
+
+  it('opens the platform section of the landing docs and the actual credential source', async () => {
+    mockTelegramGuide()
+    await renderMessaging()
+    fireEvent.click(screen.getByRole('button', { name: 'Illustrated guide' }))
+    expect(openExternalLink).toHaveBeenCalledWith(
+      'https://agentx-landingpage.astralx.com.vn/docs/kenh-tin-nhan/#telegram'
+    )
+    continueGuide()
+    fireEvent.click(screen.getByRole('link', { name: 'Open docs' }))
+    expect(openExternalLink).toHaveBeenCalledWith('https://t.me/BotFather')
+  })
+
+  it('resets the coach when selecting a different platform, keeping each form’s edits', async () => {
+    mockTelegramGuide()
+    getMessagingPlatforms.mockResolvedValue({
+      platforms: [
+        platform({ id: 'telegram', name: 'Telegram', env_vars: telegramFields }),
+        platform({ id: 'slack', name: 'Slack' })
+      ]
+    })
+    await renderMessaging()
+    continueGuide()
+    fireEvent.change(screen.getByLabelText('Bot token'), { target: { value: 'telegram-draft' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Slack' }))
+    expect(screen.getByText(/Guide · 1\//)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Telegram' }))
+    expect(screen.queryByRole('region', { name: 'Connection guide' })).toBeNull()
+    expect((screen.getByLabelText('Bot token') as HTMLInputElement).value).toBe('telegram-draft')
+  })
+
+  it('supports a no-credential channel and restricted storage', async () => {
+    window.localStorage.clear()
+
+    const write = vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+      throw new Error('Storage unavailable')
+    })
+
+    getMessagingPlatforms.mockResolvedValue({ platforms: [platform()] })
+
+    try {
+      await renderMessaging()
+      expect(screen.getByText('Guide · 1/3')).toBeTruthy()
+      continueGuide()
+      expect(screen.getByRole('switch', { name: 'Enable Microsoft Teams' })).toBeTruthy()
+      continueGuide()
+      fireEvent.click(screen.getByRole('button', { name: 'Finish guide' }))
+      expect(screen.queryByRole('region', { name: 'Connection guide' })).toBeNull()
+    } finally {
+      write.mockRestore()
+    }
   })
 })

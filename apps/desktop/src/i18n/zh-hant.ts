@@ -1927,6 +1927,43 @@ export const zhHant = defineLocale({
   },
 
   messaging: {
+    guide: {
+      title: '連線指南',
+      replay: '查看逐步指南',
+      skip: '略過',
+      finish: '結束指南',
+      docs: '圖文指南',
+      source: '開啟設定頁面',
+      secret: '這是您的私人憑證。請直接貼到欄位中，不要分享給他人。',
+      connectBody: '先在畫面底部儲存變更，再開啟下方開關。如果顯示「需要重新啟動」，請重新啟動AgentX以套用變更。',
+      testTitle: '傳送測試訊息',
+      testBody: '等待「已連線」，然後在通訊應用程式向已設定的機器人或帳號傳送問候。Telegram需要先點擊Start。',
+      testNote: '如果機器人要求存取權限，請回到此處核准自己的要求。結束指南不代表連線成功，請確認機器人回覆。',
+      fieldFallback: '從平台管理頁面取得此值。請開啟圖文指南查看位置和填寫格式。',
+      progress: (current, total) => `指南 · ${current}/${total}`,
+      fieldHelp: label => `${label}填寫指南`
+    },
+    fieldGuide: {
+      TELEGRAM_BOT_TOKEN:
+        '在Telegram開啟@BotFather → 傳送/newbot → 設定名稱及以bot結尾的使用者名稱。複製「HTTP API」下方的完整權杖，不是t.me連結或@bot名稱。',
+      TELEGRAM_ALLOWED_USERS:
+        '在Telegram開啟@userinfobot → 點擊Start → 複製Id旁的數字。多個ID以逗號分隔。留空時可在Workmate核准私訊要求，不會自動允許所有人存取。',
+      DISCORD_BOT_TOKEN:
+        'Discord Developer Portal → Applications → 您的應用程式 → Bot → Reset Token。複製新權杖，並在同一頁啟用Message Content Intent。',
+      DISCORD_ALLOWED_USERS:
+        'Discord → User Settings → Advanced → 啟用Developer Mode。右鍵個人資料 → Copy User ID。貼上數字ID，不是顯示名稱。',
+      SLACK_BOT_TOKEN:
+        'Slack應用程式設定 → OAuth & Permissions → Install to Workspace。授權後複製以xoxb-開頭的Bot User OAuth Token，此處不要使用xapp-權杖。',
+      SLACK_APP_TOKEN:
+        'Slack應用程式 → Basic Information → App-Level Tokens → Generate Token and Scopes → 新增connections:write。複製xapp-權杖，再啟用Socket Mode。',
+      SLACK_ALLOWED_USERS: '在Slack開啟成員資料 → 三點選單 → Copy member ID。貼上以U或W開頭的ID，多個ID以逗號分隔。',
+      EMAIL_PASSWORD:
+        'Gmail：Google帳號 → 安全性 → 啟用兩步驟驗證 → 應用程式密碼。為AgentX建立並貼上16位密碼，不是Gmail登入密碼。如無此選項，請聯絡信箱管理員。',
+      TWILIO_ACCOUNT_SID:
+        'Twilio Console → Account Dashboard → Account Info → Account SID。複製以AC開頭的完整值，這是帳號識別碼，不是電話號碼。',
+      TWILIO_AUTH_TOKEN:
+        'Twilio Console → Account Dashboard → Account Info → Auth Token → Show。複製權杖。還需Twilio號碼和接收SMS的webhook，請先查看圖文指南。'
+    },
     pageTitle: '訊息',
     pageDescription: '在你常用的應用裡傳訊息給 AgentX。',
     groupInUse: '使用中',
@@ -1992,6 +2029,22 @@ export const zhHant = defineLocale({
     failedSave: name => `儲存 ${name} 失敗`,
     failedClear: key => `清除 ${key} 失敗`,
     fieldCopy: {
+      EMAIL_ADDRESS: { label: 'AgentX電子郵件地址', help: '使用AgentX專用信箱，填寫完整地址，如agentx@example.com。' },
+      EMAIL_PASSWORD: { label: '應用程式密碼', help: '從信箱服務的應用程式密碼設定取得。Gmail需要啟用兩步驟驗證。' },
+      EMAIL_IMAP_HOST: {
+        label: '收件伺服器（IMAP）',
+        help: 'Gmail填寫imap.gmail.com。企業信箱請向管理員索取IMAP主機，不加https://或連接埠。'
+      },
+      EMAIL_SMTP_HOST: {
+        label: '寄件伺服器（SMTP）',
+        help: 'Gmail填寫smtp.gmail.com。企業信箱請向管理員索取SMTP主機，不加https://或連接埠。'
+      },
+      TWILIO_ACCOUNT_SID: {
+        label: 'Twilio帳號SID',
+        help: '在Twilio Console → Account Dashboard → Account Info取得，以AC開頭。'
+      },
+      TWILIO_AUTH_TOKEN: { label: 'Twilio驗證權杖', help: '在同一Account Info中找到Auth Token，點擊Show後複製。' },
+
       TELEGRAM_BOT_TOKEN: {
         label: 'Bot Token',
         help: '用 @BotFather 建立機器人，然後貼上它給您的 Token。',
@@ -1999,7 +2052,7 @@ export const zhHant = defineLocale({
       },
       TELEGRAM_ALLOWED_USERS: {
         label: '允許的 Telegram 使用者 ID',
-        help: '建議設定。來自 @userinfobot 的逗號分隔數字 ID。不設定則任何人都能私訊您的機器人。',
+        help: '在Telegram開啟@userinfobot → 點擊Start → 複製Id旁的數字。多個ID以逗號分隔。留空時可在Workmate核准私訊要求，不會自動允許所有人存取。',
         placeholder: '例如：12345678, 87654321'
       },
       TELEGRAM_PROXY: { label: '代理 URL', help: '僅在 Telegram 被封鎖的網路中需要。' },

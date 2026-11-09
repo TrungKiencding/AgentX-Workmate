@@ -1299,6 +1299,15 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   28px, `--bg-app` under a hairline. The drag-to-dock target is the shared
   drop sheet (a 2px dashed `--border-strong` edge on `--bg-subtle`) firming as
   the composer nears it — no coloured glow.
+- **Messaging setup teaches in place.** `messaging/setup-guide.tsx` is an
+  optional, non-modal coach inside the platform detail. It opens once per
+  platform on each device; the presentation-only marker is globally scoped
+  and stores no form values. The header's question mark replays it, each
+  field's question mark opens that field, and Skip/Escape return to the full
+  form with drafts intact. Navigation never saves, enables, or verifies a
+  connection. Save and restart use the existing actions. A short fade/rise
+  follows manual step changes; reduced motion is still. Detailed guides link
+  to the landing's `/docs/kenh-tin-nhan/` platform anchors.
 - **External messaging transcripts are live, branded, and read-only.** Their
   sidebar conversation row carries the platform avatar; a visible header above
   the transcript pairs its title with a quiet, logo-bearing platform `TagChip`.

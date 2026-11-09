@@ -1983,6 +1983,48 @@ export const en: Translations = {
   },
 
   messaging: {
+    guide: {
+      title: 'Connection guide',
+      replay: 'Show step-by-step guide',
+      skip: 'Skip',
+      finish: 'Finish guide',
+      docs: 'Illustrated guide',
+      source: 'Open setup page',
+      secret: 'This is your private credential. Paste it directly into the field; do not share it.',
+      connectBody:
+        'Save changes at the bottom of the screen first, then turn on the switch below. If “Restart needed” appears, choose “Restart AgentX” to apply the changes.',
+      testTitle: 'Send a test message',
+      testBody:
+        'Wait for “Connected”, then open the messaging app and send a greeting to the bot or account you set up. In Telegram, press Start first.',
+      testNote:
+        'If the bot asks for access, return here and allow your own request. Finishing this guide does not verify the connection; check that the bot replies.',
+      fieldFallback:
+        'Get this value from the platform’s management page. Open the illustrated guide for the location and format to use.',
+      progress: (current, total) => `Guide · ${current}/${total}`,
+      fieldHelp: label => `Help with ${label}`
+    },
+    fieldGuide: {
+      TELEGRAM_BOT_TOKEN:
+        'In Telegram, open @BotFather → send /newbot → choose a name and a username ending in bot. Copy the entire token after “HTTP API”, not the t.me link or @bot name.',
+      TELEGRAM_ALLOWED_USERS:
+        'Open @userinfobot in Telegram → press Start → copy the number beside Id. Enter your ID; separate multiple IDs with commas. You can leave this empty and approve DM requests in Workmate; an empty list does not grant access to everyone.',
+      DISCORD_BOT_TOKEN:
+        'Discord Developer Portal → Applications → your app → Bot → Reset Token. Copy the new token. Enable Message Content Intent on the same page so the bot can read messages.',
+      DISCORD_ALLOWED_USERS:
+        'Discord → User Settings → Advanced → enable Developer Mode. Right-click your profile → Copy User ID. Paste the numeric ID, not your display name.',
+      SLACK_BOT_TOKEN:
+        'Slack app settings → OAuth & Permissions → Install to Workspace. After authorizing, copy the Bot User OAuth Token starting with xoxb-. Do not use the xapp- token here.',
+      SLACK_APP_TOKEN:
+        'Slack app → Basic Information → App-Level Tokens → Generate Token and Scopes → add connections:write. Copy the xapp- token, then enable Socket Mode.',
+      SLACK_ALLOWED_USERS:
+        'In Slack, open a member’s profile → three-dot menu → Copy member ID. Paste the ID starting with U or W; separate multiple IDs with commas.',
+      EMAIL_PASSWORD:
+        'For Gmail: Google Account → Security → enable 2-Step Verification → App passwords. Create one for AgentX and paste the 16-character password, not your Gmail sign-in password. If unavailable, ask your mail administrator.',
+      TWILIO_ACCOUNT_SID:
+        'Twilio Console → Account Dashboard → Account Info → Account SID. Copy the entire value starting with AC. This identifies your account; it is not a phone number.',
+      TWILIO_AUTH_TOKEN:
+        'Twilio Console → Account Dashboard → Account Info → Auth Token → Show. Copy the token here. You also need a Twilio number and an inbound SMS webhook; read the illustrated guide before enabling.'
+    },
     pageTitle: 'Message channels',
     pageDescription: 'Message AgentX from the apps you already use.',
     search: 'Search messaging...',
@@ -2085,6 +2127,31 @@ export const en: Translations = {
     pairingLockedOut: 'Too many failed approvals — this platform is locked out. Try again later.',
     waitingSince: minutes => (minutes < 1 ? 'just now' : `${minutes}m ago`),
     fieldCopy: {
+      EMAIL_ADDRESS: {
+        label: 'AgentX email address',
+        help: 'Use a dedicated mailbox for AgentX. Enter the full address, such as agentx@example.com.'
+      },
+      EMAIL_PASSWORD: {
+        label: 'App password',
+        help: 'Get this from your email provider’s App passwords settings. Gmail requires 2-Step Verification.'
+      },
+      EMAIL_IMAP_HOST: {
+        label: 'Incoming mail server (IMAP)',
+        help: 'For Gmail: imap.gmail.com. For work email, ask your administrator for the IMAP host; omit https:// and the port.'
+      },
+      EMAIL_SMTP_HOST: {
+        label: 'Outgoing mail server (SMTP)',
+        help: 'For Gmail: smtp.gmail.com. For work email, ask your administrator for the SMTP host; omit https:// and the port.'
+      },
+      TWILIO_ACCOUNT_SID: {
+        label: 'Twilio Account SID',
+        help: 'Find it in Twilio Console → Account Dashboard → Account Info. It starts with AC.'
+      },
+      TWILIO_AUTH_TOKEN: {
+        label: 'Twilio Auth Token',
+        help: 'In the same Account Info section, find Auth Token. Choose Show, then copy it.'
+      },
+
       TELEGRAM_BOT_TOKEN: {
         label: 'Bot token',
         help: 'Create a bot with @BotFather, then paste the token it gives you.',
@@ -2093,7 +2160,7 @@ export const en: Translations = {
       TELEGRAM_ALLOWED_USERS: {
         placeholder: 'e.g. 12345678, 87654321',
         label: 'Who may message the bot',
-        help: 'Recommended. Comma-separated numeric IDs from @userinfobot. Without this, anyone can DM your bot.'
+        help: 'Open @userinfobot in Telegram → press Start → copy the number beside Id. Enter your ID; separate multiple IDs with commas. You can leave this empty and approve DM requests in Workmate; an empty list does not grant access to everyone.'
       },
       TELEGRAM_PROXY: { label: 'Proxy URL', help: 'Only needed on networks where Telegram is blocked.' },
       DISCORD_BOT_TOKEN: {

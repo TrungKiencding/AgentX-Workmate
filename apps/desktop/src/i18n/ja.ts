@@ -2017,6 +2017,47 @@ export const ja = defineLocale({
   },
 
   messaging: {
+    guide: {
+      title: '接続ガイド',
+      replay: '手順ガイドを表示',
+      skip: 'スキップ',
+      finish: 'ガイドを終了',
+      docs: '画像付きガイド',
+      source: '設定ページを開く',
+      secret: 'これは個人用の認証情報です。欄に直接貼り付け、他の人に共有しないでください。',
+      connectBody:
+        '先に画面下部で変更を保存し、下のスイッチをオンにします。「再起動が必要」と表示されたら、AgentXを再起動して適用します。',
+      testTitle: 'テストメッセージを送る',
+      testBody:
+        '「接続済み」を待ってから、設定したボットやアカウントに挨拶を送ります。Telegramでは先にStartを押してください。',
+      testNote:
+        'アクセス許可を求められたら、ここに戻り自分のリクエストを許可します。ガイドの終了は接続成功を意味しません。返信を確認してください。',
+      fieldFallback: 'プラットフォームの管理ページで取得します。場所と入力形式は画像付きガイドで確認してください。',
+      progress: (current, total) => `ガイド · ${current}/${total}`,
+      fieldHelp: label => `${label}の入力ガイド`
+    },
+    fieldGuide: {
+      TELEGRAM_BOT_TOKEN:
+        'Telegramで@BotFatherを開き、/newbotを送信し、名前とbotで終わるユーザー名を選びます。「HTTP API」の下のトークン全体をコピーします。t.meリンクや@bot名ではありません。',
+      TELEGRAM_ALLOWED_USERS:
+        'Telegramの@userinfobotでStartを押し、Idの数字をコピーします。複数のIDはカンマで区切ります。空欄の場合はWorkmateでDMリクエストを承認できます。全員に自動で許可されるわけではありません。',
+      DISCORD_BOT_TOKEN:
+        'Discord Developer Portal → Applications → 対象アプリ → Bot → Reset Tokenで新しいトークンをコピーします。同じページでMessage Content Intentを有効にします。',
+      DISCORD_ALLOWED_USERS:
+        'DiscordのUser Settings → AdvancedでDeveloper Modeを有効にし、自分のプロフィールを右クリック → Copy User ID。表示名ではなく数字のIDを貼り付けます。',
+      SLACK_BOT_TOKEN:
+        'SlackアプリのOAuth & Permissions → Install to Workspaceで許可後、xoxb-で始まるBot User OAuth Tokenをコピーします。xapp-トークンとは異なります。',
+      SLACK_APP_TOKEN:
+        'SlackアプリのBasic Information → App-Level Tokens → Generate Token and Scopesでconnections:writeを追加し、xapp-トークンをコピーしてSocket Modeを有効にします。',
+      SLACK_ALLOWED_USERS:
+        'Slackでメンバーのプロフィール → 三点メニュー → Copy member ID。UまたはWで始まるIDを貼り付け、複数はカンマで区切ります。',
+      EMAIL_PASSWORD:
+        'GmailではGoogleアカウント → セキュリティで2段階認証を有効にし、アプリパスワードを作成します。通常のログインパスワードではなく16文字のコードを貼り付けます。項目がなければ管理者に確認してください。',
+      TWILIO_ACCOUNT_SID:
+        'Twilio Console → Account Dashboard → Account Info → Account SID。ACで始まる値全体をコピーします。電話番号ではなくアカウントIDです。',
+      TWILIO_AUTH_TOKEN:
+        'Twilio Console → Account Dashboard → Account Info → Auth Token → Showでトークンをコピーします。Twilio番号と受信SMS webhookも必要です。有効にする前に画像付きガイドを確認してください。'
+    },
     pageTitle: 'メッセージチャンネル',
     pageDescription: 'いつも使うアプリから AgentX にメッセージを送れます。',
     groupInUse: '使用中',
@@ -2083,6 +2124,31 @@ export const ja = defineLocale({
     failedSave: name => `${name} の保存に失敗しました`,
     failedClear: key => `${key} のクリアに失敗しました`,
     fieldCopy: {
+      EMAIL_ADDRESS: {
+        label: 'AgentXのメールアドレス',
+        help: 'AgentX専用のメールボックスを使い、agentx@example.comのような完全なアドレスを入力します。'
+      },
+      EMAIL_PASSWORD: {
+        label: 'アプリパスワード',
+        help: 'メールプロバイダーのアプリパスワード設定で取得します。Gmailでは2段階認証が必要です。'
+      },
+      EMAIL_IMAP_HOST: {
+        label: '受信メールサーバー（IMAP）',
+        help: 'Gmailはimap.gmail.com。会社のメールは管理者にIMAPホストを確認し、https://やポート番号は付けません。'
+      },
+      EMAIL_SMTP_HOST: {
+        label: '送信メールサーバー（SMTP）',
+        help: 'Gmailはsmtp.gmail.com。会社のメールは管理者にSMTPホストを確認し、https://やポート番号は付けません。'
+      },
+      TWILIO_ACCOUNT_SID: {
+        label: 'TwilioアカウントSID',
+        help: 'Twilio Console → Account Dashboard → Account Infoで取得します。ACで始まります。'
+      },
+      TWILIO_AUTH_TOKEN: {
+        label: 'Twilio認証トークン',
+        help: '同じAccount InfoのAuth TokenでShowを押してコピーします。'
+      },
+
       TELEGRAM_BOT_TOKEN: {
         label: 'ボットトークン',
         help: '@BotFather でボットを作成し、表示されたトークンを貼り付けてください。',
@@ -2090,7 +2156,7 @@ export const ja = defineLocale({
       },
       TELEGRAM_ALLOWED_USERS: {
         label: '許可する Telegram ユーザー ID',
-        help: '推奨。@userinfobot の数値 ID をカンマ区切りで。設定しないと誰でもボットに DM できます。',
+        help: 'Telegramの@userinfobotでStartを押し、Idの数字をコピーします。複数のIDはカンマで区切ります。空欄の場合はWorkmateでDMリクエストを承認できます。全員に自動で許可されるわけではありません。',
         placeholder: '例: 12345678, 87654321'
       },
       TELEGRAM_PROXY: { label: 'プロキシ URL', help: 'Telegram がブロックされているネットワークでのみ必要です。' },
@@ -2244,7 +2310,8 @@ export const ja = defineLocale({
     revokedUser: name => `${name} の承認を取り消しました`,
     failedApprove: name => `${name} の承認に失敗しました`,
     failedRevoke: name => `${name} の取り消しに失敗しました`,
-    pairingExpired: 'このリクエストは期限切れです。ボットにもう一度メッセージを送ってもらい、新しいリクエストをここで承認してください。',
+    pairingExpired:
+      'このリクエストは期限切れです。ボットにもう一度メッセージを送ってもらい、新しいリクエストをここで承認してください。',
     pairingLockedOut:
       '承認の失敗が続いたため、このプラットフォームは一時的にロックされています。しばらくしてからもう一度お試しください。',
     waitingSince: minutes => (minutes < 1 ? 'たった今' : `${minutes} 分前`)

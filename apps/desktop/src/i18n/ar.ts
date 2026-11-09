@@ -1977,6 +1977,46 @@ export const ar = defineLocale({
     actions: count => `${count} إجراء`
   },
   messaging: {
+    guide: {
+      title: 'دليل الاتصال',
+      replay: 'عرض الدليل خطوة بخطوة',
+      skip: 'تخطي',
+      finish: 'إنهاء الدليل',
+      docs: 'دليل بالصور',
+      source: 'فتح صفحة الإعداد',
+      secret: 'هذه بيانات اعتمادك الخاصة. الصقها مباشرة في الحقل ولا تشاركها.',
+      connectBody:
+        'احفظ التغييرات أسفل الشاشة أولاً، ثم فعّل المفتاح أدناه. إذا ظهرت الحاجة إلى إعادة التشغيل، أعد تشغيل AgentX لتطبيق التغييرات.',
+      testTitle: 'إرسال رسالة تجريبية',
+      testBody: 'انتظر حالة الاتصال، ثم أرسل تحية إلى البوت أو الحساب الذي أعددته. في Telegram اضغط Start أولاً.',
+      testNote:
+        'إذا طلب البوت إذن الوصول، عُد إلى هنا ووافق على طلبك. إنهاء الدليل لا يؤكد نجاح الاتصال؛ تأكد من وصول رد البوت.',
+      fieldFallback: 'احصل على القيمة من صفحة إدارة المنصة. افتح الدليل المصوّر لمعرفة مكانها وصيغتها.',
+      progress: (current, total) => `الدليل · ${current}/${total}`,
+      fieldHelp: label => `مساعدة في ${label}`
+    },
+    fieldGuide: {
+      TELEGRAM_BOT_TOKEN:
+        'افتح @BotFather في Telegram، وأرسل /newbot واختر الاسم واسم مستخدم ينتهي بـbot. انسخ الرمز بعد HTTP API كاملاً، وليس رابط t.me أو اسم البوت.',
+      TELEGRAM_ALLOWED_USERS:
+        'افتح @userinfobot في Telegram واضغط Start وانسخ رقم Id. افصل المعرّفات بفواصل. يمكنك تركه فارغاً والموافقة على طلبات الرسائل الخاصة في Workmate؛ لا يسمح الفراغ للجميع بالوصول.',
+      DISCORD_BOT_TOKEN:
+        'في Discord Developer Portal افتح Applications ثم تطبيقك ثم Bot ثم Reset Token. انسخ الرمز الجديد وفعّل Message Content Intent في الصفحة نفسها.',
+      DISCORD_ALLOWED_USERS:
+        'في Discord افتح User Settings ثم Advanced وفعّل Developer Mode. انقر بزر الفأرة الأيمن على ملفك ثم Copy User ID. الصق الرقم وليس اسم العرض.',
+      SLACK_BOT_TOKEN:
+        'في إعدادات تطبيق Slack افتح OAuth & Permissions ثم Install to Workspace. بعد التفويض انسخ Bot User OAuth Token الذي يبدأ بـxoxb- وليس xapp-.',
+      SLACK_APP_TOKEN:
+        'في تطبيق Slack افتح Basic Information ثم App-Level Tokens ثم Generate Token and Scopes وأضف connections:write. انسخ رمز xapp- ثم فعّل Socket Mode.',
+      SLACK_ALLOWED_USERS:
+        'في Slack افتح ملف العضو ثم قائمة النقاط الثلاث ثم Copy member ID. الصق المعرّف الذي يبدأ بـU أو W وافصل المعرّفات بفواصل.',
+      EMAIL_PASSWORD:
+        'في Gmail افتح حساب Google ثم الأمان وفعّل التحقق بخطوتين ثم كلمات مرور التطبيقات. أنشئ كلمة مرور لـAgentX والصق رمزها ذي 16 حرفاً وليس كلمة مرور تسجيل الدخول. إن لم يتوفر الخيار فاسأل مسؤول البريد.',
+      TWILIO_ACCOUNT_SID:
+        'في Twilio Console افتح Account Dashboard ثم Account Info ثم Account SID. انسخ القيمة الكاملة التي تبدأ بـAC، وهي معرّف الحساب وليست رقم هاتف.',
+      TWILIO_AUTH_TOKEN:
+        'في Twilio Console افتح Account Dashboard ثم Account Info ثم Auth Token ثم Show. انسخ الرمز هنا. تحتاج أيضاً إلى رقم Twilio وwebhook لاستقبال SMS؛ اقرأ الدليل المصوّر قبل التفعيل.'
+    },
     pageTitle: 'قنوات المراسلة',
     pageDescription: 'راسل AgentX من التطبيقات التي تستخدمها بالفعل.',
     groupInUse: 'قيد الاستخدام',
@@ -2042,6 +2082,31 @@ export const ar = defineLocale({
     failedSave: name => `فشل حفظ ${name}`,
     failedClear: key => `فشل مسح ${key}`,
     fieldCopy: {
+      EMAIL_ADDRESS: {
+        label: 'عنوان بريد AgentX',
+        help: 'استخدم صندوق بريد مخصصاً لـAgentX وأدخل العنوان كاملاً مثل agentx@example.com.'
+      },
+      EMAIL_PASSWORD: {
+        label: 'كلمة مرور التطبيق',
+        help: 'احصل عليها من إعدادات كلمات مرور التطبيقات لدى مزود البريد. يتطلب Gmail التحقق بخطوتين.'
+      },
+      EMAIL_IMAP_HOST: {
+        label: 'خادم البريد الوارد (IMAP)',
+        help: 'في Gmail استخدم imap.gmail.com. لبريد العمل اسأل المسؤول عن خادم IMAP دون https:// أو رقم المنفذ.'
+      },
+      EMAIL_SMTP_HOST: {
+        label: 'خادم البريد الصادر (SMTP)',
+        help: 'في Gmail استخدم smtp.gmail.com. لبريد العمل اسأل المسؤول عن خادم SMTP دون https:// أو رقم المنفذ.'
+      },
+      TWILIO_ACCOUNT_SID: {
+        label: 'معرّف حساب Twilio',
+        help: 'تجده في Twilio Console ثم Account Dashboard ثم Account Info، ويبدأ بـAC.'
+      },
+      TWILIO_AUTH_TOKEN: {
+        label: 'رمز مصادقة Twilio',
+        help: 'في قسم Account Info نفسه افتح Auth Token واضغط Show ثم انسخه.'
+      },
+
       TELEGRAM_BOT_TOKEN: {
         label: 'رمز البوت (token)',
         help: 'أنشئ بوتا عبر @BotFather، ثم الصق الرمز الذي يمنحك إياه.',
@@ -2049,7 +2114,7 @@ export const ar = defineLocale({
       },
       TELEGRAM_ALLOWED_USERS: {
         label: 'معرّفات مستخدمي Telegram المسموح بهم',
-        help: 'موصى به. معرّفات رقمية مفصولة بفواصل من @userinfobot. بدون ذلك، يمكن لأي شخص مراسلة بوتك مباشرة.',
+        help: 'افتح @userinfobot في Telegram واضغط Start وانسخ رقم Id. افصل المعرّفات بفواصل. يمكنك تركه فارغاً والموافقة على طلبات الرسائل الخاصة في Workmate؛ لا يسمح الفراغ للجميع بالوصول.',
         placeholder: 'مثال: 12345678، 87654321'
       },
       TELEGRAM_PROXY: {
