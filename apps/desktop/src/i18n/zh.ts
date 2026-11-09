@@ -2723,7 +2723,8 @@ export const zh: Translations = {
       'new-session': '新对话',
       skills: '实用工具',
       messaging: '消息平台',
-      artifacts: '产物'
+      artifacts: '产物',
+      cron: '自动任务'
     },
     account: {
       menuLabel: '账户菜单',

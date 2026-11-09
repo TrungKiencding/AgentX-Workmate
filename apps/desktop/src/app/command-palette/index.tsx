@@ -387,15 +387,7 @@ const toSessionEntry = (session: SessionRow): SessionEntry => ({
   title: sessionTitle(session)
 })
 
-type NonConfigSettingsLabel =
-  | 'about'
-  | 'archivedChats'
-  | 'gateway'
-  | 'keysSettings'
-  | 'keysTools'
-  | 'mcp'
-  | 'plugins'
-
+type NonConfigSettingsLabel = 'about' | 'archivedChats' | 'gateway' | 'keysSettings' | 'keysTools' | 'mcp' | 'plugins'
 
 const NON_CONFIG_SETTINGS: ReadonlyArray<{
   icon: IconComponent
@@ -802,8 +794,8 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
             action: 'nav.cron',
             icon: Clock,
             id: 'nav-cron',
-            keywords: ['schedule', 'jobs'],
-            label: t.shell.statusbar.cron,
+            keywords: ['cron', 'schedule', 'jobs'],
+            label: t.sidebar.nav.cron,
             run: go(CRON_ROUTE)
           },
           // The manage-profiles overlay is the create/rename/delete surface, so

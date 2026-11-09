@@ -728,10 +728,9 @@ $previewOpenRequest.listen(() => revealPreview())
 interface TitlebarSlotProps {
   area: 'titleBar.center' | 'titleBar.left' | 'titleBar.right'
   className: string
-  style?: CSSProperties
 }
 
-function TitlebarSlot({ area, className, style }: TitlebarSlotProps) {
+function TitlebarSlot({ area, className }: TitlebarSlotProps) {
   const items = useContributions(area)
 
   if (items.length === 0) {
@@ -739,7 +738,7 @@ function TitlebarSlot({ area, className, style }: TitlebarSlotProps) {
   }
 
   return (
-    <div className={className} style={style}>
+    <div className={className}>
       <Slot area={area} />
     </div>
   )
@@ -772,7 +771,8 @@ export function ContribController() {
                 - LEFT/RIGHT slots align to the MAIN PANE's geometry via the
                   tree-published --workspace-left/right vars (pure CSS, no rect
                   threading), clamped to clear the REAL TitlebarControls
-                  clusters (fixed, z-70); center is truly window-centered. */}
+                  clusters (fixed, z-70); the center uses the remaining space
+                  so labels cannot overlap navigation or system buttons. */}
           {/* The band paints the column under it: the sidebar's surface over
               the side rails, the page over the main pane (split at the
               tree-published --workspace-left/right), so the sidebar reads as
@@ -792,25 +792,27 @@ export function ContribController() {
               aria-hidden="true"
               className="pointer-events-none absolute inset-y-0 left-[calc(var(--titlebar-controls-left,14px)+(var(--titlebar-control-size,1.25rem)*2)+0.75rem)] right-[calc(var(--titlebar-tools-right,0.75rem)+var(--titlebar-tools-width,5.5rem)+0.75rem)] [-webkit-app-region:drag]"
             />
-            <TitlebarSlot
-              area="titleBar.left"
-              className="pointer-events-auto absolute z-10 flex w-max items-center gap-2 [-webkit-app-region:no-drag]"
+            <div
+              className="pointer-events-none absolute inset-y-0 z-10 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2"
               style={{
-                left: 'max(calc(var(--workspace-left, 0px) + 0.5rem), calc(var(--titlebar-controls-left, 14px) + 2 * var(--titlebar-control-size, 1.25rem) + 1rem))'
-              }}
-            />
-            <TitlebarSlot
-              area="titleBar.center"
-              className="pointer-events-auto absolute left-1/2 top-1/2 z-10 flex w-max -translate-x-1/2 -translate-y-1/2 items-center gap-2 [-webkit-app-region:no-drag]"
-            />
-            <TitlebarSlot
-              area="titleBar.right"
-              className="pointer-events-auto absolute z-10 flex w-max items-center gap-2 [-webkit-app-region:no-drag]"
-              style={{
+                left: 'max(calc(var(--workspace-left, 0px) + 0.5rem), calc(var(--titlebar-controls-left, 14px) + 2 * var(--titlebar-control-size, 1.25rem) + 1rem))',
                 right:
                   'max(calc(var(--workspace-right, 0px) + 0.5rem), calc(var(--titlebar-tools-right, 0.75rem) + 4 * (var(--titlebar-control-size, 1.25rem) + 0.25rem) + 0.5rem))'
               }}
-            />
+            >
+              <TitlebarSlot
+                area="titleBar.left"
+                className="pointer-events-auto col-start-1 flex w-max items-center gap-2 [-webkit-app-region:no-drag]"
+              />
+              <TitlebarSlot
+                area="titleBar.center"
+                className="pointer-events-auto col-start-2 flex min-w-0 items-center justify-center gap-2 [&>*]:min-w-0 [&>*]:max-w-full [-webkit-app-region:no-drag]"
+              />
+              <TitlebarSlot
+                area="titleBar.right"
+                className="pointer-events-auto col-start-3 flex w-max items-center gap-2 [-webkit-app-region:no-drag]"
+              />
+            </div>
           </div>
 
           <LayoutTreeRoot />

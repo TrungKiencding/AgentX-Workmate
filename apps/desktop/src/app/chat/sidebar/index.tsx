@@ -24,7 +24,7 @@ import { Tip, TipKeybindLabel } from '@/components/ui/tooltip'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { searchSessions, type SessionInfo, type SessionSearchResult } from '@/hermes'
 import { useI18n } from '@/i18n'
-import { CirclePlus, Files, FolderPlus, List, MessageCircle, Puzzle } from '@/lib/icons'
+import { CirclePlus, Clock, Files, FolderPlus, List, MessageCircle, Puzzle } from '@/lib/icons'
 import { comboTokens } from '@/lib/keybinds/combo'
 import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 import { profileColor } from '@/lib/profile-color'
@@ -110,7 +110,14 @@ import {
 } from '@/store/session'
 import { $focusedStoredSessionId, $workingSessionIds, type SplitDir } from '@/store/session-states'
 
-import { type AppView, ARTIFACTS_ROUTE, MESSAGING_ROUTE, SIDEBAR_NAV_AREA, SKILLS_ROUTE } from '../../routes'
+import {
+  type AppView,
+  ARTIFACTS_ROUTE,
+  CRON_ROUTE,
+  MESSAGING_ROUTE,
+  SIDEBAR_NAV_AREA,
+  SKILLS_ROUTE
+} from '../../routes'
 import type { SidebarNavItem } from '../../types'
 
 import { SidebarAccountRow } from './account-row'
@@ -201,7 +208,8 @@ const NAV_GLYPH_TINT: Record<string, string> = {
   'new-session': 'text-(--tint-blue)',
   skills: 'text-(--tint-orange)',
   messaging: 'text-(--tint-green)',
-  artifacts: 'text-(--tint-purple)'
+  artifacts: 'text-(--tint-purple)',
+  cron: 'text-(--tint-teal)'
 }
 
 const navGlyphClass = (id: string) => NAV_GLYPH_TINT[id] ?? NAV_ROW_GLYPH
@@ -227,6 +235,13 @@ const SIDEBAR_NAV: SidebarNavItem[] = [
     icon: props => <Files {...props} />,
     route: ARTIFACTS_ROUTE,
     keybindActionId: 'nav.artifacts'
+  },
+  {
+    id: 'cron',
+    label: '',
+    icon: props => <Clock {...props} />,
+    route: CRON_ROUTE,
+    keybindActionId: 'nav.cron'
   }
 ]
 
@@ -707,10 +722,7 @@ export function ChatSidebar({
 
     const sorted = sortProjectsForOverview(
       sidebarProjects(filterVisibleProjects(projectTree, dismissedAutoProjects), liveOwners).map(project =>
-        excludeProjectSessions(
-          { ...project, repos: orderRepos(project.repos) },
-          isPinnedSession
-        )
+        excludeProjectSessions({ ...project, repos: orderRepos(project.repos) }, isPinnedSession)
       ),
       activeProjectId
     )

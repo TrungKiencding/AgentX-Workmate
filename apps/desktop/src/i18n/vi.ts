@@ -2678,7 +2678,7 @@ export const vi: Translations = {
 
   cron: {
     close: 'Đóng cron',
-    title: 'Tác vụ hẹn giờ',
+    title: 'Lịch tự động',
     count: count => `${count} tác vụ`,
     modelImpact: {
       title: 'Có tác vụ hẹn giờ cần xem lại',
@@ -2900,7 +2900,8 @@ export const vi: Translations = {
       'new-session': 'Trò chuyện mới',
       skills: 'Tiện ích',
       messaging: 'Kênh tin nhắn',
-      artifacts: 'Artifact'
+      artifacts: 'Artifact',
+      cron: 'Lịch tự động'
     },
     account: {
       menuLabel: 'Menu tài khoản',

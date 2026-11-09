@@ -3,7 +3,7 @@
  * picture, memory, skills, scheduled tasks and ONE ongoing conversation.
  *
  * Surfaces (all from this plugin, no core view edits):
- *  - a "Trợ lý" row in the sidebar → the `/bots` page (list + detail);
+ *  - a Work / Assistants switch in the title bar → the `/bots` page;
  *  - a title-bar chip naming the assistant you're chatting with;
  *  - ⌘K commands to open the page or create an assistant;
  *  - composer middleware: "@writer …" in any chat hands the request to that
@@ -26,8 +26,6 @@ import {
   type PaletteContribution,
   type RouteContribution,
   ROUTES_AREA,
-  SIDEBAR_NAV_AREA,
-  type SidebarNavContribution,
   TITLEBAR_AREAS
 } from '@agentx/plugin-sdk'
 
@@ -38,6 +36,7 @@ import { displayName } from './naming'
 import { $createRequest, BotsPage } from './page'
 import { $botMeta, bindStorage, PLUGIN_ID } from './state'
 import type { Bot } from './types'
+import { WorkspaceSwitcher } from './workspace-switcher'
 
 export const BOTS_ROUTE = '/bots'
 
@@ -98,15 +97,9 @@ const plugin: HermesPlugin = {
         render: () => <BotsPage />
       },
       {
-        id: 'nav',
-        area: SIDEBAR_NAV_AREA,
-        order: 40,
-        data: {
-          codicon: 'hubot',
-          label: () => b().nav,
-          path: BOTS_ROUTE,
-          tint: 'teal'
-        } satisfies SidebarNavContribution
+        id: 'workspace-switcher',
+        area: TITLEBAR_AREAS.left,
+        render: () => <WorkspaceSwitcher />
       },
       {
         id: 'chat-identity',

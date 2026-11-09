@@ -2650,7 +2650,8 @@ export const en: Translations = {
       'new-session': 'New chat',
       skills: 'Utilities',
       messaging: 'Message channels',
-      artifacts: 'Artifacts'
+      artifacts: 'Artifacts',
+      cron: 'Schedules'
     },
     account: {
       menuLabel: 'Account menu',

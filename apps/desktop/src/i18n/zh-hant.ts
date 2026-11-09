@@ -2495,7 +2495,8 @@ export const zhHant = defineLocale({
       'new-session': '新對話',
       skills: '實用工具',
       messaging: '訊息平台',
-      artifacts: '成品'
+      artifacts: '成品',
+      cron: '自動排程'
     },
     searchAria: '搜尋對話',
     searchPlaceholder: '搜尋對話…',

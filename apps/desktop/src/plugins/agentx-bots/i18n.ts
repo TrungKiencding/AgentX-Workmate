@@ -16,6 +16,8 @@ type Template = { title: string; description: string }
 
 type BotsMessages = {
   nav: string
+  work: string
+  workspaceNavigation: string
   pageTitle: string
   pageDescription: string
   search: string
@@ -237,6 +239,8 @@ type BotsMessages = {
 
 const en: BotsMessages = {
   nav: 'Assistants',
+  work: 'Work',
+  workspaceNavigation: 'Work and assistants',
   pageTitle: 'Assistants',
   pageDescription:
     'Each assistant has its own name, memory and conversation. Hand off work, schedule it, or let them work together.',
@@ -488,6 +492,8 @@ const en: BotsMessages = {
 
 const vi: BotsMessages = {
   nav: 'Trợ lý',
+  work: 'Work',
+  workspaceNavigation: 'Work và Trợ lý',
   pageTitle: 'Trợ lý',
   pageDescription:
     'Mỗi trợ lý có tên, trí nhớ và cuộc trò chuyện riêng. Giao việc, đặt lịch tự động, hoặc để các trợ lý phối hợp với nhau.',

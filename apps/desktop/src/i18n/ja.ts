@@ -2629,7 +2629,8 @@ export const ja = defineLocale({
       'new-session': '新しいチャット',
       skills: 'ユーティリティ',
       messaging: 'メッセージチャンネル',
-      artifacts: 'アーティファクト'
+      artifacts: 'アーティファクト',
+      cron: 'スケジュール'
     },
     searchAria: 'チャットを検索',
     searchPlaceholder: 'チャットを検索…',

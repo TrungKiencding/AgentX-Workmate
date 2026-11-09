@@ -142,6 +142,16 @@ what most primitives write; either is fine, a hex is not.
 - **One action, one home.** A command may have keyboard, palette, and visible
   affordances, but they invoke the same action and state. Do not fork behavior
   per entry point.
+- **Work and Assistants share the titlebar.** Bot Mode contributes a labelled
+  `SegmentedControl` to `titleBar.left`, using the existing control motion and
+  focus treatment. It navigates to the assistant roster and returns to the
+  workspace destination the user left; it does not create or reset a session.
+  Schedules occupies the former Assistants sidebar position and opens the
+  existing Cron overlay. Keep it visible even when no jobs exist or the
+  statusbar is hidden; creating and repairing a schedule needs a clear home.
+  The titlebar slots share one grid between pane and system controls: the
+  center takes the remaining space and truncates long context labels rather
+  than overlapping either side.
 - **Projects own workspace cwd, chosen before the first message.** A project
   is a folder (or a few) and is added straight from the OS folder picker — the
   Projects "+", ⌘O, the palette, or "Open another folder…" under the composer —
