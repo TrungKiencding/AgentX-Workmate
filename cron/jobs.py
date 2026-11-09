@@ -486,7 +486,7 @@ def is_job_runnable(job: Dict[str, Any]) -> bool:
     ``paused_at``) are a second gate so a contradictory half-paused record
     never fires even before self-heal runs.
     """
-    if not job.get("enabled", True):
+    if job.get("state") == "completed" or not job.get("enabled", True):
         return False
     if _has_pause_marker(job):
         return False
@@ -1762,6 +1762,21 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
             if job["id"] != job_id:
                 continue
 
+            # A retained completion is history, not a paused schedule. Only
+            # explicit re-arm may create a new occurrence from it. Keep this
+            # check under the write lock so trigger/resume cannot race a run
+            # finishing, while metadata-only edits remain possible.
+            if job.get("state") == "completed" and (
+                updates.get("enabled")
+                or ("state" in updates and updates["state"] != "completed")
+                or "schedule" in updates
+                or updates.get("next_run_at")
+            ):
+                raise ValueError(
+                    "Cannot reactivate a terminal cron job. "
+                    "Re-arm a one-shot explicitly or create a new schedule."
+                )
+
             # Validate / normalize workdir if present in updates.  Empty string
             # or None both mean "clear the field" (restore old behaviour).
             if "workdir" in updates:
@@ -1830,7 +1845,11 @@ def update_job(job_id: str, updates: Dict[str, Any]) -> Optional[Dict[str, Any]]
                 updated["provider_snapshot"] = provider_snapshot
                 updated["model_snapshot"] = model_snapshot
 
-            if updated.get("enabled", True) and updated.get("state") != "paused" and not updated.get("next_run_at"):
+            if (
+                updated.get("enabled", True)
+                and updated.get("state") not in {"paused", "completed"}
+                and not updated.get("next_run_at")
+            ):
                 next_run = compute_next_run(updated["schedule"])
                 if next_run is None and updated["schedule"].get("kind") == "once":
                     run_at = updated["schedule"].get("run_at", "unknown")
@@ -2378,6 +2397,8 @@ def advance_next_runs(job_ids) -> int:
         for job in jobs:
             if job["id"] not in ids:
                 continue
+            if job.get("state") == "completed":
+                continue
             kind = job.get("schedule", {}).get("kind")
             if kind not in {"cron", "interval"}:
                 continue
@@ -2704,7 +2725,7 @@ def _get_due_jobs_locked() -> List[Dict[str, Any]]:
         # job this tick" so healthy siblings still run and their recovered
         # state still reaches save_jobs() below.
         try:
-            if not job.get("enabled", True):
+            if job.get("state") == "completed" or not job.get("enabled", True):
                 continue
 
             # Contradiction self-heal: enabled=true with pause markers means the

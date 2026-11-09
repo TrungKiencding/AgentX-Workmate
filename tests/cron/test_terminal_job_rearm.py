@@ -6,12 +6,15 @@ import copy
 import pytest
 
 from cron.jobs import (
+    advance_next_runs,
+    claim_job_for_fire,
     advance_next_run,
     create_job,
     get_due_jobs,
     get_job,
     load_jobs,
     mark_job_run,
+    is_job_runnable,
     save_jobs,
     trigger_job,
     update_job,
@@ -101,6 +104,26 @@ def test_update_cannot_reactivate_terminal_record(tmp_cron_dir):
         update_job(job["id"], {"enabled": True})
     with pytest.raises(ValueError, match="terminal"):
         update_job(job["id"], {"schedule": "every 1h"})
+
+
+def test_completed_record_cannot_fire_even_if_enabled_flag_is_inconsistent(tmp_cron_dir):
+    job = create_job("done", "every 1h", repeat=1)
+    mark_job_run(job["id"], success=True)
+    finished = get_job(job["id"])
+    finished["enabled"] = True
+    save_jobs([finished])
+    before = copy.deepcopy(load_jobs())
+
+    assert not is_job_runnable(finished)
+    assert not claim_job_for_fire(job["id"])
+    assert get_due_jobs() == []
+    assert advance_next_runs([job["id"]]) == 0
+    assert load_jobs() == before
+
+    renamed = update_job(job["id"], {"name": "Completed reminder"})
+    assert renamed["name"] == "Completed reminder"
+    assert renamed["state"] == "completed"
+    assert renamed["next_run_at"] is None
 
 
 def test_rearm_completed_oneshot_restores_schedule_and_preserves_history(tmp_cron_dir):

@@ -159,7 +159,9 @@ class TestMissingProviderKeyBlocks:
             f"expected exactly one alert across two ticks, got {len(deliveries)}: "
             f"{deliveries!r}"
         )
-        assert "blocked" in deliveries[0].lower()
+        assert "settings need updating" in deliveries[0].lower()
+        assert "no ai usage was charged" in deliveries[0].lower()
+        assert "cronjob action=update" not in deliveries[0]
 
     def test_fallback_chain_rescues_missing_primary_key(self, tmp_path):
         """A configured fallback chain means a missing primary key does NOT

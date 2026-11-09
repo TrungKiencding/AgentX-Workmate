@@ -286,20 +286,6 @@ def _gateway_surface_passes_raw_text(platform: Any) -> bool:
     return _gateway_platform_value(platform) in _GATEWAY_RAW_TEXT_PLATFORMS
 
 
-_GATEWAY_PROVIDER_ERROR_RE = re.compile(
-    r"("  # infrastructure/provider error preambles, not ordinary assistant prose
-    r"api\s+(?:call\s+)?failed"
-    r"|provider\s+authentication\s+failed"
-    r"|non-retryable\s+error"
-    r"|rate\s+limited\s+after\s+\d+\s+retries"
-    r"|error\s+code\s*:"
-    r"|\bhttp\s*\d{3}\b"
-    r"|incorrect\s+api\s+key"
-    r"|invalid\s+api\s+key"
-    r")",
-    re.IGNORECASE,
-)
-
 _GATEWAY_PROVIDER_POLICY_RE = re.compile(
     r"("  # raw provider policy/safety bodies are noisy and may be sensitive
     r"cybersecurity\s+risk"
@@ -602,36 +588,58 @@ def _format_exec_approval_fallback(
         + ", ".join(choices[:-1]) + f", or {choices[-1]}."
     )
 
-def _gateway_provider_error_reply(text: str) -> str:
-    """Map raw provider/API errors to a short user-safe Telegram reply."""
-    if _GATEWAY_AUTH_ERROR_RE.search(text):
+def _gateway_provider_error_reply(text: str, *, failure_reason: str | None = None) -> str:
+    """Map provider failures to a short recovery message for chat users."""
+    # Once the agent classified the outcome, unrelated codes/phrases inside
+    # nested upstream payloads must not override that decision.
+    legacy_text = text if failure_reason is None else ""
+    lower = legacy_text.lower()
+    if (failure_reason in {None, "billing"}) and (
+        "unverified" in text.lower() or "out of extra usage" in text.lower()
+    ):
+        return "⚠️ The AI service could not complete this request. Try another model or try again later."
+    if failure_reason in {"billing", "budget_exceeded"} or any(p in lower for p in (
+        "billing or credits exhausted", "credit balance", "insufficient credits",
+        "insufficient_quota", "payment required", "billing hard limit",
+        "budget exceeded", "budget has been exceeded",
+    )):
+        return "⚠️ The AI service has reached its usage limit. Try another model or contact support."
+    if failure_reason in {"auth", "auth_permanent"} or _GATEWAY_AUTH_ERROR_RE.search(legacy_text):
         return (
-            "⚠️ Provider authentication failed. Check the configured credentials; "
-            "raw provider details are in the gateway logs."
+            "⚠️ The AI service could not verify your connection. "
+            "Check your sign-in or connection settings, or contact support."
         )
-    if _GATEWAY_PROVIDER_POLICY_RE.search(text):
+    if failure_reason in {"provider_policy_blocked", "content_policy_blocked"} or _GATEWAY_PROVIDER_POLICY_RE.search(legacy_text):
         return (
-            "⚠️ The model provider rejected the request. I kept the raw provider "
-            "error out of chat; check gateway logs for details or try rephrasing."
+            "⚠️ The AI service could not accept this request. Try rephrasing your message."
         )
-    if _GATEWAY_RATE_LIMIT_RE.search(text):
-        return "⏱️ The model provider is rate-limiting requests. Please wait a moment and try again."
-    if _GATEWAY_CONNECTION_ERROR_RE.search(text):
+    if failure_reason in {"rate_limit", "upstream_rate_limit"} or _GATEWAY_RATE_LIMIT_RE.search(legacy_text):
+        return "⏱️ The AI service is busy. Please wait a moment and try again."
+    if failure_reason == "connection_failed" or _GATEWAY_CONNECTION_ERROR_RE.search(legacy_text):
         return (
-            "⚠️ The model server is not responding — it looks like the configured "
-            "model endpoint is not running or is unreachable."
+            "⚠️ The AI service is not responding. If you use a local model, "
+            "check that it is running, then try again."
         )
+    if failure_reason in {"context_overflow", "payload_too_large", "long_context_tier"}:
+        return "⚠️ This conversation is too long for the selected model. Shorten it or start a new chat."
+    if failure_reason == "model_not_found":
+        return "⚠️ The selected AI model is unavailable. Please choose another model or contact support."
+    if failure_reason == "timeout":
+        return "⚠️ The AI service took too long to respond. Please try again in a moment."
     return (
-        "⚠️ The model provider failed after retries. I kept raw provider details "
-        "out of chat; check gateway logs for diagnostics."
+        "⚠️ The AI service is temporarily unavailable. Please try again in a moment."
     )
 
 
 _GATEWAY_PROVIDER_ERROR_SHAPE_RE = re.compile(
-    r"^\s*(\W*\s*)?("
+    r"^("
     r"api\s+(?:call\s+)?failed"
     r"|provider\s+authentication\s+failed"
     r"|non-retryable\s+error"
+    r"|billing\s+or\s+credits\s+exhausted"
+    r"|provider\s+reported\s+usage/credit\s+exhaustion"
+    r"|budget\s+exceeded"
+    r"|the\s+request\s+failed\s*:"
     r"|rate\s+limited\s+after\s+\d+\s+retries"
     r"|error\s+code\s*:"
     r"|http\s*\d{3}\b"
@@ -654,27 +662,25 @@ _GATEWAY_PROVIDER_ERROR_SHAPE_RE = re.compile(
 def _looks_like_gateway_provider_error(text: str) -> bool:
     """True when text is infrastructure/provider failure, not normal content.
 
-    Two heuristics combined so the rewrite only fires on actual provider
-    error envelopes, not on assistant prose that happens to mention an
-    HTTP status code:
-
-    1. The text is short — real provider errors are 1–3 lines of envelope
-       text; assistant answers are usually longer.
-    2. AND the error marker appears at the start of the message (optionally
-       behind a punctuation/symbol prefix), not buried mid-paragraph in an
-       explanation like "HTTP 404 means 'not found' — ...".
+    Match a failure preamble, regardless of payload length. Provider errors
+    often contain nested JSON and recovery guidance spanning many lines.
+    Bare HTTP headings still need an error-shaped body so explanations of
+    status codes are preserved.
     """
     if not text:
         return False
-    body = str(text).strip()
-    # Provider failure envelopes are short. Assistant answers that happen
-    # to mention HTTP status codes ("HTTP 404 means...") tend to be longer.
-    if len(body) > 400 or body.count("\n") > 4:
+    # Remove decorative prefixes once, outside the envelope expression. Nested
+    # whitespace/punctuation quantifiers can backtrack quadratically on long
+    # ordinary messages after removing the old 400-character cap.
+    body = re.sub(r"^\W+", "", str(text).strip())
+    if re.match(r"^HTTP\s*\d{3}\s+(?:means|is|indicates)\b", body, re.I):
         return False
     return bool(_GATEWAY_PROVIDER_ERROR_SHAPE_RE.search(body))
 
 
-def _sanitize_gateway_final_response(platform: Any, text: str) -> str:
+def _sanitize_gateway_final_response(
+    platform: Any, text: str, *, failure_reason: str | None = None,
+) -> str:
     """Sanitize final gateway replies before sending them to chat surfaces.
 
     Every human-facing chat surface (Telegram, WhatsApp, Discord, Slack,
@@ -708,7 +714,17 @@ def _sanitize_gateway_final_response(platform: Any, text: str) -> str:
         return ""
 
     redacted = _redact_gateway_user_facing_secrets(str(text))
+    if failure_reason:
+        # The agent's structured outcome is authoritative when available.
+        # Keep heuristics only for legacy/provider status strings, and leave
+        # non-provider outcomes (license, storage, cancellation) to their own UX.
+        from agent.error_classifier import FailoverReason
+
+        if failure_reason in {reason.value for reason in FailoverReason} | {"connection_failed"}:
+            logger.warning("Chat provider failure (%s): %s", failure_reason, redacted)
+            return _gateway_provider_error_reply(redacted, failure_reason=failure_reason)
     if _looks_like_gateway_provider_error(redacted):
+        logger.warning("Chat provider failure: %s", redacted)
         return _gateway_provider_error_reply(redacted)
     return redacted
 
@@ -739,6 +755,7 @@ def _prepare_gateway_status_message(platform: Any, event_type: str, message: str
         ):
             return None
     if _looks_like_gateway_provider_error(text):
+        logger.warning("Chat provider status failure: %s", text)
         return _gateway_provider_error_reply(text)
     return text
 
@@ -5848,7 +5865,10 @@ class TurnRunner:
             final_response = _normalize_empty_agent_response(
                 result, final_response or "", history_len=len(agent_history),
             )
-            final_response = _sanitize_gateway_final_response(ctx.source.platform, final_response)
+            final_response = _sanitize_gateway_final_response(
+                ctx.source.platform, final_response,
+                failure_reason=result.get("failure_reason") if result.get("failed") else None,
+            )
             if not final_response:
                 final_response = f"⚠️ {result['error']}" if result.get("error") else ""
             return {
@@ -18886,7 +18906,10 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 response = _normalize_empty_agent_response(
                     agent_result, response, history_len=len(history),
                 )
-                response = _sanitize_gateway_final_response(source.platform, response)
+                response = _sanitize_gateway_final_response(
+                    source.platform, response,
+                    failure_reason=agent_result.get("failure_reason") if agent_result.get("failed") else None,
+                )
 
             # Ordering contract: the agent thread already updated the contextvar
             # in conversation_compression.py; propagate to SessionEntry + _save().

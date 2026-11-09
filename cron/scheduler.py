@@ -115,123 +115,52 @@ def _set_cron_session_title(session_db, session_id, base_title):
         return deduped
 
 
-def _fallback_chain_phrase() -> str:
-    """Wording for the fallback-chain clause of a provider-failure message.
-
-    "Fallback chain was exhausted or unavailable." used to fire
-    unconditionally on every provider failure, which implies a fallback was
-    attempted and failed. Most installs have fallback_providers: [] (no
-    chain configured at all), so that wording was actively misleading: it
-    sent the operator looking for why a fallback "failed" when none was
-    ever attempted. Distinguish the two cases explicitly.
-
-    Fails open to the original ambiguous-but-safe wording if config can't be
-    read (e.g. mid-shutdown, permissions) -- never let a lookup error crash
-    failure-message generation itself.
-    """
-    try:
-        cfg = load_config() or {}
-        chain = get_fallback_chain(cfg)
-    except Exception:
-        return "Fallback chain was exhausted or unavailable."
-    if chain:
-        return "Fallback chain was exhausted or unavailable."
-    return (
-        "No fallback chain configured — add one with `agentx fallback add`, "
-        "or set a cron fleet default via `cron.model` + `cron.model_provider` "
-        "in config.yaml."
-    )
-
-
 def _summarize_cron_failure_for_delivery(job: dict, error: str | None) -> str:
-    """Return a compact one-line failure message for chat delivery.
+    """Describe the impact and recovery without copying diagnostic text to chat.
 
-    Full details stay in the cron output directory and the logs. Chat should
-    show the operator what broke without dumping provider JSON, retry noise, or
-    stack traces into the delivery channel.
+    The original error remains in run output, execution history and logs.
+    Even unknown errors use a fixed message: truncation is not sanitization.
     """
-    job_name = job.get("name") or job.get("id") or "cron job"
-    text = (error or "unknown error").strip()
+    job_name = job.get("name") or "Scheduled task"
+    text = str(error or "")
     lower = text.lower()
-
-    # Provider/API failures are the common noisy path. Keep these short.
-    if "429" in text or "rate limit" in lower or "usage limit" in lower:
-        reason = "rate limit"
-        if "weekly usage limit" in lower:
-            reason = "weekly usage limit"
-        elif "quota" in lower:
-            reason = "quota limit"
-        return (
-            f"⚠️ Cron '{job_name}' failed: provider {reason}. "
-            f"{_fallback_chain_phrase()} "
-            "Full details saved in cron output."
+    if "[drift_skip" in lower:
+        reason = (
+            "was skipped because the AI settings changed. No AI usage was charged. "
+            "Ask me to update the model for this task before it can run again."
         )
-
-    # The scheduler's own inactivity watchdog (see the TimeoutError raised
-    # above at "Cron job '{job_name}' idle for {secs}s (limit {limit}s) —
-    # last activity: {desc}") produces a message that contains the substring
-    # "timed out"/"timeout" nowhere, but DOES contain "idle for ... (limit
-    # ...)" — however older/other call sites can still phrase an inactivity
-    # abort using "timed out" wording, so match on the "idle for Ns (limit"
-    # shape specifically (case-insensitive) BEFORE the generic provider-
-    # timeout branch below. Without this, an inactivity timeout — the job's
-    # OWN tool call/turn going quiet, no provider or fallback chain ever
-    # involved — gets rewritten into a misleading "provider timeout /
-    # fallback chain exhausted" message, sending the operator to debug the
-    # wrong system entirely (field-reported: a stuck `terminal` tool call
-    # tripped the 600s inactivity limit and was reported as a
-    # provider/fallback failure). Mirrors the same reordering fix
-    # upstream issue #59549 applied for script timeouts vs provider timeouts
-    # — check the more specific, deterministic signature first.
-    if re.search(r"idle for \d+s\s*\(limit \d+s\)", lower):
-        return (
-            f"⚠️ Cron '{job_name}' failed: the job itself stalled — no tool/API "
-            "activity for the configured inactivity window. Not a provider or "
-            "fallback-chain issue; check what the job was doing when it went "
-            "quiet. Full details saved in cron output."
+    elif "[blocked_config" in lower:
+        reason = (
+            "could not start because its settings need updating. No AI usage was charged. "
+            "Ask me to review the settings for this task."
         )
+    elif "interrupted" in lower or "shutdown" in lower:
+        reason = "was interrupted before it finished. Ask me to run it again."
+    elif re.search(r"idle for \d+s\s*\(limit \d+s\)", lower):
+        reason = "stalled and was stopped. Ask me to retry this task."
+    elif "terminal_cwd" in lower and ("lock" in lower or "timed out" in lower):
+        reason = "could not start because another task was still running. Please try again later."
+    else:
+        from agent.error_classifier import classify_api_error
 
-    # Sibling scheduler-side timeout (#79768): the TERMINAL_CWD lock-wait
-    # abort also phrases itself with "Timed out ..." and would fall through
-    # to the generic provider-timeout branch below. Like the inactivity
-    # watchdog above, it is entirely scheduler-internal — no provider or
-    # fallback chain involved — so classify it before the generic match.
-    if "terminal_cwd" in lower and ("lock" in lower or "timed out" in lower):
-        return (
-            f"⚠️ Cron '{job_name}' failed: could not acquire the scheduler's "
-            "working-directory lock — another cron job (a workdir writer or "
-            "long-running readers) held it too long. Not a provider or "
-            "fallback-chain issue; stagger the holder's schedule or remove "
-            "its workdir. Full details saved in cron output."
-        )
-
-    if "readtimeout" in lower or "timed out" in lower or "timeout" in lower:
-        return (
-            f"⚠️ Cron '{job_name}' failed: provider timeout. "
-            f"{_fallback_chain_phrase()} "
-            "Full details saved in cron output."
-        )
-
-    # Match authentication/authorization wording at a word boundary and the
-    # 401/403 status codes as whole tokens, so "oauth", "4015" and similar do
-    # not trip a misleading auth message.
-    if re.search(r"authenticat|authoriz", lower) or re.search(r"\b(401|403)\b", text):
-        return (
-            f"⚠️ Cron '{job_name}' failed: provider authentication error. "
-            "Full details saved in cron output."
-        )
-
-    # Strip common exception wrappers and collapse provider payloads. Bound
-    # the input first so a multi-KB provider blob cannot slow the
-    # substitutions.
-    cleaned = re.sub(
-        r"^(RuntimeError|Exception|ValueError|HTTPStatusError):\s*",
-        "", text[:2000],
-    )
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    if len(cleaned) > 180:
-        cleaned = cleaned[:177].rstrip() + "..."
-    return f"⚠️ Cron '{job_name}' failed: {cleaned}"
+        api_error = RuntimeError(text)
+        status = re.search(r"\bHTTP\s+(\d{3})\b", text, re.IGNORECASE)
+        if status:
+            api_error.status_code = int(status.group(1))
+        classified = classify_api_error(api_error)
+        reason = {
+            "billing": "could not finish because the AI service reached its usage limit. Try another model or contact support.",
+            "budget_exceeded": "could not finish because the AI service reached its usage limit. Contact support.",
+            "rate_limit": "could not finish because the AI service is busy. Please try again later.",
+            "upstream_rate_limit": "could not finish because the AI service is busy. Please try again later.",
+            "timeout": "took too long to finish. Ask me to retry this task.",
+            "auth": "could not connect to the AI service. Please check the connection settings or contact support.",
+            "auth_permanent": "could not connect to the AI service. Please check the connection settings or contact support.",
+            "model_not_found": "could not use its selected model. Ask me to choose another model for this task.",
+        }.get(classified.reason.value, "could not finish. Please try again later or contact support.")
+        if classified.billing_unverified:
+            reason = "could not use the AI service. Try another model or try again later."
+    return f"⚠️ {job_name}: {reason}"
 
 
 class CronPromptInjectionBlocked(Exception):
@@ -5014,38 +4943,19 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
             drift_skip_silent = (
                 bool(error) and DRIFT_SKIP_SILENT_MARKER in str(error)
             )
-            drift_skip = drift_skip_silent or (
-                bool(error) and DRIFT_SKIP_MARKER in str(error)
-            )
-            if blocked_config and not success:
-                # Blocked-config alert: bypass the generic failure summarizer
-                # (whose auth/timeout heuristics would mislabel this as a
-                # provider runtime failure) — say plainly that config
-                # validation blocked the run and nothing was spent.
-                _pf_text = re.sub(
-                    r"\[blocked_config[^\]]*\]\s*", "", str(error)
-                ).strip()
-                deliver_content = (
-                    f"⛔ Cron '{job.get('name') or job['id']}' blocked by "
-                    f"configuration validation (no LLM call was made): "
-                    f"{_pf_text} "
-                    "This alert is sent once; the job stays blocked until "
-                    "the configuration is fixed."
+            if not success and not (blocked_config_silent or drift_skip_silent):
+                # Keep diagnostics out of user delivery; warning/error logs and
+                # persisted execution output retain the original failure.
+                from agent.redact import redact_sensitive_text
+
+                logger.warning(
+                    "Scheduled task %s failed: %s", job["id"],
+                    redact_sensitive_text(str(error or "unknown error"), force=True),
                 )
-            else:
-                deliver_content = final_response if success else _summarize_cron_failure_for_delivery(job, error)
-                if drift_skip and not success:
-                    # Drift-skip alert: bypass the generic summarizer's
-                    # 180-char truncation (it would eat the remediation
-                    # command) and strip the internal marker — deliver the
-                    # guard's own actionable message intact.
-                    _drift_text = re.sub(
-                        r"\[drift_skip[^\]]*\]\s*", "", str(error)
-                    ).strip()
-                    deliver_content = (
-                        f"⚠️ Cron '{job.get('name') or job['id']}' skipped: "
-                        f"{_drift_text}"
-                    )
+            deliver_content = (
+                final_response if success
+                else _summarize_cron_failure_for_delivery(job, error)
+            )
             # Treat whitespace-only final responses the same as empty
             # responses: do not deliver a blank message, and let the
             # empty-response guard below mark the run as a soft failure.

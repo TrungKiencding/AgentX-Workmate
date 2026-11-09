@@ -22,7 +22,7 @@ class TestGatewayConnectionErrorReply:
             assert _looks_like_gateway_provider_error(text), text
             reply = _gateway_provider_error_reply(text)
             assert "not responding" in reply.lower(), text
-            assert "not running or is unreachable" in reply, text
+            assert "check that it is running" in reply, text
 
     def test_broad_connection_phrases_still_map_once_classified(self):
         """Reply selector keeps the full phrase set; the gate does not."""
@@ -31,7 +31,7 @@ class TestGatewayConnectionErrorReply:
             "failed to establish a new connection",
         ):
             reply = _gateway_provider_error_reply(text)
-            assert "not running or is unreachable" in reply, text
+            assert "check that it is running" in reply, text
 
     def test_prose_cannot_connect_is_not_a_provider_error(self):
         text = (
@@ -48,16 +48,16 @@ class TestGatewayConnectionErrorReply:
         ):
             if _looks_like_gateway_provider_error(text):
                 reply = _gateway_provider_error_reply(text)
-                assert "not running or is unreachable" not in reply, text
+                assert "check that it is running" not in reply, text
 
     def test_connection_regex_does_not_match_non_connection_error(self):
         assert not _GATEWAY_CONNECTION_ERROR_RE.search("Rate limited after 3 retries")
         assert not _GATEWAY_CONNECTION_ERROR_RE.search("Provider authentication failed")
 
     def test_auth_and_rate_limit_preserved(self):
-        assert "authentication" in _gateway_provider_error_reply(
+        assert "sign-in" in _gateway_provider_error_reply(
             "provider authentication failed"
         ).lower()
-        assert "rate-limiting" in _gateway_provider_error_reply(
+        assert "wait a moment" in _gateway_provider_error_reply(
             "rate limited after 3 retries"
         ).lower()
