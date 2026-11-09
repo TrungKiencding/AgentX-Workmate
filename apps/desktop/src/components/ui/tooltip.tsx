@@ -1,4 +1,4 @@
-import { Tooltip as TooltipPrimitive } from 'radix-ui'
+import { Slot, Tooltip as TooltipPrimitive } from 'radix-ui'
 import * as React from 'react'
 
 import { useI18n } from '@/i18n'
@@ -89,6 +89,25 @@ function TooltipTrigger({ onFocus, ...props }: React.ComponentProps<typeof Toolt
   )
 }
 
+/**
+ * The seam between `TooltipTrigger asChild` and a `Tip`'s child. It passes
+ * every prop, ref and handler through, except the tooltip's `data-state`.
+ *
+ * Radix gives every trigger a `data-state`, and an `asChild` trigger lets
+ * props from outside win over its own. So in `<Tip><DropdownMenuTrigger
+ * asChild>…`, the TOOLTIP's state (`closed`, `delayed-open`) overwrote the
+ * menu's, and the button read `closed` while its menu was open. Every
+ * `data-[state=open]:` style on a tooltip-wrapped menu, popover or select
+ * trigger silently never applied. The tooltip's state is only ever styled on
+ * `TooltipContent`, which keeps its own, so nothing reads it from the trigger.
+ */
+function TipTriggerSlot({
+  'data-state': _tooltipState,
+  ...props
+}: React.ComponentProps<typeof Slot.Root> & { 'data-state'?: string }) {
+  return <Slot.Root {...props} />
+}
+
 function TooltipContent({
   className,
   sideOffset = 6,
@@ -166,7 +185,9 @@ function Tip({ label, children, delayDuration = TIP_DELAY_MS, ...props }: TipPro
 
   const tip = (
     <Tooltip delayDuration={delayDuration} disableHoverableContent>
-      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipTrigger asChild>
+        <TipTriggerSlot>{children}</TipTriggerSlot>
+      </TooltipTrigger>
       <TooltipContent {...props}>{label}</TooltipContent>
     </Tooltip>
   )
