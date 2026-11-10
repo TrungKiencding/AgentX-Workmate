@@ -8212,7 +8212,9 @@ class TelegramAdapter(BasePlatformAdapter):
         if not chat:
             return False
         chat_type = str(getattr(chat, "type", "")).split(".")[-1].lower()
-        return chat_type in {"group", "supergroup"}
+        # Broadcast channels run the same allowed_chats / require_mention
+        # gates as groups; only DMs are unrestricted.
+        return chat_type in {"group", "supergroup", "channel"}
 
     @classmethod
     def _effective_message_thread_id(cls, message: Message) -> Optional[str]:
@@ -8562,8 +8564,13 @@ class TelegramAdapter(BasePlatformAdapter):
         """Return True for the narrow guest-mode bypass: explicit bot mention.
 
         The caller (:meth:`_should_process_message`) has already verified
-        the message is a group chat, so that check is not repeated here.
+        the message is a group chat.  Broadcast channels never get the
+        bypass: anyone with posting rights there could otherwise cross
+        ``allowed_chats``.
         """
+        chat_type = str(getattr(getattr(message, "chat", None), "type", "")).split(".")[-1].lower()
+        if chat_type == "channel":
+            return False
         return self._telegram_guest_mode() and self._message_mentions_bot(message)
 
     def _clean_bot_trigger_text(self, text: Optional[str]) -> Optional[str]:
@@ -8920,7 +8927,8 @@ class TelegramAdapter(BasePlatformAdapter):
     def _should_process_message(self, message: Message, *, is_command: bool = False) -> bool:
         """Apply Telegram group trigger rules.
 
-        DMs remain unrestricted. Group/supergroup messages are accepted when:
+        DMs remain unrestricted. Group/supergroup and channel messages are
+        accepted when:
         - the chat passes the ``allowed_chats`` whitelist (when set), or
           ``guest_mode`` is enabled and the bot is explicitly mentioned
         - the chat is explicitly allowlisted in ``free_response_chats``
@@ -9005,9 +9013,9 @@ class TelegramAdapter(BasePlatformAdapter):
             return True
         if self._is_reply_to_bot(message):
             return True
-        # When guest_mode is True, _is_guest_mention already called
-        # _message_mentions_bot above — skip the redundant second call.
-        if not self._telegram_guest_mode() and self._message_mentions_bot(message):
+        # Guest-mode group mentions already returned above; a channel post
+        # in guest mode still triggers on an explicit mention here.
+        if self._message_mentions_bot(message):
             return True
         return self._message_matches_mention_patterns(message)
 
@@ -9321,18 +9329,20 @@ class TelegramAdapter(BasePlatformAdapter):
 
     async def _handle_media_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle incoming media messages, downloading images to local cache."""
-        if not update.message:
+        # Channel posts arrive as update.channel_post, not update.message.
+        msg = self._effective_update_message(update)
+        if not msg:
             return
-        if not self._is_user_authorized_from_message(update.message):
+        if not self._is_user_authorized_from_message(msg):
             logger.info(
                 "[Telegram] Blocked media from unauthorized user %s in chat %s",
-                getattr(getattr(update.message, "from_user", None), "id", None),
-                getattr(getattr(update.message, "chat", None), "id", None),
+                getattr(getattr(msg, "from_user", None), "id", None),
+                getattr(getattr(msg, "chat", None), "id", None),
             )
             return
-        if not self._should_process_message(update.message):
-            if self._should_observe_unmentioned_group_message(update.message):
-                _m = update.message
+        if not self._should_process_message(msg):
+            if self._should_observe_unmentioned_group_message(msg):
+                _m = msg
                 _observe_type = self._media_message_type(_m)
                 _event = self._build_message_event(_m, _observe_type, update_id=update.update_id)
                 if _m.caption:
@@ -9342,8 +9352,6 @@ class TelegramAdapter(BasePlatformAdapter):
                     _m, _event.message_type, update_id=update.update_id, event=_event
                 )
             return
-
-        msg = update.message
 
         msg_type = self._media_message_type(msg)
 

@@ -3,6 +3,8 @@ import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
+import pytest
+
 from gateway.config import Platform, PlatformConfig, load_gateway_config
 from gateway.platforms.base import MessageType
 from gateway.session import SessionSource
@@ -896,3 +898,26 @@ def test_identity_freshness_does_not_depend_on_host_uptime(monkeypatch):
 
     adapter._note_bot_username("new_helper_bot")
     assert adapter._bot_identity_is_fresh() is True
+
+
+def _channel_post(text, *, chat_id, mention):
+    entities = [_mention_entity(text)] if mention else []
+    return SimpleNamespace(
+        message_id=44, text=text, caption=None, entities=entities, caption_entities=[],
+        message_thread_id=None, is_topic_message=False,
+        chat=SimpleNamespace(id=chat_id, type="channel", title="Broadcast", is_forum=False),
+        from_user=None, sender_chat=SimpleNamespace(id=chat_id, type="channel"), reply_to_message=None, date=None)
+
+
+@pytest.mark.parametrize("guest_mode", [False, True])
+def test_channel_posts_run_the_group_gates(guest_mode):
+    adapter = _make_adapter(require_mention=True, allowed_chats=["-100"], guest_mode=guest_mode)
+    # Outside allowed_chats a channel post is dropped even when it mentions the bot: guest mode is
+    # a group affordance, and anyone who can post in a channel would otherwise cross the allowlist.
+    assert adapter._should_process_message(_channel_post("hi @agentx_bot", chat_id=-200, mention=True)) is False
+    # Allowlisted channel: require_mention holds, an explicit mention triggers.
+    assert adapter._should_process_message(_channel_post("ordinary post", chat_id=-100, mention=False)) is False
+    assert adapter._should_process_message(_channel_post("hi @agentx_bot", chat_id=-100, mention=True)) is True
+    # Guest mode still lets a group mention cross the allowlist.
+    group = _group_message("hi @agentx_bot", chat_id=-200, entities=[_mention_entity("hi @agentx_bot")])
+    assert adapter._should_process_message(group) is guest_mode
