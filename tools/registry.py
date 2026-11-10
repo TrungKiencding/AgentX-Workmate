@@ -21,6 +21,8 @@ import logging
 import sys
 import threading
 import time
+from contextlib import contextmanager
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Callable, Dict, List, Optional, Set
 
@@ -265,6 +267,35 @@ _check_fn_cache: Dict[tuple[Callable, Optional[str]], tuple[float, bool]] = {}
 _check_fn_last_good: Dict[tuple[Callable, Optional[str]], float] = {}
 _check_fn_cache_lock = threading.Lock()
 CHECK_FN_CACHE_BYPASS = ""
+# Bumped by invalidate_check_fn_cache(): anything derived from the dropped verdicts is void.
+_check_fn_epoch = 0
+# Earliest expiry of the verdicts consulted inside check_fn_verdict_window() (None outside one).
+_verdict_expiry: ContextVar[Optional[list]] = ContextVar("check_fn_verdict_expiry", default=None)
+
+
+def check_fn_cache_epoch() -> int:
+    """Changes whenever ``invalidate_check_fn_cache()`` drops the cached verdicts."""
+    return _check_fn_epoch
+
+
+@contextmanager
+def check_fn_verdict_window():
+    """Yield a one-item list holding the earliest expiry (``time.monotonic``) of the cached
+    ``check_fn`` verdicts consulted inside the block, ``inf`` when none was. A result filtered on
+    those verdicts must not be reused past it: reusing it would replay a verdict this cache has
+    already expired. A grace-served True expires at once, because the next call re-probes it."""
+    sink = [float("inf")]
+    token = _verdict_expiry.set(sink)
+    try:
+        yield sink
+    finally:
+        _verdict_expiry.reset(token)
+
+
+def _note_verdict_expiry(deadline: float) -> None:
+    sink = _verdict_expiry.get()
+    if sink is not None and deadline < sink[0]:
+        sink[0] = deadline
 
 
 def _prune_check_fn_caches(now: float) -> None:
@@ -345,6 +376,7 @@ def _check_fn_cached(fn: Callable) -> bool:
         if cached is not None:
             ts, value = cached
             if now - ts < _CHECK_FN_TTL_SECONDS:
+                _note_verdict_expiry(ts + _CHECK_FN_TTL_SECONDS)
                 return value
 
     raised = False
@@ -360,6 +392,7 @@ def _check_fn_cached(fn: Callable) -> bool:
         if value:
             _check_fn_last_good[cache_key] = now
             _check_fn_cache[cache_key] = (now, True)
+            _note_verdict_expiry(now + _CHECK_FN_TTL_SECONDS)
             return True
 
         last_good = _check_fn_last_good.get(cache_key)
@@ -367,6 +400,7 @@ def _check_fn_cached(fn: Callable) -> bool:
             # Recent success → treat this failure as a flake. Serve last-good
             # True and do NOT cache the failure, so the next call re-probes
             # rather than pinning a stale verdict for the full TTL.
+            _note_verdict_expiry(now)
             logger.warning(
                 "check_fn %s failed (%s) within %.0fs of last success; "
                 "treating as transient and keeping tool(s) available",
@@ -384,13 +418,16 @@ def _check_fn_cached(fn: Callable) -> bool:
             "raised" if raised else "returned False",
         )
         _check_fn_cache[cache_key] = (now, False)
+        _note_verdict_expiry(now + _CHECK_FN_TTL_SECONDS)
         return False
 
 
 def invalidate_check_fn_cache() -> None:
     """Drop all cached ``check_fn`` results. Call after config changes that
     affect tool availability (e.g. ``agentx tools enable``)."""
+    global _check_fn_epoch
     with _check_fn_cache_lock:
+        _check_fn_epoch += 1
         _check_fn_cache.clear()
         _check_fn_last_good.clear()
 

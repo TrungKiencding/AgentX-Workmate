@@ -33,7 +33,9 @@ from typing import Dict, Any, List, Optional, Tuple
 
 from tools.registry import (
     CHECK_FN_CACHE_BYPASS,
+    check_fn_cache_epoch,
     check_fn_cache_scope,
+    check_fn_verdict_window,
     discover_builtin_tools,
     registry,
     tool_error,
@@ -286,10 +288,14 @@ _LEGACY_TOOLSET_MAP = {
 # because quiet_mode=False has stdout side effects (tool-selection prints).
 #
 # Invalidation happens transparently via the registry's _generation counter,
-# which bumps on register() / deregister() / register_toolset_alias(). The
-# inner check_fn TTL cache in registry.py handles environment drift (Docker
-# daemon start/stop, env var changes, etc.) on a 30 s horizon.
+# which bumps on register() / deregister() / register_toolset_alias(), and the
+# check_fn cache epoch (bumped by invalidate_check_fn_cache). An entry expires
+# with the earliest check_fn verdict it was filtered on
+# (registry.check_fn_verdict_window): a hit never re-runs the checks, so without
+# that expiry an MCP server that dropped and reconnected without re-registering
+# its tools would stay hidden for the life of the process.
 _tool_defs_cache: Dict[tuple, List[Dict[str, Any]]] = {}
+_tool_defs_expiry: Dict[tuple, float] = {}  # cache key -> time.monotonic() deadline
 
 # Hard cap on memoized get_tool_definitions() results. A long-lived Gateway
 # process sees many distinct toolset/config fingerprints over its lifetime
@@ -305,6 +311,15 @@ def _clear_tool_defs_cache() -> None:
     schema dependencies change (e.g. discord capability cache reset,
     execute_code sandbox reconfigured)."""
     _tool_defs_cache.clear()
+    _tool_defs_expiry.clear()
+
+
+def _live_tool_defs_entry(cache_key: tuple) -> Optional[List[Dict[str, Any]]]:
+    """The memoized list for *cache_key* unless missing or past its verdict expiry."""
+    cached = _tool_defs_cache.get(cache_key)
+    if cached is None or time.monotonic() >= _tool_defs_expiry.get(cache_key, float("inf")):
+        return None
+    return cached
 
 
 def get_tool_definitions(
@@ -359,8 +374,9 @@ def get_tool_definitions(
                 bool(skip_tool_search_assembly),
                 _is_delegated_child_context(),
                 profile_scope,
+                check_fn_cache_epoch(),
             )
-        cached = _tool_defs_cache.get(cache_key) if cache_key is not None else None
+        cached = _live_tool_defs_entry(cache_key) if cache_key is not None else None
         if cached is not None:
             # Update _last_resolved_tool_names so downstream callers see
             # consistent state even on a cache hit.
@@ -370,8 +386,9 @@ def get_tool_definitions(
             # schemas are treated as read-only by all known callers.
             return list(cached)
 
-    result = _compute_tool_definitions(enabled_toolsets, disabled_toolsets, quiet_mode,
-                                       skip_tool_search_assembly=skip_tool_search_assembly)
+    with check_fn_verdict_window() as verdict_expiry:
+        result = _compute_tool_definitions(enabled_toolsets, disabled_toolsets, quiet_mode,
+                                           skip_tool_search_assembly=skip_tool_search_assembly)
     if quiet_mode and cache_key is not None:
         # Cache the freshly-computed list, but hand callers a shallow copy so
         # downstream mutations (e.g. run_agent appending memory/LCM tool
@@ -383,9 +400,12 @@ def get_tool_definitions(
         # Bound the cache with LRU eviction so a long-lived Gateway process
         # doesn't accumulate entries unboundedly across the many distinct
         # toolset/config fingerprints it sees over its lifetime (#19251).
-        if len(_tool_defs_cache) >= _TOOL_DEFS_CACHE_MAX:
-            _tool_defs_cache.pop(next(iter(_tool_defs_cache)))  # evict oldest
+        if cache_key not in _tool_defs_cache and len(_tool_defs_cache) >= _TOOL_DEFS_CACHE_MAX:
+            evicted = next(iter(_tool_defs_cache))  # evict oldest
+            _tool_defs_cache.pop(evicted)
+            _tool_defs_expiry.pop(evicted, None)
         _tool_defs_cache[cache_key] = result
+        _tool_defs_expiry[cache_key] = verdict_expiry[0]
         return list(result)
     if quiet_mode:
         return list(result)
