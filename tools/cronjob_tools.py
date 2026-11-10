@@ -1131,7 +1131,7 @@ Scheduling from cron-run sessions is disabled by default and enabled via cron.al
             },
             "prompt": {
                 "type": "string",
-                "description": "For create: the full self-contained prompt. If skills are also provided, this becomes the task instruction paired with those skills."
+                "description": "For create/update: the full self-contained prompt, the work only (when it runs goes in 'schedule'; data windows like 'since yesterday' stay here). If skills are also provided, this becomes the task instruction paired with those skills."
             },
             "schedule": {
                 "type": "string",
