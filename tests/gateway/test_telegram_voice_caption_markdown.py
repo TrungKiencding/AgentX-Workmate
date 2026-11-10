@@ -81,3 +81,37 @@ def test_media_caption_truncation_fits_the_utf16_cap():
     caption = "\U0001F389" * 700  # 700 code points, 1400 UTF-16 units
     truncated = TelegramAdapter._caption_1024(caption)
     assert utf16_len(truncated) <= 1024 and caption.startswith(truncated) and len(truncated) == 512
+
+
+@pytest.mark.asyncio
+async def test_mp3_send_formats_the_caption_like_a_voice_note(monkeypatch, tmp_path):
+    """sendAudio (.mp3/.m4a) captions are MarkdownV2 too, not raw markdown."""
+    monkeypatch.setattr(telegram_mod, "_probe_voice_duration_seconds", lambda _p: 3)
+    adapter = _make_adapter()
+    audio = tmp_path / "song.mp3"
+    audio.write_bytes(b"\x00" * 16)
+
+    result = await adapter.send_voice("123", str(audio), caption="Here is **your song** (v1.2)!")
+
+    assert result.success is True
+    kwargs = adapter._bot.send_audio.await_args.kwargs
+    assert kwargs["parse_mode"] is not None
+    assert kwargs["caption"] == adapter.format_message("Here is **your song** (v1.2)!")
+    assert "**" not in kwargs["caption"]
+
+
+@pytest.mark.asyncio
+async def test_mp3_caption_entity_rejection_retries_plain(monkeypatch, tmp_path):
+    monkeypatch.setattr(telegram_mod, "_probe_voice_duration_seconds", lambda _p: 3)
+    adapter = _make_adapter()
+    adapter._bot.send_audio = AsyncMock(
+        side_effect=[Exception("Bad Request: can't parse entities"), MagicMock(message_id=7)])
+    audio = tmp_path / "song.m4a"
+    audio.write_bytes(b"\x00" * 16)
+
+    result = await adapter.send_voice("123", str(audio), caption="*bold* reply")
+
+    assert result.success is True
+    assert result.message_id == "7"
+    retry = adapter._bot.send_audio.await_args_list[1].kwargs
+    assert (retry["parse_mode"], retry["caption"]) == (None, "*bold* reply")
