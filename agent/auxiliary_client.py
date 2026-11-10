@@ -9753,10 +9753,10 @@ def extract_content_or_reasoning(response) -> str:
 
     if content:
         # Strip inline think/reasoning blocks (mirrors _strip_think_blocks)
+        from agent.think_scrubber import THINK_TAG_ALTERNATION
+
         cleaned = re.sub(
-            r"<(?:think|thinking|reasoning|thought|REASONING_SCRATCHPAD)>"
-            r".*?"
-            r"</(?:think|thinking|reasoning|thought|REASONING_SCRATCHPAD)>",
+            rf"<(?:{THINK_TAG_ALTERNATION})>.*?</(?:{THINK_TAG_ALTERNATION})>",
             "", content, flags=re.DOTALL | re.IGNORECASE,
         ).strip()
         if cleaned:

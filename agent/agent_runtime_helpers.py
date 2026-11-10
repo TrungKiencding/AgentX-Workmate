@@ -37,6 +37,7 @@ from agent.message_sanitization import _FULL_ARGS_LOG_BOUND
 from agent.prompt_builder import format_steer_marker
 from agent.tool_dispatch_helpers import _trajectory_normalize_msg, make_tool_result_message
 from agent.trajectory import convert_scratchpad_to_think
+from agent.think_scrubber import THINK_TAG_NAMES
 from agent.credential_pool import (
     STATUS_EXHAUSTED,
     credential_pool_matches_provider,
@@ -57,7 +58,8 @@ logger = logging.getLogger(__name__)
 _MAX_AUTH_REFRESH_ATTEMPTS = 2
 
 
-_REASONING_TAG_NAMES = ("think", "thinking", "reasoning", "REASONING_SCRATCHPAD", "thought")
+# Regex-escaped, from the one canonical list (agent/think_scrubber.py).
+_REASONING_TAG_NAMES = tuple(re.escape(name) for name in THINK_TAG_NAMES)
 _TOOL_CALL_TAG_NAMES = ("tool_call", "tool_calls", "tool_result", "function_call", "function_calls")
 
 _REASONING_BLOCK_PATTERNS = tuple(
@@ -1878,12 +1880,8 @@ def extract_reasoning(agent, assistant_message) -> Optional[str]:
                 if thinking_text and thinking_text not in reasoning_parts:
                     reasoning_parts.append(thinking_text)
     if not reasoning_parts and isinstance(content, str) and content:
-        inline_patterns = (
-            r"<think>(.*?)</think>",
-            r"<thinking>(.*?)</thinking>",
-            r"<thought>(.*?)</thought>",
-            r"<reasoning>(.*?)</reasoning>",
-            r"<REASONING_SCRATCHPAD>(.*?)</REASONING_SCRATCHPAD>",
+        inline_patterns = tuple(
+            rf"<{name}>(.*?)</{name}>" for name in _REASONING_TAG_NAMES
         )
         for pattern in inline_patterns:
             flags = re.DOTALL | re.IGNORECASE
