@@ -222,6 +222,7 @@
         "CFBundleDisplayName": "AgentX Workmate",
         "CFBundleExecutable": "AgentX Workmate",
         "CFBundleName": "AgentX Workmate",
+        "NSAppleEventsUsageDescription": "AgentX Workmate controls other apps (such as Notes or Reminders) when you ask the agent to automate them.",
         "NSAudioCaptureUsageDescription": "AgentX Workmate uses audio capture for voice conversations.",
         "NSCameraUsageDescription": "AgentX Workmate uses the camera when a plugin or feature you enable requests it.",
         "NSMicrophoneUsageDescription": "AgentX Workmate uses the microphone for voice input and voice conversations."

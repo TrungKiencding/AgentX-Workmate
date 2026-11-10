@@ -61,6 +61,32 @@ test('inherit plist grants microphone (regression #37718)', () => {
   )
 })
 
+test('both plists grant Apple Events automation', () => {
+  const main = loadEntitlements(MAIN_PLIST)
+  const inherit = loadEntitlements(INHERIT_PLIST)
+
+  for (const [name, data] of [
+    ['entitlements.mac.plist', main],
+    ['entitlements.mac.inherit.plist', inherit],
+  ] as const) {
+    assert.equal(
+      data['com.apple.security.automation.apple-events'],
+      true,
+      `${name} must grant \`com.apple.security.automation.apple-events\`; ` +
+        'without it the hardened runtime denies sending Apple Events, so ' +
+        'AppleScript/osascript automation of other apps (e.g. Apple Notes) ' +
+        'fails with -1743 and no permission prompt appears.'
+    )
+  }
+})
+
+test('Info.plist explains the Apple Events prompt', () => {
+  const pkg = JSON.parse(fs.readFileSync(path.join(path.dirname(MAIN_PLIST), '..', 'package.json'), 'utf8'))
+  const usage = pkg.build?.mac?.extendInfo?.NSAppleEventsUsageDescription
+
+  assert.ok(typeof usage === 'string' && usage.length > 0, 'NSAppleEventsUsageDescription is required for the Automation prompt')
+})
+
 test('every device.* entitlement on the main app is also inherited', () => {
   const main = loadEntitlements(MAIN_PLIST)
   const inherit = loadEntitlements(INHERIT_PLIST)
