@@ -9051,8 +9051,20 @@ class TelegramAdapter(BasePlatformAdapter):
         than ``update.message``.  MessageHandler filters can still dispatch
         those updates, so handlers must use ``effective_message`` to avoid
         consuming channel posts without ever building a gateway event.
+
+        Business updates (``business_message`` / ``edited_business_message``)
+        are the owner's own chats with third parties, relayed because the bot
+        is connected as a Telegram Business chatbot.  They are never a DM to
+        the bot: answering one as the owner's command sends the reply to the
+        contact, so they resolve to ``None`` and are dropped.
         """
-        return getattr(update, "effective_message", None) or getattr(update, "message", None)
+        message = getattr(update, "effective_message", None) or getattr(update, "message", None)
+        if message is not None and any(
+            message is getattr(update, field, None)
+            for field in ("business_message", "edited_business_message")
+        ):
+            return None
+        return message
 
     async def _handle_text_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Handle incoming text messages.
@@ -9079,7 +9091,7 @@ class TelegramAdapter(BasePlatformAdapter):
             if self._should_observe_unmentioned_group_message(msg):
                 self._observe_unmentioned_group_message(msg, MessageType.TEXT, update_id=update.update_id)
             return
-        await self._ensure_forum_commands(update.message)
+        await self._ensure_forum_commands(msg)
 
         event = self._build_message_event(msg, MessageType.TEXT, update_id=update.update_id)
         event.text = self._clean_bot_trigger_text(event.text)
