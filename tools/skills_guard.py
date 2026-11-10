@@ -823,7 +823,10 @@ def scan_skill_cached(
             and cached.get("bundle_hash") == bundle_hash
             and cached.get("scanner_version") == SCANNER_VERSION
             and cached.get("source") == source
-            and cached.get("source_url") == source_url):
+            and cached.get("source_url") == source_url
+            # A repo joining or leaving TRUSTED_REPOS re-scans under the new trust
+            # level; a stale "trusted" from the cache would loosen install policy.
+            and cached.get("trust_level") == _resolve_trust_level(source)):
         result = ScanResult(
             skill_name=skill_path.name, source=source,
             trust_level=cached["trust_level"], verdict=cached["verdict"],
