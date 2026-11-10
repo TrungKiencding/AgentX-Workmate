@@ -23,6 +23,7 @@ Defense against context-window overflow operates at three levels:
 """
 
 import hashlib
+import json
 import logging
 import os
 import re
@@ -43,6 +44,13 @@ HEREDOC_MARKER = "AGENTX_PERSIST_EOF"
 _BUDGET_TOOL_NAME = "__budget_enforcement__"
 _UNSAFE_RESULT_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9_.-]+")
 _MAX_RESULT_FILENAME_STEM = 120
+# An MCP tool result envelope (tools/mcp_tool.py) and the metadata blocks a
+# pageable spill file carries around the text it unwraps.
+_MCP_ENVELOPE_KEYS = frozenset({"result", "structuredContent", "_meta"})
+_ENVELOPE_METADATA_TAG = "<mcp-result-metadata>"
+_ENVELOPE_METADATA_CLOSING_TAG = "</mcp-result-metadata>"
+_TOOL_METADATA_TAG = "<tool-result-metadata>"
+_TOOL_METADATA_CLOSING_TAG = "</tool-result-metadata>"
 
 
 def _resolve_storage_dir(env) -> str:
@@ -95,6 +103,72 @@ def _heredoc_marker(content: str) -> str:
     if HEREDOC_MARKER not in content:
         return HEREDOC_MARKER
     return f"AGENTX_PERSIST_{uuid.uuid4().hex[:8]}"
+
+
+def _tool_metadata_block(fields: dict) -> str:
+    metadata = json.dumps(fields, ensure_ascii=False, indent=1, sort_keys=True, default=str)
+    return f"{_TOOL_METADATA_TAG}\n{metadata}\n{_TOOL_METADATA_CLOSING_TAG}"
+
+
+def _pageable_tool_json(content: str, payload: dict) -> str:
+    strings = [(key, value) for key, value in payload.items() if isinstance(value, str)]
+    if not strings:
+        return content
+    key, text = strings[0]
+    for name, value in strings[1:]:
+        if len(value) > len(text):
+            key, text = name, value
+    if "\n" not in text or "\x00" in text or len(text) < len(content) / 2:
+        return content
+    header, trailer = {"text_field": key}, {}
+    for name, value in payload.items():
+        if name != key:
+            (trailer if isinstance(value, (dict, list)) else header)[name] = value
+    pageable = f"{_tool_metadata_block(header)}\n\n{text}"
+    return f"{pageable}\n\n{_tool_metadata_block(trailer)}\n" if trailer else pageable
+
+
+def _pageable_text(content: str) -> str:
+    """Rewrite a JSON tool result into the text it wraps, else return *content*.
+
+    Persisting a JSON result verbatim put the whole document on ONE line with escaped newlines,
+    so the ``read_file`` offset/limit pagination the ``<persisted-output>`` block recommends could
+    not be used (#90426 for MCP envelopes; built-in tools such as terminal, execute_code,
+    read_file and skill_view return JSON objects with the same problem).
+
+    Recognized by SHAPE, not by tool name: ``enforce_turn_budget`` persists under
+    ``_BUDGET_TOOL_NAME``, so a tool-name test would miss exactly the results it has to fix.
+    The MCP envelope (keys a subset of ``{"result", "structuredContent", "_meta"}``) unwraps
+    ``result`` and appends its sibling members after the text, because they are the structured
+    payloads ``_render_call_tool_result`` deliberately keeps for the model (#115430). Any other
+    JSON object unwraps its longest string only when that string is multi-line, NUL-free (a NUL
+    makes ``read_file`` treat the file as binary) and at least half the payload, so small or
+    opaque JSON stays verbatim. Its scalar keys (``status``, ``exit_code``, ``error``, notes,
+    paths) go in a metadata block BEFORE the text, so they stay in the inline preview; its lists
+    and dicts go in a second block AFTER it, so they cannot push the text out of the preview (a
+    ``skill_view`` result's ``linked_files`` and ``metadata`` filled all of it). Either way
+    nothing is dropped: the spill file is the only copy left once the result is replaced by the
+    preview.
+    """
+    try:
+        payload = json.loads(content)
+    except (TypeError, ValueError):
+        return content
+    if not isinstance(payload, dict) or not payload:
+        return content
+    if "result" not in payload or not set(payload) <= _MCP_ENVELOPE_KEYS:
+        return _pageable_tool_json(content, payload)
+    text = payload.get("result")
+    if not isinstance(text, str) or not text:
+        return content
+    extras = {key: value for key, value in payload.items() if key != "result"}
+    if not extras:
+        return text
+    try:
+        metadata = json.dumps(extras, ensure_ascii=False, indent=1, sort_keys=True, default=str)
+    except (TypeError, ValueError):
+        return text
+    return f"{text}\n\n{_ENVELOPE_METADATA_TAG}\n{metadata}\n{_ENVELOPE_METADATA_CLOSING_TAG}\n"
 
 
 def _write_to_sandbox(content: str, remote_path: str, env) -> bool:
@@ -190,18 +264,23 @@ def maybe_persist_tool_result(
     if len(content) <= effective_threshold:
         return content
 
+    # The size decision above stays on the raw inline result (that is what cost
+    # context); the file and the preview carry the pageable text a JSON result
+    # wraps, so read_file offset/limit can page it.
+    persisted_content = _pageable_text(content)
     storage_dir = _resolve_storage_dir(env)
     remote_path = f"{storage_dir}/{_safe_result_filename(tool_use_id)}"
-    preview, has_more = generate_preview(content, max_chars=config.preview_size)
+    preview, has_more = generate_preview(persisted_content, max_chars=config.preview_size)
 
     if env is not None:
         try:
-            if _write_to_sandbox(content, remote_path, env):
+            if _write_to_sandbox(persisted_content, remote_path, env):
                 logger.info(
                     "Persisted large tool result: %s (%s, %d chars -> %s)",
-                    tool_name, tool_use_id, len(content), remote_path,
+                    tool_name, tool_use_id, len(persisted_content), remote_path,
                 )
-                return _build_persisted_message(preview, has_more, len(content), remote_path)
+                return _build_persisted_message(
+                    preview, has_more, len(persisted_content), remote_path)
         except Exception as exc:
             logger.warning("Sandbox write failed for %s: %s", tool_use_id, exc)
 

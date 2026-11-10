@@ -17,6 +17,7 @@ from tools.tool_result_storage import (
     _heredoc_marker,
     _resolve_storage_dir,
     _safe_result_filename,
+    _pageable_text,
     _write_to_sandbox,
     enforce_turn_budget,
     generate_preview,
@@ -196,8 +197,8 @@ class TestMaybePersistToolResult:
         assert len(result) < len(content)
         env.execute.assert_called_once()
 
-    def test_persists_full_content_as_is(self):
-        """Content is persisted verbatim — no JSON extraction."""
+    def test_persists_unwrapped_content_via_stdin(self):
+        """A JSON tool result spills as the text it wraps, so read_file can page it."""
         import json
         env = MagicMock()
         env.execute.return_value = {"output": "", "returncode": 0}
@@ -213,7 +214,13 @@ class TestMaybePersistToolResult:
         assert PERSISTED_OUTPUT_TAG in result
         # Content is delivered through stdin (no longer embedded in the
         # command string — see test_large_content_via_stdin for why).
-        assert env.execute.call_args[1]["stdin_data"] == content
+        spilled = env.execute.call_args[1]["stdin_data"]
+        head, _, text = spilled.partition("\n</tool-result-metadata>\n\n")
+        assert text == raw
+        assert json.loads(head.removeprefix("<tool-result-metadata>\n")) == {
+            "error": None, "exit_code": 0, "text_field": "output"}
+        # Scalar fields lead the file, so the inline preview still shows them.
+        assert '"exit_code": 0' in result
 
 
     def test_tool_use_id_cannot_escape_storage_dir(self):
@@ -320,3 +327,87 @@ class TestPerToolThresholds:
             assert val == 100_000
         except ImportError:
             pytest.skip("file_tools not importable in test env")
+
+
+# ── pageable spill text ───────────────────────────────────────────────
+
+import json as _json
+
+
+def _spill(content, tool_name="terminal", tool_use_id="tc_spill"):
+    """Run maybe_persist_tool_result against a sandbox that accepts the write; return
+    ``(inline result, bytes written to the spill file)``."""
+    env = MagicMock()
+    env.execute.return_value = {"output": "", "returncode": 0}
+    env.get_temp_dir.return_value = ""
+    result = maybe_persist_tool_result(
+        content=content, tool_name=tool_name, tool_use_id=tool_use_id, env=env, threshold=30_000)
+    return result, env.execute.call_args[1]["stdin_data"]
+
+
+class TestPageableText:
+    """JSON results unwrap to their text by shape; opaque or small JSON stays verbatim."""
+
+    def test_single_result_envelope_is_unwrapped(self):
+        assert _pageable_text(_json.dumps({"result": "line one\nline two"})) == "line one\nline two"
+
+    def test_envelope_metadata_is_kept_after_the_text(self):
+        out = _pageable_text(_json.dumps({"result": "text\n", "structuredContent": {"answer": 42}}))
+        text, marker, tail = out.partition("\n\n<mcp-result-metadata>\n")
+        assert text == "text\n"
+        assert marker
+        assert _json.loads(tail.split("\n</mcp-result-metadata>")[0]) == {"structuredContent": {"answer": 42}}
+
+    @pytest.mark.parametrize(
+        "content",
+        [
+            _json.dumps([{"result": "line\n"}]),                    # not an object
+            _json.dumps({"result": {"blob": "line\n"}}),            # structuredContent-only style
+            _json.dumps({"structuredContent": {"a": 1}}),           # no model-facing text at all
+            _json.dumps({"result": ""}),                            # empty text
+            _json.dumps({"output": "one line", "exit_code": 0}),    # not multi-line
+            _json.dumps({"output": "a\x00\n" * 50, "exit_code": 0}),  # NUL: read_file sees binary
+            _json.dumps({"output": "line\n" * 10, "rows": list(range(2_000))}),  # text is a minor part
+            "not json at all",
+        ],
+    )
+    def test_unrecognized_content_is_verbatim(self, content):
+        assert _pageable_text(content) == content
+
+
+class TestPageableSpill:
+    def test_mcp_envelope_spills_real_newlines(self):
+        markdown = "# Research guide\n\n" + "pageable content\n" * 4_000
+        result, spilled = _spill(_json.dumps({"result": markdown}, ensure_ascii=False),
+                                 tool_name="mcp__archive__read_guide")
+        assert spilled == markdown
+        preview = result.split("Preview (first", 1)[1]
+        assert "# Research guide" in preview
+        assert "\\n" not in preview
+
+    def test_lists_and_dicts_follow_the_text_so_the_preview_shows_it(self):
+        body = "# Big skill\n\n" + "".join(f"Step {i}: do the thing carefully.\n" for i in range(3_000))
+        payload = {
+            "success": True,
+            "name": "big-skill",
+            "content": body,
+            "linked_files": {"references": [f"references/topic-{i}.md" for i in range(60)]},
+            "metadata": {"agentx": {"tags": ["Testing"]}},
+        }
+        result, spilled = _spill(_json.dumps(payload, ensure_ascii=False), tool_name="skill_view")
+        preview = result.split("Preview (first", 1)[1]
+        assert body[:1_000] in preview
+        assert '"name": "big-skill"' in preview
+        head, _, rest = spilled.partition("\n</tool-result-metadata>\n\n")
+        text, _, tail = rest.partition("\n\n<tool-result-metadata>\n")
+        assert text == body
+        fields = {**_json.loads(head.removeprefix("<tool-result-metadata>\n")),
+                  **_json.loads(tail.removesuffix("\n</tool-result-metadata>\n"))}
+        assert fields.pop("text_field") == "content"
+        # Nothing is dropped: the spill file is the only full copy left.
+        assert fields == {key: value for key, value in payload.items() if key != "content"}
+
+    def test_opaque_json_still_spills_verbatim(self):
+        content = _json.dumps({"result": {"blob": "z" * 40_000}})
+        _result, spilled = _spill(content, tool_name="mcp__archive__opaque")
+        assert spilled == content
