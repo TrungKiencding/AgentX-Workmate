@@ -463,6 +463,44 @@ def _forum_message(*, chat_id, thread_id, is_topic_message, is_forum, chat_type=
     )
 
 
+def test_bot_created_forum_topic_anchor_is_not_a_reply_to_bot():
+    """Topic creation anchors must not bypass the group mention requirement."""
+    adapter = _make_adapter(require_mention=True)
+    topic_message = _forum_message(
+        chat_id=-100, thread_id=73, is_topic_message=True, is_forum=True
+    )
+    topic_message.reply_to_message = SimpleNamespace(
+        from_user=SimpleNamespace(id=999),
+        message_id=73,
+        forum_topic_created=SimpleNamespace(name="Bot-created topic"),
+    )
+
+    assert adapter._is_reply_to_bot(topic_message) is False
+    assert adapter._should_process_message(topic_message) is False
+
+    genuine_reply = _forum_message(
+        chat_id=-100, thread_id=73, is_topic_message=True, is_forum=True
+    )
+    genuine_reply.reply_to_message = SimpleNamespace(
+        from_user=SimpleNamespace(id=999), message_id=72
+    )
+    assert adapter._is_reply_to_bot(genuine_reply) is True
+
+
+def test_non_forum_reply_anchor_to_bot_still_bypasses_mention_gate():
+    """A reply-UI anchor is a real bot reply, not a forum creation event."""
+    adapter = _make_adapter(require_mention=True)
+    reply = _forum_message(
+        chat_id=-100, thread_id=73, is_topic_message=False, is_forum=False, chat_type="group"
+    )
+    reply.reply_to_message = SimpleNamespace(
+        from_user=SimpleNamespace(id=999), message_id=73
+    )
+
+    assert adapter._is_reply_to_bot(reply) is True
+    assert adapter._should_process_message(reply) is True
+
+
 def test_gating_ignores_non_forum_reply_anchor_thread_id():
     """A plain group reply's ``message_thread_id`` is a UI anchor, not a topic.
 
