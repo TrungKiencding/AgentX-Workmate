@@ -619,6 +619,10 @@ _POLLING_ERROR_TASK_STUCK_TIMEOUT = 300.0
 # A generation is not healthy until the dedicated getUpdates request returns
 # successfully. This exceeds a normal long-poll cycle for healthy idle bots.
 _POLLING_PROGRESS_TIMEOUT = 60.0
+# Sustained getUpdates progress this long, counted from the first progress after
+# the last 409's restart, ends a conflict episode. It exceeds the gap between two
+# conflicts of one storm (the next poll), so the retry ladder can climb.
+_POLLING_CONFLICT_QUIET_PERIOD = 120.0
 # Telegram transcodes an uploaded video before it answers sendVideo, so the
 # wait for the response is unrelated to how fast the bytes went out and can
 # outlast the 20s read timeout the rest of the Bot API is tuned for. Only
@@ -791,7 +795,7 @@ class TelegramAdapter(BasePlatformAdapter):
         self._drop_delayed_deliveries = False
         self._polling_error_task: Optional[asyncio.Task] = None
         self._polling_conflict_count: int = 0
-        self._polling_conflict_recovery_generation: Optional[int] = None
+        self._polling_conflict_quiet_since: Optional[float] = None
         self._polling_network_error_count: int = 0
         self._polling_generation: int = 0
         self._polling_progress_event = asyncio.Event()
@@ -2238,6 +2242,9 @@ class TelegramAdapter(BasePlatformAdapter):
         self._polling_progress_event = asyncio.Event()
         self._polling_progress_accepting = True
         self._send_path_degraded = True
+        # No proven progress yet: the conflict quiet window restarts here, so a
+        # recovery's downtime never counts as sustained healthy polling.
+        self._polling_conflict_quiet_since = None
         return self._polling_generation, self._polling_progress_event
 
     def _record_polling_progress(self, generation: int) -> None:
@@ -2250,10 +2257,19 @@ class TelegramAdapter(BasePlatformAdapter):
             return
         self._polling_progress_event.set()
         self._polling_network_error_count = 0
-        if generation == self._polling_conflict_recovery_generation:
-            self._polling_conflict_recovery_generation = None
-        else:
-            self._polling_conflict_count = 0
+        # A conflict episode ends only after a quiet period: getUpdates also
+        # succeeds between the 409s of a live storm, so resetting on any
+        # progress pinned the ladder at (1/5) forever. The window opens at the
+        # first progress after the restart, so recovery downtime (stop,
+        # backoff, drain) never counts.
+        if self._polling_conflict_count:
+            now = time.monotonic()
+            quiet_since = self._polling_conflict_quiet_since
+            if quiet_since is None:
+                self._polling_conflict_quiet_since = now
+            elif now - quiet_since >= _POLLING_CONFLICT_QUIET_PERIOD:
+                self._polling_conflict_count = 0
+                self._polling_conflict_quiet_since = None
         self._send_path_degraded = False
 
     def _observe_polling_request_result(self, request, generation, result):
@@ -3163,6 +3179,7 @@ class TelegramAdapter(BasePlatformAdapter):
         # retry attempt instead of returning silently, and only escalate to
         # fatal after all retries are exhausted.
         self._polling_conflict_count += 1
+        self._polling_conflict_quiet_since = None
 
         MAX_CONFLICT_RETRIES = 5
         # Delay grows with each attempt: 15s, 25s, 35s, 45s, 55s.
@@ -3211,22 +3228,16 @@ class TelegramAdapter(BasePlatformAdapter):
             # AttributeError deep inside start_polling instead of failing fast
             # here, where the except below reschedules or escalates to fatal.
             app = self._app
-            expected_generation = self._polling_generation + 1
             if not app:
                 raise RuntimeError("Telegram application was torn down during conflict reconnect")
-            # drop_pending_updates=True tells Telegram to terminate any
-            # other active getUpdates sessions for this bot token.  The
-            # competing session is either a zombie from the previous
-            # gateway process (whose long-poll hasn't expired server-side
-            # yet) or our own previous retry's still-expiring session.
-            # Without this, each retry starts a new getUpdates session
-            # that immediately gets 409'd by the previous one, creating
-            # the very conflict we are trying to recover from (#75017).
-            self._polling_conflict_recovery_generation = expected_generation
+            # Keep the server-side queue: drop_pending_updates only empties it
+            # (PTB calls deleteWebhook either way), so True silently discarded
+            # every message sent during the conflict. The self-perpetuating
+            # 409 loop of #75017 is stopped by _disarm_ptb_retry_loop.
             try:
                 await self._start_polling_once(
                     app,
-                    drop_pending_updates=True,
+                    drop_pending_updates=False,
                     error_callback=self._polling_error_callback_ref,
                 )
                 logger.info(
@@ -3267,9 +3278,6 @@ class TelegramAdapter(BasePlatformAdapter):
                     )
                     return
                 # Fall through to fatal on the last retry.
-            finally:
-                if self._polling_conflict_recovery_generation == expected_generation:
-                    self._polling_conflict_recovery_generation = None
 
         if getattr(self, "_polling_teardown_started", False):
             return
