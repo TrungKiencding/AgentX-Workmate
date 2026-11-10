@@ -1448,6 +1448,14 @@ class TelegramAdapter(BasePlatformAdapter):
         except ImportError:
             return False
 
+    @staticmethod
+    def _is_reply_anchor_missing_error(error: Exception) -> bool:
+        """Telegram's two wordings for a deleted reply target; shared by the text, overflow and DM-topic ladders."""
+        return any(
+            marker in str(error).lower()
+            for marker in ("message to be replied not found", "reply message not found")
+        )
+
     @classmethod
     def _should_retry_without_dm_topic_reply_anchor(
         cls,
@@ -1474,7 +1482,7 @@ class TelegramAdapter(BasePlatformAdapter):
         if not cls._is_bad_request_error(error):
             return False
         err_lower = str(error).lower()
-        if reply_to_message_id is not None and "message to be replied not found" in err_lower:
+        if reply_to_message_id is not None and cls._is_reply_anchor_missing_error(error):
             return True
         # Synthetic / resumed sends route via ``direct_messages_topic_id``
         # instead of a reply anchor. If Telegram rejects the topic id, fall
@@ -4936,8 +4944,7 @@ class TelegramAdapter(BasePlatformAdapter):
                                 effective_thread_id = None
                                 thread_kwargs = {"message_thread_id": None}
                                 continue
-                            err_lower = str(send_err).lower()
-                            if "message to be replied not found" in err_lower and reply_to_id is not None:
+                            if self._is_reply_anchor_missing_error(send_err) and reply_to_id is not None:
                                 if private_dm_topic_send:
                                     safe_send_error = _redact_telegram_error_text(send_err)
                                     return SendResult(
@@ -5444,7 +5451,7 @@ class TelegramAdapter(BasePlatformAdapter):
                     )
                     break
                 except Exception as send_err:
-                    if "reply message not found" in str(send_err).lower():
+                    if self._is_reply_anchor_missing_error(send_err):
                         # Drop the reply anchor and try again.  Private DM
                         # topic fallback needs the anchor and topic id together;
                         # forum topics can still safely keep message_thread_id.
