@@ -141,3 +141,45 @@ async def test_base_auto_tts_skips_playback_when_tool_reports_failure():
     adapter.play_tts.assert_not_awaited()
     # Text reply still goes out.
     assert adapter.sent and adapter.sent[0]["content"] == "reply text"
+
+
+async def _run_telegram_auto_tts_with_reply(reply: str) -> _DummyAdapter:
+    adapter = _DummyAdapter(Platform.TELEGRAM)
+    adapter._keep_typing = _hold_typing()
+    adapter._should_auto_tts_for_chat = lambda _chat_id: True
+    adapter.play_tts = AsyncMock(return_value=SendResult(success=True, message_id="tts-1"))
+    adapter.set_message_handler(lambda _event: asyncio.sleep(0, result=reply))
+    event = _make_voice_event(Platform.TELEGRAM)
+
+    def fake_tts(*, text, output_path=None):
+        from pathlib import Path
+        Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+        Path(output_path).write_bytes(b"fake audio")
+        return json.dumps({"success": True, "file_path": output_path})
+
+    with patch("tools.tts_tool.check_tts_requirements", return_value=True), patch(
+        "tools.tts_tool.text_to_speech_tool", side_effect=fake_tts
+    ):
+        await adapter._process_message_background(event, build_session_key(event.source))
+    return adapter
+
+
+@pytest.mark.asyncio
+async def test_telegram_auto_tts_caption_is_measured_in_utf16_units():
+    """Telegram caps captions at 1024 UTF-16 units. An emoji-heavy reply under 1024
+    code points but over that cap must not ride the voice bubble as its caption
+    (Telegram would refuse it); the voice goes out bare and the text is sent once."""
+    reply = "Plan \U0001F680 " * 120 + "\U0001F389" * 100  # 940 code points, 1180 UTF-16 units
+    adapter = await _run_telegram_auto_tts_with_reply(reply)
+
+    adapter.play_tts.assert_awaited_once()
+    assert adapter.play_tts.await_args.kwargs["caption"] is None
+    assert [m["content"] for m in adapter.sent] == [reply]
+
+
+@pytest.mark.asyncio
+async def test_telegram_auto_tts_short_reply_rides_as_the_caption():
+    adapter = await _run_telegram_auto_tts_with_reply("short reply")
+
+    assert adapter.play_tts.await_args.kwargs["caption"] == "short reply"
+    assert adapter.sent == []

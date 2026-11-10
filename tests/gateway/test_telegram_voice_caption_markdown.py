@@ -13,6 +13,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from gateway.config import PlatformConfig
+from gateway.platforms.base import utf16_len
 
 
 def _ensure_telegram_mock():
@@ -74,3 +75,9 @@ async def test_voice_caption_falls_back_to_plain_on_entity_rejection(
     assert retry_kwargs["caption"] == "*bold* reply"
 
 
+
+
+def test_media_caption_truncation_fits_the_utf16_cap():
+    caption = "\U0001F389" * 700  # 700 code points, 1400 UTF-16 units
+    truncated = TelegramAdapter._caption_1024(caption)
+    assert utf16_len(truncated) <= 1024 and caption.startswith(truncated) and len(truncated) == 512

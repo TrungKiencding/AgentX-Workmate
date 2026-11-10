@@ -6514,11 +6514,14 @@ class BasePlatformAdapter(ABC):
                         # 1024-char caption limit, and captioning that spoken
                         # form would suppress the full formatted reply the
                         # user is meant to receive as a separate message.
+                        # Telegram counts that limit in UTF-16 units, so an
+                        # emoji-heavy reply under 1024 code points can still
+                        # overflow it.
                         telegram_tts_caption = None
                         if (
                             self.platform == Platform.TELEGRAM
                             and text_content
-                            and text_content[:1024] == text_content
+                            and utf16_len(text_content) <= 1024
                         ):
                             telegram_tts_caption = text_content
                         tts_result = await self.play_tts(

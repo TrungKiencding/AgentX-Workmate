@@ -300,6 +300,7 @@ from gateway.platforms.base import (
     SUPPORTED_DOCUMENT_TYPES,
     SUPPORTED_IMAGE_DOCUMENT_TYPES,
     _TEXT_INJECT_EXTENSIONS,
+    _prefix_within_utf16_limit,
     utf16_len,
 )
 from plugins.platforms.telegram.callback_answer import answer_callback, answer_or_note
@@ -7155,6 +7156,11 @@ class TelegramAdapter(BasePlatformAdapter):
             return True, None
         return False, self._telegram_media_too_large_note(label, size, max_bytes)
 
+    @staticmethod
+    def _caption_1024(caption: Optional[str]) -> Optional[str]:
+        """Cut a media caption to Telegram's cap: 1024 UTF-16 units, not code points."""
+        return _prefix_within_utf16_limit(caption, 1024) if caption else None
+
     async def send_voice(
         self,
         chat_id: str,
@@ -7197,7 +7203,7 @@ class TelegramAdapter(BasePlatformAdapter):
                         "[%s] voice caption MarkdownV2 formatting failed; "
                         "sending plain caption", self.name, exc_info=True,
                     )
-                _caption_variants.append((caption[:1024], None))
+                _caption_variants.append((self._caption_1024(caption), None))
             else:
                 _caption_variants.append((None, None))
 
@@ -7274,7 +7280,7 @@ class TelegramAdapter(BasePlatformAdapter):
                         {
                             "chat_id": normalize_telegram_chat_id(chat_id),
                             "audio": audio_file,
-                            "caption": caption[:1024] if caption else None,
+                            "caption": self._caption_1024(caption),
                             "reply_to_message_id": reply_to_id,
                             "duration": _duration_secs,
                             "read_timeout": _MEDIA_SEND_READ_TIMEOUT,
@@ -7372,7 +7378,7 @@ class TelegramAdapter(BasePlatformAdapter):
             opened_files: List[Any] = []
             try:
                 for image_url, alt_text in chunk:
-                    caption = alt_text[:1024] if alt_text else None
+                    caption = self._caption_1024(alt_text)
                     if image_url.startswith("file://"):
                         local_path = _unquote(image_url[7:])
                         if not os.path.exists(local_path):
@@ -7474,7 +7480,7 @@ class TelegramAdapter(BasePlatformAdapter):
                     {
                         "chat_id": normalize_telegram_chat_id(chat_id),
                         "photo": image_file,
-                        "caption": caption[:1024] if caption else None,
+                        "caption": self._caption_1024(caption),
                         "reply_to_message_id": reply_to_id,
                         "read_timeout": _MEDIA_SEND_READ_TIMEOUT,
                         **thread_kwargs,
@@ -7572,7 +7578,7 @@ class TelegramAdapter(BasePlatformAdapter):
                         "chat_id": normalize_telegram_chat_id(chat_id),
                         "document": f,
                         "filename": display_name,
-                        "caption": caption[:1024] if caption else None,
+                        "caption": self._caption_1024(caption),
                         "reply_to_message_id": reply_to_id,
                         "read_timeout": _MEDIA_SEND_READ_TIMEOUT,
                         **thread_kwargs,
@@ -7623,7 +7629,7 @@ class TelegramAdapter(BasePlatformAdapter):
                     {
                         "chat_id": normalize_telegram_chat_id(chat_id),
                         "video": f,
-                        "caption": caption[:1024] if caption else None,
+                        "caption": self._caption_1024(caption),
                         "reply_to_message_id": reply_to_id,
                         "read_timeout": _MEDIA_SEND_READ_TIMEOUT,
                         **thread_kwargs,
@@ -7679,7 +7685,7 @@ class TelegramAdapter(BasePlatformAdapter):
                 {
                     "chat_id": normalize_telegram_chat_id(chat_id),
                     "photo": image_url,
-                    "caption": caption[:1024] if caption else None,
+                    "caption": self._caption_1024(caption),
                     "reply_to_message_id": reply_to_id,
                     "read_timeout": _MEDIA_SEND_READ_TIMEOUT,
                     **photo_thread_kwargs,
@@ -7722,7 +7728,7 @@ class TelegramAdapter(BasePlatformAdapter):
                     {
                         "chat_id": normalize_telegram_chat_id(chat_id),
                         "photo": image_data,
-                        "caption": caption[:1024] if caption else None,
+                        "caption": self._caption_1024(caption),
                         "reply_to_message_id": reply_to_id,
                         "read_timeout": _MEDIA_SEND_READ_TIMEOUT,
                         **upload_thread_kwargs,
@@ -7770,7 +7776,7 @@ class TelegramAdapter(BasePlatformAdapter):
                 {
                     "chat_id": normalize_telegram_chat_id(chat_id),
                     "animation": animation_url,
-                    "caption": caption[:1024] if caption else None,
+                    "caption": self._caption_1024(caption),
                     "reply_to_message_id": reply_to_id,
                     "read_timeout": _MEDIA_SEND_READ_TIMEOUT,
                     **animation_thread_kwargs,
