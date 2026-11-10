@@ -430,6 +430,81 @@ def _sanitize_tools_non_ascii(tools: list) -> bool:
     return _sanitize_structure_non_ascii(tools)
 
 
+_IMAGE_PART_TYPES = frozenset({"image_url", "image", "input_image"})
+
+# Provider error bodies meaning "this model/endpoint takes no image input".
+# Best-effort English phrase matching: a reworded or translated error falls
+# through to the normal error handler, so add wordings as they are observed.
+# Must NOT match other image errors (too large, bad format): those route to
+# their own recovery (shrinking) instead of turning vision off.
+_IMAGE_REJECTION_PHRASES = (
+    "only 'text' content type is supported",
+    "only text content type is supported",
+    "image_url is not supported",
+    "image content is not supported",
+    "multimodal is not supported",
+    "multimodal content is not supported",
+    "multimodal input is not supported",
+    "vision is not supported",
+    "vision input is not supported",
+    "does not support images",
+    "does not support image input",
+    "does not support multimodal",
+    "does not support vision",
+    "model does not support image",
+    # ChatGPT-account Codex backend
+    # (https://chatgpt.com/backend-api/codex) rejects
+    # data:image/...base64 URLs in input_image fields
+    # with HTTP 400 "Invalid 'input[N].content[K].image_url'.
+    # Expected a valid URL, but got a value with an
+    # invalid format." The OpenAI Responses API on the
+    # public endpoint accepts data URLs, but the
+    # ChatGPT-account variant does not. Without this
+    # phrase the agent cascaded into compression /
+    # context-too-large recovery instead of just
+    # stripping the images. Match is narrow on
+    # purpose — keyed on the field-path apostrophe so
+    # we don't false-trip on other URL validation
+    # errors. (issue #23570)
+    "image_url'. expected",
+    # DeepSeek's OpenAI-compatible API reports text-only
+    # request-body variants as:
+    # "unknown variant `image_url`, expected `text`".
+    "unknown variant `image_url`, expected `text`",
+    "unknown variant image_url, expected text",
+    # OpenRouter routes a request to upstream endpoints and,
+    # when none of the candidate endpoints for the model accept
+    # image input, returns HTTP 404 "No endpoints found that
+    # support image input". Without this phrase the agent never
+    # strips the images, the retry loop re-sends the same
+    # rejected request until exhaustion, and the gateway leaves
+    # every subsequent message queued behind the stuck turn —
+    # the P1 in issue #21160. The 404 passes the 4xx gate below.
+    "no endpoints found that support image input",
+    # vLLM and other text-only OpenAI-compatible hosts answer
+    # imaged history with HTTP 400 "<model-id> is not a
+    # multimodal model"; unmatched, every retry re-sends the
+    # image and fails identically.
+    "is not a multimodal model",
+)
+
+
+def _looks_like_image_content_rejection(error_body: Any) -> bool:
+    """True when a provider error says image/multimodal input is unsupported."""
+    body = str(error_body or "").lower()
+    return any(phrase in body for phrase in _IMAGE_REJECTION_PHRASES)
+
+
+
+def _messages_carry_images(messages: Any) -> bool:
+    """True when any message holds an image part (the request could have been rejected for it)."""
+    return isinstance(messages, list) and any(
+        isinstance(m, dict) and isinstance(m.get("content"), list)
+        and any(isinstance(p, dict) and p.get("type") in _IMAGE_PART_TYPES for p in m["content"])
+        for m in messages
+    )
+
+
 def _strip_images_from_messages(messages: list) -> bool:
     """Remove image_url content parts from all messages in-place.
 
@@ -458,7 +533,7 @@ def _strip_images_from_messages(messages: list) -> bool:
             continue
         new_parts = []
         for part in content:
-            if isinstance(part, dict) and part.get("type") in {"image_url", "image", "input_image"}:
+            if isinstance(part, dict) and part.get("type") in _IMAGE_PART_TYPES:
                 found = True
             else:
                 new_parts.append(part)
