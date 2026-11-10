@@ -826,6 +826,9 @@ def get_image_cache_dir() -> Path:
     return d
 
 
+_ISOBMFF_IMAGE_MIMES = frozenset({"image/heic", "image/avif"})
+
+
 def _looks_like_image(data: bytes) -> bool:
     """Return True if *data* starts with a known image magic-byte sequence."""
     if len(data) < 4:
@@ -840,7 +843,16 @@ def _looks_like_image(data: bytes) -> bool:
         return True
     if data[:4] == b"RIFF" and len(data) >= 12 and data[8:12] == b"WEBP":
         return True
-    return False
+    # ISO-BMFF stills (iOS sends uncompressed photos as HEIC documents). The
+    # ftyp box's own size field must cover size+type+brand+version (16 bytes)
+    # and fit in the payload, so a truncated stub or a text file that reads
+    # "ftypheic" at offset 4 is not taken for an image. Brand detection is
+    # agent.image_routing's, which transcodes these to PNG before vision; ftyp
+    # videos such as MP4 sniff as something else and stay rejected.
+    if data[4:8] != b"ftyp" or not len(data) >= int.from_bytes(data[:4], "big") >= 16:
+        return False
+    from agent.image_routing import _sniff_mime_from_bytes
+    return _sniff_mime_from_bytes(data[:16]) in _ISOBMFF_IMAGE_MIMES
 
 
 def cache_image_from_bytes(data: bytes, ext: str = ".jpg") -> str:

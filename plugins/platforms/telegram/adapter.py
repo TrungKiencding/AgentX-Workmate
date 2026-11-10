@@ -314,13 +314,16 @@ from plugins.platforms.telegram.telegram_network import (
 )
 from utils import atomic_replace, env_float, env_int
 
-_TELEGRAM_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
+_TELEGRAM_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".gif", ".heic", ".heif", ".avif"}
 _TELEGRAM_IMAGE_MIME_TO_EXT = {
     "image/png": ".png",
     "image/jpeg": ".jpg",
     "image/jpg": ".jpg",
     "image/webp": ".webp",
     "image/gif": ".gif",
+    "image/heic": ".heic",
+    "image/heif": ".heif",
+    "image/avif": ".avif",
 }
 _TELEGRAM_IMAGE_EXT_TO_MIME = {
     ".png": "image/png",
@@ -328,6 +331,9 @@ _TELEGRAM_IMAGE_EXT_TO_MIME = {
     ".jpeg": "image/jpeg",
     ".webp": "image/webp",
     ".gif": "image/gif",
+    ".heic": "image/heic",
+    ".heif": "image/heif",
+    ".avif": "image/avif",
 }
 
 def _coerce_duration_seconds(value: Any) -> Optional[int]:
