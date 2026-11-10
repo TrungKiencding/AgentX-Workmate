@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import enum
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
@@ -280,6 +281,40 @@ _PAYLOAD_TOO_LARGE_PATTERNS = [
     "request_too_large",
     "request exceeds the maximum size",
 ]
+
+# Request-BODY byte caps that byte-limited gateways report as a 400 (not 413) in wordings the exact list
+# above misses: "RequestSize(bytes): 34021227, Limit(bytes): 33554432", "request body too large, must be
+# less than 20MB" (Novita), "Request size exceeds the limit of {0}" (Z.AI). Without a match they fell to
+# format_error or token-overflow, and an image-heavy session (large in bytes, small in tokens) re-sent
+# the same oversized history. A subject AND an overflow signal are both required so field-level length
+# complaints ("tools[0].description content length exceeds maximum allowed") stay out; a
+# response-scoped subject never matches, because shrinking the request cannot fix a large response.
+_BYTE_SIZE_SUBJECT = re.compile(
+    # The overflow verb must follow "... size" directly, so a parameter named there ("request size
+    # parameter page_size exceeds the maximum of 100") is not the body.
+    r"(?<!response )\b(?:(?:request ?size|(?:request )?(?:body|payload) size)(?: is)? (?:exceed|too large|too big)"
+    r"|request body(?: is)? too large|(?:request )?payload(?: is)? too large)"
+)
+_BYTE_SIZE_OVERFLOW = re.compile(r"exceed|too large|too big")
+# A size subject that counts tokens is a token cap ("Request body too large for gpt-4.1 model. Max size:
+# 8000 tokens." from GitHub Models / Azure AI Inference), so it keeps the token rules; only the
+# context-overflow path adopts a quoted limit, and the byte path would compress against the old window.
+_TOKEN_COUNT = re.compile(r"\btokens?\b")
+_REQUEST_WORDS = {"request", "requestsize", "byte", "bytes"}
+
+
+def _is_byte_size_limit_message(error_msg: str) -> bool:
+    """True when ``error_msg`` reports the request body over a byte-size cap (see above)."""
+    msg = (error_msg or "").lower()
+    if not _BYTE_SIZE_OVERFLOW.search(msg) or _TOKEN_COUNT.search(msg):
+        return False
+    if _BYTE_SIZE_SUBJECT.search(msg):
+        return True
+    # "content length" alone is a field-length complaint unless the request or bytes are named. "_" stays
+    # inside a word: the SDK's str() carries the body, whose "invalid_request_error" type is not "request".
+    content_length = "content length" in msg or "content-length" in msg
+    return content_length and bool(_REQUEST_WORDS & set(re.split(r"[^a-z0-9_]+", msg)))
+
 
 # Image-size patterns.  Matched against 400 bodies (not 413) because most
 # providers return a 400 with a specific image-too-big message before the
@@ -1673,6 +1708,16 @@ def _classify_400(
             should_compress=False,
         )
 
+    # Request-body byte cap reported as a 400. Before the request-validation
+    # and context-overflow rules: Novita tags it INVALID_REQUEST_BODY and
+    # Z.AI's "request size exceeds the limit" trips the overflow heuristics.
+    if _is_byte_size_limit_message(error_msg):
+        return result_fn(
+            FailoverReason.payload_too_large,
+            retryable=True,
+            should_compress=True,
+        )
+
     # Request-validation errors (unsupported / unknown parameter) MUST be
     # checked BEFORE context_overflow.  A GPT-5 model rejecting max_tokens
     # returns:
@@ -1901,7 +1946,7 @@ def _classify_by_message(
     """Classify based on error message patterns when no status code is available."""
 
     # Payload-too-large patterns (from message text when no status_code)
-    if any(p in error_msg for p in _PAYLOAD_TOO_LARGE_PATTERNS):
+    if any(p in error_msg for p in _PAYLOAD_TOO_LARGE_PATTERNS) or _is_byte_size_limit_message(error_msg):
         return result_fn(
             FailoverReason.payload_too_large,
             retryable=True,
