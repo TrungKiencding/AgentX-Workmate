@@ -750,6 +750,15 @@ def resolve_user_provider(name: str, user_config: Dict[str, Any]) -> Optional[Pr
     if not user_config or not isinstance(user_config, dict):
         return None
 
+    # Callers lowercase the requested name; the config key keeps the user's case
+    # (``Axonhub``, ``OpenAI``). The ProviderDef id is the config key so later
+    # ``user_config[target_provider]`` reads still hit.
+    if name not in user_config:
+        wanted = str(name or "").strip().lower()
+        name = next(
+            (k for k in user_config if isinstance(k, str) and k.strip().lower() == wanted),
+            name,
+        )
     entry = user_config.get(name)
     if not isinstance(entry, dict):
         return None
