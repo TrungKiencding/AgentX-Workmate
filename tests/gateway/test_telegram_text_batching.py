@@ -159,3 +159,62 @@ class TestTextBatching:
         assert adapter._media_group_events == {}
         assert adapter._media_group_tasks == {}
         assert adapter._polling_error_task is None
+
+
+def _make_default_adapter(monkeypatch):
+    """Construct an adapter with the production text-batch defaults."""
+    from plugins.platforms.telegram.adapter import TelegramAdapter
+
+    monkeypatch.delenv("AGENTX_TELEGRAM_TEXT_BATCH_DELAY_SECONDS", raising=False)
+    monkeypatch.delenv("AGENTX_TELEGRAM_TEXT_BATCH_SPLIT_DELAY_SECONDS", raising=False)
+    adapter = TelegramAdapter(PlatformConfig(enabled=True, token="test-token"))
+    adapter.handle_message = AsyncMock()
+    return adapter
+
+
+class TestTextBatchDefaults:
+    """Production defaults keep the short tiers and merge a jittered long paste."""
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("length, expected", [
+        (320, 0.18),
+        (1024, 0.24),
+        (1025, 1.5),
+        ("split", 2.0),
+    ])
+    async def test_default_delay_tiers(self, monkeypatch, length, expected):
+        adapter = _make_default_adapter(monkeypatch)
+        if length == "split":
+            length = adapter._SPLIT_THRESHOLD
+        delays = []
+
+        async def fake_sleep(delay):
+            delays.append(delay)
+
+        with patch("plugins.platforms.telegram.adapter.asyncio.sleep", new=fake_sleep):
+            adapter._enqueue_text_event(_make_event("a" * length))
+            key = next(iter(adapter._pending_text_batch_tasks))
+            await adapter._pending_text_batch_tasks[key]
+
+        assert delays[0] == expected
+
+    @pytest.mark.asyncio
+    async def test_long_burst_survives_observed_delivery_gap(self, monkeypatch):
+        """A jittered client-side split is emitted as one MessageEvent."""
+        adapter = _make_default_adapter(monkeypatch)
+        first = "a" * 2566
+        second = "b" * 3955
+
+        adapter._enqueue_text_event(_make_event(first))
+        await asyncio.sleep(1.177)  # the observed client-split delivery gap
+        adapter.handle_message.assert_not_called()
+
+        adapter._enqueue_text_event(_make_event(second))
+        for _ in range(100):
+            if adapter.handle_message.called:
+                break
+            await asyncio.sleep(0.05)
+
+        adapter.handle_message.assert_called_once()
+        dispatched = adapter.handle_message.call_args.args[0]
+        assert dispatched.text == f"{first}\n{second}"

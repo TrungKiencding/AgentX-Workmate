@@ -699,6 +699,11 @@ class TelegramAdapter(BasePlatformAdapter):
     _TEXT_BATCH_FAST_DELAY_S = 0.18
     _TEXT_BATCH_SHORT_LEN = 1024
     _TEXT_BATCH_SHORT_DELAY_S = 0.24
+    # Longer text is usually a client-split paste whose parts can arrive more
+    # than a second apart (1.177s observed): wait long enough to keep it one
+    # turn. Short tiers above are unaffected.
+    _TEXT_BATCH_DEFAULT_DELAY_S = 1.5
+    _TEXT_BATCH_DEFAULT_SPLIT_DELAY_S = 2.0
 
     @staticmethod
     def _env_float_clamped(
@@ -780,21 +785,21 @@ class TelegramAdapter(BasePlatformAdapter):
         self._media_group_events: Dict[str, MessageEvent] = {}
         self._media_group_tasks: Dict[str, asyncio.Task] = {}
         # Buffer rapid text messages so Telegram client-side splits of long
-        # messages are aggregated into a single MessageEvent.  Lower defaults
-        # (0.3s / 1.0s instead of 0.6s / 2.0s) let short replies stream
-        # without a noticeable wait — combined with the adaptive fast-path
-        # in ``_calc_text_batch_delay`` below, ≤320-codepoint replies settle
-        # in ~180ms.  All bounds are conservative for Telegram's
-        # ~1 edit/s flood envelope.
+        # messages are aggregated into a single MessageEvent.  The configured
+        # delay only applies to text over _TEXT_BATCH_SHORT_LEN: the adaptive
+        # tiers in ``_flush_text_batch`` settle ≤320-codepoint replies in
+        # ~180ms and ≤1024 in ~240ms, so the longer defaults only make a
+        # split paste wait for its continuation.  All bounds are conservative
+        # for Telegram's ~1 edit/s flood envelope.
         self._text_batch_delay_seconds = self._env_float_clamped(
             "AGENTX_TELEGRAM_TEXT_BATCH_DELAY_SECONDS",
-            0.3,
+            self._TEXT_BATCH_DEFAULT_DELAY_S,
             min_value=0.08,
             max_value=2.0,
         )
         self._text_batch_split_delay_seconds = self._env_float_clamped(
             "AGENTX_TELEGRAM_TEXT_BATCH_SPLIT_DELAY_SECONDS",
-            1.0,
+            self._TEXT_BATCH_DEFAULT_SPLIT_DELAY_S,
             min_value=self._text_batch_delay_seconds,
             max_value=4.0,
         )
