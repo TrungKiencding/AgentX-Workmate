@@ -47,6 +47,8 @@ from typing import Optional
 # still reach the resizer so it can be downscaled under the payload cap. Capping
 # raw bytes at 20MB here would reject every 20-50MB photo before resize can run.
 _MAX_INGEST_BYTES = 50 * 1024 * 1024
+# Chunk size for host reads whose st_size under-reports (see _read_host_bytes_bounded).
+_HOST_READ_CHUNK = 1024 * 1024
 
 
 class ImageResolutionError(Exception):
@@ -144,7 +146,7 @@ async def resolve_image_source(
                 raise_if_read_blocked(str(host_target))
             except ValueError as exc:
                 raise SourceUnsafe(str(exc), src=s, origin="file")
-        data = await asyncio.to_thread(host_target.read_bytes)
+        data = await asyncio.to_thread(_read_host_bytes_bounded, host_target, s, _MAX_INGEST_BYTES)
         return _finalize(data, "", "file", s, permitted)
     if _is_local_terminal_backend():
         # Local backend: any path was host-readable, so a miss simply means
@@ -154,6 +156,31 @@ async def resolve_image_source(
     # bytes inside the sandbox. Under a sandbox this reads the container's
     # filesystem, never the host's.
     return await _resolve_container_fallback(p, ctx, s, permitted)
+
+
+def _read_host_bytes_bounded(path: Path, src: str, cap: int) -> bytes:
+    """Read a host file with ``cap`` enforced DURING the read.
+
+    ``read_bytes()`` buffered the whole file (a multi-GB video, say) before
+    ``_finalize`` checked its size. ``read(n)`` preallocates n bytes, so the
+    first read asks for the stat'd size, not the cap; when ``st_size``
+    under-reports (procfs-style files) the rest streams in chunks and stops
+    past ``cap``. An honest oversized file is refused at the stat, unread.
+    """
+    size = path.stat().st_size
+    if size > cap:
+        raise SourceTooLarge("media exceeds size limit", src=src, origin="file")
+    with path.open("rb") as fh:
+        data = fh.read(size + 1)
+        if len(data) > size:
+            parts, total = [data], len(data)
+            while total <= cap and (chunk := fh.read(_HOST_READ_CHUNK)):
+                parts.append(chunk)
+                total += len(chunk)
+            if total > cap:
+                raise SourceTooLarge("media exceeds size limit", src=src, origin="file")
+            data = b"".join(parts)
+    return data
 
 
 def _resolve_data_url(s: str) -> tuple[bytes, str]:
