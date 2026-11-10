@@ -168,6 +168,17 @@ def _digest_history(messages_snapshot: List[Dict], tail: int = 24) -> List[Dict]
 # the user-message that the forked review agent receives.  AIAgent exposes
 # them as class attributes (``_MEMORY_REVIEW_PROMPT`` etc.) for back-compat;
 # the actual text lives here so future edits are one-place.
+# Without a grounding rule the reviewer saved trait guesses and one-off requests
+# ("make it shorter" -> "user prefers concise responses") as standing facts.
+_MEMORY_GROUNDING_RULE = (
+    "Save only facts GROUNDED in this conversation — a user message or tool result you can point "
+    "to. Never infer the user's traits, skill level, role, mood or preferences from topic, tone or "
+    "tools used, and never turn a one-off request into a standing preference unless the user "
+    "marked it general ('always', 'from now on', 'remember') or stated a standing like/dislike "
+    "('I hate X', 'stop doing Y'). If unsure, leave it out — a wrong fact misleads every future "
+    "session."
+)
+
 _MEMORY_REVIEW_PROMPT = (
     "Review the conversation above and consider saving to memory if appropriate.\n\n"
     "Focus on:\n"
@@ -175,6 +186,7 @@ _MEMORY_REVIEW_PROMPT = (
     "preferences, or personal details worth remembering?\n"
     "2. Has the user expressed expectations about how you should behave, their work "
     "style, or ways they want you to operate?\n\n"
+    + _MEMORY_GROUNDING_RULE + "\n\n"
     "If something stands out, save it using the memory tool. "
     "If nothing is worth saving, just say 'Nothing to save.' and stop."
 )
@@ -309,7 +321,7 @@ _COMBINED_REVIEW_PROMPT = (
     "**Memory**: who the user is. Did the user reveal persona, "
     "desires, preferences, personal details, or expectations about "
     "how you should behave? Save facts about the user and durable "
-    "preferences with the memory tool.\n\n"
+    "preferences with the memory tool. " + _MEMORY_GROUNDING_RULE + "\n\n"
     "**Skills**: how to do this class of task. Be ACTIVE — most "
     "sessions produce at least one skill update. A pass that does "
     "nothing is a missed learning opportunity, not a neutral outcome.\n\n"
