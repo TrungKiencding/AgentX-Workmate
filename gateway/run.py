@@ -27814,7 +27814,7 @@ def _start_gateway_housekeeping(stop_event: threading.Event, adapters=None, loop
             try:
                 from hermes_cli.mem_trim import trim_memory
 
-                trim_memory(reason="messaging gateway housekeeping")
+                trim_memory(reason="messaging gateway housekeeping", collect=False)
             except Exception as exc:
                 # debug, not warning: sibling housekeeping branches all log
                 # failures at debug, and a persistent failure (e.g. broken

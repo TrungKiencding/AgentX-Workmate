@@ -10712,7 +10712,7 @@ def _run_prompt_submit(
             try:
                 from hermes_cli.mem_trim import trim_memory
 
-                trim_memory(reason="tui turn completion")
+                trim_memory(reason="tui turn completion", collect=False)
             except Exception:
                 logger.debug("post-turn memory trim failed", exc_info=True)
 

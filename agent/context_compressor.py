@@ -7880,7 +7880,7 @@ This compaction should PRIORITISE preserving all information related to the focu
         try:
             from hermes_cli.mem_trim import trim_memory
 
-            trim_memory(reason="post-compression")
+            trim_memory(reason="post-compression", collect=False)
         except Exception as exc:
             # debug, not warning: sibling trim sites all log failures at
             # debug, and compression must never fail because of a trim.

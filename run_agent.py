@@ -4501,7 +4501,7 @@ class AIAgent:
         # mark until exit.  This helper is a safe no-op on other allocators.
         try:
             from hermes_cli.mem_trim import trim_memory
-            trim_memory(force=True, reason="agent close")
+            trim_memory(force=True, reason="agent close", collect=False)
         except Exception:
             pass
 
