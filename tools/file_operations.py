@@ -2114,8 +2114,10 @@ class ShellFileOperations(FileOperations):
         # Import and use fuzzy matching
         from tools.fuzzy_match import fuzzy_find_and_replace
         
+        correction_notes: List[str] = []
         new_content, match_count, _strategy, error = fuzzy_find_and_replace(
-            content, old_string, new_string, replace_all
+            content, old_string, new_string, replace_all,
+            correction_notes=correction_notes,
         )
         
         if error or match_count == 0:
@@ -2216,6 +2218,9 @@ class ShellFileOperations(FileOperations):
             # the patch as a whole.  Keep the field separate from the
             # syntax-check ``lint`` so the agent can read both signals.
             lsp_diagnostics=write_result.lsp_diagnostics,
+            # e.g. a stripped read_file ``N|`` gutter: tell the model so it
+            # stops pasting line numbers into old_string.
+            note="\n".join(correction_notes) or None,
         )
     
     def patch_v4a(self, patch_content: str) -> PatchResult:
