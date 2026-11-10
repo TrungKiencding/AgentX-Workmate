@@ -147,6 +147,39 @@ def get_hermes_home() -> Path:
     return _hermes_home_from_env()
 
 
+# Resolved keys, keyed by the path string that was handed in. Path.resolve() is
+# a filesystem call and the redaction policy lookup runs per log record, so the
+# answer is remembered. Only paths that really exist are stored, see below.
+_HOME_KEY_CACHE: dict[str, str] = {}
+
+
+def hermes_home_key(path: str | Path | None = None) -> str:
+    """Stable key for an AgentX home/profile dir (``get_hermes_home()`` when ``path`` is None).
+
+    A directory that does not exist yet is resolved leniently and not cached,
+    because the answer can change once it is created (part of the path may
+    turn out to be a symlink).
+    """
+    candidate = Path(path) if path is not None else get_hermes_home()
+    raw = str(candidate)
+    cached = _HOME_KEY_CACHE.get(raw)
+    if cached is not None:
+        return cached
+    expanded = candidate.expanduser()
+    try:
+        resolved = expanded.resolve(strict=True)
+    except OSError:
+        return os.path.normcase(str(expanded.resolve(strict=False)))
+    key = os.path.normcase(str(resolved))
+    _HOME_KEY_CACHE[raw] = key
+    return key
+
+
+def reset_hermes_home_key_cache() -> None:
+    """Forget every remembered home key (for tests that move a home dir on disk)."""
+    _HOME_KEY_CACHE.clear()
+
+
 def get_process_hermes_home() -> Path:
     """Return the AgentX home for the running process, ignoring task overrides.
 
