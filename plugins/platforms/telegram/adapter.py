@@ -2713,6 +2713,15 @@ class TelegramAdapter(BasePlatformAdapter):
 
         try:
             if app and app.updater and app.updater.running:
+                # PTB's stop() finishes with a read-receipt getUpdates(timeout=0)
+                # that re-uses the very pool the network error just broke; its
+                # getUpdates read timeout outlives the stop deadline, so every
+                # transient error wedged stop() for the whole budget. The same
+                # Updater restarts from its in-memory _last_update_id, which
+                # confirms that batch on the next poll, so a no-op receipt costs
+                # no redelivery (None would log PTB's false refetch WARNING).
+                if getattr(app.updater, "_Updater__polling_cleanup_cb", None) is not None:
+                    app.updater._Updater__polling_cleanup_cb = lambda: asyncio.sleep(0)
                 try:
                     # Guard stop() with a timeout: when the underlying TCP
                     # connection is in CLOSE-WAIT the PTB polling task is

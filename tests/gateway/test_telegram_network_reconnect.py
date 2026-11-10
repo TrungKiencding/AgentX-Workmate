@@ -564,6 +564,107 @@ async def test_polling_bootstrap_conflict_schedules_conflict_recovery_task():
     assert not adapter.has_fatal_error
 
 
+class _FakePTBUpdater:
+    """Mimic PTB 22.x ``Updater.stop()``: after the polling task quiesces, run the private
+    read-receipt callback (a ``get_updates(timeout=0)`` on the same request pool)."""
+
+    def __init__(self, cleanup_cb):
+        self.running = True
+        if cleanup_cb is not None:
+            self._Updater__polling_cleanup_cb = cleanup_cb
+
+    async def stop(self):
+        self.running = False
+        cb = getattr(self, "_Updater__polling_cleanup_cb", None)
+        if cb is not None:
+            await cb()
+            self._Updater__polling_cleanup_cb = None
+
+
+def test_ptb_updater_still_exposes_the_read_receipt_callback_slot():
+    """The skip below relies on PTB's private name-mangled slot; fail loudly if it is renamed."""
+    from telegram.ext import Updater
+
+    assert hasattr(Updater, "_Updater__polling_cleanup_cb")
+
+
+@pytest.mark.asyncio
+async def test_network_recovery_skips_read_receipt_cleanup_wedged_in_stop():
+    """A transient network error must not wedge stop() on PTB's read-receipt getUpdates.
+
+    PTB's ``Updater.stop()`` ends with ``_get_updates_cleanup()`` — a ``get_updates(timeout=0)``
+    confirming the last fetched offset. After a network error that request re-uses the broken
+    pool, and its getUpdates read timeout outlives the stop deadline, so stop() hung for the
+    full budget on every transient error. Recovery swaps the receipt for a no-op (the same
+    Updater resumes from its offset) so stop() completes promptly and polling restarts.
+    """
+    adapter = _make_adapter()
+    adapter._polling_network_error_count = 1
+
+    receipt_started = []
+    released = asyncio.Event()
+
+    async def _wedged_cleanup():
+        receipt_started.append(True)
+        await released.wait()
+
+    updater = _FakePTBUpdater(_wedged_cleanup)
+    app = MagicMock()
+    app.updater = updater
+    adapter._app = app
+
+    start_called = []
+
+    async def _fake_drain():
+        pass
+
+    async def _fake_start(*args, **kwargs):
+        start_called.append(True)
+
+    adapter._drain_polling_connections = _fake_drain
+    adapter._start_polling_once = _fake_start
+
+    import plugins.platforms.telegram.adapter as _mod
+
+    try:
+        # A stop budget far longer than the test would tolerate: hitting it
+        # means stop() waited on the wedged receipt.
+        with patch.object(_mod, "_UPDATER_STOP_TIMEOUT", 30), patch(
+            "asyncio.sleep", new_callable=AsyncMock
+        ):
+            await asyncio.wait_for(
+                adapter._handle_polling_network_error(Exception("Bad Gateway")), timeout=5
+            )
+
+        assert receipt_started == []
+        assert not updater.running
+        assert getattr(updater, "_Updater__polling_cleanup_cb", None) is None
+        assert start_called, "recovery must reuse the stopped Updater"
+        assert not adapter.has_fatal_error
+    finally:
+        released.set()
+
+
+@pytest.mark.asyncio
+async def test_network_recovery_stop_is_inert_without_cleanup_callback():
+    """The skip must not invent a callback when PTB exposes none (renamed internals)."""
+    adapter = _make_adapter()
+    adapter._polling_network_error_count = 1
+    updater = _FakePTBUpdater(None)
+    app = MagicMock()
+    app.updater = updater
+    adapter._app = app
+    adapter._drain_polling_connections = AsyncMock()
+    adapter._start_polling_once = AsyncMock()
+
+    with patch("asyncio.sleep", new_callable=AsyncMock):
+        await adapter._handle_polling_network_error(Exception("Bad Gateway"))
+
+    assert not updater.running
+    assert not hasattr(updater, "_Updater__polling_cleanup_cb")
+    adapter._start_polling_once.assert_awaited_once()
+
+
 @pytest.mark.asyncio
 async def test_handle_polling_network_error_updater_stop_timeout():
     """updater.stop() hanging (CLOSE-WAIT) must not block the reconnect ladder.
