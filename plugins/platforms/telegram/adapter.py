@@ -8655,10 +8655,20 @@ class TelegramAdapter(BasePlatformAdapter):
         return self._telegram_guest_mode() and self._message_mentions_bot(message)
 
     def _clean_bot_trigger_text(self, text: Optional[str]) -> Optional[str]:
+        """Drop our ``@handle`` from trigger text.
+
+        A leading ``/cmd@ourbot`` (the group command menu's form) keeps one
+        space before its arguments: ``/reasoning@Bot medium`` becomes
+        ``/reasoning medium``, never the glued ``/reasoningmedium``.
+        """
         bot_username = self._current_bot_username()
         if not text or not bot_username:
             return text
         username = re.escape(bot_username)
+        command = re.match(rf"(?i)\s*(/[A-Za-z0-9_]+)@{username}\b[,:\-]*\s*", text)
+        if command:
+            rest = re.sub(rf"(?i)@{username}\b[,:\-]*\s*", "", text[command.end():]).strip()
+            return f"{command.group(1)} {rest}" if rest else command.group(1)
         cleaned = re.sub(rf"(?i)@{username}\b[,:\-]*\s*", "", text).strip()
         return cleaned or text
 
