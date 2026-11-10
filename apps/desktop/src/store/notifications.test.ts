@@ -133,3 +133,28 @@ describe('closing versus withdrawing', () => {
     expect(vi.getTimerCount()).toBe(4)
   })
 })
+
+// A route that raises with a dict detail ({message, kind, ...}) showed the whole JSON body instead of
+// its sentence.
+const hubDisabled = 'AgentHub keeps this server off for your organization.'
+
+const longSentence =
+  'The MCP server could not be started because its command exited before the handshake finished. ' +
+  'Check the command and its arguments in Settings, then try again. Original error: exit status 127.'
+
+const objectDetail = (message: string, kind: string) => `403: ${JSON.stringify({ detail: { message, kind } })}`
+
+test.each([
+  ['browser', (body: string) => body],
+  ['native IPC', (body: string) => `Error invoking remote method 'agentx:api': Error: ${body}`]
+])('a %s error with an object detail toasts its message, not the JSON', (_, wrap) => {
+  notifyError(new Error(wrap(objectDetail(hubDisabled, 'hub_disabled'))), 'Could not enable')
+
+  expect($notifications.get()[0]).toMatchObject({ message: hubDisabled, detail: undefined })
+})
+
+test('a long object-detail message keeps the fallback toast and puts the sentence in Details', () => {
+  notifyError(new Error(objectDetail(longSentence, 'start_failed')), 'Could not enable')
+
+  expect($notifications.get()[0]).toMatchObject({ message: 'Could not enable', detail: longSentence })
+})

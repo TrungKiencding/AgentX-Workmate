@@ -185,6 +185,24 @@ const ERROR_SUMMARIES: { test: (msg: string) => boolean; summarize: (msg: string
   }
 ]
 
+// FastAPI routes that raise with a dict detail ({message, kind, ...}) carry the
+// sentence in detail.message; without this the toast showed the raw JSON body.
+function objectDetailMessage(text: string): string | undefined {
+  const start = text.indexOf('{')
+
+  if (start < 0) {
+    return undefined
+  }
+
+  try {
+    const message = (JSON.parse(text.slice(start)) as { detail?: { message?: unknown } } | null)?.detail?.message
+
+    return typeof message === 'string' && message.trim() ? message.trim() : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function summarizeErrorMessage(message: string, fallback: string) {
   const rule = ERROR_SUMMARIES.find(r => r.test(message))
 
@@ -202,7 +220,12 @@ export function readableError(error: unknown, fallback: string): { message: stri
   const raw = error instanceof Error ? error.message : typeof error === 'string' ? error : fallback
   const unwrapped = raw.match(/Error invoking remote method '[^']+': Error: (.+)$/)?.[1] ?? raw
   const cleaned = cleanErrorText(unwrapped)
-  const detail = cleaned.match(/"detail"\s*:\s*"([^"]+)"/)?.[1] ?? cleaned
+  const rawDetail = cleaned.match(/"detail"\s*:\s*"([^"]+)"/)?.[1] ?? cleaned
+  // Well-known bodies match on the full text first; only an unclassified one is
+  // unwrapped to its detail.message.
+  const classified = ERROR_SUMMARIES.some(rule => rule.test(rawDetail))
+  const plain = classified ? undefined : objectDetailMessage(rawDetail)
+  const detail = plain ?? rawDetail
   const summary = summarizeErrorMessage(detail, fallback)
 
   return { message: summary, detail: detail === summary ? undefined : detail }
