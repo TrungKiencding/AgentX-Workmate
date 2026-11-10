@@ -295,6 +295,7 @@ from gateway.platforms.base import (
     cache_video_from_bytes,
     cache_document_from_bytes,
     resolve_proxy_url,
+    safe_url_for_log,
     SUPPORTED_VIDEO_TYPES,
     SUPPORTED_DOCUMENT_TYPES,
     SUPPORTED_IMAGE_DOCUMENT_TYPES,
@@ -4047,7 +4048,10 @@ class TelegramAdapter(BasePlatformAdapter):
                     },
                 )
             elif proxy_url:
-                logger.info("[%s] Proxy detected; passing explicitly to HTTPXRequest: %s", self.name, proxy_url)
+                logger.info(
+                    "[%s] Proxy detected; passing explicitly to HTTPXRequest: %s",
+                    self.name, safe_url_for_log(proxy_url),
+                )
                 request = HTTPXRequest(
                     **request_kwargs, proxy=proxy_url, httpx_kwargs=_with_limits()
                 )
@@ -4317,12 +4321,18 @@ class TelegramAdapter(BasePlatformAdapter):
                         self._background_tasks.add(self._polling_error_task)
                         self._polling_error_task.add_done_callback(self._background_tasks.discard)
                     elif self._looks_like_network_error(error):
-                        logger.warning("[%s] Telegram network _redact_telegram_error_text(error), scheduling reconnect: %s", self.name, error)
+                        logger.warning(
+                            "[%s] Telegram network error, scheduling reconnect: %s",
+                            self.name, _redact_telegram_error_text(error),
+                        )
                         self._polling_error_task = loop.create_task(self._handle_polling_network_error(error))
                         self._background_tasks.add(self._polling_error_task)
                         self._polling_error_task.add_done_callback(self._background_tasks.discard)
                     else:
-                        logger.error("[%s] Telegram polling _redact_telegram_error_text(error): %s", self.name, error, exc_info=True)
+                        logger.error(
+                            "[%s] Telegram polling error: %s",
+                            self.name, _redact_telegram_error_text(error), exc_info=True,
+                        )
 
                 # Store reference for retry use in _handle_polling_conflict
                 self._polling_error_callback_ref = _polling_error_callback
