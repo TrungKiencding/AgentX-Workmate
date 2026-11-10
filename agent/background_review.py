@@ -694,6 +694,14 @@ def _run_review_in_thread(
     except Exception:
         pass
 
+    # Matching non-interactive secret capture: a skill the review opens (a
+    # skill_view of a skill whose required env var is missing) must never pop
+    # the "enter value" prompt on the user's screen after the turn has ended.
+    def _bg_review_skip_secret(var_name, prompt, metadata=None):
+        logger.info("Background review skipped the secret prompt for %s", var_name)
+        return {"success": True, "reason": "background_review", "stored_as": var_name,
+                "validated": False, "skipped": True, "message": "Secret setup was skipped."}
+
     review_agent = None
     review_messages: List[Dict] = []
     try:
@@ -705,7 +713,9 @@ def _run_review_in_thread(
         # output (#55769 / #55925).  ``thread_scoped_silence`` routes only this
         # thread's writes to devnull and leaves all other threads on the real
         # streams.
-        with thread_scoped_silence():
+        from tools.skills_tool import bind_turn_secret_capture
+
+        with thread_scoped_silence(), bind_turn_secret_capture(_bg_review_skip_secret):
             # Inherit the parent agent's live runtime (provider, model,
             # base_url, api_key, api_mode) so the fork uses the exact
             # same credentials the main turn is using.  Without this,

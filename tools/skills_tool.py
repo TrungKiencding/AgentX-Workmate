@@ -66,6 +66,7 @@ Usage:
     content = skill_view("axolotl", "references/dataset-formats.md")
 """
 
+import contextvars
 import json
 import logging
 import time
@@ -74,6 +75,7 @@ import threading
 from hermes_constants import get_hermes_home, display_hermes_home
 import os
 import re
+from contextlib import contextmanager
 from enum import Enum
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Dict, Any, List, Optional, Set, Tuple
@@ -251,6 +253,22 @@ def set_secret_capture_callback(callback) -> None:
     _secret_capture_callback = callback
 
 
+# A context-scoped capture callback. It wins over the process-global slot and
+# the gateway-surface hint; a ContextVar, so worker threads started with
+# ``propagate_context_to_thread`` inherit it. The background review binds a
+# non-interactive one so a skill it opens never prompts the user.
+_turn_secret_capture = contextvars.ContextVar("turn_secret_capture", default=None)
+
+
+@contextmanager
+def bind_turn_secret_capture(callback):
+    token = _turn_secret_capture.set(callback)
+    try:
+        yield
+    finally:
+        _turn_secret_capture.reset(token)
+
+
 def skill_matches_platform(frontmatter: Dict[str, Any]) -> bool:
     """Check if a skill is compatible with the current OS platform.
 
@@ -419,20 +437,23 @@ def _capture_required_environment_variables(
         }
 
     missing_names = [entry["name"] for entry in missing_entries]
+    capture = _turn_secret_capture.get()
     # Most gateway surfaces (messaging platforms) can't prompt for a secret, so
     # they short-circuit to the "unsupported" hint. Interactive gateway surfaces
     # — the desktop app / TUI — set AGENTX_INTERACTIVE and register a
     # secret-capture callback that routes to a secure secret.request overlay, so
     # they fall through and actually prompt. (AGENTX_INTERACTIVE is the same flag
     # tools/approval.py uses to tell an interactive surface from a messaging one.)
-    if _is_gateway_surface() and not env_var_enabled("AGENTX_INTERACTIVE"):
+    if capture is None and _is_gateway_surface() and not env_var_enabled("AGENTX_INTERACTIVE"):
         return {
             "missing_names": missing_names,
             "setup_skipped": False,
             "gateway_setup_hint": _gateway_setup_hint(),
         }
 
-    if _secret_capture_callback is None:
+    if capture is None:
+        capture = _secret_capture_callback
+    if capture is None:
         return {
             "missing_names": missing_names,
             "setup_skipped": False,
@@ -450,7 +471,7 @@ def _capture_required_environment_variables(
             metadata["required_for"] = entry["required_for"]
 
         try:
-            callback_result = _secret_capture_callback(
+            callback_result = capture(
                 entry["name"],
                 entry["prompt"],
                 metadata,
