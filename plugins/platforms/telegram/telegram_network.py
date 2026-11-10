@@ -236,8 +236,10 @@ async def discover_fallback_ips() -> list[str]:
     than excluded: in many networks the system-DNS IP is the most reliable path
     to api.telegram.org and a transient primary-path failure should be retried
     against the same address via the IP-rewrite path before the seed list is
-    consulted (#14520).  Falls back to a hardcoded seed list only when DoH
-    yields no usable answers.
+    consulted (#14520).  The hardcoded seed list always forms the tail, so a
+    one-record DoH answer cannot make one edge the fallback path's single
+    point of failure (discovery runs once per connect, so a dead lone IP
+    would strand polling); it is the whole list when DoH yields nothing usable.
     """
     async with httpx.AsyncClient(timeout=httpx.Timeout(_DOH_TIMEOUT)) as client:
         doh_tasks = [_query_doh_provider(client, p) for p in _DOH_PROVIDERS]
@@ -274,8 +276,12 @@ async def discover_fallback_ips() -> list[str]:
     validated = _normalize_fallback_ips(candidates)
 
     if validated:
-        logger.debug("Discovered Telegram fallback IPs via DoH: %s", ", ".join(validated))
-        return validated
+        fallback_ips = list(dict.fromkeys([*validated, *_SEED_FALLBACK_IPS]))
+        logger.debug(
+            "Discovered Telegram fallback IPs via DoH; effective fallback pool: %s",
+            ", ".join(fallback_ips),
+        )
+        return fallback_ips
 
     logger.info(
         "DoH discovery yielded no usable IPs (system DNS: %s); using seed fallback IPs %s",
