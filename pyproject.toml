@@ -189,6 +189,11 @@ tts-premium = ["elevenlabs==1.59.0"]
 voice = [
   # Local STT pulls in wheel-only transitive deps (ctranslate2, onnxruntime).
   "faster-whisper==1.2.1",
+  # faster-whisper 1.2.1 passes `metadata_errors` to av.open(), a kwarg PyAV 19
+  # removed, so every local transcription dies with a TypeError. The fix
+  # (SYSTRAN/faster-whisper#1495) is unreleased and faster-whisper declares only
+  # av>=11, so pin av (the locked version) until a release carries it.
+  "av==18.0.0",
   "sounddevice==0.5.5",
   "numpy==2.4.3",
 ]
