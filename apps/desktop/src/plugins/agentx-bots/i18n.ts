@@ -14,7 +14,7 @@ export type TemplateId = 'research' | 'writer' | 'secretary' | 'analyst' | 'tran
 
 type Template = { title: string; description: string }
 
-type BotsMessages = {
+export type BotsMessages = {
   nav: string
   work: string
   workspaceNavigation: string
