@@ -1006,7 +1006,11 @@ function CronEditorDialog({
               />
             </Field>
 
-            <div className="grid items-start gap-4 sm:grid-cols-2">
+            {/* When: the frequency, then the fields that frequency needs, flowing
+                through one two-column grid — daily is [frequency | time] on a
+                single row, so the dialog is no taller than before it had a
+                time field (it has to fit a small laptop window). */}
+            <div className="grid items-start gap-4 sm:grid-cols-2 [&>*]:min-w-0">
               <Field htmlFor="cron-frequency" label={c.frequencyLabel}>
                 <Select
                   onValueChange={next => {
@@ -1028,15 +1032,73 @@ function CronEditorDialog({
                 </Select>
               </Field>
 
-              <Field htmlFor="cron-deliver" label={c.deliverLabel}>
-                <DeliverSelect
-                  c={c}
-                  id="cron-deliver"
-                  onChange={setDeliver}
-                  targets={deliveryTargets.data ?? []}
-                  value={deliver}
-                />
-              </Field>
+              {scheduleShows.weekday && (
+                <Field htmlFor="cron-weekday" label={c.weekdayLabel}>
+                  <Select onValueChange={weekday => updateSchedule({ weekday })} value={scheduleForm.weekday}>
+                    <SelectTrigger className="h-9 rounded-md" id="cron-weekday">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SCHEDULE_WEEKDAYS.map(day => (
+                        <SelectItem key={day} value={day}>
+                          {c.days[day] ?? c.dayFallback(day)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+
+              {scheduleShows.monthday && (
+                <Field htmlFor="cron-monthday" label={c.monthdayLabel}>
+                  <Select onValueChange={monthday => updateSchedule({ monthday })} value={scheduleForm.monthday}>
+                    <SelectTrigger className="h-9 rounded-md" id="cron-monthday">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SCHEDULE_MONTHDAYS.map(day => (
+                        <SelectItem key={day} value={day}>
+                          {c.monthdayOption(day)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {Number(scheduleForm.monthday) > LAST_DAY_EVERY_MONTH_HAS && (
+                    <FieldHint>{c.monthdayShortMonthHint}</FieldHint>
+                  )}
+                </Field>
+              )}
+
+              {scheduleShows.time && (
+                <Field htmlFor="cron-time" label={c.timeLabel}>
+                  <Input
+                    id="cron-time"
+                    // A cleared time field reports ''; keep the last valid time
+                    // rather than silently saving the fallback.
+                    onChange={event => event.target.value && updateSchedule({ time: event.target.value })}
+                    required
+                    type="time"
+                    value={scheduleForm.time}
+                  />
+                </Field>
+              )}
+
+              {scheduleShows.minute && (
+                <Field htmlFor="cron-minute" label={c.minuteLabel}>
+                  <Select onValueChange={minute => updateSchedule({ minute })} value={scheduleForm.minute}>
+                    <SelectTrigger className="h-9 rounded-md" id="cron-minute">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {minuteOptions.map(minute => (
+                        <SelectItem key={minute} value={minute}>
+                          {c.minuteOption(minute.padStart(2, '0'))}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
             </div>
 
             {scheduleForm.preset === 'custom' ? (
@@ -1050,135 +1112,71 @@ function CronEditorDialog({
                 />
                 <FieldHint>{scheduleHint || c.customHint}</FieldHint>
               </Field>
-            ) : (
-              <div className="grid gap-3">
-                {(scheduleShows.weekday || scheduleShows.monthday || scheduleShows.time || scheduleShows.minute) && (
-                  <div className="grid items-start gap-4 sm:grid-cols-2">
-                    {scheduleShows.weekday && (
-                      <Field htmlFor="cron-weekday" label={c.weekdayLabel}>
-                        <Select onValueChange={weekday => updateSchedule({ weekday })} value={scheduleForm.weekday}>
-                          <SelectTrigger className="h-9 rounded-md" id="cron-weekday">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SCHEDULE_WEEKDAYS.map(day => (
-                              <SelectItem key={day} value={day}>
-                                {c.days[day] ?? c.dayFallback(day)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                    )}
+            ) : scheduleHint ? (
+              <p
+                aria-live="polite"
+                className="rounded-md bg-(--ui-bg-quinary) px-3 py-2 text-xs font-medium text-foreground"
+              >
+                {scheduleHint}
+              </p>
+            ) : null}
 
-                    {scheduleShows.monthday && (
-                      <Field htmlFor="cron-monthday" label={c.monthdayLabel}>
-                        <Select onValueChange={monthday => updateSchedule({ monthday })} value={scheduleForm.monthday}>
-                          <SelectTrigger className="h-9 rounded-md" id="cron-monthday">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {SCHEDULE_MONTHDAYS.map(day => (
-                              <SelectItem key={day} value={day}>
-                                {c.monthdayOption(day)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        {Number(scheduleForm.monthday) > LAST_DAY_EVERY_MONTH_HAS && (
-                          <FieldHint>{c.monthdayShortMonthHint}</FieldHint>
-                        )}
-                      </Field>
-                    )}
-
-                    {scheduleShows.time && (
-                      <Field htmlFor="cron-time" label={c.timeLabel}>
-                        <Input
-                          id="cron-time"
-                          // A cleared time field reports ''; keep the last valid time
-                          // rather than silently saving the fallback.
-                          onChange={event => event.target.value && updateSchedule({ time: event.target.value })}
-                          required
-                          type="time"
-                          value={scheduleForm.time}
-                        />
-                      </Field>
-                    )}
-
-                    {scheduleShows.minute && (
-                      <Field htmlFor="cron-minute" label={c.minuteLabel}>
-                        <Select onValueChange={minute => updateSchedule({ minute })} value={scheduleForm.minute}>
-                          <SelectTrigger className="h-9 rounded-md" id="cron-minute">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {minuteOptions.map(minute => (
-                              <SelectItem key={minute} value={minute}>
-                                {c.minuteOption(minute.padStart(2, '0'))}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </Field>
-                    )}
-                  </div>
-                )}
-
-                {scheduleHint && (
-                  <p
-                    aria-live="polite"
-                    className="rounded-md bg-(--ui-bg-quinary) px-3 py-2 text-xs font-medium text-foreground"
-                  >
-                    {scheduleHint}
-                  </p>
-                )}
-              </div>
-            )}
-
-            {!scriptOnlyJob && (
-              <Field htmlFor="cron-model" label={c.modelLabel} optional optionalLabel={c.optional}>
-                <Select
-                  onValueChange={value => {
-                    if (value === MODEL_DEFAULT_VALUE) {
-                      setModelChoice({ model: '', provider: '' })
-                    } else {
-                      const selection = modelSelections.find(item => cronModelSelectionKey(item) === value)
-
-                      if (selection) {
-                        setModelChoice(selection)
-                      }
-                    }
-                  }}
-                  value={modelChoiceValue}
-                >
-                  <SelectTrigger className="h-9 rounded-md" id="cron-model">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={MODEL_DEFAULT_VALUE}>{c.modelDefault}</SelectItem>
-                    {!modelChoiceKnown && (
-                      <SelectItem className="font-mono" value={modelChoiceValue}>
-                        {modelChoice.model}
-                      </SelectItem>
-                    )}
-                    {modelProviders.map(provider => (
-                      <SelectGroup key={provider.slug}>
-                        <SelectLabel>{provider.name}</SelectLabel>
-                        {(provider.models ?? []).map(model => (
-                          <SelectItem
-                            className="font-mono"
-                            key={cronModelSelectionKey({ provider: provider.slug, model })}
-                            value={cronModelSelectionKey({ provider: provider.slug, model })}
-                          >
-                            {model}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
+            <div className="grid items-start gap-4 sm:grid-cols-2 [&>*]:min-w-0">
+              <Field htmlFor="cron-deliver" label={c.deliverLabel}>
+                <DeliverSelect
+                  c={c}
+                  id="cron-deliver"
+                  onChange={setDeliver}
+                  targets={deliveryTargets.data ?? []}
+                  value={deliver}
+                />
               </Field>
-            )}
+
+              {!scriptOnlyJob && (
+                <Field htmlFor="cron-model" label={c.modelLabel} optional optionalLabel={c.optional}>
+                  <Select
+                    onValueChange={value => {
+                      if (value === MODEL_DEFAULT_VALUE) {
+                        setModelChoice({ model: '', provider: '' })
+                      } else {
+                        const selection = modelSelections.find(item => cronModelSelectionKey(item) === value)
+
+                        if (selection) {
+                          setModelChoice(selection)
+                        }
+                      }
+                    }}
+                    value={modelChoiceValue}
+                  >
+                    <SelectTrigger className="h-9 w-full min-w-0 rounded-md [&>span]:truncate" id="cron-model">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={MODEL_DEFAULT_VALUE}>{c.modelDefault}</SelectItem>
+                      {!modelChoiceKnown && (
+                        <SelectItem className="font-mono" value={modelChoiceValue}>
+                          {modelChoice.model}
+                        </SelectItem>
+                      )}
+                      {modelProviders.map(provider => (
+                        <SelectGroup key={provider.slug}>
+                          <SelectLabel>{provider.name}</SelectLabel>
+                          {(provider.models ?? []).map(model => (
+                            <SelectItem
+                              className="font-mono"
+                              key={cronModelSelectionKey({ provider: provider.slug, model })}
+                              value={cronModelSelectionKey({ provider: provider.slug, model })}
+                            >
+                              {model}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            </div>
 
             {error && (
               <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">

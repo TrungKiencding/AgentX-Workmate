@@ -232,7 +232,10 @@ export const ar = defineLocale({
             'أبقِ التطبيق مفتوحًا حتى ينتهي — قد يستغرق بضع دقائق.'
           ]
         }
-      }
+      },
+      gatewaySettings: 'إعدادات البوابة',
+      back: 'رجوع',
+      remoteFailureHint: 'تحقق من رابط البوابة وتسجيل الدخول في إعدادات البوابة، أو انتقل إلى البوابة المحلية.'
     }
   },
   notifications: {
@@ -519,7 +522,9 @@ export const ar = defineLocale({
       notifications: 'الإشعارات',
       keybinds: 'اختصارات لوحة المفاتيح',
       plugins: 'الإضافات',
-      browser: 'المتصفح'
+      browser: 'المتصفح',
+      providerCustomEndpoints: 'نقاط نهاية مخصصة',
+      billing: 'الفوترة'
     },
     account: {
       title: 'حساب AgentX',
@@ -600,7 +605,20 @@ export const ar = defineLocale({
       deviceLastSeenUnknown: 'وقت آخر استخدام غير معروف',
       deviceLastSeenMinutes: n => `آخر استخدام قبل ${n} دقيقة`,
       deviceLastSeenHours: n => `آخر استخدام قبل ${n} ساعة`,
-      deviceLastSeenDays: n => `آخر استخدام قبل ${n} يوم`
+      deviceLastSeenDays: n => `آخر استخدام قبل ${n} يوم`,
+      deviceColDevice: 'الجهاز',
+      deviceColRevoked: 'تاريخ الإلغاء',
+      deviceColActions: 'الإجراءات',
+      deviceInstalls: n =>
+        n === 1 ? 'تثبيت واحد' : n === 2 ? 'تثبيتان' : n >= 3 && n <= 10 ? `${n} تثبيتات` : `${n} تثبيتًا`,
+      deviceInstallsTitle: 'التثبيتات',
+      devicePageRange: (from, to, total) => `عرض ${from}–${to} من ${total}`,
+      devicePage: (page, pages) => `الصفحة ${page} من ${pages}`,
+      deviceRevokeOthers: 'إلغاء كل الأجهزة الأخرى',
+      deviceRevokeOthersConfirmTitle: 'إلغاء كل الأجهزة الأخرى؟',
+      deviceRevokeOthersConfirmDesc: n =>
+        `سيُحظر ${n === 1 ? 'تثبيت واحد' : n === 2 ? 'تثبيتان' : n >= 3 && n <= 10 ? `${n} تثبيتات` : `${n} تثبيتًا`} على أجهزتك الأخرى من الوصول إلى حسابك. يبقى هذا الجهاز مسجّل الدخول.`,
+      deviceRevokeGroupNote: n => `لهذا الجهاز ${n} تثبيتات. سيُلغى جميعها معًا.`
     },
     plugins: {
       title: 'إضافات سطح المكتب',
@@ -643,6 +661,14 @@ export const ar = defineLocale({
         backgroundDone: {
           label: 'اكتملت مهمة الخلفية',
           description: 'اكتمل أمر طرفية يعمل في الخلفية.'
+        },
+        credits: {
+          label: 'تنبيهات الرصيد',
+          description: 'تعليق الوصول بسبب الرصيد أو استعادته.'
+        },
+        plugin: {
+          label: 'إشعارات الإضافات',
+          description: 'أرسلت إضافة سطح المكتب إشعارًا بينما كان AgentX في الخلفية.'
         }
       },
       test: 'إرسال إشعار تجريبي',
@@ -816,8 +842,21 @@ export const ar = defineLocale({
         exportFailed: slug => `تعذّر تصدير ${slug}`,
         noneAvailable: 'لا توجد حيوانات أليفة متاحة للتشغيل الآن.',
         turnOnFailed: 'تعذّر تشغيل الحيوان الأليف.',
-        turnOffFailed: 'تعذّر إيقاف الحيوان الأليف.'
-      }
+        turnOffFailed: 'تعذّر إيقاف الحيوان الأليف.',
+        roamTitle: 'التجوّل',
+        roamDesc: 'دع الرفيق يتجوّل في النافذة بنفسه أثناء الخمول.'
+      },
+      themeSearchPlaceholder: 'ابحث في سماتك أو في VS Code Marketplace…',
+      themeSearchEmpty: query => `لا توجد سمات مثبّتة تطابق «${query}».`,
+      uiScaleTitle: 'مقياس الواجهة',
+      uiScaleDesc: percent =>
+        `يكبّر النصوص والعناصر في التطبيق كله. تعمل أيضًا اختصارات Cmd/Ctrl مع + و - و 0. الحالي: ${percent}%.`,
+      terminalFontTitle: 'خط الطرفية',
+      terminalFontDesc:
+        'اختر خطًا مثبّتًا لطرفيات سطح المكتب. تعرض خطوط Nerd رموز Powerlevel10k والصدفة؛ اتركه فارغًا لاستخدام JetBrains Mono المضمّن.',
+      terminalFontPlaceholder: 'MesloLGS NF أو قائمة خطوط CSS',
+      terminalFontPreview: 'معاينة الرموز',
+      terminalFontReset: 'استخدام الافتراضي'
     },
     fieldLabels: {
       model: 'النموذج الافتراضي',
@@ -905,7 +944,19 @@ export const ar = defineLocale({
       'delegation.maxConcurrentChildren': 'الوكلاء الفرعيون المتوازيون',
       'delegation.childTimeoutSeconds': 'مهلة الوكيل الفرعي',
       'delegation.reasoningEffort': 'جهد تفكير الوكيل الفرعي',
-      'updates.nonInteractiveLocalChanges': 'تغييرات التحديث داخل التطبيق'
+      'updates.nonInteractiveLocalChanges': 'تغييرات التحديث داخل التطبيق',
+      'desktop.repoScanEnabled': 'الاكتشاف التلقائي للمستودعات',
+      'desktop.repoScanRoots': 'جذور اكتشاف المستودعات',
+      'desktop.repoScanExcludePaths': 'مسارات المستودعات المستبعدة',
+      'stt.echoTranscripts': 'إعادة نشر النصوص المفرّغة',
+      'tts.agentxGateway.voice': 'صوت بوابة AgentX AI',
+      'tts.xai.speed': 'سرعة تشغيل xAI',
+      'tts.xai.autoSpeechTags': 'وسوم الكلام التلقائية في xAI',
+      'tts.xai.optimizeStreamingLatency': 'تحسين زمن بث xAI',
+      'tts.xai.sampleRate': 'معدل عيّنة xAI',
+      'tts.xai.bitRate': 'معدل بت xAI',
+      'tts.deepinfra.model': 'نموذج DeepInfra للتحويل إلى كلام',
+      'tts.deepinfra.voice': 'صوت DeepInfra'
     },
     fieldDescriptions: {
       model: 'يستخدم في المحادثات الجديدة ما لم تختر نموذجاً مختلفاً من محرر الرسائل.',
@@ -940,7 +991,17 @@ export const ar = defineLocale({
       'stt.enabled': 'يفعل التفريغ الصوتي المحلي أو عبر مزود.',
       'stt.elevenlabs.languageCode': 'رمز لغة ISO-639-3 اختياري. اتركه فارغاً للاكتشاف التلقائي.',
       'updates.nonInteractiveLocalChanges':
-        'عند تشغيل `agentx update` دون طرفية للسؤال — خلفية بعيدة تُحدَّث من هذا التطبيق أو أمر /update في قنوات المراسلة — احتفظ بتعديلات المصدر المحلية أو تجاهلها.'
+        'عند تشغيل `agentx update` دون طرفية للسؤال — خلفية بعيدة تُحدَّث من هذا التطبيق أو أمر /update في قنوات المراسلة — احتفظ بتعديلات المصدر المحلية أو تجاهلها.',
+      'desktop.repoScanEnabled': 'افحص المجلدات المحلية بحثًا عن مستودعات Git لعرضها في المشاريع.',
+      'desktop.repoScanRoots': 'المجلدات المراد فحصها. اتركها فارغة لفحص مجلدك الرئيسي.',
+      'desktop.repoScanExcludePaths': 'المجلدات ومحتوياتها التي يُتخطّى فحصها أثناء اكتشاف المستودعات.',
+      'tts.xai.speed': 'سرعة التشغيل. 0.7 = أبطأ، 1.0 = عادية، 1.5 = أسرع.',
+      'tts.xai.autoSpeechTags':
+        'دع نموذجًا لغويًا يضيف وسوم صوت تعبيرية ([laughing]، [sighs]) إلى النص قبل التركيب الصوتي.',
+      'tts.xai.optimizeStreamingLatency': 'المفاضلة بين زمن الاستجابة والجودة. 0 = أفضل جودة، 2 = أقل زمن استجابة.',
+      'tts.xai.sampleRate': 'معدل عيّنة الصوت بالهرتز. كلما ارتفع زادت الجودة وكبر حجم الملفات.',
+      'tts.xai.bitRate': 'معدل بت MP3 بوحدة bps. يسري فقط عندما يكون الترميز mp3.',
+      'stt.echoTranscripts': 'انشر النص الخام 🎙️ للرسائل الصوتية في المحادثة.'
     },
     about: {
       heading: 'حول AgentX',
@@ -978,7 +1039,15 @@ export const ar = defineLocale({
       failedLoad: 'فشل تحميل الإعدادات',
       autosaveFailed: 'فشل الحفظ التلقائي',
       imported: 'تم استيراد الإعدادات',
-      invalidJson: 'JSON غير صالح'
+      invalidJson: 'JSON غير صالح',
+      builtinOnly: 'المضمّنة فقط',
+      keepAwakeTitle: 'إبقاء الحاسوب مستيقظًا',
+      keepAwakeDesc: 'يمنع هذا الجهاز من السكون لتستمر المهام الطويلة أو الليلية. قد تخفت الشاشة مع ذلك.',
+      attachmentSizeTitle: 'أقصى حجم لتحميل المعاينة / الصورة',
+      attachmentSizeDesc:
+        'أقصى حجم لملف محلي يحمّله سطح المكتب للمعاينة وإرفاق الصور، بالميغابايت. الافتراضي 16. يستخدم إرفاق الملفات غير الصور عن بُعد حدًا منفصلًا هو 256 ميغابايت. رفع هذا الحد كثيرًا يحمّل الملف كله في الذاكرة وقد يجمّد التطبيق أو يتسبب في تعطله.',
+      attachmentSizeUnit: 'MB',
+      attachmentSizeLabel: 'أقصى حجم لتحميل المعاينة / الصورة بالميغابايت'
     },
     memoryEntries: {
       title: 'ما يتذكره AgentX',
@@ -1032,7 +1101,8 @@ export const ar = defineLocale({
       revealValue: 'إظهار القيمة',
       replace: 'استبدال',
       set: 'ضبط',
-      clear: 'مسح'
+      clear: 'مسح',
+      manageInKeys: 'الإدارة في مفاتيح API'
     },
     gateway: {
       loading: 'جار تحميل إعدادات البوابة...',
@@ -1099,7 +1169,79 @@ export const ar = defineLocale({
       signOutFailed: 'فشل تسجيل الخروج',
       testFailed: 'فشل اختبار البوابة البعيدة',
       applyFailed: 'تعذر تطبيق إعدادات البوابة',
-      saveFailed: 'تعذر حفظ إعدادات البوابة'
+      saveFailed: 'تعذر حفظ إعدادات البوابة',
+      modeTitle: 'وضع الاتصال',
+      remoteAuthHint: 'تستخدم البوابات المستضافة OAuth أو اسم مستخدم وكلمة مرور؛ وقد تستخدم البوابات الذاتية رمز جلسة.',
+      cloudTitle: 'AgentX Cloud',
+      cloudDesc: 'سجّل الدخول مرة واحدة إلى AgentX Cloud واختر من الوكلاء في حسابك — دون لصق أي رابط.',
+      cloudSignInTitle: 'AgentX Cloud',
+      cloudSignIn: 'تسجيل الدخول إلى AgentX Cloud',
+      cloudSignedIn: 'تم تسجيل الدخول إلى AgentX Cloud',
+      cloudNeedsSignIn: 'سجّل الدخول إلى AgentX Cloud لاكتشاف الوكلاء في حسابك.',
+      cloudSignedInDesc: 'أنت مسجّل الدخول. اختر وكيلًا أدناه؛ تتجدد الجلسة تلقائيًا.',
+      cloudAgentsTitle: 'وكلاؤك',
+      cloudOrgPickerTitle: 'اختيار مؤسسة',
+      cloudOrgSelect: 'اختيار',
+      cloudOrgChange: 'تغيير المؤسسة',
+      cloudOrgRole: role => `الدور: ${role}`,
+      cloudLoadingAgents: 'جار تحميل وكلائك…',
+      cloudNoAgents: {
+        before: 'لم يُعثر على وكلاء في هذا الحساب. أنشئ وكيلًا في',
+        linkText: 'بوابة Nous',
+        after: ' ثم حدّث الصفحة.'
+      },
+      cloudRefresh: 'تحديث',
+      cloudConnect: 'اتصال',
+      cloudConnecting: 'جار الاتصال…',
+      cloudDiscoverFailed: 'تعذر تحميل وكلاء AgentX Cloud',
+      cloudConnectFailed: 'تعذر الاتصال بهذا الوكيل',
+      cloudSignInFailed: 'فشل تسجيل الدخول إلى AgentX Cloud',
+      cloudSignedOutTitle: 'تم تسجيل الخروج من AgentX Cloud',
+      cloudSignedOutMessage: 'تم مسح جلسة AgentX Cloud.',
+      cloudConnectedTitle: 'متصل',
+      cloudConnectedPill: 'متصل',
+      cloudConnectedTo: name => `متصل بـ ${name}.`,
+      cloudAgentProvisioning: 'جار التجهيز…',
+      cloudStatusLabel: status => `الحالة: ${status}`,
+      sshTitle: 'الاتصال عبر SSH',
+      sshDesc:
+        'يُشغَّل AgentX على الجهاز البعيد عبر SSH ويُمرَّر إلى هذا التطبيق عبر نفق — لا شيء تبدؤه أو تكشفه بنفسك. يتطلب وصول SSH يعمل بالمفاتيح إلى المضيف.',
+      sshTrustHint: 'يُوثَق بأول مفتاح مضيف يُعرض ويُثبَّت؛ وأي تغيّر لاحق يفشل الاتصال حفاظًا على الأمان.',
+      sshHostTitle: 'المضيف',
+      sshHostDesc: 'user@host، أو اسم Host مستعار من ‎~/.ssh/config.',
+      sshHostPick: 'اختر مضيفًا…',
+      sshHostPickTitle: 'المضيف',
+      sshHostPickDesc: 'اسم Host مستعار من ‎~/.ssh/config، أو «مخصص» لكتابته.',
+      sshHostCustom: 'مخصص (إدخال يدوي)…',
+      sshUserTitle: 'المستخدم',
+      sshUserDesc: 'فارغ = ‎~/.ssh/config أو المستخدم الحالي.',
+      sshUserPlaceholder: 'من ‎~/.ssh/config',
+      sshPortTitle: 'المنفذ',
+      sshPortDesc: 'فارغ = 22 أو منفذ ‎~/.ssh/config.',
+      sshKeyTitle: 'ملف الهوية',
+      sshKeyDesc: 'مسار المفتاح الخاص. فارغ = ssh-agent أو ‎~/.ssh/config.',
+      sshHermesPathTitle: 'مسار AgentX (اختياري)',
+      sshHermesPathDesc: 'المسار الكامل لملف agentx التنفيذي على الجهاز البعيد. فارغ = اكتشاف تلقائي.',
+      sshHermesPathPlaceholder: 'اكتشاف تلقائي',
+      sshRemoteProfileTitle: 'الملف الشخصي البعيد (اختياري)',
+      sshRemoteProfileDesc: 'اسم الملف الشخصي على المضيف البعيد. فارغ = استخدام اسم ملف سطح المكتب الشخصي.',
+      sshTestConnection: 'اختبار SSH',
+      sshConnect: 'اتصال',
+      sshButtonsHint: 'يسري الحفظ عند التشغيل التالي. يعيد «اتصال» الاتصال الآن.',
+      sshReachable: (host, platform) => `يمكن الوصول: ${host} (${platform}) — تم العثور على AgentX`,
+      sshIncompleteHost: 'أدخل مضيف SSH قبل الاتصال.',
+      sshErrUnreachable: 'تعذر الوصول إلى هذا المضيف عبر SSH. تحقق من المضيف والمنفذ والشبكة.',
+      sshErrAuth:
+        'فشلت مصادقة SSH. حمّل مفتاحك في ssh-agent (ssh-add) أو اضبط IdentityFile في ‎~/.ssh/config — يشغّل AgentX الأمر ssh دون تفاعل.',
+      sshErrHostKey:
+        'تغيّر مفتاح المضيف منذ آخر اتصال. تأكد من أن هذا متوقع، ثم شغّل ssh-keygen -R <host> وأعد الاتصال.',
+      sshErrNotInstalled:
+        'AgentX غير مثبّت على المضيف البعيد. ثبّته هناك (curl -fsSL https://raw.githubusercontent.com/TrungKiencding/AgentX-Workmate/main/scripts/install.sh | sh) أو اضبط مسار AgentX.',
+      sshErrPlatform:
+        'منصة بعيدة غير مدعومة. يدعم وضع SSH في AgentX Workmate Desktop مضيفات Linux وmacOS وWindows البعيدة.',
+      sshErrTimeout: 'انتهت مهلة اتصال SSH. قد يكون المضيف غير متاح أو في وضع السكون.',
+      sshErrUpdateRequired: 'حدّث AgentX على المضيف البعيد قبل الاتصال عبر SSH من سطح المكتب.',
+      sshErrUnknown: 'فشل اتصال SSH.'
     },
     keys: {
       loading: 'جار تحميل مفاتيح API وبيانات الاعتماد...',
@@ -1329,7 +1471,10 @@ export const ar = defineLocale({
           label: 'المنسّق',
           hint: 'مراجعة استخدام المهارات'
         }
-      }
+      },
+      fallbackAdd: 'إضافة نموذج احتياطي',
+      fallbackEmpty: 'لا توجد نماذج احتياطية — يُستخدم النموذج الافتراضي ما لم يفشل.',
+      notInCatalog: 'غير موجود في قائمة نماذج هذا المزوّد — قد تنتقل الطلبات إلى نموذج احتياطي.'
     },
     providers: {
       connectAccount: 'ربط حساب',
@@ -1383,7 +1528,13 @@ export const ar = defineLocale({
       unarchiveFailed: 'فشل إلغاء الأرشفة',
       deleteFailed: 'فشل الحذف',
       updateDirFailed: 'تعذر تحديث المجلد الافتراضي',
-      clearDirFailed: 'تعذر مسح المجلد الافتراضي'
+      clearDirFailed: 'تعذر مسح المجلد الافتراضي',
+      autoArchiveTitle: 'أرشفة المحادثات القديمة تلقائيًا',
+      autoArchiveDesc:
+        'تُؤرشف تلقائيًا المحادثات التي لم تلمسها منذ مدة. المحادثات المثبّتة لا تُؤرشف أبدًا، ولا يُحذف شيء — تنتقل المحادثات المؤرشفة إلى هنا فقط.',
+      autoArchiveDaysLabel: 'الأرشفة بعد',
+      autoArchiveDaysUnit: 'أيام من عدم النشاط',
+      autoArchiveFailed: 'تعذر تحديث الأرشفة التلقائية'
     },
     toolsets: {
       loadingConfig: 'جار تحميل الإعدادات',
@@ -1414,7 +1565,54 @@ export const ar = defineLocale({
       postSetupCompleteMessage: step => `تم تثبيت ${step}.`,
       postSetupErrorTitle: 'انتهى الإعداد بأخطاء',
       postSetupErrorMessage: step => `تحقق من سجل ${step}.`,
-      postSetupFailed: step => `فشل تشغيل إعداد ${step}`
+      postSetupFailed: step => `فشل تشغيل إعداد ${step}`,
+      needsSignIn: 'يتطلب تسجيل الدخول',
+      needsSetup: 'يتطلب إعدادًا',
+      activeBackend: 'نشط',
+      activeBackendHint: 'هذه هي الخلفية النشطة لديك',
+      useBackend: 'استخدام هذه الخلفية',
+      postSetupInstalledHint: 'مثبّت. أعد الإعداد فقط إذا تعطّل شيء.',
+      postSetupRerun: 'إعادة الإعداد',
+      postSetupInstalled: 'مثبّت',
+      webSearchActive: backend => `البحث: ${backend}`,
+      webExtractActive: backend => `الاستخراج: ${backend}`,
+      webCapabilityUnset: 'غير مضبوط',
+      webUseForSearch: 'استخدام للبحث',
+      webUseForExtract: 'استخدام للاستخراج',
+      webUsedForSearch: 'خلفية البحث',
+      webUsedForExtract: 'خلفية الاستخراج',
+      webCapabilitySelectedMessage: (provider, capability) =>
+        `أصبح ${provider} يتولى ${capability === 'search' ? 'البحث' : capability === 'extract' ? 'الاستخراج' : capability} على الويب.`,
+      failedSelectCapability: provider => `تعذر ضبط ${provider}`,
+      loadingModels: 'جار تحميل قائمة النماذج...',
+      modelSectionTitle: 'النموذج',
+      modelCount: count =>
+        count === 1
+          ? 'نموذج واحد'
+          : count === 2
+            ? 'نموذجان'
+            : count >= 3 && count <= 10
+              ? `${count} نماذج`
+              : `${count} نموذجًا`,
+      modelInUse: 'قيد الاستخدام',
+      modelDefault: 'افتراضي',
+      modelInactiveHint: 'اختر هذه الخلفية أولًا لتغيير نموذجها.',
+      modelSelectedTitle: 'تم اختيار النموذج',
+      modelSelectedMessage: model => `يُطبَّق ${model} على الجلسات الجديدة.`,
+      failedSelectModel: model => `تعذر اختيار ${model}`,
+      terminalBackend: {
+        sectionTitle: 'خلفية التنفيذ',
+        loading: 'جار فحص خلفيات التنفيذ…',
+        failedLoad: 'تعذر تحميل خلفيات الطرفية',
+        ready: 'جاهزة',
+        needsSetup: 'تتطلب إعدادًا',
+        unavailable: 'غير متاحة',
+        inUse: 'قيد الاستخدام',
+        selectedTitle: 'تم اختيار الخلفية',
+        selectedMessage: backend => `تُنفَّذ أوامر الطرفية الآن عبر ${backend}. يُطبَّق ذلك على الجلسات الجديدة.`,
+        failedSelect: backend => `تعذر اختيار ${backend}`,
+        needsSetupHint: 'يمكنك اختيار هذه الخلفية الآن — لكن الأوامر ستفشل إلى أن يكتمل الإعداد.'
+      }
     }
   },
   skills: {
@@ -1731,7 +1929,20 @@ export const ar = defineLocale({
         servingUntil: date => `يقدّمه AgentX Gateway حتى ${date}.`,
         servedNoMore: 'توقف AgentX Gateway عن تقديمه.',
         keptOff: names => `يُبقيها AgentX AgentHub متوقفة: ${names}`
-      }
+      },
+      editedHere: 'عُدّلت هنا',
+      updateTo: version => `يتوفر تحديث ${version}`,
+      updateThis: 'تحديث',
+      updateAllCount: count => `تحديث الكل (${count})`,
+      updateOneStarted: name => `جار تحديث ${name}`,
+      keptOnUpdateAll: count =>
+        `«تحديث الكل» يُبقي ${count === 1 ? 'المهارة التي عدّلتها' : count === 2 ? 'المهارتين اللتين عدّلتهما' : `${count} مهارات عدّلتها`} على هذا الجهاز — استبدل أيًّا منها بإصدار AgentHub من صفّها.`,
+      replaceWithHub: 'الاستبدال بإصدار AgentHub…',
+      replaceTitle: name => `استبدال ${name} بإصدار AgentHub؟`,
+      replaceDescription: version =>
+        `عدّلت هذه المهارة على هذا الجهاز. سيحلّ الإصدار ${version} من AgentHub محلّها، ويُحفظ نظير نسختك المعدّلة أولًا في ‎~/.agentx/skills/.hub/backups/.`,
+      replaceConfirm: 'نسخ احتياطي واستبدال',
+      replaceStarted: name => `جار استبدال ${name} بإصدار AgentHub (نسختك محفوظة احتياطيًا)`
     },
     publish: {
       upload: 'رفع إلى AgentHub',
@@ -1786,7 +1997,9 @@ export const ar = defineLocale({
         rate_limited: 'أنت ترفع بسرعة كبيرة؛ حاول مجددًا لاحقًا.',
         kind_mismatch: 'المهارة التي تحمل هذا الاسم على AgentHub من نوع آخر.',
         workspace: 'لم يقبل AgentHub مساحة العمل هذه — لم تعد عضوًا فيها، أو لم تُختر مساحة عمل.'
-      }
+      },
+      bumpAndRetry: version => `الترقية إلى ${version} ثم الرفع`,
+      bumping: 'جار رفع رقم الإصدار…'
     }
   },
   starmap: {
@@ -1807,7 +2020,34 @@ export const ar = defineLocale({
       memoryTooLong: 'تجاوزت حد الأحرف في الذاكرة. اختصر النص أو احذف ذكريات أخرى أولًا.',
       memoryBlocked: 'محظور: يبدو كأنه تعليمات للمساعد.',
       memoryDrift: 'عُدّل ملف الذاكرة يدويًا، لذا لا يمكن تغييره من هنا. اطلب من AgentX ترتيب ذاكرته.'
-    }
+    },
+    title: 'خريطة الذاكرة',
+    subtitle: (nodes, clusters) => `${nodes} مهارة في ${clusters} فئة`,
+    close: 'إغلاق خريطة الذاكرة',
+    refresh: 'تحديث',
+    memory: 'الذاكرة',
+    filterAll: 'الكل',
+    filterUsed: 'المستخدمة',
+    filterLearned: 'المكتسبة',
+    viewGraph: 'الرسم البياني',
+    loadFailed: 'تعذر تحميل خريطة الذاكرة',
+    loading: 'جار التحميل…',
+    emptyTitle: 'لم يُتعلَّم شيء بعد',
+    emptyDesc: 'ستظهر هنا المهارات والذكريات التي يبنيها AgentX لعملك.',
+    share: 'مشاركة الخريطة',
+    shareHint:
+      'انسخ الرمز لمشاركة هذه الخريطة، أو الصق رمزًا لتحميله. يشمل الرمز التخطيط فقط، لا نصوص ذاكرتك أو مهاراتك.',
+    shareTitle: 'استيراد / تصدير الخريطة',
+    sharePlaceholder: 'الصق رمز الخريطة…',
+    copy: 'نسخ رمز الخريطة',
+    copied: 'تم النسخ!',
+    importMap: 'استيراد خريطة',
+    importBtn: 'تحميل',
+    importEmpty: 'الصق رمز خريطة لتحميلها.',
+    importSuccess: nodes =>
+      `تم تحميل خريطة تضم ${nodes === 1 ? 'عقدة واحدة' : nodes === 2 ? 'عقدتين' : nodes >= 3 && nodes <= 10 ? `${nodes} عقد` : `${nodes} عقدة`}.`,
+    importedBadge: 'خريطة مستوردة',
+    resetToMine: 'العودة إلى خريطتي'
   },
   agents: {
     close: 'إغلاق الوكلاء',
@@ -1836,7 +2076,8 @@ export const ar = defineLocale({
     ageHours: hours => `قبل ${hours} س`,
     durationSeconds: seconds => `${seconds} ث`,
     durationMinutes: (minutes, seconds) => `${minutes} د ${seconds} ث`,
-    tokens: value => `${value} رمز`
+    tokens: value => `${value} رمز`,
+    ageDays: days => `قبل ${days} ي`
   },
   commandCenter: {
     close: 'إغلاق',
@@ -1905,7 +2146,8 @@ export const ar = defineLocale({
       install: 'تثبيت',
       installing: 'جار التثبيت...',
       installed: 'مثبّت',
-      installs: count => `${count} عملية تثبيت`
+      installs: count => `${count} عملية تثبيت`,
+      pageTitle: 'تثبيت سمة'
     },
     settingsFields: 'حقول الإعدادات',
     mcpServers: 'خوادم MCP',
@@ -1914,12 +2156,14 @@ export const ar = defineLocale({
     sections: {
       sessions: 'الجلسات',
       system: 'النظام',
-      usage: 'الاستخدام'
+      usage: 'الاستخدام',
+      maintenance: 'الصيانة'
     },
     sectionDescriptions: {
       sessions: 'البحث في الجلسات وإدارتها',
       system: 'الحالة والسجلات وإجراءات النظام',
-      usage: 'نشاط الرموز والتكلفة والمهارات عبر الزمن'
+      usage: 'نشاط الرموز والتكلفة والمهارات عبر الزمن',
+      maintenance: 'التشخيص والنسخ الاحتياطي والمنسّق وبيانات الذاكرة'
     },
     nav: {
       newChat: {
@@ -1997,7 +2241,63 @@ export const ar = defineLocale({
     noModelUsage: 'لا يوجد استخدام نماذج',
     topSkills: 'أكثر المهارات استخداما',
     noSkillActivity: 'لا يوجد نشاط مهارات',
-    actions: count => `${count} إجراء`
+    actions: count => `${count} إجراء`,
+    paletteFooter: {
+      move: 'تنقّل',
+      select: 'اختيار',
+      close: 'إغلاق'
+    },
+    projects: 'المشاريع',
+    openFolder: 'فتح مجلد كمشروع…',
+    openFolderAt: path => `فتح مجلد كمشروع — ${path}`,
+    newSessionInProject: project => `جلسة جديدة في ${project}`,
+    logFile: 'ملف السجل',
+    logLevel: 'المستوى',
+    logSearchPlaceholder: 'تصفية أسطر السجل...',
+    maintenance: {
+      runOps: 'التشخيص',
+      doctor: 'تشغيل الفحص',
+      doctorDesc: 'فحص سلامة التثبيت والإعدادات والمزوّدين',
+      securityAudit: 'تدقيق الأمان',
+      securityAuditDesc: 'فحص الإعدادات والمهارات بحثًا عن خيارات محفوفة بالمخاطر',
+      backup: 'إنشاء نسخة احتياطية',
+      backupDesc: 'ضغط الإعدادات والذكريات والمهارات والجلسات في ملف zip',
+      debugShare: 'مشاركة التصحيح',
+      debugShareDesc: 'ارفع تقريرًا منقّحًا مع السجلات واحصل على روابط للمشاركة (تُحذف تلقائيًا بعد 6 ساعات)',
+      debugShareRunning: 'جار رفع تقرير التصحيح...',
+      debugShareLinks: 'روابط المشاركة',
+      debugShareFailed: 'فشلت مشاركة التصحيح',
+      copyLink: 'نسخ الرابط',
+      linkCopied: 'تم نسخ الرابط',
+      curator: 'منسّق المهارات',
+      curatorDesc: 'مراجعة في الخلفية تؤرشف المهارات القديمة التي أنشأها الوكيل',
+      curatorPaused: 'متوقف مؤقتًا',
+      curatorActive: 'نشط',
+      curatorDisabled: 'معطّل',
+      curatorLastRun: when => `آخر تشغيل ${when}`,
+      curatorNeverRan: 'لم يُشغَّل قط',
+      pause: 'إيقاف مؤقت',
+      resume: 'استئناف',
+      runNow: 'تشغيل الآن',
+      memoryData: 'بيانات الذاكرة',
+      memoryDataDesc: 'ملفات الذاكرة المضمّنة التي تُحقن في كل جلسة',
+      memoryProvider: name => `المزوّد النشط: ${name}`,
+      builtinMemory: 'مضمّنة',
+      memoryFile: 'ذاكرة الوكيل (MEMORY.md)',
+      userFile: 'ملف المستخدم الشخصي (USER.md)',
+      bytes: size => size,
+      empty: 'فارغ',
+      resetMemory: 'إعادة ضبط الذاكرة',
+      resetUser: 'إعادة ضبط الملف الشخصي',
+      resetAll: 'إعادة ضبط الاثنين',
+      resetConfirm: target => `حذف ${target}؟ لا يمكن التراجع عن هذا.`,
+      resetDone: files => `تم حذف ${files}.`,
+      resetFailed: 'فشلت إعادة ضبط الذاكرة',
+      actionStarted: name => `بدأ ${name} — جار متابعة السجل...`,
+      actionFailed: name => `تعذر بدء ${name}`,
+      running: 'قيد التشغيل...',
+      viewLog: 'سجل الإجراء'
+    }
   },
   messaging: {
     guide: {
@@ -2405,7 +2705,10 @@ export const ar = defineLocale({
     failedLoadSoul: 'فشل تحميل التعليمات',
     failedSaveSoul: 'فشل حفظ التعليمات',
     failedCreate: 'فشل الإنشاء',
-    failedRename: 'فشل إعادة التسمية'
+    failedRename: 'فشل إعادة التسمية',
+    search: 'بحث في الملفات الشخصية...',
+    renameMenu: 'إعادة تسمية…',
+    editSoul: 'تعديل SOUL.md…'
   },
   cron: {
     close: 'إغلاق',
@@ -2527,7 +2830,40 @@ export const ar = defineLocale({
     optional: 'اختياري',
     promptScheduleRequired: 'الرسالة والجدول مطلوبان',
     saveChanges: 'حفظ التغييرات',
-    createAction: 'إنشاء'
+    createAction: 'إنشاء',
+    title: 'المهام المجدولة',
+    count: count =>
+      count === 1
+        ? 'مهمة واحدة'
+        : count === 2
+          ? 'مهمتان'
+          : count >= 3 && count <= 10
+            ? `${count} مهام`
+            : `${count} مهمة`,
+    deliverNeedsHomeChannel: 'اضبط قناة رئيسية أولًا',
+    modelLabel: 'النموذج',
+    modelDefault: 'الافتراضي (النموذج العام)',
+    promptRequired: 'التعليمات مطلوبة.',
+    scheduleRequired: 'الجدول الزمني مطلوب.',
+    scriptOnlyEditHint: 'مهمة سكربت فقط (بلا تعليمات للذكاء الاصطناعي). معرّف المهمة:',
+    tabs: {
+      jobs: 'المهام',
+      blueprints: 'القوالب'
+    },
+    blueprints: {
+      tab: 'القوالب',
+      startFrom: 'ابدأ من',
+      custom: 'مخصص',
+      subtitle: 'أتمتة جاهزة',
+      dialogDesc: 'املأ التفاصيل وحدّد موعدها.',
+      scheduleIt: 'جدولة',
+      scheduling: 'جار الجدولة...',
+      scheduled: 'تمت جدولة القالب',
+      loading: 'جار تحميل القوالب...',
+      failedLoad: 'تعذر تحميل القوالب',
+      emptyTitle: 'لا توجد قوالب متاحة',
+      emptyDesc: 'لا توجد قوالب أتمتة متاحة على هذه الخلفية.'
+    }
   },
   artifacts: {
     search: 'بحث',
@@ -2736,9 +3072,20 @@ export const ar = defineLocale({
       splitRight: 'يمين',
       splitDown: 'أسفل',
       splitLeft: 'يسار',
-      splitUp: 'أعلى'
+      splitUp: 'أعلى',
+      deleteConfirmTitle: title => `حذف «${title}»؟`,
+      deleteConfirmBody:
+        'ستُحذف المحادثة ورسائلها نهائيًا. لا يمكن التراجع عن هذا — أرشفها بدلًا من ذلك إن كنت قد تحتاج إليها لاحقًا.',
+      deleteConfirmAction: 'حذف المحادثة'
     },
-    chats: 'المحادثات'
+    chats: 'المحادثات',
+    account: {
+      menuLabel: 'قائمة الحساب',
+      accountSettings: 'الحساب',
+      settings: 'الإعدادات',
+      shortcuts: 'اختصارات لوحة المفاتيح',
+      signOut: 'تسجيل الخروج'
+    }
   },
   composer: {
     quota: {
@@ -3121,7 +3468,41 @@ export const ar = defineLocale({
     transcriptSaved: 'حُفظ سجل المثبّت الكامل في مجلد سجلات AgentX.',
     copiedOutput: 'تم النسخ!',
     copyOutput: 'نسخ المخرجات',
-    reloadRetry: 'إعادة التحميل وإعادة المحاولة'
+    reloadRetry: 'إعادة التحميل وإعادة المحاولة',
+    setupChoiceTitle: 'إعداد AgentX Workmate Desktop',
+    setupChoiceDesc: 'اربط هذا التطبيق ببوابة AgentX تشغّلها بالفعل، أو ثبّت AgentX محليًا على هذا الحاسوب.',
+    connectExistingTitle: 'الاتصال بـ AgentX موجود',
+    connectExistingShort: 'اتصال بموجود',
+    connectExistingDesc: 'استخدم خلفية بعيدة برمز جلسة أو بتسجيل دخول عبر المتصفح. لن يبدأ أي تثبيت محلي.',
+    installLocalTitle: 'تثبيت AgentX محليًا',
+    installLocalDesc: 'ينزّل AgentX وينشئ بيئة Python الخاصة به ويشغّل الخلفية على هذا الحاسوب.',
+    localStartUnavailable: 'تعذر بدء التثبيت المحلي. أعد تشغيل AgentX Workmate Desktop وحاول مرة أخرى.',
+    remoteSetupTitle: 'الاتصال بـ AgentX موجود',
+    remoteSetupDesc:
+      'أدخل رابط البوابة. سيكتشف AgentX Workmate Desktop ما إذا كانت تحتاج إلى رمز أو إلى تسجيل دخول عبر المتصفح.',
+    remoteUrlTitle: 'رابط البوابة',
+    remoteUrlDesc: 'استخدم الرابط الأساسي لبوابة AgentX، مع https:// عندما تكون بعيدة.',
+    remoteUrlPlaceholder: 'https://gateway.example.com/agentx',
+    probing: 'جار اكتشاف مصادقة البوابة...',
+    probeError: 'تعذر الوصول إلى بوابة AgentX هذه.',
+    identityProvider: 'مزوّد الهوية لديك',
+    authTitle: 'المصادقة',
+    authNeedsOauth: provider => `سجّل الدخول عبر ${provider} قبل اختبار هذه البوابة.`,
+    authSignedIn: 'اكتمل تسجيل الدخول عبر المتصفح.',
+    connected: 'متصل',
+    signIn: 'تسجيل الدخول',
+    signInWith: provider => `تسجيل الدخول عبر ${provider}`,
+    enterUrlFirst: 'أدخل رابط البوابة أولًا.',
+    signInIncomplete: 'أُغلقت نافذة تسجيل الدخول قبل اكتمال المصادقة.',
+    tokenTitle: 'رمز الجلسة',
+    tokenDesc: 'الصق رمز الجلسة من ملف .env في البوابة البعيدة.',
+    pasteSessionToken: 'الصق رمز الجلسة',
+    incompleteSignInTest: 'سجّل الدخول قبل اختبار هذه البوابة المحمية بـ OAuth.',
+    incompleteTokenTest: 'أدخل رمز جلسة قبل اختبار هذه البوابة.',
+    testConnection: 'اختبار الاتصال',
+    testSucceeded: (baseUrl, version) => `تم الاتصال بـ ${baseUrl}${version ? ` (${version})` : ''}.`,
+    applyRemote: 'تطبيق وإعادة الاتصال',
+    backToSetup: 'رجوع'
   },
   onboarding: {
     messages: {
@@ -3198,6 +3579,10 @@ export const ar = defineLocale({
         short: 'مستضاف ذاتيا',
         description:
           'وجّه AgentX إلى نقطة نهاية محلية أو مستضافة ذاتيا متوافقة مع OpenAI (vLLM، llama.cpp، Ollama، إلخ).'
+      },
+      fireworks: {
+        short: 'واجهة نماذج مباشرة',
+        description: 'وصول مباشر إلى النماذج المستضافة لدى Fireworks AI.'
       }
     },
     backToSignIn: 'العودة إلى تسجيل الدخول',
@@ -3465,7 +3850,8 @@ export const ar = defineLocale({
     proNeedsSubscription: 'يتطلب اشتراكا',
     free: 'مجاني',
     freeTier: 'طبقة مجانية',
-    priceTitle: 'السعر'
+    priceTitle: 'السعر',
+    wasPrice: 'كان'
   },
   modelVisibility: {
     title: 'النماذج',
@@ -3575,7 +3961,61 @@ export const ar = defineLocale({
       openModelPicker: 'فتح اختيار النموذج',
       modelPinned: 'النموذج مثبت',
       modelTitle: (provider, model) => `${provider}: ${model}`,
-      providerModelTitle: (provider, model) => `${provider}: ${model}`
+      providerModelTitle: (provider, model) => `${provider}: ${model}`,
+      connectionSsh: host => `SSH: ${host}`,
+      connectionRemote: host => `بعيد: ${host}`,
+      connectionCloud: host => `السحابة: ${host}`,
+      connectionCloudTooltip: host => `AgentX Cloud · ${host}`,
+      connectionSshTooltip: host => `SSH · ${host}`,
+      connectionRemoteTooltip: host => `بعيد · ${host}`,
+      customizeTitle: 'العرض في شريط الحالة',
+      hideStatusbar: 'إخفاء شريط الحالة',
+      toggleApprovalMode: 'الموافقات',
+      toggleBackendVersion: 'إصدار الخلفية',
+      toggleCommandCenter: 'مركز الأوامر',
+      toggleContextUsage: 'مقياس السياق',
+      toggleRunningTimer: 'مؤقت الدور',
+      toggleSessionTimer: 'مؤقت الجلسة',
+      toggleTerminal: 'الطرفية',
+      toggleVersion: 'الإصدار والتحديثات',
+      toggleWorkspace: 'مساحة العمل',
+      webhooks: 'Webhooks',
+      openWebhooks: 'فتح Webhooks',
+      starmap: 'خريطة الذاكرة',
+      openStarmap: 'فتح خريطة الذاكرة',
+      contextUsagePanel: {
+        categories: {
+          conversation: 'المحادثة',
+          mcp: 'MCP',
+          memory: 'الذاكرة',
+          rules: 'القواعد',
+          skills: 'المهارات',
+          subagent_definitions: 'تعريفات الوكلاء الفرعيين',
+          system_prompt: 'تعليمات النظام',
+          tool_definitions: 'تعريفات الأدوات'
+        },
+        empty: 'لا توجد بيانات سياق بعد',
+        loading: 'جار تحميل التفاصيل…',
+        percentFull: percent => `ممتلئ بنسبة ${percent}%`,
+        title: 'استخدام السياق',
+        tokenSummary: (used, max) => `${used} / ${max} رمز`
+      }
+    },
+    skipToContent: 'تخطَّ إلى المحتوى',
+    approvalMode: {
+      title: 'وضع الموافقة',
+      ariaLabel: mode => `وضع الموافقة: ${mode}`,
+      manual: 'يدوي',
+      manualDescription: 'اسأل قبل الإجراءات التي تتطلب موافقة',
+      smart: 'ذكي',
+      smartDescription: 'قيّم الإجراءات تلقائيًا واسأل عند الحاجة',
+      off: 'متوقف',
+      offDescription: 'التشغيل دون طلب الموافقة',
+      changeFailed: 'تعذر تغيير وضع الموافقة',
+      confirmOffTitle: 'السماح لـ AgentX بتنفيذ كل شيء دون سؤال؟',
+      confirmOffBody:
+        'لن يسألك AgentX بعد الآن قبل تشغيل الأوامر أو تعديل الملفات أو حذفها. فعّل هذا فقط للأعمال التي تثق بها، وحين لا تكون أمام الجهاز. تبقى الأوامر الواردة في قائمة الحظر محظورة.',
+      confirmOffAction: 'التشغيل دون سؤال'
     }
   },
   rightSidebar: {
@@ -3608,7 +4048,11 @@ export const ar = defineLocale({
     loadingTree: 'جار تحميل الشجرة...',
     loadingFiles: 'جار تحميل الملفات...',
     terminalHide: 'إخفاء الطرفية',
-    addToChat: 'إضافة للمحادثة'
+    addToChat: 'إضافة للمحادثة',
+    terminalsAria: 'الطرفيات',
+    terminalNew: 'طرفية جديدة',
+    terminalCloseOthers: 'إغلاق الأخرى',
+    terminalCloseAll: 'إغلاق الكل'
   },
   preview: {
     tab: 'معاينة',
@@ -3798,7 +4242,12 @@ export const ar = defineLocale({
       goForward: 'تقدم',
       sendEdited: 'إرسال التعديل',
       attachingFile: 'جار إرفاق الملف',
-      expandMessage: 'توسيع الرسالة'
+      expandMessage: 'توسيع الرسالة',
+      jumpToLatest: 'الأحدث',
+      turnDone: 'أنهى AgentX الرد',
+      compactionLabel: 'تم تلخيص السياق',
+      compactionNote:
+        'يتابع المساعد من هذا الملخص لتوفير السياق. كل ما سبق ما زال محفوظًا هنا، لكن لم يعد بالإمكان تعديله أو استعادته.'
     },
     approval: {
       gatewayDisconnected: 'AgentX غير متصل',
@@ -4169,6 +4618,37 @@ export const ar = defineLocale({
         create: { done: 'تم إنشاء المهارة', failed: 'تعذّر إنشاء المهارة' },
         delete: { done: 'تم حذف المهارة', failed: 'تعذّر حذف المهارة' }
       }
+    },
+    toolRun: {
+      categories: {
+        delegate: {
+          past: 'فُوِّض',
+          present: 'جار التفويض',
+          noun: count => (count === 1 ? 'مهمة' : 'مهام')
+        },
+        edit: {
+          past: 'عُدّل',
+          present: 'جار التعديل',
+          noun: count => (count === 1 ? 'ملف' : 'ملفات')
+        },
+        explore: {
+          past: 'استُكشف',
+          present: 'جار الاستكشاف',
+          noun: count => (count === 1 ? 'ملف' : 'ملفات')
+        },
+        other: {
+          past: 'استُخدم',
+          present: 'جار الاستخدام',
+          noun: count => (count === 1 ? 'أداة' : 'أدوات')
+        },
+        run: {
+          past: 'شُغّل',
+          present: 'جار التشغيل',
+          noun: count => (count === 1 ? 'أمر' : 'أوامر')
+        }
+      },
+      compacting: 'جار تلخيص المحادثة',
+      searchResults: 'نتائج البحث'
     }
   },
   prompts: {
@@ -4249,7 +4729,10 @@ export const ar = defineLocale({
       systemNote: platform => `↻ تم التسليم إلى ${platform} — استأنف هنا في أي وقت.`,
       failed: error => `فشل التسليم: ${error}`,
       timedOut: 'انتهت المهلة في انتظار خدمة AgentX الخلفية. هل `agentx gateway` قيد التشغيل؟'
-    }
+    },
+    archivedTitled: title => `تمت أرشفة «${title}»`,
+    undo: 'تراجع',
+    unarchiveFailed: 'تعذر استرجاع المحادثة. ابحث عنها في الإعدادات ← المحادثات المؤرشفة.'
   },
   turnError: {
     kinds: {
@@ -4367,5 +4850,78 @@ export const ar = defineLocale({
   findInPage: {
     next: 'النتيجة التالية',
     previous: 'النتيجة السابقة'
+  },
+  billingBlock: {
+    titleNous: 'نفد رصيد Nous',
+    titleProvider: provider => `نفد الرصيد — ${provider}`,
+    fallbackMessage: 'نفد رصيد حسابك. أضف رصيدًا لتواصل العمل.',
+    openBilling: 'فتح الفوترة',
+    addCredits: 'إضافة رصيد',
+    dismiss: 'إخفاء'
+  },
+  webhooks: {
+    search: 'بحث في الـ webhooks...',
+    loading: 'جار تحميل الـ webhooks...',
+    loadFailed: 'تعذر تحميل الـ webhooks',
+    subscriptions: count => `الاشتراكات (${count})`,
+    hint: 'تُطبَّق تغييرات الاشتراكات فورًا بعد تشغيل المستقبِل. الاشتراكات المعطّلة ترفض الأحداث الواردة.',
+    empty: 'لا توجد اشتراكات webhook بعد.',
+    disabledTitle: 'مستقبِل الـ webhook معطّل',
+    disabledBody:
+      'الـ webhooks منصة بوابة مستقلة. فعّلها هنا لقبول أحداث HTTP الواردة؛ ولا تحتاج إلى قنوات الدردشة إلا عندما يسلّم اشتراك ما إلى Telegram أو Discord أو Slack أو قناة أخرى.',
+    enable: 'تفعيل الـ webhooks',
+    enabling: 'جار التفعيل...',
+    enabled: name => `تم التفعيل: "${name}"`,
+    disabled: name => `تم التعطيل: "${name}"`,
+    enableRow: 'تفعيل',
+    disableRow: 'تعطيل',
+    delete: 'حذف',
+    deleting: 'جار الحذف...',
+    deleted: 'تم حذف الـ webhook',
+    deleteTitle: 'حذف webhook',
+    deleteDescPrefix: 'سيُزال نهائيًا',
+    deleteDescSuffix: '. لا يمكن التراجع عن هذا.',
+    deleteFailed: name => `تعذر حذف "${name}"`,
+    toggleFailed: (name, enabled) => `تعذر ${enabled ? 'تفعيل' : 'تعطيل'} "${name}"`,
+    newSubscription: 'اشتراك جديد',
+    restarting: 'جار إعادة تشغيل البوابة...',
+    restartNeeded: 'الـ webhooks مفعّلة، لكن البوابة تحتاج إلى إعادة تشغيل قبل أن يعمل المستقبِل.',
+    restartGateway: 'إعادة تشغيل البوابة',
+    restartingGateway: 'جار إعادة التشغيل...',
+    restartFailed: detail => `فشلت إعادة تشغيل البوابة${detail}`,
+    enabledRestarting: 'تم تفعيل الـ webhooks؛ جار إعادة تشغيل البوابة...',
+    all: '(الكل)',
+    deliverOnly: 'تسليم فقط',
+    createdTitle: 'تم إنشاء الاشتراك',
+    createdSecretHint: 'انسخ السر الآن — يُعرض مرة واحدة فقط.',
+    webhookUrl: 'رابط الـ webhook',
+    secretOnce: 'السر (يُعرض مرة واحدة)',
+    done: 'تم',
+    fieldName: 'الاسم',
+    fieldNamePlaceholder: 'مثل github-push',
+    fieldDescription: 'الوصف',
+    fieldDescriptionPlaceholder: 'ما يفعله هذا الـ webhook (اختياري)',
+    fieldEvents: 'الأحداث',
+    fieldEventsPlaceholder: 'مفصولة بفواصل، اتركها فارغة لكل الأحداث',
+    fieldSkills: 'المهارات',
+    fieldSkillsPlaceholder: 'أسماء المهارات مفصولة بفواصل (اختياري)',
+    fieldDeliver: 'التسليم إلى',
+    fieldDeliverOnly: 'تسليم الحمولة فقط',
+    fieldPrompt: 'التعليمات',
+    fieldPromptPlaceholder: 'تعليمات للوكيل عند تشغيل هذا الـ webhook (اختياري)',
+    nameRequired: 'الاسم مطلوب',
+    create: 'إنشاء',
+    creating: 'جار الإنشاء...',
+    created: 'تم الإنشاء',
+    createFailed: detail => `تعذر الإنشاء: ${detail}`,
+    copy: 'نسخ',
+    deliverOptions: {
+      log: 'السجل',
+      telegram: 'Telegram',
+      discord: 'Discord',
+      slack: 'Slack',
+      email: 'البريد الإلكتروني',
+      github_comment: 'تعليق على GitHub'
+    }
   }
 })

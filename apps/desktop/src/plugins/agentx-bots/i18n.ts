@@ -10,6 +10,11 @@
 import { type PluginLocaleBundles, type PluginTranslate, usePluginI18n } from '@agentx/plugin-sdk'
 import { useMemo } from 'react'
 
+import { ar } from './i18n-ar'
+import { ja } from './i18n-ja'
+import { zh } from './i18n-zh'
+import { zhHant } from './i18n-zh-hant'
+
 export type TemplateId = 'research' | 'writer' | 'secretary' | 'analyst' | 'translator'
 
 type Template = { title: string; description: string }
@@ -792,7 +797,12 @@ const vi: BotsMessages = {
   paletteNew: 'Trợ lý: Tạo trợ lý mới'
 }
 
-export const BOTS_LOCALES: PluginLocaleBundles = { vi, en }
+// Every language the app can be switched to. Vietnamese and English live in
+// this file; the others each have their own, typed as full `BotsMessages` so a
+// new string here is a compile error there until it is translated. Shipping
+// only vi/en left the whole Trợ lý page in English for everyone else (pilot
+// feedback 2026-11-10: "chưa đồng bộ khi chuyển đổi các ngôn ngữ").
+export const BOTS_LOCALES: PluginLocaleBundles = { ar, en, ja, vi, zh, 'zh-hant': zhHant }
 
 type Bound<T> = {
   [K in keyof T]: T[K] extends (...args: infer A) => string

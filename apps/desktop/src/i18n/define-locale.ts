@@ -36,6 +36,22 @@ function mergeTranslations<T>(base: T, overrides: TranslationOverride<T> | undef
   return result as T
 }
 
+// What each merged catalog was built from. A merged catalog always has every
+// key — the English ones fill the gaps — so "is this language complete?" can
+// only be asked of the overrides.
+const overridesByCatalog = new WeakMap<Translations, TranslationOverrides>()
+
 export function defineLocale(overrides: TranslationOverrides): Translations {
-  return mergeTranslations<Translations>(en, overrides)
+  const merged = mergeTranslations<Translations>(en, overrides)
+
+  overridesByCatalog.set(merged, overrides)
+
+  return merged
+}
+
+/** The messages a catalog translates itself, before English filled the rest.
+ *  A catalog not built by `defineLocale` is typed as a full `Translations`
+ *  and is its own answer. */
+export function ownMessages(catalog: Translations): TranslationOverrides {
+  return overridesByCatalog.get(catalog) ?? catalog
 }

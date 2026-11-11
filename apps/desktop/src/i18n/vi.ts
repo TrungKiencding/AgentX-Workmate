@@ -2816,7 +2816,7 @@ export const vi: Translations = {
     deliverLabel: 'Gửi tới',
     deliverNeedsHomeChannel: 'hãy đặt kênh chính trước',
     modelLabel: 'Model',
-    modelDefault: 'Mặc định (theo model chung)',
+    modelDefault: 'Theo model chung',
     customScheduleLabel: 'Lịch tuỳ chỉnh',
     customPlaceholder: '0 9 * * 1-5 hoặc every 2h',
     customHint: 'Biểu thức cron (phút giờ ngày tháng thứ), hoặc khoảng lặp như "every 30m", "every 2h".',

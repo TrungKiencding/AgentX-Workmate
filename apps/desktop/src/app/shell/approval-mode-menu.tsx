@@ -49,10 +49,13 @@ export function ApprovalModeOptions({
       <DropdownMenuSeparator />
       <DropdownMenuRadioGroup onValueChange={value => onSelect(value as ApprovalMode)} value={mode}>
         {APPROVAL_MODE_ORDER.map(value => (
-          <DropdownMenuRadioItem className="items-start gap-2" key={value} value={value}>
+          // `h-auto`: a menu row is one line tall by default, and these carry a
+          // label AND a description — at the fixed height the rows ran into
+          // each other.
+          <DropdownMenuRadioItem className="h-auto items-start gap-2 py-1.5" key={value} value={value}>
             <span className="flex min-w-0 flex-col gap-0.5">
-              <span className="text-xs text-foreground">{labels[value]}</span>
-              <span className="text-2xs leading-snug text-(--ui-text-tertiary)">{descriptions[value]}</span>
+              <span className="text-sm text-foreground">{labels[value]}</span>
+              <span className="text-xs leading-snug text-(--ui-text-tertiary)">{descriptions[value]}</span>
             </span>
           </DropdownMenuRadioItem>
         ))}

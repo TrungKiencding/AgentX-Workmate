@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
+import { BOTS_LOCALES } from '@/plugins/agentx-bots/i18n'
 import { KANBAN_LOCALES } from '@/plugins/kanban/i18n'
 
 import { TRANSLATIONS } from './catalog'
+import { ownMessages } from './define-locale'
 import { DEFAULT_LOCALE, FALLBACK_LOCALE, LOCALE_OPTIONS } from './languages'
 import type { Locale } from './types'
 
@@ -77,5 +79,30 @@ describe('desktop i18n catalog', () => {
 
     expect([...en.keys()].filter(key => !translated.has(key))).toEqual([])
     expect([...translated.keys()].filter(key => !en.has(key))).toEqual([])
+  })
+
+  // Pilot feedback 2026-11-10: "language switching is not in sync" — pick a
+  // language other than Vietnamese or English and parts of the app stayed in
+  // English. Every language the picker offers must be whole: the core catalog
+  // and both bundled plugins.
+  describe.each(LOCALE_OPTIONS.map(option => option.id as Locale))('%s is a complete language', locale => {
+    it('has every core message', () => {
+      const en = leafMap(TRANSLATIONS[FALLBACK_LOCALE])
+      const own = leafMap(ownMessages(TRANSLATIONS[locale]))
+
+      expect([...en.keys()].filter(key => !own.has(key))).toEqual([])
+    })
+
+    it.each([
+      ['assistants', BOTS_LOCALES],
+      ['kanban', KANBAN_LOCALES]
+    ] as const)('has every %s plugin message', (_name, bundles) => {
+      const en = leafMap(bundles[FALLBACK_LOCALE])
+      const own = leafMap(bundles[locale])
+
+      expect(own.size, `no ${locale} bundle`).toBeGreaterThan(0)
+      expect([...en.keys()].filter(key => !own.has(key))).toEqual([])
+      expect([...own.keys()].filter(key => !en.has(key))).toEqual([])
+    })
   })
 })

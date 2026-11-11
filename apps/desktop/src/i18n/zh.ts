@@ -431,7 +431,11 @@ export const zh: Translations = {
       'composer.slash': '斜杠命令面板',
       'composer.help': '快速帮助',
       'composer.history': '切换弹窗/历史',
-      'composer.cancel': '关闭弹窗·取消运行'
+      'composer.cancel': '关闭弹窗·取消运行',
+      'view.newTerminal': '新建终端',
+      'view.nextTerminal': '下一个终端',
+      'view.prevTerminal': '上一个终端',
+      'view.closeTerminal': '关闭终端'
     }
   },
 
@@ -877,7 +881,8 @@ export const zh: Translations = {
           languageCode: 'ElevenLabs 语言',
           tagAudioEvents: '标记音频事件',
           diarize: '说话人区分'
-        }
+        },
+        echoTranscripts: '回显转写文字'
       },
       tts: {
         provider: '文字转语音提供方',
@@ -923,6 +928,13 @@ export const zh: Translations = {
         },
         piper: {
           voice: 'Piper 语音'
+        },
+        agentxGateway: {
+          voice: 'AgentX AI Gateway 语音'
+        },
+        deepinfra: {
+          model: 'DeepInfra TTS 模型',
+          voice: 'DeepInfra 语音'
         }
       },
       memory: {
@@ -974,7 +986,11 @@ export const zh: Translations = {
       terminal: {
         cwd: '工具与终端操作的默认项目目录。',
         persistentShell: '当后端支持时，在命令之间保留 Shell 状态。',
-        envPassthrough: '传入工具执行的环境变量。'
+        envPassthrough: '传入工具执行的环境变量。',
+        dockerImage: '执行后端为 Docker 时使用的容器镜像。',
+        singularityImage: '执行后端为 Singularity 时使用的镜像。',
+        modalImage: '执行后端为 Modal 时使用的镜像。',
+        daytonaImage: '执行后端为 Daytona 时使用的镜像。'
       },
       codeExecution: {
         mode: '代码执行被限定到当前项目的严格程度。'
@@ -1007,11 +1023,26 @@ export const zh: Translations = {
         enabled: '启用本地或提供方支持的语音转写。',
         elevenlabs: {
           languageCode: '可选的 ISO-639-3 语言代码。留空让 ElevenLabs 自动检测。'
-        }
+        },
+        echoTranscripts: '把语音消息的原始 🎙️ 转写文字发回聊天。'
       },
       updates: {
         nonInteractiveLocalChanges:
           '在没有终端可询问的情况下运行 `agentx update` 时（从本应用更新的远程后端，或消息渠道的 /update 命令），保留本地源码修改（暂存）或丢弃（放弃）。通过终端更新时始终会询问。'
+      },
+      tts: {
+        xai: {
+          voiceId: 'xAI 语音 ID（如 eve）或自定义语音 ID。',
+          language: '朗读语言代码（如 en、pt-BR），或填 "auto" 自动检测。',
+          speed: '播放速度。0.7 = 较慢，1.0 = 正常，1.5 = 较快。',
+          autoSpeechTags: '合成前让大模型在文稿中插入表现力音频标签（[laughing]、[sighs]）。',
+          optimizeStreamingLatency: '延迟与音质的取舍。0 = 音质最佳，2 = 延迟最低。',
+          sampleRate: '音频采样率（Hz）。越高音质越好，文件越大。',
+          bitRate: 'MP3 比特率（bps）。仅在编码为 mp3 时生效。'
+        },
+        neutts: {
+          device: 'NeuTTS 的本地推理设备。'
+        }
       }
     }),
     about: {
@@ -2297,10 +2328,15 @@ export const zh: Translations = {
       },
       TELEGRAM_ALLOWED_USERS: {
         label: '允许的 Telegram 用户 ID',
-        help: '在Telegram打开@userinfobot → 点击Start → 复制Id旁的数字。多个ID用逗号分隔。留空时可在Workmate批准私信请求，不会自动允许所有人访问。'
+        help: '在Telegram打开@userinfobot → 点击Start → 复制Id旁的数字。多个ID用逗号分隔。留空时可在Workmate批准私信请求，不会自动允许所有人访问。',
+        placeholder: '例如 12345678, 87654321'
       },
       TELEGRAM_PROXY: { label: '代理 URL', help: '仅在 Telegram 被屏蔽的网络中需要。' },
-      DISCORD_BOT_TOKEN: { label: 'Bot 令牌', help: '在 Discord 开发者门户创建应用，添加机器人，然后粘贴其令牌。' },
+      DISCORD_BOT_TOKEN: {
+        label: 'Bot 令牌',
+        help: '在 Discord 开发者门户创建应用，添加机器人，然后粘贴其令牌。',
+        placeholder: '粘贴 Discord 机器人令牌'
+      },
       DISCORD_ALLOWED_USERS: { label: '允许的 Discord 用户 ID', help: '推荐。逗号分隔的 Discord 用户 ID。' },
       DISCORD_REPLY_TO_MODE: { label: '回复方式', help: 'first、all 或 off。' },
       DISCORD_ALLOW_ALL_USERS: {
@@ -2327,10 +2363,10 @@ export const zh: Translations = {
       },
       SLACK_ALLOWED_USERS: { label: '允许的 Slack 用户 ID', help: '推荐。逗号分隔的 Slack 用户 ID。' },
       MATTERMOST_URL: { label: '服务器 URL', placeholder: 'https://mattermost.example.com' },
-      MATTERMOST_TOKEN: { label: 'Bot 令牌' },
+      MATTERMOST_TOKEN: { label: 'Bot 令牌', placeholder: '粘贴 Mattermost 机器人令牌' },
       MATTERMOST_ALLOWED_USERS: { label: '允许的用户 ID', help: '推荐。逗号分隔的 Mattermost 用户 ID。' },
       MATRIX_HOMESERVER: { label: 'Homeserver URL', placeholder: 'https://matrix.org' },
-      MATRIX_ACCESS_TOKEN: { label: '访问令牌' },
+      MATRIX_ACCESS_TOKEN: { label: '访问令牌', placeholder: '粘贴机器人账号的访问令牌' },
       MATRIX_USER_ID: { label: 'Bot 用户 ID', placeholder: '@agentx:example.org' },
       MATRIX_ALLOWED_USERS: { label: '允许的 Matrix 用户 ID', help: '推荐。@user:server 格式的逗号分隔用户 ID。' },
       SIGNAL_HTTP_URL: {

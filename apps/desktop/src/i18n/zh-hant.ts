@@ -368,7 +368,8 @@ export const zhHant = defineLocale({
       about: '關於',
       billing: '帳單',
       notifications: '通知',
-      browser: '瀏覽器'
+      browser: '瀏覽器',
+      plugins: '外掛'
     },
     account: {
       title: 'AgentX 帳號',
@@ -444,7 +445,18 @@ export const zhHant = defineLocale({
       deviceLastSeenUnknown: '最近使用時間不明',
       deviceLastSeenMinutes: n => `${n} 分鐘前使用`,
       deviceLastSeenHours: n => `${n} 小時前使用`,
-      deviceLastSeenDays: n => `${n} 天前使用`
+      deviceLastSeenDays: n => `${n} 天前使用`,
+      deviceColDevice: '裝置',
+      deviceColRevoked: '撤銷時間',
+      deviceColActions: '操作',
+      deviceInstalls: n => `${n} 個安裝`,
+      deviceInstallsTitle: '安裝',
+      devicePageRange: (from, to, total) => `顯示第 ${from}–${to} 筆，共 ${total} 筆`,
+      devicePage: (page, pages) => `第 ${page} / ${pages} 頁`,
+      deviceRevokeOthers: '撤銷所有其他裝置',
+      deviceRevokeOthersConfirmTitle: '撤銷所有其他裝置？',
+      deviceRevokeOthersConfirmDesc: n => `你其他裝置上的 ${n} 個安裝將無法再使用你的帳號。這台裝置會維持登入。`,
+      deviceRevokeGroupNote: n => `這台裝置有 ${n} 個安裝，它們會一併被撤銷。`
     },
     notifications: {
       title: '通知',
@@ -655,7 +667,9 @@ export const zhHant = defineLocale({
         noneAvailable: '目前沒有可開啟的寵物。',
         turnOnFailed: '無法開啟寵物。',
         turnOffFailed: '無法關閉寵物。'
-      }
+      },
+      themeSearchPlaceholder: '搜尋你的主題或 VS Code Marketplace…',
+      themeSearchEmpty: query => `沒有符合「${query}」的已安裝主題。`
     },
     fieldLabels: defineFieldCopy({
       model: '預設模型',
@@ -743,7 +757,8 @@ export const zhHant = defineLocale({
           languageCode: 'ElevenLabs 語言',
           tagAudioEvents: '標記音訊事件',
           diarize: '說話者分離'
-        }
+        },
+        echoTranscripts: '回顯轉錄文字'
       },
       tts: {
         provider: '文字轉語音提供方',
@@ -789,6 +804,13 @@ export const zhHant = defineLocale({
         },
         piper: {
           voice: 'Piper 語音'
+        },
+        agentxGateway: {
+          voice: 'AgentX AI Gateway 語音'
+        },
+        deepinfra: {
+          model: 'DeepInfra TTS 模型',
+          voice: 'DeepInfra 語音'
         }
       },
       memory: {
@@ -840,7 +862,11 @@ export const zhHant = defineLocale({
       terminal: {
         cwd: '工具與終端機操作的預設專案資料夾。',
         persistentShell: '後端支援時，在指令之間保留 Shell 狀態。',
-        envPassthrough: '傳入工具執行的環境變數。'
+        envPassthrough: '傳入工具執行的環境變數。',
+        dockerImage: '執行後端為 Docker 時使用的容器映像檔。',
+        singularityImage: '執行後端為 Singularity 時使用的映像檔。',
+        modalImage: '執行後端為 Modal 時使用的映像檔。',
+        daytonaImage: '執行後端為 Daytona 時使用的映像檔。'
       },
       codeExecution: {
         mode: '程式碼執行被限制在目前專案中的嚴格程度。'
@@ -873,11 +899,26 @@ export const zhHant = defineLocale({
         enabled: '啟用本機或提供方支援的語音轉寫。',
         elevenlabs: {
           languageCode: '可選的 ISO-639-3 語言代碼。留空讓 ElevenLabs 自動偵測。'
-        }
+        },
+        echoTranscripts: '把語音訊息的原始 🎙️ 轉錄文字貼回對話。'
       },
       updates: {
         nonInteractiveLocalChanges:
           '在沒有終端機可詢問的情況下執行 `agentx update` 時（從本應用程式更新的遠端後端，或訊息頻道的 /update 指令），保留本機原始碼變更（stash）或丟棄（discard）。終端機更新一律會詢問。'
+      },
+      tts: {
+        xai: {
+          voiceId: 'xAI 語音 ID（如 eve）或自訂語音 ID。',
+          language: '朗讀語言代碼（如 en、pt-BR），或填 "auto" 自動偵測。',
+          speed: '播放速度。0.7 = 較慢，1.0 = 正常，1.5 = 較快。',
+          autoSpeechTags: '合成前讓大型語言模型在文稿中插入表現力音訊標籤（[laughing]、[sighs]）。',
+          optimizeStreamingLatency: '延遲與音質的取捨。0 = 音質最佳，2 = 延遲最低。',
+          sampleRate: '音訊取樣率（Hz）。越高音質越好，檔案越大。',
+          bitRate: 'MP3 位元率（bps）。僅在編碼為 mp3 時生效。'
+        },
+        neutts: {
+          device: 'NeuTTS 的本機推論裝置。'
+        }
       }
     }),
     about: {
@@ -919,7 +960,12 @@ export const zhHant = defineLocale({
       imported: '設定已匯入',
       invalidJson: '設定 JSON 無效',
       keepAwakeTitle: '保持電腦喚醒',
-      keepAwakeDesc: '阻止本機睡眠，讓長時間或整夜執行持續進行。螢幕仍可變暗。'
+      keepAwakeDesc: '阻止本機睡眠，讓長時間或整夜執行持續進行。螢幕仍可變暗。',
+      attachmentSizeTitle: '預覽／圖片載入大小上限',
+      attachmentSizeDesc:
+        '桌面版會為預覽和附加圖片載入的本機檔案大小上限，單位為 MB。預設為 16。遠端的非圖片附件另有 256 MB 上限。設得太高會把整個檔案載入記憶體，可能導致應用程式當機。',
+      attachmentSizeUnit: 'MB',
+      attachmentSizeLabel: '預覽／圖片載入大小上限（MB）'
     },
     memoryEntries: {
       title: 'AgentX 記住的內容',
@@ -1076,7 +1122,40 @@ export const zhHant = defineLocale({
       sshErrPlatform: '不支援的遠端平台。AgentX Workmate Desktop 的 SSH 模式支援 Linux、macOS 和 Windows 遠端主機。',
       sshErrTimeout: 'SSH 連線逾時。主機可能無法存取或處於睡眠狀態。',
       sshErrUpdateRequired: '使用 Desktop SSH 連線前，請更新遠端主機上的 AgentX。',
-      sshErrUnknown: 'SSH 連線失敗。'
+      sshErrUnknown: 'SSH 連線失敗。',
+      modeTitle: '連線模式',
+      remoteAuthHint: '託管閘道使用 OAuth 或帳號密碼；自行架設的閘道可能使用工作階段權杖。',
+      cloudTitle: 'AgentX Cloud',
+      cloudDesc: '登入一次 AgentX Cloud，即可從你帳號下的代理中挑選，無需貼上網址。',
+      cloudSignInTitle: 'AgentX Cloud',
+      cloudSignIn: '登入 AgentX Cloud',
+      cloudSignedIn: '已登入 AgentX Cloud',
+      cloudNeedsSignIn: '登入 AgentX Cloud 以探索你帳號下的代理。',
+      cloudSignedInDesc: '你已登入。請在下方挑選一個代理；工作階段會自動更新。',
+      cloudAgentsTitle: '你的代理',
+      cloudOrgPickerTitle: '選擇組織',
+      cloudOrgSelect: '選擇',
+      cloudOrgChange: '切換組織',
+      cloudOrgRole: role => `角色：${role}`,
+      cloudLoadingAgents: '正在載入你的代理…',
+      cloudNoAgents: {
+        before: '此帳號下沒有代理。請先到 ',
+        linkText: 'Nous 入口網站',
+        after: ' 建立一個，再重新整理。'
+      },
+      cloudRefresh: '重新整理',
+      cloudConnect: '連線',
+      cloudConnecting: '連線中…',
+      cloudDiscoverFailed: '無法載入你的 AgentX Cloud 代理',
+      cloudConnectFailed: '無法連線到該代理',
+      cloudSignInFailed: 'AgentX Cloud 登入失敗',
+      cloudSignedOutTitle: '已登出 AgentX Cloud',
+      cloudSignedOutMessage: '已清除 AgentX Cloud 工作階段。',
+      cloudConnectedTitle: '已連線',
+      cloudConnectedPill: '已連線',
+      cloudConnectedTo: name => `已連線到 ${name}。`,
+      cloudAgentProvisioning: '正在佈建…',
+      cloudStatusLabel: status => `狀態：${status}`
     },
     keys: {
       loading: '正在載入 API 金鑰和憑證...',
@@ -1268,7 +1347,14 @@ export const zhHant = defineLocale({
         mcp: { label: 'MCP', hint: 'MCP 工具路由' },
         title_generation: { label: '標題生成', hint: '工作階段標題' },
         curator: { label: '策展器', hint: '技能使用審查' }
-      }
+      },
+      defaultsLabel: '預設值',
+      reasoning: '思考',
+      reasoningOff: '關閉',
+      defaultsFailed: '無法儲存模型預設值',
+      fallbackAdd: '新增備用模型',
+      fallbackEmpty: '沒有備用模型——除非失敗，否則使用預設模型。',
+      notInCatalog: '不在此供應商的模型清單中——呼叫可能會改用備用模型。'
     },
     providers: {
       connectAccount: '連結帳號',
@@ -1290,7 +1376,13 @@ export const zhHant = defineLocale({
         title: '本地 / 自訂端點',
         description: '將 AgentX 指向任意 OpenAI 相容端點（Zyphra、vLLM、llama.cpp、Ollama 等）。'
       },
-      loading: '正在載入提供方...'
+      loading: '正在載入提供方...',
+      disconnect: '中斷連線',
+      disconnectInTerminal: '中斷連線（在終端機中執行移除指令）',
+      removeExternalGeneric: provider => `${provider} 由其自身的 CLI 管理——請在那裡移除。`,
+      removeTerminalConfirm: (provider, command) =>
+        `要中斷 ${provider} 的連線嗎？這會在終端機執行「${command}」以清除憑證。`,
+      removeTerminalRunning: provider => `正在終端機中中斷 ${provider} 的連線…`
     },
     sessions: {
       loading: '正在載入已封存工作階段…',
@@ -1382,6 +1474,32 @@ export const zhHant = defineLocale({
         selectedMessage: backend => `終端命令現在透過 ${backend} 執行。將套用於新工作階段。`,
         failedSelect: backend => `選擇 ${backend} 失敗`,
         needsSetupHint: '現在即可選擇此後端——但在完成設定前命令將會失敗。'
+      },
+      loadingModels: '正在載入模型目錄…',
+      modelSectionTitle: '模型',
+      modelCount: count => `${count} 個模型`,
+      modelInUse: '使用中',
+      modelDefault: '預設',
+      modelInactiveHint: '請先選擇此後端，再變更其模型。',
+      modelSelectedTitle: '已選擇模型',
+      modelSelectedMessage: model => `${model} 將套用於新的工作階段。`,
+      failedSelectModel: model => `無法選擇 ${model}`
+    },
+    plugins: {
+      title: '桌面外掛',
+      blurb: '內建或放入 desktop-plugins 資料夾的外掛。停用後會立即卸載。',
+      count: n => `已安裝 ${n} 個`,
+      openFolder: '開啟外掛資料夾',
+      rescan: '重新掃描',
+      reveal: '在檔案管理員中顯示',
+      enable: '啟用',
+      disable: '停用',
+      failed: '失敗',
+      empty: '尚未安裝任何桌面外掛。',
+      kinds: {
+        bundled: '內建',
+        disk: '磁碟上',
+        runtime: '執行階段'
       }
     }
   },
@@ -1693,7 +1811,20 @@ export const zhHant = defineLocale({
         servingUntil: date => `AgentX Gateway 服務到 ${date}。`,
         servedNoMore: 'AgentX Gateway 已停止服務。',
         keptOff: names => `AgentX AgentHub 保持關閉：${names}`
-      }
+      },
+      editedHere: '已在此處編輯',
+      updateTo: version => `有可用更新 ${version}`,
+      updateThis: '更新',
+      updateAllCount: count => `全部更新（${count}）`,
+      updateOneStarted: name => `正在更新 ${name}`,
+      keptOnUpdateAll: count =>
+        `「全部更新」會保留你在這台電腦上編輯過的 ${count} 個技能——如要取代，請在其列中改用 AgentHub 版本。`,
+      replaceWithHub: '取代為 AgentHub 版本…',
+      replaceTitle: name => `要將 ${name} 取代為 AgentHub 版本嗎？`,
+      replaceDescription: version =>
+        `你在這台電腦上編輯過此技能。AgentHub 的 ${version} 版本將取代它；你編輯過的副本會先備份到 ~/.agentx/skills/.hub/backups/。`,
+      replaceConfirm: '備份並取代',
+      replaceStarted: name => `正在將 ${name} 取代為 AgentHub 版本（已備份你的副本）`
     },
     publish: {
       upload: '上傳到 AgentHub',
@@ -1747,7 +1878,9 @@ export const zhHant = defineLocale({
         rate_limited: '上傳太頻繁，請稍後再試。',
         kind_mismatch: 'AgentHub 上同名的技能屬於另一種類型。',
         workspace: 'AgentHub 未接受此工作區 —— 你已不是成員，或尚未選擇工作區。'
-      }
+      },
+      bumpAndRetry: version => `升級至 ${version} 並上傳`,
+      bumping: '正在升級版本…'
     }
   },
 
@@ -1782,7 +1915,19 @@ export const zhHant = defineLocale({
       memoryTooLong: '超出記憶的字元上限。請縮短內容，或先刪除其他記憶。',
       memoryBlocked: '已攔截：內容看起來像是對助理的指令。',
       memoryDrift: '記憶檔案曾被手動編輯，無法在這裡修改。請讓 AgentX 整理記憶。'
-    }
+    },
+    share: '分享圖譜',
+    shareHint: '複製代碼即可分享此圖譜，或貼上代碼來載入。僅包含版面配置，不含你的記憶或技能內容。',
+    shareTitle: '匯入／匯出圖譜',
+    sharePlaceholder: '貼上圖譜代碼…',
+    copy: '複製圖譜代碼',
+    copied: '已複製！',
+    importMap: '匯入圖譜',
+    importBtn: '載入',
+    importEmpty: '請貼上圖譜代碼以載入。',
+    importSuccess: nodes => `已載入含 ${nodes} 個節點的圖譜。`,
+    importedBadge: '匯入的圖譜',
+    resetToMine: '回到我的圖譜'
   },
   agents: {
     close: '關閉代理',
@@ -1888,11 +2033,12 @@ export const zhHant = defineLocale({
     settingsFields: '設定欄位',
     mcpServers: 'MCP 伺服器',
     archivedChats: '已封存聊天',
-    sections: { sessions: '工作階段', system: '系統', usage: '使用量' },
+    sections: { sessions: '工作階段', system: '系統', usage: '使用量', maintenance: '維護' },
     sectionDescriptions: {
       sessions: '搜尋和管理工作階段',
       system: '狀態、記錄和系統動作',
-      usage: '一段時間內的詞元、費用和技能活動'
+      usage: '一段時間內的詞元、費用和技能活動',
+      maintenance: '診斷、備份、策展器與記憶資料'
     },
     nav: {
       newChat: { title: '新對話', detail: '開始新的對話' },
@@ -1946,7 +2092,64 @@ export const zhHant = defineLocale({
     noModelUsage: '暫無模型使用量。',
     topSkills: '常用技能',
     noSkillActivity: '暫無技能活動。',
-    actions: count => `${count} 次動作`
+    actions: count => `${count} 次動作`,
+    paletteFooter: {
+      move: '移動',
+      select: '選擇',
+      close: '關閉'
+    },
+    projects: '專案',
+    openFolder: '以專案開啟資料夾…',
+    openFolderAt: path => `以專案開啟資料夾 — ${path}`,
+    newSessionInProject: project => `在 ${project} 中開始新工作階段`,
+    commands: '命令',
+    logFile: '記錄檔',
+    logLevel: '等級',
+    logSearchPlaceholder: '篩選記錄行…',
+    maintenance: {
+      runOps: '診斷',
+      doctor: '執行診斷',
+      doctorDesc: '檢查安裝、設定與供應商的健康狀態',
+      securityAudit: '安全稽核',
+      securityAuditDesc: '掃描設定與技能中的風險項目',
+      backup: '建立備份',
+      backupDesc: '將設定、記憶、技能與工作階段壓縮成 zip',
+      debugShare: '分享除錯資訊',
+      debugShareDesc: '上傳已去識別化的報告與記錄，取得分享連結（6 小時後自動刪除）',
+      debugShareRunning: '正在上傳除錯報告…',
+      debugShareLinks: '分享連結',
+      debugShareFailed: '分享除錯資訊失敗',
+      copyLink: '複製連結',
+      linkCopied: '已複製連結',
+      curator: '技能策展器',
+      curatorDesc: '在背景檢視並封存過時的代理建立技能',
+      curatorPaused: '已暫停',
+      curatorActive: '運作中',
+      curatorDisabled: '已停用',
+      curatorLastRun: when => `上次執行 ${when}`,
+      curatorNeverRan: '從未執行',
+      pause: '暫停',
+      resume: '繼續',
+      runNow: '立即執行',
+      memoryData: '記憶資料',
+      memoryDataDesc: '注入每個工作階段的內建記憶檔案',
+      memoryProvider: name => `目前的提供者：${name}`,
+      builtinMemory: '內建',
+      memoryFile: '代理記憶（MEMORY.md）',
+      userFile: '使用者檔案（USER.md）',
+      bytes: size => size,
+      empty: '空白',
+      resetMemory: '重設記憶',
+      resetUser: '重設使用者檔案',
+      resetAll: '全部重設',
+      resetConfirm: target => `要刪除 ${target} 嗎？此操作無法復原。`,
+      resetDone: files => `已刪除 ${files}。`,
+      resetFailed: '重設記憶失敗',
+      actionStarted: name => `${name} 已開始 — 正在追蹤記錄…`,
+      actionFailed: name => `${name} 啟動失敗`,
+      running: '執行中…',
+      viewLog: '操作記錄'
+    }
   },
 
   messaging: {
@@ -2639,7 +2842,10 @@ export const zhHant = defineLocale({
       splitUp: '上方',
       hideTabBar: '隱藏分頁列',
       openInNewTab: '在新分頁中開啟',
-      openInSplit: '在分割畫面中開啟'
+      openInSplit: '在分割畫面中開啟',
+      deleteConfirmTitle: title => `要刪除「${title}」嗎？`,
+      deleteConfirmBody: '這個對話及其訊息將被永久移除，無法復原。若之後可能還需要，請改用封存。',
+      deleteConfirmAction: '刪除對話'
     },
     dateDivider: {
       today: '今天',
@@ -2648,7 +2854,14 @@ export const zhHant = defineLocale({
       lastWeek: '上週',
       thisMonth: '本月'
     },
-    chats: '聊天'
+    chats: '聊天',
+    account: {
+      menuLabel: '帳號選單',
+      accountSettings: '帳號',
+      settings: '設定',
+      shortcuts: '鍵盤快速鍵',
+      signOut: '登出'
+    }
   },
 
   composer: {
@@ -3177,7 +3390,8 @@ export const zhHant = defineLocale({
     price: (input, output) => `${input} 輸入 / ${output} 輸出 每 Mtok`,
     change: '變更',
     startChatting: '開始',
-    docs: provider => `${provider} 文件`
+    docs: provider => `${provider} 文件`,
+    localApiKeyPlaceholder: 'API 金鑰（選填——僅在你的端點需要時填寫）'
   },
 
   webmate: {
@@ -3546,8 +3760,22 @@ export const zhHant = defineLocale({
       openModelPicker: '開啟模型選擇器',
       modelPinned: '已由你固定；新對話將使用此模型而非「設定」中的預設模型',
       modelTitle: (provider, model) => `模型 · ${provider}：${model}`,
-      providerModelTitle: (provider, model) => `${provider} · ${model}`
-    }
+      providerModelTitle: (provider, model) => `${provider} · ${model}`,
+      customizeTitle: '在狀態列顯示',
+      hideStatusbar: '隱藏狀態列',
+      toggleApprovalMode: '核准',
+      toggleBackendVersion: '後端版本',
+      toggleCommandCenter: '命令中心',
+      toggleContextUsage: '情境用量',
+      toggleRunningTimer: '本輪計時',
+      toggleSessionTimer: '工作階段計時',
+      toggleTerminal: '終端機',
+      toggleVersion: '版本與更新',
+      toggleWorkspace: '工作區',
+      webhooks: 'Webhook',
+      openWebhooks: '開啟 Webhook'
+    },
+    skipToContent: '跳到內容'
   },
 
   rightSidebar: {
@@ -3787,7 +4015,11 @@ export const zhHant = defineLocale({
       sendEdited: '傳送編輯後的訊息',
       attachingFile: '正在附加…',
       expandMessage: '展開訊息',
-      scrollToBottom: '捲動到底部'
+      scrollToBottom: '捲動到底部',
+      jumpToLatest: '最新',
+      turnDone: 'AgentX 已回覆完畢',
+      compactionLabel: '情境已摘要',
+      compactionNote: '助理會從這份摘要繼續，以節省情境空間。上方內容仍保存在這裡，但無法再編輯或還原。'
     },
     approval: {
       gatewayDisconnected: 'AgentX 未連線',
@@ -4135,7 +4367,10 @@ export const zhHant = defineLocale({
       systemNote: platform => `↻ 已移交到 ${platform} — 隨時可在此處恢復。`,
       failed: error => `移交失敗：${error}`,
       timedOut: '等待 AgentX 背景服務逾時。`agentx gateway` 是否正在執行？'
-    }
+    },
+    archivedTitled: title => `已封存「${title}」`,
+    undo: '復原',
+    unarchiveFailed: '無法還原這個對話。請到「設定 → 已封存聊天」尋找。'
   },
 
   turnError: {
@@ -4359,5 +4594,70 @@ export const zhHant = defineLocale({
   findInPage: {
     next: '下一個相符項目',
     previous: '上一個相符項目'
+  },
+  webhooks: {
+    search: '搜尋 Webhook…',
+    loading: '正在載入 Webhook…',
+    loadFailed: 'Webhook 載入失敗',
+    subscriptions: count => `訂閱（${count}）`,
+    hint: '接收器執行後，訂閱的變更會即時重新載入。已停用的訂閱會拒絕傳入事件。',
+    empty: '尚無 Webhook 訂閱。',
+    disabledTitle: 'Webhook 接收器已停用',
+    disabledBody:
+      'Webhook 是獨立的閘道平台。請在此啟用以接受傳入的 HTTP 事件；只有訂閱要投遞到 Telegram、Discord、Slack 或其他頻道時，才需要聊天頻道。',
+    enable: '啟用 Webhook',
+    enabling: '啟用中…',
+    enabled: name => `已啟用：「${name}」`,
+    disabled: name => `已停用：「${name}」`,
+    enableRow: '啟用',
+    disableRow: '停用',
+    delete: '刪除',
+    deleting: '刪除中…',
+    deleted: 'Webhook 已刪除',
+    deleteTitle: '刪除 Webhook',
+    deleteDescPrefix: '這將永久移除 ',
+    deleteDescSuffix: '。此操作無法復原。',
+    deleteFailed: name => `刪除「${name}」失敗`,
+    toggleFailed: (name, enabled) => `${enabled ? '開啟' : '關閉'}「${name}」失敗`,
+    newSubscription: '新增訂閱',
+    restarting: '閘道重新啟動中…',
+    restartNeeded: 'Webhook 已啟用，但閘道仍需重新啟動，接收器才能上線。',
+    restartGateway: '重新啟動閘道',
+    restartingGateway: '重新啟動中…',
+    restartFailed: detail => `閘道重新啟動失敗${detail}`,
+    enabledRestarting: 'Webhook 已啟用；閘道重新啟動中…',
+    all: '（全部）',
+    deliverOnly: '僅投遞',
+    createdTitle: '訂閱已建立',
+    createdSecretHint: '請立即複製密鑰——它只會顯示一次。',
+    webhookUrl: 'Webhook 網址',
+    secretOnce: '密鑰（僅顯示一次）',
+    done: '完成',
+    fieldName: '名稱',
+    fieldNamePlaceholder: '例如 github-push',
+    fieldDescription: '說明',
+    fieldDescriptionPlaceholder: '這個 Webhook 的用途（選填）',
+    fieldEvents: '事件',
+    fieldEventsPlaceholder: '以逗號分隔，留空表示全部',
+    fieldSkills: '技能',
+    fieldSkillsPlaceholder: '以逗號分隔的技能名稱（選填）',
+    fieldDeliver: '投遞至',
+    fieldDeliverOnly: '僅投遞內容',
+    fieldPrompt: '提示詞',
+    fieldPromptPlaceholder: '此 Webhook 觸發時給代理的指示（選填）',
+    nameRequired: '請輸入名稱',
+    create: '建立',
+    creating: '建立中…',
+    created: '已建立',
+    createFailed: detail => `建立失敗：${detail}`,
+    copy: '複製',
+    deliverOptions: {
+      log: '記錄',
+      telegram: 'Telegram',
+      discord: 'Discord',
+      slack: 'Slack',
+      email: '電子郵件',
+      github_comment: 'GitHub 留言'
+    }
   }
 })
