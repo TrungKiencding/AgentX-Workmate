@@ -2617,7 +2617,14 @@ class ShellFileOperations(FileOperations):
             svc = get_service()
         except Exception:  # noqa: BLE001
             return ""
-        if svc is None or not svc.enabled_for(path):
+        try:
+            # Inside the guard like everything else here: this call resolves
+            # the workspace, and an exception from it (a deleted cwd) used to
+            # escape and make a write that had already landed report failure.
+            enabled = svc is not None and svc.enabled_for(path)
+        except Exception:  # noqa: BLE001
+            return ""
+        if not enabled:
             return ""
 
         # Build a line-shift map when we have both pre and post — it

@@ -1679,3 +1679,58 @@ CRON_HINT_PREFIX = "[IMPORTANT: You are running as a scheduled cron job. "
 # A live model switch is recorded as a user-role bookkeeping row
 # (``display_kind="model_switch"``).
 MODEL_SWITCH_MARKER_PREFIX = "[System: The active model for this chat has changed to "
+
+
+# ---------------------------------------------------------------------------
+# A working directory that was deleted under the process
+# ---------------------------------------------------------------------------
+
+def safe_getcwd() -> str:
+    """``os.getcwd()``, tolerating a working directory that no longer exists.
+
+    A long-lived process can outlive its cwd — the messaging gateway keeps
+    running across an app upgrade that removes the checkout it was started
+    from. ``os.getcwd()`` then raises a bare ``[Errno 2] No such file or
+    directory`` with no filename, which read as a failure of whatever happened
+    to ask (pilot feedback 2026-11: ``write_file`` reported exactly that for a
+    file it had just written). Falls back to ``TERMINAL_CWD``, then the home
+    directory.
+    """
+    try:
+        return os.getcwd()
+    except OSError:
+        fallback = os.environ.get("TERMINAL_CWD") or ""
+        if fallback and os.path.isdir(fallback):
+            return fallback
+        return os.path.expanduser("~")
+
+
+def heal_working_directory() -> "str | None":
+    """Move the process out of a deleted working directory.
+
+    Returns the directory moved to, or ``None`` when the cwd was fine (the
+    overwhelmingly common case: one ``getcwd`` call). Hundreds of call sites
+    use ``os.getcwd()`` and relative paths; guarding each is whack-a-mole,
+    while a process whose cwd is gone has nothing to lose from a new one.
+    Called before every tool dispatch.
+    """
+    try:
+        os.getcwd()
+        return None
+    except OSError:
+        pass
+    candidates = [os.environ.get("TERMINAL_CWD") or ""]
+    try:
+        candidates.append(str(get_hermes_home()))
+    except Exception:  # noqa: BLE001 - any existing directory will do
+        pass
+    candidates.append(os.path.expanduser("~"))
+    for candidate in candidates:
+        if not candidate or not os.path.isdir(candidate):
+            continue
+        try:
+            os.chdir(candidate)
+        except OSError:
+            continue
+        return candidate
+    return None

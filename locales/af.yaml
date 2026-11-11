@@ -446,3 +446,10 @@ license:
   read_only_expired:    "Jou {plan}-plan het op {date} verval. Workmate is in leesalleen-modus."
   read_only_revoked:    "Jou AgentX-lisensie is herroep. Workmate is in leesalleen-modus."
   contact:              "Kontak {contact} om 'n lisensie te kry of te hernu."
+
+file_mutation:
+  label:         "Lêerwysiging-kontrole"
+  summary:       "{count} lêer(s) is NIE in hierdie beurt gewysig nie, ongeag wat die teks hierbo mag voorstel. Gebruik `git status` of `read_file` om te bevestig."
+  summary_plain: "{count} lêer(s) kon nie in hierdie beurt gestoor word nie, ongeag wat die antwoord hierbo sê:"
+  more:          "… en nog {count}"
+  failed:        "het misluk"

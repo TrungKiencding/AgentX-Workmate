@@ -31,6 +31,7 @@ import threading
 import time
 from typing import Dict, Any, List, Optional, Tuple
 
+from hermes_constants import heal_working_directory
 from tools.registry import (
     CHECK_FN_CACHE_BYPASS,
     check_fn_cache_epoch,
@@ -1216,6 +1217,17 @@ def handle_function_call(
     # downstream hook (pre/post, edit approval, guardrails) sees the real
     # tool name, not the bridge.
     _dispatch_start = time.monotonic()
+
+    # A long-lived process can outlive its working directory (the messaging
+    # gateway across an app upgrade that removes its checkout). Every
+    # os.getcwd() then raises a bare "[Errno 2] No such file or directory",
+    # which tools report as their own failure — write_file said so for a file
+    # it had just written. Step out of a dead cwd before running any tool.
+    _healed_cwd = heal_working_directory()
+    if _healed_cwd:
+        logger.warning(
+            "The working directory no longer exists; continuing from %s", _healed_cwd
+        )
 
     def _return_bridge_result(result: Any) -> Any:
         _emit_post_tool_call_hook(

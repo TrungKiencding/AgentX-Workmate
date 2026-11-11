@@ -446,3 +446,10 @@ license:
   read_only_expired:    "{plan} planınızın süresi {date} tarihinde doldu. Workmate salt okunur modda."
   read_only_revoked:    "AgentX lisansınız iptal edildi. Workmate salt okunur modda."
   contact:              "Lisans almak veya yenilemek için {contact} ile iletişime geçin."
+
+file_mutation:
+  label:         "Dosya değişikliği denetimi"
+  summary:       "Bu turda {count} dosya DEĞİŞTİRİLMEDİ; yukarıdaki ifade aksini düşündürse bile. Doğrulamak için `git status` veya `read_file` çalıştırın."
+  summary_plain: "Bu turda {count} dosya kaydedilemedi; yukarıdaki yanıt ne derse desin:"
+  more:          "… ve {count} tane daha"
+  failed:        "başarısız"

@@ -446,3 +446,10 @@ license:
   read_only_expired:    "O seu plano {plan} expirou em {date}. O Workmate está em modo só de leitura."
   read_only_revoked:    "A sua licença AgentX foi revogada. O Workmate está em modo só de leitura."
   contact:              "Contacte {contact} para obter ou renovar uma licença."
+
+file_mutation:
+  label:         "Verificação de arquivos"
+  summary:       "{count} arquivo(s) NÃO foram modificados neste turno, independentemente do que o texto acima sugira. Execute `git status` ou `read_file` para confirmar."
+  summary_plain: "{count} arquivo(s) não puderam ser salvos neste turno, independentemente do que a resposta acima diga:"
+  more:          "… e mais {count}"
+  failed:        "falhou"

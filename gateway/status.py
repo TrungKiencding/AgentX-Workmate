@@ -624,6 +624,16 @@ def _record_matches_live_gateway_pid(
     return _record_looks_like_gateway(record)
 
 
+_GATEWAY_CODE_ROOT = str(Path(__file__).resolve().parent.parent)
+
+
+def running_gateway_code_root(pid_path: Optional[Path] = None) -> Optional[str]:
+    """The checkout the running gateway was started from, when it recorded one."""
+    record = _read_pid_record(pid_path) or {}
+    root = record.get("code_root")
+    return root if isinstance(root, str) and root.strip() else None
+
+
 def _build_pid_record() -> dict:
     return {
         "pid": os.getpid(),
@@ -635,6 +645,11 @@ def _build_pid_record() -> dict:
         # explicit cross-profile --replace can place its planned-takeover
         # marker where the target process will actually read it.
         "hermes_home": str(_canonical_hermes_home(_get_process_hermes_home())),
+        # The checkout this gateway's code was loaded from. The desktop starts
+        # the gateway detached, so it outlives an app upgrade that replaces
+        # (and deletes) that checkout; whoever finds it running can then tell
+        # it is executing code that is no longer on disk.
+        "code_root": _GATEWAY_CODE_ROOT,
     }
 
 

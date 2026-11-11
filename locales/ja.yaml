@@ -446,3 +446,10 @@ license:
   read_only_expired:    "{plan} プランは {date} に期限切れになりました。Workmate は閲覧専用モードです。"
   read_only_revoked:    "AgentX ライセンスは取り消されました。Workmate は閲覧専用モードです。"
   contact:              "ライセンスの取得または更新については {contact} にお問い合わせください。"
+
+file_mutation:
+  label:         "ファイル変更の確認"
+  summary:       "このターンでは {count} 個のファイルが変更されていません（上の文面がどう書かれていても）。`git status` または `read_file` で確認してください。"
+  summary_plain: "このターンでは {count} 個のファイルを保存できませんでした（上の返信の内容にかかわらず）："
+  more:          "… ほか {count} 件"
+  failed:        "失敗"

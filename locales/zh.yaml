@@ -446,3 +446,10 @@ license:
   read_only_expired:    "你的 {plan} 套餐已于 {date} 到期。Workmate 处于只读模式。"
   read_only_revoked:    "你的 AgentX 许可证已被撤销。Workmate 处于只读模式。"
   contact:              "请联系 {contact} 获取或续订许可证。"
+
+file_mutation:
+  label:         "文件修改核对"
+  summary:       "本轮有 {count} 个文件并未被修改，无论上文如何表述。请运行 `git status` 或 `read_file` 确认。"
+  summary_plain: "本轮有 {count} 个文件未能保存，无论上面的回复怎么说："
+  more:          "…… 另有 {count} 个"
+  failed:        "失败"

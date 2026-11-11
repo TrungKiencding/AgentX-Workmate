@@ -514,7 +514,13 @@ def finalize_turn(
         try:
             _failed = getattr(agent, "_turn_failed_file_mutations", None) or {}
             if _failed and agent._file_mutation_verifier_enabled():
-                footer = agent._format_file_mutation_failure_footer(_failed)
+                # Scratch files the reply never mentions are not something it
+                # can be over-claiming; the rest is said in the reader's
+                # language, in plain words off the developer surfaces.
+                _failed = agent._file_mutations_worth_reporting(_failed, final_response)
+                footer = agent._format_file_mutation_failure_footer(
+                    _failed, plain=agent._verifier_footer_is_plain()
+                )
                 if footer:
                     final_response = final_response.rstrip() + "\n\n" + footer
         except Exception as _ver_err:

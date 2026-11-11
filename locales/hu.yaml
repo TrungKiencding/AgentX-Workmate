@@ -446,3 +446,10 @@ license:
   read_only_expired:    "A(z) {plan} csomagod {date} napján lejárt. A Workmate csak olvasható módban van."
   read_only_revoked:    "Az AgentX-licencedet visszavonták. A Workmate csak olvasható módban van."
   contact:              "Licenc igényléséhez vagy megújításához fordulj ehhez: {contact}."
+
+file_mutation:
+  label:         "Fájlmódosítás-ellenőrzés"
+  summary:       "{count} fájl NEM módosult ebben a körben, bármit is sugall a fenti szöveg. Ellenőrizd a `git status` vagy a `read_file` paranccsal."
+  summary_plain: "{count} fájlt nem sikerült menteni ebben a körben, bármit is állít a fenti válasz:"
+  more:          "… és még {count}"
+  failed:        "sikertelen"

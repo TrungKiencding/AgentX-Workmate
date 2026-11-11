@@ -379,3 +379,130 @@ def test_file_mutating_tools_set_shape():
     track it.  This test fails loudly on unilateral additions.
     """
     assert _FILE_MUTATING_TOOLS == frozenset({"write_file", "patch"})
+
+
+# ── who the footer is for, and what it should not report ───────────────────
+#
+# Pilot feedback 2026-11 (Telegram, a Vietnamese non-developer): a reply about
+# editing a reminder ended with the English footer, tool tags and "Run git
+# status or read_file" — about two scratch scripts the reply never mentioned.
+
+
+class TestFooterAudience:
+    FAILED = {
+        "/Users/x/report.md": {"tool": "write_file", "error_preview": "[Errno 13] Permission denied"},
+    }
+
+    def test_developer_surfaces_keep_the_full_english_footer(self):
+        from run_agent import AIAgent
+
+        out = AIAgent._format_file_mutation_failure_footer(self.FAILED, lang="en")
+
+        assert out.startswith("⚠️ File-mutation verifier: 1 file(s) were NOT modified")
+        assert "`git status`" in out
+        assert "[write_file] [Errno 13] Permission denied" in out
+
+    def test_plain_footer_drops_tool_tags_raw_errors_and_cli_advice(self):
+        from run_agent import AIAgent
+
+        out = AIAgent._format_file_mutation_failure_footer(self.FAILED, plain=True, lang="en")
+
+        assert "could not be saved" in out
+        assert "`/Users/x/report.md`" in out
+        for jargon in ("write_file", "Errno", "git status", "read_file"):
+            assert jargon not in out
+
+    def test_footer_is_written_in_the_readers_language(self):
+        from run_agent import AIAgent
+
+        out = AIAgent._format_file_mutation_failure_footer(self.FAILED, plain=True, lang="vi")
+
+        assert out.startswith("⚠️ Kiểm tra tệp: 1 tệp chưa lưu được")
+        assert "`/Users/x/report.md`" in out
+
+    def test_overflow_line_is_translated_too(self):
+        from run_agent import AIAgent
+
+        failed = {f"/Users/x/f{i}.md": {"tool": "patch", "error_preview": ""} for i in range(12)}
+        out = AIAgent._format_file_mutation_failure_footer(failed, lang="vi")
+
+        assert "… và 2 tệp nữa" in out
+        assert "[patch] thất bại" in out
+
+    @pytest.mark.parametrize("platform, plain", [
+        ("cli", False), ("tui", False), ("acp", False), ("", False), (None, False),
+        ("telegram", True), ("desktop", True), ("cron", True), ("Discord", True),
+    ])
+    def test_only_developer_surfaces_get_the_technical_form(self, platform, plain):
+        from run_agent import AIAgent
+
+        agent = AIAgent.__new__(AIAgent)
+        agent.platform = platform
+
+        assert agent._verifier_footer_is_plain() is plain
+
+    def test_tts_never_speaks_a_translated_footer(self):
+        from run_agent import AIAgent
+        from tools.tts_text_normalize import strip_nonspoken_blocks
+
+        footer = AIAgent._format_file_mutation_failure_footer(self.FAILED, plain=True, lang="vi")
+        spoken = strip_nonspoken_blocks("Xong rồi anh.\n\n" + footer)
+
+        assert "Xong rồi anh." in spoken
+        assert "Kiểm tra tệp" not in spoken
+        assert "report.md" not in spoken
+
+
+class TestScratchFilesAreNotClaims:
+    def test_an_unmentioned_temp_file_is_not_reported(self):
+        import tempfile
+
+        from run_agent import AIAgent
+
+        scratch = f"{tempfile.gettempdir()}/verify_tools.py"
+        failed = {
+            scratch: {"tool": "write_file", "error_preview": "x"},
+            "/tmp/other_helper.py": {"tool": "write_file", "error_preview": "x"},
+        }
+
+        kept = AIAgent._file_mutations_worth_reporting(failed, "Xong anh Hùng. Em đã bỏ tìm kiếm khỏi lịch nhắc.")
+
+        assert kept == {}
+
+    def test_a_temp_file_the_reply_names_is_reported(self):
+        from run_agent import AIAgent
+
+        failed = {"/tmp/verify_tools.py": {"tool": "write_file", "error_preview": "x"}}
+
+        assert AIAgent._file_mutations_worth_reporting(failed, "I wrote verify_tools.py to check it.") == failed
+        assert AIAgent._file_mutations_worth_reporting(failed, "See /tmp/verify_tools.py") == failed
+
+    def test_a_file_outside_temp_is_always_reported(self):
+        """The over-claim the footer exists for needs no file name: "all files
+        updated" is enough."""
+        from run_agent import AIAgent
+
+        failed = {"/Users/x/project/app.py": {"tool": "patch", "error_preview": "Could not find old_string"}}
+
+        assert AIAgent._file_mutations_worth_reporting(failed, "All files updated.") == failed
+
+    def test_a_scratch_path_is_judged_by_location_not_by_name(self):
+        from run_agent import AIAgent
+
+        assert AIAgent._is_scratch_path("/tmp/a.py")
+        assert AIAgent._is_scratch_path("/private/tmp/deep/a.py")
+        assert not AIAgent._is_scratch_path("/Users/x/tmp_notes.md")
+        assert not AIAgent._is_scratch_path("/tmpfiles/a.py")
+
+
+def test_finalizer_stays_silent_when_only_unmentioned_scratch_writes_failed():
+    """End to end through the finalizer's own gate."""
+    from run_agent import AIAgent
+
+    agent = AIAgent.__new__(AIAgent)
+    agent.platform = "telegram"
+    failed = {"/tmp/verify_tools.py": {"tool": "write_file", "error_preview": "[Errno 2] No such file or directory"}}
+
+    reportable = agent._file_mutations_worth_reporting(failed, "Xong anh Hùng.")
+
+    assert agent._format_file_mutation_failure_footer(reportable, plain=agent._verifier_footer_is_plain()) == ""

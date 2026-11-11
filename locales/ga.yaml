@@ -450,3 +450,10 @@ license:
   read_only_expired:    "Chuaigh do phlean {plan} in éag ar {date}. Tá Workmate i mód léite amháin."
   read_only_revoked:    "Cúlghaireadh do cheadúnas AgentX. Tá Workmate i mód léite amháin."
   contact:              "Déan teagmháil le {contact} chun ceadúnas a fháil nó a athnuachan."
+
+file_mutation:
+  label:         "Seiceáil athruithe comhaid"
+  summary:       "NÍOR athraíodh {count} comhad sa bhabhta seo, is cuma cad a thugann an téacs thuas le fios. Rith `git status` nó `read_file` chun é a dheimhniú."
+  summary_plain: "Níorbh fhéidir {count} comhad a shábháil sa bhabhta seo, is cuma cad a deir an freagra thuas:"
+  more:          "… agus {count} eile"
+  failed:        "theip air"

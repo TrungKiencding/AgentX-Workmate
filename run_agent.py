@@ -3614,13 +3614,70 @@ class AIAgent:
             return text
         return cls._FOOTER_PATH_RE.sub(lambda m: f"`{m.group(0)}`", text)
 
+    # Surfaces whose reader works with files and tools directly. Everywhere
+    # else — the desktop app, a messaging channel, a scheduled run delivered to
+    # chat — the reader is not expected to know what ``[write_file]`` or
+    # ``git status`` is, and gets the footer in plain words.
+    _VERIFIER_TECHNICAL_SURFACES = frozenset({"", "cli", "tui", "acp"})
+
+    def _verifier_footer_is_plain(self) -> bool:
+        return str(getattr(self, "platform", "") or "").strip().lower() not in self._VERIFIER_TECHNICAL_SURFACES
+
+    @staticmethod
+    def _is_scratch_path(path: str) -> bool:
+        """Is ``path`` under a temp directory (a throwaway the model made for itself)?"""
+        import tempfile
+
+        candidate = os.path.normcase(os.path.abspath(os.path.expanduser(str(path))))
+        roots = {tempfile.gettempdir(), "/tmp", "/private/tmp", "/var/tmp", "/var/folders", "/private/var/folders"}
+        for root in roots:
+            root = os.path.normcase(os.path.abspath(root))
+            if candidate == root or candidate.startswith(root.rstrip(os.sep) + os.sep):
+                return True
+        return False
+
     @classmethod
-    def _format_file_mutation_failure_footer(cls, failed: Dict[str, Dict[str, Any]]) -> str:
+    def _file_mutations_worth_reporting(
+        cls, failed: Dict[str, Dict[str, Any]], response: str
+    ) -> Dict[str, Dict[str, Any]]:
+        """Drop failed writes the reply could not be over-claiming.
+
+        The footer exists to contradict a reply that says files were changed
+        when they were not. A scratch file in a temp directory that the reply
+        never mentions is not such a claim: it is a helper script the model
+        tried to write for itself and worked around. Reporting it told a
+        Telegram user that "2 file(s) were NOT modified" under an answer about
+        editing a reminder (pilot feedback 2026-11). Everything else — any
+        path outside temp, and any temp path the reply names — is kept.
+        """
+        text = response or ""
+        kept: Dict[str, Dict[str, Any]] = {}
+        for path, info in failed.items():
+            if cls._is_scratch_path(path):
+                name = os.path.basename(str(path).rstrip("/\\"))
+                if str(path) not in text and (not name or name not in text):
+                    continue
+            kept[path] = info
+        return kept
+
+    @classmethod
+    def _format_file_mutation_failure_footer(
+        cls,
+        failed: Dict[str, Dict[str, Any]],
+        *,
+        plain: bool = False,
+        lang: Optional[str] = None,
+    ) -> str:
         """Render the per-turn failed-mutation dict as a user-facing footer.
 
         Displays up to 10 paths with their first error preview, then a
         count of any additional failures.  Returns an empty string when
         the dict is empty so callers can concatenate unconditionally.
+
+        The text is in the active language (``agent.i18n``).  ``plain`` is the
+        form for readers who are not developers: the same warning and the same
+        paths, without the tool tag, the raw error preview, or the advice to
+        run ``git status`` / ``read_file``.
 
         Every file path that reaches the user-facing text — both the bullet
         path and any path echoed inside the tool's error preview — is
@@ -3630,26 +3687,30 @@ class AIAgent:
         """
         if not failed:
             return ""
-        lines = [
-            "⚠️ File-mutation verifier: "
-            f"{len(failed)} file(s) were NOT modified this turn despite any "
-            "wording above that may suggest otherwise. Run `git status` or "
-            "`read_file` to confirm."
-        ]
+        from agent.i18n import t as _t
+
+        summary = _t(
+            "file_mutation.summary_plain" if plain else "file_mutation.summary",
+            lang=lang,
+            count=len(failed),
+        )
+        lines = [f"⚠️ {_t('file_mutation.label', lang=lang)}: {summary}"]
         shown = 0
         for path, info in failed.items():
             if shown >= 10:
                 break
             preview = (info.get("error_preview") or "").strip()
             tool = info.get("tool") or "patch"
-            if preview:
+            if plain:
+                lines.append(f"  • `{path}`")
+            elif preview:
                 lines.append(f"  • `{path}` — [{tool}] {preview}")
             else:
-                lines.append(f"  • `{path}` — [{tool}] failed")
+                lines.append(f"  • `{path}` — [{tool}] {_t('file_mutation.failed', lang=lang)}")
             shown += 1
         remaining = len(failed) - shown
         if remaining > 0:
-            lines.append(f"  • … and {remaining} more")
+            lines.append(f"  • {_t('file_mutation.more', lang=lang, count=remaining)}")
         # Neutralize any path the preview text echoed (the bullet path is
         # already backticked above; the lookbehind keeps it from being
         # double-wrapped).

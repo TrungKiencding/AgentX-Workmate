@@ -444,3 +444,10 @@ license:
   read_only_expired:    "Gói {plan} đã hết hạn ngày {date}. Workmate đang ở chế độ chỉ xem."
   read_only_revoked:    "Giấy phép AgentX của bạn đã bị thu hồi. Workmate đang ở chế độ chỉ xem."
   contact:              "Liên hệ {contact} để được cấp lại hoặc gia hạn."
+
+file_mutation:
+  label:         "Kiểm tra tệp"
+  summary:       "{count} tệp CHƯA được thay đổi trong lượt này, dù nội dung phía trên có thể nói khác. Chạy `git status` hoặc `read_file` để kiểm tra."
+  summary_plain: "{count} tệp chưa lưu được trong lượt này, dù câu trả lời phía trên có thể nói khác:"
+  more:          "… và {count} tệp nữa"
+  failed:        "thất bại"

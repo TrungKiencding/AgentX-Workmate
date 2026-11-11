@@ -446,3 +446,10 @@ license:
   read_only_expired:    "{plan} 요금제가 {date}에 만료되었습니다. Workmate는 읽기 전용 모드입니다."
   read_only_revoked:    "AgentX 라이선스가 취소되었습니다. Workmate는 읽기 전용 모드입니다."
   contact:              "라이선스를 받거나 갱신하려면 {contact}에 문의하세요."
+
+file_mutation:
+  label:         "파일 변경 확인"
+  summary:       "이번 턴에 파일 {count}개가 수정되지 않았습니다(위 내용이 어떻게 적혀 있든). `git status` 또는 `read_file`로 확인하세요."
+  summary_plain: "이번 턴에 파일 {count}개를 저장하지 못했습니다(위 답변 내용과 무관하게):"
+  more:          "… 외 {count}개"
+  failed:        "실패"

@@ -448,3 +448,10 @@ license:
   read_only_expired:    "انتهت صلاحية خطتك {plan} في {date}. Workmate في وضع القراءة فقط."
   read_only_revoked:    "تم إلغاء ترخيص AgentX الخاص بك. Workmate في وضع القراءة فقط."
   contact:              "تواصل مع {contact} للحصول على ترخيص أو تجديده."
+
+file_mutation:
+  label:         "التحقق من تعديل الملفات"
+  summary:       "لم يُعدَّل {count} ملف في هذه الجولة، مهما أوحى النص أعلاه. شغّل `git status` أو `read_file` للتأكد."
+  summary_plain: "تعذّر حفظ {count} ملف في هذه الجولة، مهما قال الرد أعلاه:"
+  more:          "… و{count} أخرى"
+  failed:        "فشل"

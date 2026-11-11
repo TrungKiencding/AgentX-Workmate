@@ -459,3 +459,10 @@ license:
   read_only_expired:    "Your {plan} plan expired on {date}. Workmate is in read-only mode."
   read_only_revoked:    "Your AgentX license has been revoked. Workmate is in read-only mode."
   contact:              "Contact {contact} to get a license or renew it."
+
+file_mutation:
+  label:         "File-mutation verifier"
+  summary:       "{count} file(s) were NOT modified this turn despite any wording above that may suggest otherwise. Run `git status` or `read_file` to confirm."
+  summary_plain: "{count} file(s) could not be saved this turn, whatever the reply above says:"
+  more:          "… and {count} more"
+  failed:        "failed"

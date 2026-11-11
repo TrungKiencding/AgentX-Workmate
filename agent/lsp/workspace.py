@@ -22,6 +22,8 @@ import os
 from pathlib import Path
 from typing import Iterable, Optional, Tuple
 
+from hermes_constants import safe_getcwd
+
 logger = logging.getLogger("agent.lsp.workspace")
 
 # Cache: cwd → (worktree_root, is_git) so repeated calls don't re-stat.
@@ -190,7 +192,9 @@ def resolve_workspace_for_file(
 
     Returns ``(None, False)`` when neither path is in a git worktree.
     """
-    cwd = cwd or os.getcwd()
+    # A deleted working directory must not turn "should LSP look at this file"
+    # into an exception: the caller is finishing a write that already landed.
+    cwd = cwd or safe_getcwd()
     cwd_root = find_git_worktree(cwd)
     if cwd_root is not None:
         if is_inside_workspace(file_path, cwd_root):
