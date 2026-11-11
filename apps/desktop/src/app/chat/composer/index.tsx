@@ -26,6 +26,7 @@ import { $autoSpeakReplies } from '@/store/voice-prefs'
 import { useTheme } from '@/themes'
 
 import { ComposerAccountQuota } from './account-quota'
+import { ApprovalPill } from './approval-pill'
 import { AttachmentList } from './attachments'
 import {
   acceptsTriggerCompletion,
@@ -1317,6 +1318,9 @@ export function ChatBar({
                 className="ml-auto flex min-w-0 items-center justify-end gap-1"
                 data-slot="composer-context-controls"
               >
+                <div className="flex min-w-0 justify-end" data-slot="composer-approvals">
+                  <ApprovalPill />
+                </div>
                 <div className="flex min-w-0 justify-end" data-slot="composer-model">
                   <ModelPill concise={!codingContext} disabled={disabled} model={state.model} />
                 </div>

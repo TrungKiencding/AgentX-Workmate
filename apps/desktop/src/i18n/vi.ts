@@ -3906,14 +3906,19 @@ export const vi: Translations = {
       messagingPlatforms: 'Nền tảng nhắn tin'
     },
     approvalMode: {
-      title: 'Chế độ phê duyệt',
-      ariaLabel: mode => `Chế độ phê duyệt: ${mode}`,
-      manual: 'Thủ công',
-      manualDescription: 'Hỏi trước khi thực hiện những hành động cần phê duyệt',
-      smart: 'Thông minh',
-      smartDescription: 'Tự đánh giá hành động và chỉ hỏi khi cần',
-      off: 'Tắt',
-      offDescription: 'Chạy mà không hỏi phê duyệt'
+      title: 'Phê duyệt tác vụ',
+      ariaLabel: mode => `Phê duyệt tác vụ: ${mode}`,
+      manual: 'Hỏi mỗi lần',
+      manualDescription: 'Hỏi bạn trước mọi việc cần phê duyệt',
+      smart: 'Tự động khi an toàn',
+      smartDescription: 'Tự chạy việc an toàn, chỉ hỏi khi có rủi ro',
+      off: 'Tự động tất cả',
+      offDescription: 'Không hỏi lại. Lệnh trong danh sách chặn vẫn bị chặn.',
+      changeFailed: 'Chưa đổi được chế độ phê duyệt',
+      confirmOffTitle: 'Cho AgentX tự chạy mọi việc mà không hỏi?',
+      confirmOffBody:
+        'AgentX sẽ không hỏi lại trước khi chạy lệnh, sửa hoặc xoá tệp. Chỉ nên bật cho công việc bạn tin tưởng, khi bạn không ngồi trước máy. Các lệnh trong danh sách chặn vẫn bị chặn.',
+      confirmOffAction: 'Bật tự động tất cả'
     },
     statusbar: {
       restart: 'khởi động lại',

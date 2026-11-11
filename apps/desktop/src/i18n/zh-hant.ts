@@ -3464,7 +3464,12 @@ export const zhHant = defineLocale({
       smart: '智慧',
       smartDescription: '自動評估操作，並在需要時詢問',
       off: '關閉',
-      offDescription: '不顯示核准提示，直接執行'
+      offDescription: '不顯示核准提示，直接執行',
+      changeFailed: '無法變更核准模式',
+      confirmOffTitle: '讓 AgentX 不經詢問直接執行所有操作？',
+      confirmOffBody:
+        'AgentX 在執行指令、修改或刪除檔案之前將不再詢問。請僅在你信任目前的工作且不在電腦前時開啟。封鎖清單中的指令仍會被阻擋。',
+      confirmOffAction: '不經詢問直接執行'
     },
     statusbar: {
       restart: '重新啟動',

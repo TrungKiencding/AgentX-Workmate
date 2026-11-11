@@ -74,6 +74,15 @@ export function ConfigSettings({
 }) {
   const { t } = useI18n()
   const c = t.settings.config
+
+  // The stored values are identifiers (`manual` / `smart` / `off`); show them
+  // in the same words as the control under the composer.
+  const approvalModeLabels: Record<string, string> = {
+    manual: t.shell.approvalMode.manual,
+    off: t.shell.approvalMode.off,
+    smart: t.shell.approvalMode.smart
+  }
+
   const keepAwake = useStore($keepAwake)
   // The editable draft is local (debounced autosave watches it), but it's seeded
   // from — and saved back through — the shared config cache, so edits are visible
@@ -368,7 +377,9 @@ export function ConfigSettings({
                     ? elevenLabsVoiceLabels
                     : key === 'tts.provider' || key === 'stt.provider'
                       ? VOICE_PROVIDER_LABELS
-                      : undefined
+                      : key === 'approvals.mode'
+                        ? approvalModeLabels
+                        : undefined
                 }
                 schema={field}
                 schemaKey={key}

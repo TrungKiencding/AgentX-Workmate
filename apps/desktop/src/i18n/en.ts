@@ -3675,7 +3675,12 @@ export const en: Translations = {
       smart: 'Smart',
       smartDescription: 'Automatically assess actions and ask when needed',
       off: 'Off',
-      offDescription: 'Run without approval prompts'
+      offDescription: 'Run without approval prompts',
+      changeFailed: 'Couldn’t change the approval mode',
+      confirmOffTitle: 'Let AgentX run everything without asking?',
+      confirmOffBody:
+        'AgentX will no longer ask before it runs commands or changes and deletes files. Turn this on only for work you trust, when you are not at the machine. Commands on the blocklist stay blocked.',
+      confirmOffAction: 'Run without asking'
     },
     statusbar: {
       restart: 'restart',

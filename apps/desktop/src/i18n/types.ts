@@ -3106,6 +3106,10 @@ export interface Translations {
       smartDescription: string
       off: string
       offDescription: string
+      changeFailed: string
+      confirmOffTitle: string
+      confirmOffBody: string
+      confirmOffAction: string
     }
     statusbar: {
       restart: string

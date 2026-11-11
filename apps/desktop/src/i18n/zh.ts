@@ -3702,7 +3702,12 @@ export const zh: Translations = {
       smart: '智能',
       smartDescription: '自动评估操作，并在需要时询问',
       off: '关闭',
-      offDescription: '不显示审批提示，直接运行'
+      offDescription: '不显示审批提示，直接运行',
+      changeFailed: '无法更改审批模式',
+      confirmOffTitle: '让 AgentX 不经询问直接执行所有操作？',
+      confirmOffBody:
+        'AgentX 在运行命令、修改或删除文件之前将不再询问。请仅在你信任当前任务且不在电脑前时开启。黑名单中的命令仍会被阻止。',
+      confirmOffAction: '不经询问直接执行'
     },
     statusbar: {
       restart: '重启',

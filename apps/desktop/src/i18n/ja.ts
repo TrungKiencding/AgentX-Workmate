@@ -3648,7 +3648,12 @@ export const ja = defineLocale({
       smart: 'スマート',
       smartDescription: '必要な場合にのみ確認します',
       off: 'オフ',
-      offDescription: '承認プロンプトなしで実行します'
+      offDescription: '承認プロンプトなしで実行します',
+      changeFailed: '承認モードを変更できませんでした',
+      confirmOffTitle: 'AgentX に確認なしですべて実行させますか？',
+      confirmOffBody:
+        'AgentX はコマンドの実行やファイルの変更・削除の前に確認しなくなります。信頼できる作業で、席を離れるときにのみ有効にしてください。ブロックリストのコマンドは引き続きブロックされます。',
+      confirmOffAction: '確認なしで実行'
     },
     statusbar: {
       restart: '再起動',
