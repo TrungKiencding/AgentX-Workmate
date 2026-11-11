@@ -1,5 +1,7 @@
 /** Pure naming/identity helpers for Bot Mode — no I/O, fully unit-tested. */
 
+import { stripInternalPreamble } from '@agentx/plugin-sdk'
+
 import type { Bot, BotMeta, BotMetaMap, ProfileSession } from './types'
 
 /** Profile ids the gateway accepts (`hermes_cli.profiles.validate_profile_name`). */
@@ -208,7 +210,10 @@ export function previewSender(preview: string | null | undefined): string | null
 /** A preview that reads like a message, not a delivery log line or raw
  *  markdown ("Chào bạn! Mình là **AgentX**…" → "Chào bạn! Mình là AgentX…"). */
 export function cleanPreview(preview: string | null | undefined): string {
-  const text = (preview || '')
+  // The scheduler's delivery hint and model-switch bookkeeping are AgentX's own
+  // text in a user turn — never show them as the conversation (older backends
+  // still send them in previews).
+  const text = stripInternalPreamble(preview)
     .trim()
     .replace(A2A_PREFIX_RE, '')
     .replace(/!?\[([^\]]*)\]\([^)]*\)/g, '$1')
@@ -220,6 +225,22 @@ export function cleanPreview(preview: string | null | undefined): string {
 
   // A group-room "(pass)" is silence, not something anyone said.
   return /^\(?\s*pass\s*\)?\.?$/i.test(text) ? '' : text
+}
+
+/** A scheduled run's session: one prompt (the routine's task) and one report.
+ *  Not a conversation the person holds, so it is listed apart from the chats. */
+export function isRoutineRun(session: Pick<ProfileSession, 'id' | 'source'>): boolean {
+  return (session.source || '').trim().toLowerCase() === 'cron' || session.id.startsWith('cron_')
+}
+
+/** The routine's name from a run's stored title. The scheduler titles a run
+ *  "<name> · <when it ran>" (the stamp keeps titles unique); the row shows its
+ *  own localized time, so only the name is kept. */
+export function routineRunName(session: Pick<ProfileSession, 'title'>, fallback: string): string {
+  const title = (session.title || '').trim()
+  const cut = title.lastIndexOf(' · ')
+
+  return (cut > 0 ? title.slice(0, cut) : title).trim() || fallback
 }
 
 const GENERIC_TITLES = new Set(['', 'bot chat', 'new chat', 'new conversation', 'conversation', 'chat', 'untitled'])

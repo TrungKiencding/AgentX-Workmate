@@ -27,6 +27,7 @@ from agent.secret_scope import (
 from hermes_constants import (
     DEFAULT_INDICATOR_STYLE,
     INDICATOR_STYLES,
+    MODEL_SWITCH_MARKER_PREFIX,
     get_hermes_home,
     get_hermes_home_override,
     reset_hermes_home_override,
@@ -4119,7 +4120,8 @@ def _persist_live_session_system_prompt(session: dict | None) -> None:
 # dedup below. Only the newest marker is meaningful (it names the *currently*
 # active model); older ones are stale and would otherwise be re-sent to the
 # provider on every turn (#65891).
-_MODEL_SWITCH_MARKER_PREFIX = "[System: The active model for this chat has changed to "
+# (Shared with session previews, which must not show the marker as a message.)
+_MODEL_SWITCH_MARKER_PREFIX = MODEL_SWITCH_MARKER_PREFIX
 
 
 def _is_model_switch_marker(entry: Any) -> bool:

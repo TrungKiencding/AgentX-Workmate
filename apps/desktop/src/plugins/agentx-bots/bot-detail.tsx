@@ -9,6 +9,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  fmtDayTime,
   host,
   icons,
   relativeTime,
@@ -24,7 +25,16 @@ import { type ReactNode, useState } from 'react'
 import type { BotMenuItem } from './actions'
 import { BotAvatar } from './face'
 import type { BotsText } from './i18n'
-import { BOT_CHAT_TITLE, botHandle, cleanPreview, displayName, isPrimary, sessionLabel } from './naming'
+import {
+  BOT_CHAT_TITLE,
+  botHandle,
+  cleanPreview,
+  displayName,
+  isPrimary,
+  isRoutineRun,
+  routineRunName,
+  sessionLabel
+} from './naming'
 import { RoutineDialog } from './routine-dialog'
 import { describeSchedule, routineAction, routineActive, routineTitle, useRoutines } from './routines'
 import { $botMeta, PLUGIN_ID } from './state'
@@ -250,7 +260,10 @@ function RoutineRow({
   const [pending, setPending] = useState<boolean | null>(null)
   const serverActive = routineActive(job)
   const active = pending ?? serverActive
-  const failed = job.last_status && job.last_status !== 'ok'
+  const failed = Boolean(job.last_status && job.last_status !== 'ok')
+  // Say why, in words, when the backend knows (pilot feedback 2026-11-10: the
+  // row said only "last run failed" and nothing anywhere said what to do).
+  const failure = failed ? ((job.last_error_kind && b.failure[job.last_error_kind]) || b.lastFailed) : ''
 
   const toggle = async (next: boolean) => {
     setPending(next)
@@ -289,13 +302,8 @@ function RoutineRow({
               <span>{when}</span>
             </>
           ) : null}
-          {failed ? (
-            <>
-              <span aria-hidden>·</span>
-              <span className="text-(--danger)">{b.lastFailed}</span>
-            </>
-          ) : null}
         </span>
+        {failure ? <span className="text-xs text-(--danger)">{failure}</span> : null}
       </span>
       <Tip label={active ? b.pauseRoutine : b.resumeRoutine}>
         <span>
@@ -346,93 +354,184 @@ function useProfileSessions(profile: string) {
 /** Rows a person opens: never a group room's plumbing session (older ones
  *  predate their own source tag and are known by title). */
 export function conversationRows(rows: readonly ProfileSession[]): ProfileSession[] {
-  return rows.filter(row => !(row.title || '').startsWith('Group: ') && row.source !== 'bot-room')
+  return rows.filter(
+    row => !(row.title || '').startsWith('Group: ') && row.source !== 'bot-room' && !isRoutineRun(row)
+  )
+}
+
+/** What the assistant's routines produced, newest first. */
+export function routineRunRows(rows: readonly ProfileSession[]): ProfileSession[] {
+  return rows
+    .filter(isRoutineRun)
+    .sort((a, b) => (b.started_at || b.last_active || 0) - (a.started_at || a.last_active || 0))
+}
+
+/**
+ * The rows of the conversations card. Any assistant but the main one leads
+ * with its main conversation — *always*, even before it exists: an assistant
+ * that had only run a routine used to list nothing but that run, and read as
+ * if it could not be talked to (pilot feedback 2026-11-11). `main: null` is
+ * that not-yet-created conversation; opening it creates it.
+ */
+export function chatRows(
+  rows: readonly ProfileSession[],
+  { pinned, primary }: { pinned: null | string; primary: boolean }
+): { main: null | ProfileSession; others: ProfileSession[]; showMain: boolean } {
+  const sessions = conversationRows(rows)
+
+  if (primary) {
+    // The main assistant's chats ARE the app's chats: no "main conversation",
+    // just the latest ones.
+    return { main: null, others: sessions, showMain: false }
+  }
+
+  const isMain = (session: ProfileSession) =>
+    session.id === pinned || (!pinned && (session.title || '').trim() === BOT_CHAT_TITLE)
+
+  const main =
+    sessions.find(isMain) ??
+    // A pin the list no longer shows (deleted, or rewritten by compaction):
+    // the newest "Bot Chat" is the conversation "Message" will open.
+    sessions.find(session => (session.title || '').trim() === BOT_CHAT_TITLE) ??
+    null
+
+  return { main, others: sessions.filter(session => session !== main), showMain: true }
+}
+
+function SessionRow({
+  icon,
+  label,
+  onOpen,
+  preview,
+  when
+}: {
+  icon: ReactNode
+  label: string
+  onOpen: () => void
+  preview?: string
+  when?: string
+}) {
+  return (
+    <li>
+      <button
+        className="flex w-full min-w-0 items-center gap-3 px-4 py-3 text-left hover:bg-(--bg-hover)"
+        onClick={onOpen}
+        type="button"
+      >
+        <span className="grid size-8 shrink-0 place-items-center rounded-(--radius-control) bg-(--bg-subtle)">
+          {icon}
+        </span>
+        <span className="grid min-w-0 flex-1 gap-0.5">
+          <span className="truncate text-sm font-medium text-(--text-primary)">{label}</span>
+          {preview ? <span className="truncate text-xs text-(--text-tertiary)">{preview}</span> : null}
+        </span>
+        {when ? <span className="shrink-0 text-xs text-(--text-tertiary) tabular-nums">{when}</span> : null}
+      </button>
+    </li>
+  )
 }
 
 function ChatsSection({ b, bot, onMessage }: { b: BotsText; bot: Bot; onMessage: () => void }) {
   const { data, isLoading } = useProfileSessions(bot.name)
   const [expanded, setExpanded] = useState(false)
+  const [runsExpanded, setRunsExpanded] = useState(false)
   const pinned = useValue($botMeta)[bot.name]?.chat || null
   const primary = isPrimary(bot.name)
-  const sessions = conversationRows(data ?? [])
-
-  // The main assistant's chats ARE the app's chats: no "main conversation",
-  // just the latest ones. Any other assistant leads with its main one.
-  const isMain = (session: ProfileSession) =>
-    !primary && (session.id === pinned || (!pinned && (session.title || '').trim() === BOT_CHAT_TITLE))
-
-  const ordered = [...sessions.filter(isMain), ...sessions.filter(session => !isMain(session))]
-  const visible = expanded ? ordered : ordered.slice(0, CHAT_PREVIEW_COUNT)
+  const { main, others, showMain } = chatRows(data ?? [], { pinned, primary })
+  const runs = routineRunRows(data ?? [])
+  // The main conversation has its own row; the cap applies to the rest.
+  const visible = expanded ? others : others.slice(0, showMain ? CHAT_PREVIEW_COUNT - 1 : CHAT_PREVIEW_COUNT)
+  const visibleRuns = runsExpanded ? runs : runs.slice(0, CHAT_PREVIEW_COUNT)
+  const total = others.length + (showMain ? 1 : 0)
 
   const open = (session: ProfileSession) => {
-    if (isMain(session)) {
-      onMessage()
-
-      return
-    }
-
     host.openSession(session.id, { profile: bot.name }).catch(error => host.notifyError(error, b.openFailed))
   }
 
-  return (
-    <section className="grid gap-3">
-      <SectionHeader
-        description={primary ? b.recentChatsDescription : b.chatsDescription}
-        title={primary ? b.recentChatsTitle : b.chatsTitle}
-      />
-      {isLoading ? (
-        <Skeleton className="h-28 w-full rounded-(--radius-card)" />
-      ) : ordered.length === 0 ? (
-        <p className={`${CARD} px-4 py-4 text-sm text-(--text-tertiary)`}>{b.chatsEmpty}</p>
-      ) : (
-        <>
-          <ul className={`${CARD} divide-y divide-(--border-subtle)`}>
-            {visible.map(session => {
-              const main = isMain(session)
-              const preview = cleanPreview(session.preview)
+  const age = (session: ProfileSession) =>
+    session.last_active || session.started_at
+      ? relativeTime((session.last_active || session.started_at || 0) * 1000)
+      : undefined
 
-              return (
-                <li key={session.id}>
-                  <button
-                    className="flex w-full min-w-0 items-center gap-3 px-4 py-3 text-left hover:bg-(--bg-hover)"
-                    onClick={() => open(session)}
-                    type="button"
-                  >
-                    <span className="grid size-8 shrink-0 place-items-center rounded-(--radius-control) bg-(--bg-subtle)">
-                      {main ? (
-                        <icons.MessageCircle className="size-4 text-(--tint-blue)" />
-                      ) : (
-                        <icons.MessageSquareText className="size-4 text-(--text-tertiary)" />
-                      )}
-                    </span>
-                    <span className="grid min-w-0 flex-1 gap-0.5">
-                      <span className="truncate text-sm font-medium text-(--text-primary)">
-                        {main ? b.mainChat : sessionLabel(session, b.untitledChat)}
-                      </span>
-                      {preview ? <span className="truncate text-xs text-(--text-tertiary)">{preview}</span> : null}
-                    </span>
-                    {session.last_active || session.started_at ? (
-                      <span className="shrink-0 text-xs text-(--text-tertiary) tabular-nums">
-                        {relativeTime((session.last_active || session.started_at || 0) * 1000)}
-                      </span>
-                    ) : null}
-                  </button>
-                </li>
-              )
-            })}
+  return (
+    <>
+      {runs.length > 0 ? (
+        <section className="grid gap-3">
+          <SectionHeader description={b.runsDescription} title={b.runsTitle} />
+          <ul className={`${CARD} divide-y divide-(--border-subtle)`}>
+            {visibleRuns.map(session => (
+              <SessionRow
+                icon={<icons.Clock className="size-4 text-(--tint-orange)" />}
+                key={session.id}
+                label={routineRunName(session, b.routineUntitled)}
+                onOpen={() => open(session)}
+                preview={cleanPreview(session.preview)}
+                when={
+                  session.started_at || session.last_active
+                    ? fmtDayTime.format(new Date((session.started_at || session.last_active || 0) * 1000))
+                    : undefined
+                }
+              />
+            ))}
           </ul>
-          {ordered.length > CHAT_PREVIEW_COUNT ? (
+          {runs.length > CHAT_PREVIEW_COUNT ? (
             <Button
               className="justify-self-start"
-              onClick={() => setExpanded(value => !value)}
+              onClick={() => setRunsExpanded(value => !value)}
               size="sm"
               variant="text"
             >
-              {expanded ? b.showFewerChats : b.showAllChats(ordered.length)}
+              {runsExpanded ? b.showFewerChats : b.showAllChats(runs.length)}
             </Button>
           ) : null}
-        </>
-      )}
-    </section>
+        </section>
+      ) : null}
+
+      <section className="grid gap-3">
+        <SectionHeader
+          description={primary ? b.recentChatsDescription : b.chatsDescription}
+          title={primary ? b.recentChatsTitle : b.chatsTitle}
+        />
+        {isLoading ? (
+          <Skeleton className="h-28 w-full rounded-(--radius-card)" />
+        ) : total === 0 ? (
+          <p className={`${CARD} px-4 py-4 text-sm text-(--text-tertiary)`}>{b.chatsEmpty}</p>
+        ) : (
+          <>
+            <ul className={`${CARD} divide-y divide-(--border-subtle)`}>
+              {showMain ? (
+                <SessionRow
+                  icon={<icons.MessageCircle className="size-4 text-(--tint-blue)" />}
+                  label={b.mainChat}
+                  onOpen={onMessage}
+                  preview={main ? cleanPreview(main.preview) || b.mainChatEmpty : b.mainChatEmpty}
+                  when={main ? age(main) : undefined}
+                />
+              ) : null}
+              {visible.map(session => (
+                <SessionRow
+                  icon={<icons.MessageSquareText className="size-4 text-(--text-tertiary)" />}
+                  key={session.id}
+                  label={sessionLabel(session, b.untitledChat)}
+                  onOpen={() => open(session)}
+                  preview={cleanPreview(session.preview)}
+                  when={age(session)}
+                />
+              ))}
+            </ul>
+            {total > CHAT_PREVIEW_COUNT ? (
+              <Button
+                className="justify-self-start"
+                onClick={() => setExpanded(value => !value)}
+                size="sm"
+                variant="text"
+              >
+                {expanded ? b.showFewerChats : b.showAllChats(total)}
+              </Button>
+            ) : null}
+          </>
+        )}
+      </section>
+    </>
   )
 }

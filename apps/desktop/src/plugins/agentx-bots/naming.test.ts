@@ -6,10 +6,12 @@ import {
   displayName,
   filterBots,
   groupRoster,
+  isRoutineRun,
   knownGroups,
   NAME_RE,
   previewSender,
   profileForHandle,
+  routineRunName,
   sessionLabel,
   showsHandle,
   slugify,
@@ -159,5 +161,35 @@ describe('cleanPreview', () => {
     expect(cleanPreview('Message from 🤖 Nghiên cứu (@nghien-cuu): số liệu đây')).toBe('số liệu đây')
     expect(cleanPreview('(pass)')).toBe('')
     expect(cleanPreview('snake_case_name và a*b')).toBe('snake_case_name và a*b')
+  })
+})
+
+describe('routine runs', () => {
+  it('knows a scheduled run by its source, or by its id on rows that predate the source', () => {
+    expect(isRoutineRun({ id: 'x', source: 'cron' })).toBe(true)
+    expect(isRoutineRun({ id: 'cron_j1_20261110_210000', source: '' })).toBe(true)
+    expect(isRoutineRun({ id: 's1', source: 'desktop' })).toBe(false)
+    expect(isRoutineRun({ id: 's1' })).toBe(false)
+  })
+
+  it('names a run by its routine, without the stamp that keeps titles unique', () => {
+    expect(routineRunName({ title: 'Bản tin tài chính · Nov 10 21:00' }, 'Untitled')).toBe('Bản tin tài chính')
+    expect(routineRunName({ title: 'Bản tin tài chính · 2026-11-10 21:00' }, 'Untitled')).toBe('Bản tin tài chính')
+    // A name that itself contains the separator keeps everything but the stamp.
+    expect(routineRunName({ title: 'Tin · AI · 2026-11-10 21:00' }, 'Untitled')).toBe('Tin · AI')
+    expect(routineRunName({ title: '' }, 'Untitled')).toBe('Untitled')
+    expect(routineRunName({ title: 'cron j1' }, 'Untitled')).toBe('cron j1')
+  })
+})
+
+describe('cleanPreview and AgentX\'s own text', () => {
+  it('never shows the scheduler hint or a model-switch marker as the conversation', () => {
+    expect(cleanPreview('[IMPORTANT: You are running as a scheduled cron job. DELIVER...')).toBe('')
+    expect(
+      cleanPreview(
+        '[IMPORTANT: You are running as a scheduled cron job. DELIVERY: … say [SILENT] and nothing more.]\n\nTóm tắt **tin tài chính**'
+      )
+    ).toBe('Tóm tắt tin tài chính')
+    expect(cleanPreview('[System: The active model for this chat has changed to deepseek. From…]')).toBe('')
   })
 })

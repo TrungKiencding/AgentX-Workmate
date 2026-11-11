@@ -12,6 +12,7 @@ import { normalizePersonalityValue } from '@/lib/chat-runtime'
 import { embeddedImageUrls, textWithoutEmbeddedImages } from '@/lib/embedded-images'
 import { turnErrorCode } from '@/lib/turn-error'
 import { reconcileApprovalModeForProfile } from '@/store/approval-mode'
+import { primaryGatewayProfile } from '@/store/gateway'
 import { requestDesktopOnboardingForCredentialWarning } from '@/store/onboarding'
 import { $activeGatewayProfile, $profiles, normalizeProfileKey } from '@/store/profile'
 import {
@@ -1050,14 +1051,33 @@ export async function resolveStoredSession(storedSessionId: string): Promise<Ses
   // Direct by-id on the live backend — one row lookup, no list scan. Covers
   // single-profile users and any id on the active profile (e.g. an old session
   // past the sidebar's recent window). 404 just means it's not on this profile.
-  try {
-    const session = await getSession(storedSessionId)
+  //
+  // A bare GET is answered by the *primary* backend, whichever profile is
+  // active. So when the live gateway is on another profile — an assistant's
+  // chat opened from the Trợ lý page — the lookup has to name that profile.
+  // Bare, it asked the primary, missed, and the probe below then skipped the
+  // active profile as "already asked": the session resolved to no owner, its
+  // transcript was fetched from the wrong backend, and the chat opened blank
+  // (pilot feedback 2026-11: "bấm vào mất dữ liệu trò chuyện cũ").
+  const activeKey = normalizeProfileKey($activeGatewayProfile.get())
+  const activeIsPrimary = activeKey === normalizeProfileKey(primaryGatewayProfile())
 
-    // Older backends omit `profile` on unscoped GETs; the serving backend is
-    // the active gateway's, so back-fill that rather than caching an unowned
-    // row. A present stamp is preserved: in app-global remote mode a bare hit
-    // can legitimately carry another profile's row (see the branch tests).
-    session.profile ||= normalizeProfileKey($activeGatewayProfile.get())
+  try {
+    const session = activeIsPrimary
+      ? await getSession(storedSessionId)
+      : await getSession(storedSessionId, activeKey)
+
+    if (activeIsPrimary) {
+      // Older backends omit `profile` on unscoped GETs; the serving backend is
+      // the active gateway's, so back-fill that rather than caching an unowned
+      // row. A present stamp is preserved: in app-global remote mode a bare hit
+      // can legitimately carry another profile's row (see the branch tests).
+      session.profile ||= activeKey
+    } else {
+      // The profile we explicitly asked is authoritative (same contract as the
+      // cross-profile probe below).
+      session.profile = activeKey
+    }
 
     upsertResolvedSession(session, storedSessionId)
 
@@ -1069,8 +1089,6 @@ export async function resolveStoredSession(storedSessionId: string): Promise<Ses
   // Multi-profile only: probe each other profile by id (still one cheap lookup
   // each) rather than pulling every profile's recent sessions. The first hit
   // carries its owning `profile`, which routes the resume to the right backend.
-  const activeKey = normalizeProfileKey($activeGatewayProfile.get())
-
   const otherProfiles = $profiles
     .get()
     .map(profile => normalizeProfileKey(profile.name))

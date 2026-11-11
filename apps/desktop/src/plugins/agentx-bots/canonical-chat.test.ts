@@ -70,7 +70,13 @@ describe('resolveCanonicalChat', () => {
 
     await expect(resolveCanonicalChat('writer')).resolves.toBe('pinned')
     expect(methods()).toEqual(['session.list'])
-    expect(calls[0][1]).toEqual({ profile: 'writer', limit: 200, strict_profile: true })
+    expect(calls[0][1]).toEqual({
+      profile: 'writer',
+      limit: 200,
+      strict_profile: true,
+      // scheduled runs never crowd the main conversation out of the window
+      exclude_sources: ['cron']
+    })
   })
 
   it('adopts an existing Bot Chat on first open', async () => {

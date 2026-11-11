@@ -154,6 +154,57 @@ def test_persist_only_creates_an_empty_titled_conversation_without_a_runtime(
     assert row["last_active"] > 0
 
 
+def test_persist_only_returns_the_existing_conversation_and_leaves_no_orphan(
+    profiles_root,
+):
+    """Creating "Bot Chat" twice is one conversation, not an error + a stray row.
+
+    The client creates it when its (windowed) list does not show one. If the
+    list merely missed it, the unique-title index used to fail the create and
+    leave an empty untitled row behind on every attempt.
+    """
+    _make_profile(profiles_root, "writer")
+    params = {
+        "profile": "writer",
+        "title": "Bot Chat",
+        "persist_only": True,
+        "strict_profile": True,
+    }
+
+    first = _call("session.create", params)["result"]
+    second = _call("session.create", params)["result"]
+
+    assert second["stored_session_id"] == first["stored_session_id"]
+    assert second["existing"] is True
+
+    db = SessionDB(db_path=profiles_root / "writer" / "state.db")
+    try:
+        rows = db.list_sessions_rich(limit=50)
+    finally:
+        db.close()
+    assert [row["id"] for row in rows] == [first["stored_session_id"]]
+
+
+def test_session_list_can_leave_scheduled_runs_out_of_its_window(profiles_root):
+    home = _make_profile(profiles_root, "writer")
+    _seed(
+        home / "state.db",
+        [
+            ("main", "desktop", "Bot Chat", "Bản nháp đây"),
+            ("cron_j1_1", "cron", "Bản tin · 2026-11-10 21:00", "Tin hôm nay"),
+        ],
+    )
+
+    def ids(extra):
+        rows = _call("session.list", {"profile": "writer", **extra})["result"]["sessions"]
+        return sorted(row["id"] for row in rows)
+
+    assert ids({}) == ["cron_j1_1", "main"]
+    assert ids({"exclude_sources": ["cron"]}) == ["main"]
+    # A malformed value is ignored, not an error.
+    assert ids({"exclude_sources": "cron"}) == ["cron_j1_1", "main"]
+
+
 def test_strict_profile_refuses_an_unknown_profile_instead_of_using_the_main_one(
     profiles_root,
 ):
@@ -216,6 +267,66 @@ def test_session_list_and_roster_preview_skip_group_room_sessions(
 
     assert roster[0]["last_session"]["id"] == "main"
     assert roster[0]["last_session"]["preview"] == "Bản nháp đây"
+
+
+def _roster_preview(profiles_root, monkeypatch, name, build):
+    home = _make_profile(profiles_root, name)
+    db = SessionDB(db_path=home / "state.db")
+    try:
+        db.create_session("main", source="desktop", model="m")
+        build(db)
+    finally:
+        db.close()
+
+    from hermes_cli import profiles as profiles_mod
+
+    monkeypatch.setattr(
+        profiles_mod,
+        "list_profiles",
+        lambda: [
+            SimpleNamespace(
+                name=name, path=home, is_default=False, model=None, provider=None
+            )
+        ],
+    )
+    roster = _call("profiles.list", {})["result"]["profiles"]
+    return roster[0]["last_session"]["preview"]
+
+
+def test_roster_preview_skips_a_model_switch_marker(profiles_root, monkeypatch):
+    """Pilot 2026-11-10: an assistant's row read "[System: The active model for th…"."""
+    from hermes_constants import MODEL_SWITCH_MARKER_PREFIX
+
+    def build(db):
+        db.append_message("main", "user", "Giá vàng hôm nay thế nào?")
+        db.append_message("main", "assistant", "Vàng SJC đang ở mức 92 triệu.")
+        db.append_message(
+            "main",
+            "user",
+            f"{MODEL_SWITCH_MARKER_PREFIX}deepseek-v4.1-flash. From this point forward…]",
+            display_kind="model_switch",
+        )
+
+    assert _roster_preview(profiles_root, monkeypatch, "nghien-cuu", build) == "Vàng SJC đang ở mức 92 triệu."
+
+
+def test_roster_preview_of_a_failed_cron_run_is_the_task_not_the_hint(
+    profiles_root, monkeypatch
+):
+    """…and another read "[IMPORTANT: You are running as…"."""
+    from cron.scheduler import _build_job_prompt
+
+    def build(db):
+        db.append_message(
+            "main",
+            "user",
+            _build_job_prompt({"id": "j1", "name": "Bản tin", "prompt": "Tóm tắt tin tài chính hôm nay"}),
+        )
+
+    assert (
+        _roster_preview(profiles_root, monkeypatch, "tai-chinh", build)
+        == "Tóm tắt tin tài chính hôm nay"
+    )
 
 
 # ── titles land in the session's own db; old ghosts are swept ──────────────

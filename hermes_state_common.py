@@ -8,6 +8,8 @@ hermes_state re-imports every name here for backward compatibility.
 
 from typing import Any
 
+from hermes_constants import CRON_HINT_PREFIX, MODEL_SWITCH_MARKER_PREFIX
+
 from agent.skill_commands import (
     SKILL_EXCERPT_JOINT,
     SKILL_SCAFFOLD_SQL_LIKE,
@@ -37,6 +39,48 @@ _PREVIEW_MAX_CHARS = 60
 _PREVIEW_CONTENT_SQL = "REPLACE(REPLACE(m.content, X'0A', ' '), X'0D', ' ')"
 
 
+# Text AgentX writes into a *user* turn that the person never typed. A preview
+# that starts with it shows the plumbing instead of the conversation — the
+# Trợ lý page listed runs as "[IMPORTANT: You are running as a scheduled cron
+# job. DELIVER…" and assistants as "[System: The active model for th…" (pilot
+# feedback 2026-11-10).
+#
+# The producers build their text from the shared prefixes in hermes_constants,
+# so the two sides cannot drift. The cron hint is one bracketed paragraph
+# closed by "]" and a blank line; what follows is the task.
+_CRON_HINT_END = "]\n\n"
+
+
+def strip_internal_preamble(text: Any) -> str:
+    """*text* without AgentX's own preamble — what the person actually wrote.
+
+    The cron delivery hint is cut off the front (leaving the task); a
+    model-switch marker is not a message at all and yields ``""``.
+    """
+    value = str(text or "")
+    stripped = value.lstrip()
+    if stripped.startswith(MODEL_SWITCH_MARKER_PREFIX):
+        return ""
+    if stripped.startswith(CRON_HINT_PREFIX):
+        end = stripped.find(_CRON_HINT_END)
+        # A preview excerpt can end inside the hint; then nothing of the task
+        # is in hand, and an empty preview beats the hint itself.
+        return stripped[end + len(_CRON_HINT_END):].lstrip() if end >= 0 else ""
+    return value
+
+
+# A cron prompt's preview is read from after the hint (found by its closing
+# "]" + blank line) rather than from the top, where the fixed-width head would
+# hold nothing but the hint.
+_CRON_HINT_SQL_LIKE = CRON_HINT_PREFIX.replace("'", "''") + "%"
+_PREVIEW_CRON_SQL = (
+    f"(m.content LIKE '{_CRON_HINT_SQL_LIKE}' AND INSTR(m.content, X'5D0A0A') > 0)"
+)
+_PREVIEW_CRON_BODY_SQL = (
+    "REPLACE(REPLACE(SUBSTR(m.content, INSTR(m.content, X'5D0A0A') + 3), X'0A', ' '), X'0D', ' ')"
+)
+
+
 _PREVIEW_SCAFFOLDED_SQL = f"m.content LIKE '{SKILL_SCAFFOLD_SQL_LIKE}'"
 
 
@@ -45,7 +89,9 @@ _PREVIEW_SCAFFOLDED_SQL = f"m.content LIKE '{SKILL_SCAFFOLD_SQL_LIKE}'"
 # the budget, else head + tail (where the typed instruction lands) spliced
 # around SKILL_EXCERPT_JOINT.
 _PREVIEW_RAW_SELECT = (
-    f"CASE WHEN {_PREVIEW_SCAFFOLDED_SQL}"
+    f"CASE WHEN {_PREVIEW_CRON_SQL}"
+    f" THEN SUBSTR(LTRIM({_PREVIEW_CRON_BODY_SQL}), 1, {_PREVIEW_HEAD_CHARS})"
+    f" WHEN {_PREVIEW_SCAFFOLDED_SQL}"
     f" AND LENGTH(m.content) > {_PREVIEW_SCAFFOLD_WINDOW * 2}"
     f" THEN SUBSTR({_PREVIEW_CONTENT_SQL}, 1, {_PREVIEW_SCAFFOLD_WINDOW})"
     f" || '{SKILL_EXCERPT_JOINT}'"
@@ -58,7 +104,7 @@ _PREVIEW_RAW_SELECT = (
 
 def _shape_preview(raw: Any) -> str:
     """Turn a ``_preview_raw`` column into the short preview callers show."""
-    text = str(raw or "").strip()
+    text = strip_internal_preamble(raw).strip()
     if not text:
         return ""
     described = describe_skill_invocation(text)

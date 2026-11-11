@@ -15,6 +15,7 @@ import { latestCompactionAnchor, userOrdinalAt } from '@/lib/compaction-ordinal'
 import { stripHandoffNote } from '@/lib/handoff-note'
 import { triggerHaptic } from '@/lib/haptics'
 import { StopFilled } from '@/lib/icons'
+import { stripInternalPreamble } from '@/lib/internal-preamble'
 import { cn } from '@/lib/utils'
 import { notifyThreadEditOpen } from '@/store/thread-scroll'
 import { isWatchWindow } from '@/store/windows'
@@ -141,7 +142,9 @@ export const UserMessage: FC<{
   const content = useAuiState(s => s.message.content)
   // A Bot Mode handoff note rides along to the model; the bubble shows the
   // user's own words (and restore puts only those back in the composer).
-  const messageText = stripHandoffNote(messageContentText(content))
+  // A scheduled run's "user" turn opens with the scheduler's delivery hint;
+  // show the task the person scheduled, not the plumbing around it.
+  const messageText = stripInternalPreamble(stripHandoffNote(messageContentText(content)))
   const threadRunning = useAuiState(s => s.thread.isRunning)
 
   const latestUserId = useAuiState(s => {

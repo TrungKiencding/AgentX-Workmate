@@ -64,6 +64,9 @@ export interface CronJob {
   next_run_at?: string | null
   last_run_at?: string | null
   last_status?: string | null
+  /** Why the last run failed, as a stable key (cron.scheduler's
+   *  CRON_FAILURE_KINDS). Absent on older backends and after a good run. */
+  last_error_kind?: string | null
   prompt?: string
   prompt_preview?: string
 }

@@ -581,6 +581,13 @@ def _format_job(job: Dict[str, Any]) -> Dict[str, Any]:
         "paused_at": job.get("paused_at"),
         "paused_reason": job.get("paused_reason"),
     }
+    # Why the last run failed, as a stable key — never the raw error, which
+    # stays in the run's output and logs. Lets a UI say "the AI service was
+    # busy" in the user's language instead of a bare "last run failed".
+    if job.get("last_status") not in (None, "", "ok"):
+        from cron.scheduler import classify_cron_failure
+
+        result["last_error_kind"] = classify_cron_failure(job.get("last_error"))
     if job.get("script"):
         result["script"] = job["script"]
     if job.get("no_agent"):

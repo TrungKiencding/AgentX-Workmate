@@ -72,8 +72,28 @@ def _(rid, params: dict) -> dict:
                 if db is None or not db.get_session(key):
                     return _err(rid, 5000, "could not persist the session")
                 if title:
-                    db.set_session_title(key, title)
-        except ValueError as exc:  # title taken / invalid
+                    try:
+                        db.set_session_title(key, title)
+                    except ValueError:
+                        # Never leave the untitled row behind: each failed
+                        # attempt used to add one empty conversation.
+                        existing = db.get_session_by_title(title)
+                        db.delete_session(key)
+                        if not existing or existing.get("id") == key:
+                            raise  # an invalid title, not a taken one
+                        # The conversation this call exists to guarantee is
+                        # already there — listed past the caller's window, or
+                        # made by a concurrent click. Hand that one back.
+                        return _ok(
+                            rid,
+                            {
+                                "stored_session_id": existing["id"],
+                                "persisted": True,
+                                "title": title,
+                                "existing": True,
+                            },
+                        )
+        except ValueError as exc:  # invalid title
             return _err(rid, 4090, str(exc))
         except Exception as exc:
             return _err(rid, 5000, f"could not persist the session: {exc}")
@@ -223,6 +243,13 @@ def _(rid, params: dict) -> dict:
             # that goes stale whenever a new platform is added or a user names
             # their own source.
             deny = NON_CONVERSATION_SOURCES
+            # ``exclude_sources``: sources the caller does not want in ITS
+            # window. Bot Mode finds an assistant's main conversation in this
+            # list; a routine that runs every hour would otherwise fill the
+            # window with ``cron`` runs and push that conversation out of it.
+            extra = params.get("exclude_sources")
+            if isinstance(extra, (list, tuple)):
+                deny = deny | {str(item).strip().lower() for item in extra if str(item).strip()}
 
             limit = int(params.get("limit", 200) or 200)
             # Over-fetch modestly so per-source filtering doesn't leave us

@@ -1663,3 +1663,19 @@ def partial_update_hint(exc: BaseException) -> list[str]:
         "    agentx update",
         "If that also fails, reinstall: https://github.com/TrungKiencding/AgentX-Workmate",
     ]
+
+
+# ---------------------------------------------------------------------------
+# Text AgentX writes into a *user* turn that the person never typed
+# ---------------------------------------------------------------------------
+# Producers (the cron scheduler, the gateway's model switch) and readers
+# (session previews, rosters) share these so a preview can recognise the
+# plumbing and show the conversation instead.
+
+# The cron scheduler opens every job prompt with one bracketed paragraph of
+# delivery guidance, closed by "]" and a blank line; the task follows.
+CRON_HINT_PREFIX = "[IMPORTANT: You are running as a scheduled cron job. "
+
+# A live model switch is recorded as a user-role bookkeeping row
+# (``display_kind="model_switch"``).
+MODEL_SWITCH_MARKER_PREFIX = "[System: The active model for this chat has changed to "

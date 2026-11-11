@@ -248,6 +248,65 @@ describe('Assistants page', () => {
     expect(request).toHaveBeenCalledWith('session.list', { profile: 'writer', limit: 100, strict_profile: true })
   })
 
+  // Pilot 2026-11-11: an assistant that had only run a routine listed nothing
+  // but that run — titled with the scheduler's own prompt — and read as if it
+  // could not be talked to.
+  it('an assistant that has only run a routine still offers its main conversation', async () => {
+    sessions.writer = [
+      {
+        id: 'cron_j1_20261111_150400',
+        title: 'Top nội dung trending Tiktok · Nov 11 15:04',
+        preview: '[IMPORTANT: You are running as a scheduled cron job. DELIVER...',
+        source: 'cron',
+        started_at: 1_794_000_000,
+        last_active: 1_794_000_060
+      }
+    ]
+    const openSession = vi.spyOn(host, 'openSession').mockResolvedValue(undefined)
+
+    renderPage()
+    fireEvent.click((await screen.findAllByRole('button', { name: /^Biên tập/ }))[0])
+
+    const chats = (await screen.findByRole('heading', { name: 'Conversations' })).closest('section')!
+    await waitFor(() => expect(within(chats).getAllByRole('button').length).toBe(1))
+
+    const main = within(chats).getByRole('button')
+
+    expect(main.textContent).toContain('Main conversation')
+    expect(main.textContent).toContain('No messages yet')
+    expect(chats.textContent).not.toContain('Tiktok')
+
+    // The run is listed as a result of the routine, by the routine's name, and
+    // never by the scheduler's delivery hint.
+    const results = screen.getByRole('heading', { name: 'Scheduled task results' }).closest('section')!
+    const run = within(results).getByRole('button')
+
+    expect(run.textContent).toContain('Top nội dung trending Tiktok')
+    expect(run.textContent).not.toContain('Nov 11')
+    expect(results.textContent).not.toContain('IMPORTANT')
+
+    fireEvent.click(run)
+    expect(openSession).toHaveBeenCalledWith('cron_j1_20261111_150400', { profile: 'writer' })
+  })
+
+  it('says why a routine failed instead of a bare "last run failed"', async () => {
+    jobs.writer = [{ ...jobs.writer[0], last_status: 'error', last_error_kind: 'rate_limit' }]
+    renderPage()
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /^Biên tập/ }))[0])
+
+    expect(await screen.findByText('The last run failed: the AI service was busy.')).toBeTruthy()
+  })
+
+  it('falls back to "last run failed" for a reason it has no words for', async () => {
+    jobs.writer = [{ ...jobs.writer[0], last_status: 'error', last_error_kind: 'brand_new_kind' }]
+    renderPage()
+
+    fireEvent.click((await screen.findAllByRole('button', { name: /^Biên tập/ }))[0])
+
+    expect(await screen.findByText('Last run failed')).toBeTruthy()
+  })
+
   it('a deleted assistant leaves the list and its rooms, even if a stale roster still names it', async () => {
     const remove = vi.spyOn(host, 'deleteProfile').mockResolvedValue(undefined)
     renderPage()

@@ -50,8 +50,9 @@ describe('resolveStoredSession profile ownership', () => {
     const resolved = await resolveStoredSession('s1')
 
     expect(resolved?.profile).toBe('default')
-    // rung 2 (bare) then rung 3 (stamped cross-profile probe)
-    expect(mockGetSession).toHaveBeenNthCalledWith(1, 's1')
+    // rung 2 (the active profile, by name — it is not the primary) then rung 3
+    // (stamped cross-profile probe)
+    expect(mockGetSession).toHaveBeenNthCalledWith(1, 's1', 'meta')
     expect(mockGetSession).toHaveBeenNthCalledWith(2, 's1', 'default')
   })
 
@@ -66,13 +67,53 @@ describe('resolveStoredSession profile ownership', () => {
   })
 
   it('stamps the active profile on a bare by-id hit from an older backend', async () => {
+    $activeGatewayProfile.set('default')
     mockGetSession.mockResolvedValueOnce(session({ id: 's1' }))
 
     const resolved = await resolveStoredSession('s1')
 
-    expect(resolved?.profile).toBe('meta')
+    // The primary profile is active, so the bare GET is its own backend.
+    expect(mockGetSession).toHaveBeenCalledWith('s1')
+    expect(resolved?.profile).toBe('default')
     // the upserted cache row is owned too, so the next hit short-circuits
-    expect($sessions.get().find(s => s.id === 's1')?.profile).toBe('meta')
+    expect($sessions.get().find(s => s.id === 's1')?.profile).toBe('default')
+  })
+
+  // Pilot 2026-11: an assistant's conversation opened from the Trợ lý page came
+  // up blank. A bare GET is answered by the primary backend, so with the
+  // assistant's profile active the lookup missed there, and the cross-profile
+  // probe then skipped the assistant as "already asked".
+  it('finds a session on the active profile when that profile is not the primary', async () => {
+    $profiles.set(profiles('default', 'meta', 'bot-nghien-cuu'))
+    $activeGatewayProfile.set('bot-nghien-cuu')
+    mockGetSession.mockImplementation(async (_id, profile) => {
+      if (profile === 'bot-nghien-cuu') {
+        return session({ id: 'cron_abc_20261110', message_count: 4 })
+      }
+
+      throw new Error('404: Session not found')
+    })
+
+    const resolved = await resolveStoredSession('cron_abc_20261110')
+
+    expect(mockGetSession).toHaveBeenCalledTimes(1)
+    expect(mockGetSession).toHaveBeenCalledWith('cron_abc_20261110', 'bot-nghien-cuu')
+    expect(resolved?.profile).toBe('bot-nghien-cuu')
+    await expect(resolveSessionProfile('cron_abc_20261110')).resolves.toBe('bot-nghien-cuu')
+  })
+
+  it('never asks one profile twice', async () => {
+    $profiles.set(profiles('default', 'meta', 'bot'))
+    $activeGatewayProfile.set('bot')
+    mockGetSession.mockRejectedValue(new Error('404: Session not found'))
+
+    await expect(resolveStoredSession('missing')).resolves.toBeUndefined()
+
+    expect(mockGetSession.mock.calls).toEqual([
+      ['missing', 'bot'],
+      ['missing', 'default'],
+      ['missing', 'meta']
+    ])
   })
 
   it('probed desktop profile overrides a remote backend answering as its own "default"', async () => {

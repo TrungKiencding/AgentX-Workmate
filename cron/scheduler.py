@@ -42,7 +42,7 @@ from typing import Any, List, Optional
 # the module) fail with ModuleNotFoundError for hermes_time et al.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hermes_constants import get_hermes_home
+from hermes_constants import CRON_HINT_PREFIX, get_hermes_home
 from hermes_cli._subprocess_compat import windows_hide_flags
 from hermes_cli.config import (
     _expand_env_vars,
@@ -115,32 +115,79 @@ def _set_cron_session_title(session_db, session_id, base_title):
         return deduped
 
 
-def _summarize_cron_failure_for_delivery(job: dict, error: str | None) -> str:
-    """Describe the impact and recovery without copying diagnostic text to chat.
+# The run-time stamp that keeps a cron session's title unique. Numeric on
+# purpose: the title is stored data shown in every UI language, and the month
+# abbreviation it used to carry ("Nov 10 21:00") was English in all of them.
+CRON_SESSION_TITLE_STAMP = "%Y-%m-%d %H:%M"
 
-    The original error remains in run output, execution history and logs.
-    Even unknown errors use a fixed message: truncation is not sanitization.
-    """
-    job_name = job.get("name") or "Scheduled task"
+
+# Stable keys for why a run failed. The run's raw error stays in its output
+# file, history and logs; a surface that wants to *tell the user* reads the key
+# and says it in its own words and language (the desktop's Trợ lý page), or
+# takes the English sentence below (chat delivery).
+CRON_FAILURE_KINDS = (
+    "drift_skip",
+    "blocked_config",
+    "interrupted",
+    "stalled",
+    "busy",
+    "usage_limit",
+    "rate_limit",
+    "timeout",
+    "auth",
+    "model_not_found",
+    "service_unavailable",
+    "unknown",
+)
+
+_CRON_FAILURE_REASONS = {
+    "drift_skip": (
+        "was skipped because the AI settings changed. No AI usage was charged. "
+        "Ask me to update the model for this task before it can run again."
+    ),
+    "blocked_config": (
+        "could not start because its settings need updating. No AI usage was charged. "
+        "Ask me to review the settings for this task."
+    ),
+    "interrupted": "was interrupted before it finished. Ask me to run it again.",
+    "stalled": "stalled and was stopped. Ask me to retry this task.",
+    "busy": "could not start because another task was still running. Please try again later.",
+    "usage_limit": "could not finish because the AI service reached its usage limit. Try another model or contact support.",
+    "rate_limit": "could not finish because the AI service is busy. Please try again later.",
+    "timeout": "took too long to finish. Ask me to retry this task.",
+    "auth": "could not connect to the AI service. Please check the connection settings or contact support.",
+    "model_not_found": "could not use its selected model. Ask me to choose another model for this task.",
+    "service_unavailable": "could not use the AI service. Try another model or try again later.",
+    "unknown": "could not finish. Please try again later or contact support.",
+}
+
+_API_REASON_TO_FAILURE_KIND = {
+    "billing": "usage_limit",
+    "budget_exceeded": "usage_limit",
+    "rate_limit": "rate_limit",
+    "upstream_rate_limit": "rate_limit",
+    "timeout": "timeout",
+    "auth": "auth",
+    "auth_permanent": "auth",
+    "model_not_found": "model_not_found",
+}
+
+
+def classify_cron_failure(error: str | None) -> str:
+    """One of ``CRON_FAILURE_KINDS`` for a run's error text. Never raises."""
     text = str(error or "")
     lower = text.lower()
     if "[drift_skip" in lower:
-        reason = (
-            "was skipped because the AI settings changed. No AI usage was charged. "
-            "Ask me to update the model for this task before it can run again."
-        )
-    elif "[blocked_config" in lower:
-        reason = (
-            "could not start because its settings need updating. No AI usage was charged. "
-            "Ask me to review the settings for this task."
-        )
-    elif "interrupted" in lower or "shutdown" in lower:
-        reason = "was interrupted before it finished. Ask me to run it again."
-    elif re.search(r"idle for \d+s\s*\(limit \d+s\)", lower):
-        reason = "stalled and was stopped. Ask me to retry this task."
-    elif "terminal_cwd" in lower and ("lock" in lower or "timed out" in lower):
-        reason = "could not start because another task was still running. Please try again later."
-    else:
+        return "drift_skip"
+    if "[blocked_config" in lower:
+        return "blocked_config"
+    if "interrupted" in lower or "shutdown" in lower:
+        return "interrupted"
+    if re.search(r"idle for \d+s\s*\(limit \d+s\)", lower):
+        return "stalled"
+    if "terminal_cwd" in lower and ("lock" in lower or "timed out" in lower):
+        return "busy"
+    try:
         from agent.error_classifier import classify_api_error
 
         api_error = RuntimeError(text)
@@ -148,18 +195,21 @@ def _summarize_cron_failure_for_delivery(job: dict, error: str | None) -> str:
         if status:
             api_error.status_code = int(status.group(1))
         classified = classify_api_error(api_error)
-        reason = {
-            "billing": "could not finish because the AI service reached its usage limit. Try another model or contact support.",
-            "budget_exceeded": "could not finish because the AI service reached its usage limit. Contact support.",
-            "rate_limit": "could not finish because the AI service is busy. Please try again later.",
-            "upstream_rate_limit": "could not finish because the AI service is busy. Please try again later.",
-            "timeout": "took too long to finish. Ask me to retry this task.",
-            "auth": "could not connect to the AI service. Please check the connection settings or contact support.",
-            "auth_permanent": "could not connect to the AI service. Please check the connection settings or contact support.",
-            "model_not_found": "could not use its selected model. Ask me to choose another model for this task.",
-        }.get(classified.reason.value, "could not finish. Please try again later or contact support.")
-        if classified.billing_unverified:
-            reason = "could not use the AI service. Try another model or try again later."
+    except Exception:  # noqa: BLE001 - a label for the UI must not break listing
+        return "unknown"
+    if classified.billing_unverified:
+        return "service_unavailable"
+    return _API_REASON_TO_FAILURE_KIND.get(classified.reason.value, "unknown")
+
+
+def _summarize_cron_failure_for_delivery(job: dict, error: str | None) -> str:
+    """Describe the impact and recovery without copying diagnostic text to chat.
+
+    The original error remains in run output, execution history and logs.
+    Even unknown errors use a fixed message: truncation is not sanitization.
+    """
+    job_name = job.get("name") or "Scheduled task"
+    reason = _CRON_FAILURE_REASONS[classify_cron_failure(error)]
     return f"⚠️ {job_name}: {reason}"
 
 
@@ -2810,7 +2860,7 @@ def _build_job_prompt(job: dict, prerun_script: Optional[tuple] = None) -> str:
     # Always prepend cron execution guidance so the agent knows how
     # delivery works and can suppress delivery when appropriate.
     cron_hint = (
-        "[IMPORTANT: You are running as a scheduled cron job. "
+        f"{CRON_HINT_PREFIX}"
         "DELIVERY: Your final response will be automatically delivered "
         "to the user — do NOT use send_message or try to deliver "
         "the output yourself. Just produce your report/output as your "
@@ -4728,7 +4778,7 @@ def run_job(
             # except-fallback below guarantees a non-blank title (#50535).
             try:
                 _title_base = " ".join(job_name.split())[:60].strip() or f"cron {job_id}"
-                _cron_title = f"{_title_base} · {_hermes_now().strftime('%b %d %H:%M')}"
+                _cron_title = f"{_title_base} · {_hermes_now().strftime(CRON_SESSION_TITLE_STAMP)}"
                 if not _set_cron_session_title(
                     _session_db, _final_cron_session_id, _cron_title
                 ):

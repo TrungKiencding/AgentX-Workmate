@@ -66,6 +66,8 @@ type BotsMessages = {
   nextRun: (when: string) => string
   paused: string
   lastFailed: string
+  /** Why the last run failed, by cron.scheduler's failure kind. */
+  failure: Record<string, string>
   pauseRoutine: string
   resumeRoutine: string
   deleteRoutine: string
@@ -79,6 +81,9 @@ type BotsMessages = {
   mainChat: string
   untitledChat: string
   chatsEmpty: string
+  mainChatEmpty: string
+  runsTitle: string
+  runsDescription: string
   showAllChats: (n: number) => string
   showFewerChats: string
   openFailed: string
@@ -289,6 +294,20 @@ const en: BotsMessages = {
   nextRun: when => `Next ${when}`,
   paused: 'Paused',
   lastFailed: 'Last run failed',
+  failure: {
+    drift_skip: 'Skipped: this assistant’s model changed after the task was created. Delete the task and add it again.',
+    blocked_config: 'Couldn’t start: this assistant’s settings need updating.',
+    interrupted: 'The last run was cut short (the app was closed or restarted).',
+    stalled: 'The last run stalled and was stopped.',
+    busy: 'The last run couldn’t start because another task was still running.',
+    usage_limit: 'The last run stopped: the AI service reached its usage limit.',
+    rate_limit: 'The last run failed: the AI service was busy.',
+    timeout: 'The last run took too long and was stopped.',
+    auth: 'The last run couldn’t reach the AI service. Try signing in again.',
+    model_not_found: 'The last run couldn’t use the selected model. Pick another model for this assistant.',
+    service_unavailable: 'The last run couldn’t use the AI service. Try again later.',
+    unknown: 'Last run failed'
+  },
   pauseRoutine: 'Pause',
   resumeRoutine: 'Resume',
   deleteRoutine: 'Delete task',
@@ -301,6 +320,9 @@ const en: BotsMessages = {
   mainChat: 'Main conversation',
   untitledChat: 'Untitled chat',
   chatsEmpty: 'No conversations yet.',
+  mainChatEmpty: 'No messages yet — open it to start talking.',
+  runsTitle: 'Scheduled task results',
+  runsDescription: 'Each time a scheduled task runs, its result lands here.',
   showAllChats: n => `Show all ${n}`,
   showFewerChats: 'Show fewer',
   openFailed: 'Couldn’t open the chat',
@@ -542,6 +564,20 @@ const vi: BotsMessages = {
   nextRun: when => `Lần tới ${when}`,
   paused: 'Đang tạm dừng',
   lastFailed: 'Lần chạy trước bị lỗi',
+  failure: {
+    drift_skip: 'Bị bỏ qua vì model của trợ lý đã đổi sau khi tạo lịch. Hãy xoá lịch này rồi thêm lại.',
+    blocked_config: 'Không chạy được vì thiết lập của trợ lý cần cập nhật.',
+    interrupted: 'Lần chạy trước bị ngắt giữa chừng (ứng dụng bị đóng hoặc khởi động lại).',
+    stalled: 'Lần chạy trước bị treo nên đã dừng.',
+    busy: 'Lần chạy trước không bắt đầu được vì một việc khác còn đang chạy.',
+    usage_limit: 'Lần chạy trước dừng vì dịch vụ AI đã hết hạn mức sử dụng.',
+    rate_limit: 'Lần chạy trước lỗi vì dịch vụ AI đang quá tải.',
+    timeout: 'Lần chạy trước mất quá nhiều thời gian nên đã dừng.',
+    auth: 'Lần chạy trước không kết nối được dịch vụ AI. Hãy thử đăng nhập lại.',
+    model_not_found: 'Lần chạy trước không dùng được model đã chọn. Hãy chọn model khác cho trợ lý.',
+    service_unavailable: 'Lần chạy trước không dùng được dịch vụ AI. Hãy thử lại sau.',
+    unknown: 'Lần chạy trước bị lỗi'
+  },
   pauseRoutine: 'Tạm dừng',
   resumeRoutine: 'Chạy tiếp',
   deleteRoutine: 'Xoá lịch',
@@ -554,6 +590,9 @@ const vi: BotsMessages = {
   mainChat: 'Cuộc trò chuyện chính',
   untitledChat: 'Cuộc trò chuyện chưa đặt tên',
   chatsEmpty: 'Chưa có cuộc trò chuyện nào.',
+  mainChatEmpty: 'Chưa có tin nhắn. Bấm để bắt đầu trò chuyện.',
+  runsTitle: 'Kết quả lịch tự động',
+  runsDescription: 'Mỗi lần lịch chạy, kết quả nằm ở đây.',
   showAllChats: n => `Xem tất cả ${n}`,
   showFewerChats: 'Thu gọn',
   openFailed: 'Chưa mở được cuộc trò chuyện',

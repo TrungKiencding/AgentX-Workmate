@@ -376,17 +376,21 @@ export { triggerHaptic as haptic } from '@/lib/haptics'
 /** The app's lucide icon set (RefreshCw, LayoutDashboard, Activity, …). */
 export * as icons from '@/lib/icons'
 export { isImeComposing, shouldSubmitOnEnter } from '@/lib/ime'
+export { isCronPrompt, stripInternalPreamble } from '@/lib/internal-preamble'
 export { type KeybindContribution, KEYBINDS_AREA } from '@/lib/keybinds/actions'
 /** The app's deterministic identity color for a name (profiles, assignees,
  *  authors) + its translucent tag fill — so plugin-rendered identities read
  *  the same hue as everywhere else. */
 export { profileColor, profileColorSoft } from '@/lib/profile-color'
+
+export const PANES_AREA = 'panes'
 /** The shared client itself, for invalidation OUTSIDE React (e.g. a
  *  `ctx.socket` frame invalidating a query). Inside components keep using
  *  `useQueryClient`. */
 export { queryClient } from '@/lib/query-client'
+export const STATUSBAR_AREAS = { left: 'statusBar.left', right: 'statusBar.right' } as const
+export const TITLEBAR_AREAS = { center: 'titleBar.center', left: 'titleBar.left', right: 'titleBar.right' } as const
 
-export const PANES_AREA = 'panes'
 /** AgentX' reasoning levels + their compact labels, so a plugin surfacing a
  *  thinking depth uses the same scale and spelling as the rest of the app. */
 export {
@@ -396,9 +400,6 @@ export {
   type ReasoningEffort,
   reasoningEffortLabel
 } from '@/lib/reasoning-effort'
-export const STATUSBAR_AREAS = { left: 'statusBar.left', right: 'statusBar.right' } as const
-export const TITLEBAR_AREAS = { center: 'titleBar.center', left: 'titleBar.left', right: 'titleBar.right' } as const
-
 /** The app's own gateway-readiness evaluation (setup.status +
  *  setup.runtime_check, reconciled) — pass `host.request`. Don't hand-roll
  *  readiness from raw RPC shapes. */

@@ -68,7 +68,11 @@ export async function resolveCanonicalChat(name: string): Promise<string | null>
     const res = await host.requestPrimary<{ sessions?: ProfileSession[] }>('session.list', {
       profile: name,
       limit: 200,
-      strict_profile: true
+      strict_profile: true,
+      // A routine that runs every hour must not fill this window with its runs
+      // and push the main conversation out of it (the create below would then
+      // collide with the "Bot Chat" that is still there).
+      exclude_sources: ['cron']
     })
 
     rows = res?.sessions ?? []
