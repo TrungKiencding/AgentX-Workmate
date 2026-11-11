@@ -858,6 +858,16 @@ export interface HermesTitleBarTheme {
 export interface HermesActiveWork {
   count: number
   titles: string[]
+  /** The confirmation's words in the app's language (the main process has no
+   *  translations); sent only while something is running. */
+  copy?: {
+    detail: string
+    messageMany: string
+    messageOne: string
+    more: string
+    quit: string
+    stay: string
+  }
 }
 
 export interface HermesWindowState {

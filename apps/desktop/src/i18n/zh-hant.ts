@@ -242,6 +242,15 @@ export const zhHant = defineLocale({
     }
   },
 
+  quitGuard: {
+    messageOne: 'AgentX 仍在處理 1 個對話。',
+    messageMany: 'AgentX 仍在處理 {count} 個對話。',
+    more: '另有 {count} 個',
+    detail: '現在結束會中途打斷工作，尚未寫完的內容將遺失。',
+    stay: '繼續執行',
+    quit: '仍要結束'
+  },
+
   remoteDisplayBanner: {
     message: reason => `軟體繪圖已啟用 — 偵測到遠端顯示（${reason}）。為防止畫面閃爍，已停用 GPU 加速。`
   },

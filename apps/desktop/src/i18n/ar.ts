@@ -301,6 +301,15 @@ export const ar = defineLocale({
     },
     installMethodUnsupportedTitle: 'طريقة تثبيت غير مدعومة'
   },
+  quitGuard: {
+    messageOne: 'ما زال AgentX يعمل على محادثة واحدة.',
+    messageMany: 'ما زال AgentX يعمل على {count} محادثات.',
+    more: 'و{count} أخرى',
+    detail: 'الخروج الآن يوقف العمل في منتصفه، وسيضيع ما لم تكتمل كتابته.',
+    stay: 'متابعة التشغيل',
+    quit: 'الخروج على أي حال'
+  },
+
   remoteDisplayBanner: {
     message: reason => `العرض البرمجي نشط — تم اكتشاف شاشة بعيدة (${reason}). تم تعطيل تسريع GPU لمنع الوميض.`
   },

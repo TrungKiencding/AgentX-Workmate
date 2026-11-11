@@ -271,6 +271,15 @@ export const vi: Translations = {
     }
   },
 
+  quitGuard: {
+    messageOne: 'Workmate đang làm dở 1 cuộc trò chuyện.',
+    messageMany: 'Workmate đang làm dở {count} cuộc trò chuyện.',
+    more: 'và {count} cuộc trò chuyện khác',
+    detail: 'Thoát bây giờ sẽ dừng công việc giữa chừng. Phần chưa ghi xong sẽ mất.',
+    stay: 'Tiếp tục chạy',
+    quit: 'Vẫn thoát'
+  },
+
   remoteDisplayBanner: {
     message: reason =>
       `Đang render bằng phần mềm — phát hiện màn hình từ xa (${reason}). Tăng tốc GPU bị tắt để tránh nhấp nháy.`

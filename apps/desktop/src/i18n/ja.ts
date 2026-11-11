@@ -264,6 +264,15 @@ export const ja = defineLocale({
     }
   },
 
+  quitGuard: {
+    messageOne: 'AgentX は 1 件のチャットを処理中です。',
+    messageMany: 'AgentX は {count} 件のチャットを処理中です。',
+    more: 'ほか {count} 件',
+    detail: '今終了すると作業が途中で止まり、書き込みが終わっていない内容は失われます。',
+    stay: '実行を続ける',
+    quit: 'それでも終了'
+  },
+
   remoteDisplayBanner: {
     message: reason =>
       `ソフトウェアレンダリングが有効です — リモートディスプレイを検出しました（${reason}）。ちらつきを防ぐため GPU アクセラレーションは無効化されています。`

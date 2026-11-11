@@ -192,7 +192,7 @@ import { linkTitleTarget } from './private-network-host'
 import { decideProfileDeleteAction, profileNameFromDeleteRequest, resolveRouteProfile } from './profile-delete-routing'
 import { fetchPrimaryProfileSessions } from './profile-session-routing'
 import { createQuickEntryShortcut, quickEntryWindowBounds, sanitizeQuickEntrySettings } from './quick-entry'
-import { type ActiveWork, mergeActiveWork, normalizeActiveWork, quitPromptFor } from './quit-guard'
+import { type ActiveWork, closeDecisionFor, mergeActiveWork, normalizeActiveWork, quitPromptFor } from './quit-guard'
 import * as remoteLifecycle from './remote-lifecycle'
 import {
   RemoteLivenessTracker,
@@ -2598,6 +2598,12 @@ let isQuittingForHandoff = false
 // (the app.quit() that follows re-enters before-quit and must pass through).
 let quitPromptOpen = false
 let quitConfirmedWithActiveWork = false
+// Set once before-quit has let a quit through: the windows that close after it
+// are the app leaving, not a person closing a window on running work.
+let quitUnderway = false
+// macOS windows kept hidden instead of closed because a turn was running in
+// them (see closeDecisionFor); closed for real once the work is done.
+const windowsHiddenForActiveWork = new Set<BrowserWindow>()
 // Set once an aborted installer's process tree is gone, so the app.quit() that
 // was held for it passes straight through.
 let installerQuitTeardownDone = false
@@ -9818,10 +9824,15 @@ function createWindow() {
   mainWindow.on('moved', schedulePersistWindowState)
   mainWindow.on('maximize', schedulePersistWindowState)
   mainWindow.on('unmaximize', schedulePersistWindowState)
-  mainWindow.on('close', () => schedulePersistWindowState.flush())
-
   // the closed wrapper remains truthy, so clear only the window this callback owns.
   const createdMainWindow = mainWindow
+
+  mainWindow.on('close', event => {
+    schedulePersistWindowState.flush()
+    // Closing the window on a running turn must not silently kill it.
+    heldCloseForActiveWork(event, createdMainWindow)
+  })
+
   mainWindow.on('closed', () => {
     closePetOverlay()
     wakeIndicatorController.close()
@@ -11547,6 +11558,7 @@ ipcMain.on('agentx:active-work', (event, payload) => {
 
   activeWorkByWebContents.set(id, normalizeActiveWork(payload))
   updateStreamThrottleFromActiveWork()
+  closeWindowsHiddenForFinishedWork()
 })
 
 ipcMain.on('agentx:titlebar-theme', (_event, payload) => {
@@ -13100,33 +13112,60 @@ function configureSpellChecker() {
   }
 }
 
-// Ask before a quit kills a turn in flight. True when the quit was intercepted
-// and the confirmation is on screen; "Quit Anyway" re-enters before-quit with
-// the latch set and falls straight through to the teardown below.
-function heldQuitForActiveWork(event: Electron.Event): boolean {
-  if (SKIP_QUIT_CONFIRM || quitConfirmedWithActiveWork || quitPromptOpen) {
-    return false
+// A window a person closed while a turn ran in it stays (hidden) for as long
+// as the work does. Once nothing is running, honour the close.
+function closeWindowsHiddenForFinishedWork() {
+  if (windowsHiddenForActiveWork.size === 0 || mergeActiveWork(activeWorkByWebContents.values()).count > 0) {
+    return
   }
 
-  const prompt = quitPromptFor(mergeActiveWork(activeWorkByWebContents.values()), isQuittingForHandoff)
-  const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  for (const win of [...windowsHiddenForActiveWork]) {
+    windowsHiddenForActiveWork.delete(win)
 
-  if (!prompt || !parent || parent.isDestroyed()) {
-    return false
+    // Brought back in the meantime (Dock click): it is in use again.
+    if (!win.isDestroyed() && !win.isVisible()) {
+      win.close()
+    }
+  }
+}
+
+function hideWindowForActiveWork(win: BrowserWindow) {
+  windowsHiddenForActiveWork.add(win)
+  win.once('closed', () => windowsHiddenForActiveWork.delete(win))
+
+  // Hiding a fullscreen window leaves its black Space behind.
+  if (win.isFullScreen()) {
+    win.once('leave-full-screen', () => {
+      if (!win.isDestroyed()) {
+        win.hide()
+      }
+    })
+    win.setFullScreen(false)
+
+    return
   }
 
-  event.preventDefault()
+  win.hide()
+}
+
+// The confirmation itself, shared by "quit" and "close the last window".
+// Attached to `parent` when it can be seen; a sheet on a hidden window would
+// never appear, so that case gets an app-level dialog.
+function confirmQuitWithActiveWork(prompt: NonNullable<ReturnType<typeof quitPromptFor>>, parent?: BrowserWindow | null) {
+  const options: Electron.MessageBoxOptions = {
+    buttons: prompt.buttons,
+    cancelId: 0,
+    defaultId: 0,
+    detail: prompt.detail,
+    message: prompt.message,
+    type: 'question'
+  }
+
+  const visibleParent = parent && !parent.isDestroyed() && parent.isVisible() ? parent : null
+
   quitPromptOpen = true
 
-  void dialog
-    .showMessageBox(parent, {
-      buttons: ['Keep Running', 'Quit Anyway'],
-      cancelId: 0,
-      defaultId: 0,
-      detail: prompt.detail,
-      message: prompt.message,
-      type: 'question'
-    })
+  void (visibleParent ? dialog.showMessageBox(visibleParent, options) : dialog.showMessageBox(options))
     .then(({ response }) => {
       quitPromptOpen = false
 
@@ -13141,6 +13180,66 @@ function heldQuitForActiveWork(event: Electron.Event): boolean {
       quitConfirmedWithActiveWork = true
       app.quit()
     })
+}
+
+// Closing a chat window while a turn runs in the app. True when the close was
+// intercepted (the window was hidden, or the confirmation is on screen).
+function heldCloseForActiveWork(event: Electron.Event, win: BrowserWindow): boolean {
+  if (SKIP_QUIT_CONFIRM || quitPromptOpen) {
+    // A second click on the close button while the dialog is up: still held.
+    if (quitPromptOpen) {
+      event.preventDefault()
+    }
+
+    return quitPromptOpen
+  }
+
+  const work = mergeActiveWork(activeWorkByWebContents.values())
+
+  const decision = closeDecisionFor({
+    lastChatWindow: win === mainWindow && sessionWindows.size === 0,
+    platform: process.platform,
+    quitting: quitUnderway || quitConfirmedWithActiveWork || isQuittingForHandoff,
+    work
+  })
+
+  if (decision === 'close') {
+    return false
+  }
+
+  event.preventDefault()
+
+  if (decision === 'hide') {
+    hideWindowForActiveWork(win)
+
+    return true
+  }
+
+  const prompt = quitPromptFor(work, false)
+
+  if (prompt) {
+    confirmQuitWithActiveWork(prompt, win)
+  }
+
+  return true
+}
+
+// Ask before a quit kills a turn in flight. True when the quit was intercepted
+// and the confirmation is on screen; "Quit Anyway" re-enters before-quit with
+// the latch set and falls straight through to the teardown below.
+function heldQuitForActiveWork(event: Electron.Event): boolean {
+  if (SKIP_QUIT_CONFIRM || quitConfirmedWithActiveWork || quitPromptOpen) {
+    return false
+  }
+
+  const prompt = quitPromptFor(mergeActiveWork(activeWorkByWebContents.values()), isQuittingForHandoff)
+
+  if (!prompt) {
+    return false
+  }
+
+  event.preventDefault()
+  confirmQuitWithActiveWork(prompt, BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])
 
   return true
 }
@@ -13151,6 +13250,9 @@ app.on('before-quit', event => {
   if (heldQuitForActiveWork(event)) {
     return
   }
+
+  // From here the app is leaving: windows closing now must not be held.
+  quitUnderway = true
 
   stopAccountTicker()
   appUpdateService?.stop()

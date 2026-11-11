@@ -12,17 +12,28 @@
 import { computed } from 'nanostores'
 
 import type { HermesActiveWork } from '@/global'
+import { translationsNow } from '@/i18n'
+import { $runtimeLocale } from '@/i18n/runtime'
 import { $sessions } from '@/store/session'
 import { $workingSessionIds } from '@/store/session-states'
 
-const $activeWork = computed([$workingSessionIds, $sessions], (workingIds, sessions): HermesActiveWork => {
-  const titleById = new Map(sessions.map(session => [session.id, session.title?.trim() ?? '']))
+// `$runtimeLocale` is a dependency so a language change while a turn runs
+// re-sends the confirmation's words in the new language.
+const $activeWork = computed(
+  [$workingSessionIds, $sessions, $runtimeLocale],
+  (workingIds, sessions): HermesActiveWork => {
+    const titleById = new Map(sessions.map(session => [session.id, session.title?.trim() ?? '']))
 
-  return {
-    count: workingIds.length,
-    titles: workingIds.map(id => titleById.get(id) ?? '').filter(Boolean)
+    const work: HermesActiveWork = {
+      count: workingIds.length,
+      titles: workingIds.map(id => titleById.get(id) ?? '').filter(Boolean)
+    }
+
+    // The main process shows the "still working — quit anyway?" dialog but has
+    // no translations: hand it the words while there is something to ask about.
+    return work.count > 0 ? { ...work, copy: { ...translationsNow().quitGuard } } : work
   }
-})
+)
 
 if (typeof window !== 'undefined') {
   // `$sessions` republishes on unrelated churn (previews, heartbeats), so only

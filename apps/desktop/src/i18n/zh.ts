@@ -242,6 +242,15 @@ export const zh: Translations = {
     }
   },
 
+  quitGuard: {
+    messageOne: 'AgentX 仍在处理 1 个对话。',
+    messageMany: 'AgentX 仍在处理 {count} 个对话。',
+    more: '另有 {count} 个',
+    detail: '现在退出会中途打断任务，尚未写完的内容将丢失。',
+    stay: '继续运行',
+    quit: '仍然退出'
+  },
+
   remoteDisplayBanner: {
     message: reason => `软件渲染已启用 — 检测到远程显示（${reason}）。为防止画面闪烁，已禁用 GPU 加速。`
   },

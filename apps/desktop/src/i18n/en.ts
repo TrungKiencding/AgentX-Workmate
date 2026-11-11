@@ -263,6 +263,15 @@ export const en: Translations = {
     }
   },
 
+  quitGuard: {
+    messageOne: 'AgentX is still working on 1 chat.',
+    messageMany: 'AgentX is still working on {count} chats.',
+    more: '{count} more',
+    detail: 'Quitting stops the agent mid-turn. Any work it has not finished writing is lost.',
+    stay: 'Keep Running',
+    quit: 'Quit Anyway'
+  },
+
   remoteDisplayBanner: {
     message: reason =>
       `Software rendering active — remote display detected (${reason}). GPU acceleration is disabled to prevent flickering.`

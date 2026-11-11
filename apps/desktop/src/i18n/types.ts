@@ -378,6 +378,17 @@ export interface Translations {
     }
   }
 
+  /** The "a chat is still running" confirmation on quit / window close. The
+   *  main process shows it; `{count}` is filled in there. */
+  quitGuard: {
+    messageOne: string
+    messageMany: string
+    more: string
+    detail: string
+    stay: string
+    quit: string
+  }
+
   remoteDisplayBanner: {
     message: (reason: string) => string
   }
