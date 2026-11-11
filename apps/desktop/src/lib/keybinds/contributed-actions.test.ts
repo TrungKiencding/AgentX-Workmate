@@ -64,3 +64,43 @@ describe('contributed keybind actions', () => {
     expect(registry.getArea(KEYBINDS_AREA).filter(c => c.source === 'plugin:demo')).toHaveLength(0)
   })
 })
+
+// Pilot 2026-11-10 ("language switching is not in sync"): a contribution
+// registers once at boot, so a label captured then stayed in the boot language.
+describe('a translated contribution follows the app language', () => {
+  it('reads a function label each time the actions are listed', () => {
+    const ctx = createPluginContext('demo-i18n')
+    let language = 'vi'
+
+    const dispose = ctx.register({
+      id: 'new-task',
+      area: KEYBINDS_AREA,
+      data: {
+        id: 'demo.i18nTask',
+        label: () => (language === 'vi' ? 'Thẻ mới' : 'New task'),
+        run: () => undefined
+      }
+    })
+
+    const label = () => allKeybindActions().find(a => a.id === 'demo.i18nTask')?.label
+
+    expect(label()).toBe('Thẻ mới')
+    language = 'en'
+    expect(label()).toBe('New task')
+
+    dispose()
+  })
+
+  it('leaves out a contribution whose label resolves to nothing', () => {
+    const ctx = createPluginContext('demo-empty')
+
+    const dispose = ctx.register({
+      id: 'blank',
+      area: KEYBINDS_AREA,
+      data: { id: 'demo.blank', label: () => '', run: () => undefined }
+    })
+
+    expect(allKeybindActions().some(a => a.id === 'demo.blank')).toBe(false)
+    dispose()
+  })
+})

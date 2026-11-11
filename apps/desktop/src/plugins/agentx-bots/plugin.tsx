@@ -113,7 +113,7 @@ const plugin: HermesPlugin = {
         area: PALETTE_AREA,
         data: {
           id: `${PLUGIN_ID}.open`,
-          label: b().paletteOpen,
+          label: () => b().paletteOpen,
           keywords: ['bot', 'bots', 'assistant', 'agent', 'trợ lý', 'tro ly'],
           run: () => host.navigate(BOTS_ROUTE)
         } satisfies PaletteContribution
@@ -123,7 +123,7 @@ const plugin: HermesPlugin = {
         area: PALETTE_AREA,
         data: {
           id: `${PLUGIN_ID}.new`,
-          label: b().paletteNew,
+          label: () => b().paletteNew,
           keywords: ['bot', 'assistant', 'agent', 'profile', 'create', 'new', 'tạo', 'trợ lý', 'tro ly'],
           run: () => {
             host.navigate(BOTS_ROUTE)
