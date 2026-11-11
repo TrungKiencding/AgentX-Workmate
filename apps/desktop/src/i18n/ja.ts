@@ -2471,6 +2471,12 @@ export const ja = defineLocale({
     monthdayShortMonthHint: 'この日がない月はスキップされます。',
     minuteLabel: '毎時の何分',
     minuteOption: minute => `:${minute}`,
+    runDoneTitle: name => `「${name}」が実行されました`,
+    runDoneBody: '結果を確認できます。',
+    runFailedTitle: name => `「${name}」は完了しませんでした`,
+    runFailedBody: 'スケジュールを開いて原因を確認してください。',
+    runUntitled: 'スケジュールタスク',
+    viewRun: '表示',
     newCron: '新しい Cron',
     emptyDescNew:
       'Cron 式でプロンプトを実行するスケジュールを設定します。AgentX が実行して、選択した宛先に結果を送信します。',

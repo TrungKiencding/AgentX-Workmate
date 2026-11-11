@@ -75,6 +75,10 @@ type BotsMessages = {
   deleteRoutineBody: string
   routineUpdateFailed: string
   routineUntitled: string
+  routineRanTitle: (task: string) => string
+  routineRanBody: (assistant: string) => string
+  routineFailedTitle: (task: string) => string
+  routineRanView: string
   // conversations
   chatsTitle: string
   chatsDescription: string
@@ -315,6 +319,10 @@ const en: BotsMessages = {
   deleteRoutineBody: 'It won’t run again. Past results stay in the chat history.',
   routineUpdateFailed: 'Couldn’t update the task',
   routineUntitled: 'Untitled task',
+  routineRanTitle: task => `“${task}” just ran`,
+  routineRanBody: assistant => `${assistant} finished it. The result is on its page.`,
+  routineFailedTitle: task => `“${task}” didn’t finish`,
+  routineRanView: 'View',
   chatsTitle: 'Conversations',
   chatsDescription: 'The main conversation plus any separate chats.',
   mainChat: 'Main conversation',
@@ -585,6 +593,10 @@ const vi: BotsMessages = {
   deleteRoutineBody: 'Lịch này sẽ không chạy nữa. Kết quả cũ vẫn còn trong lịch sử trò chuyện.',
   routineUpdateFailed: 'Chưa cập nhật được lịch',
   routineUntitled: 'Lịch chưa đặt tên',
+  routineRanTitle: task => `Lịch “${task}” vừa chạy xong`,
+  routineRanBody: assistant => `${assistant} đã làm xong. Kết quả nằm ở trang của trợ lý.`,
+  routineFailedTitle: task => `Lịch “${task}” chạy chưa xong`,
+  routineRanView: 'Xem',
   chatsTitle: 'Cuộc trò chuyện',
   chatsDescription: 'Cuộc trò chuyện chính và các cuộc trò chuyện riêng.',
   mainChat: 'Cuộc trò chuyện chính',

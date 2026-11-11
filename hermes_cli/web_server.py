@@ -171,6 +171,40 @@ def _start_desktop_cron_ticker(stop_event: "threading.Event", interval: int = 60
     provider.start(stop_event, interval=interval)
 
 
+def _desktop_cron_roles(env: "dict[str, str] | None" = None, home: "Path | None" = None) -> "tuple[bool, bool]":
+    """``(ticks its own jobs, sweeps assistants' jobs)`` for this desktop backend.
+
+    The app runs one *primary* backend for as long as it is open, plus *pool*
+    backends — one per other profile in use — that it stops when their profile
+    has been idle for ten minutes or the pool is full. A pool backend cannot be
+    trusted with scheduled work:
+
+    * it is stopped on renderer idleness alone, so a routine it was running was
+      killed mid-run *after* its next run had been moved forward — the run was
+      lost and left a prompt-only session behind;
+    * its last heartbeat kept the sweeper away for minutes after it was gone,
+      so a due task sat there until the assistant's chat was opened again
+      (pilot feedback 2026-11: "chỉ chạy sau khi bấm vào cuộc trò chuyện");
+    * a sweeper elected in a pool backend takes its child ticks down with it.
+
+    So the primary sweeps, alone, and a pool backend serving a Bot Mode
+    assistant does not tick: the primary's sweeper runs that assistant's tasks
+    in a child that outlives any pool backend. A pool backend for an ordinary
+    (non-assistant) profile still ticks — nothing else would.
+    """
+    env = os.environ if env is None else env
+    if env.get("AGENTX_DESKTOP_POOL") != "1":
+        return True, True
+    try:
+        from hermes_constants import get_hermes_home
+        from tools.bot_mode_protocol import read_bots_meta
+
+        is_assistant = read_bots_meta(Path(home or get_hermes_home())) is not None
+    except Exception:  # noqa: BLE001 - when unsure, keep ticking: a missed run is worse
+        is_assistant = False
+    return (not is_assistant), False
+
+
 def _warm_gateway_module() -> None:
     """Pre-import heavy modules so the event loop is not stalled on first use.
 
@@ -244,25 +278,33 @@ async def _lifespan(app: "FastAPI"):
     cron_thread: "threading.Thread | None" = None
     if os.getenv("AGENTX_DESKTOP") == "1":
         cron_stop = threading.Event()
-        cron_thread = threading.Thread(
-            target=_start_desktop_cron_ticker,
-            args=(cron_stop,),
-            daemon=True,
-            name="desktop-cron-ticker",
-        )
-        cron_thread.start()
-        # Bot Mode assistants are profiles whose own backend only runs while
-        # they are in use: tick their stores from here (each in an isolated
-        # per-profile child) so their scheduled tasks fire while the app is
-        # open. See cron/bot_profile_sweeper.py.
-        from cron.bot_profile_sweeper import start_bot_profile_sweeper
+        ticks_own_jobs, sweeps_assistants = _desktop_cron_roles()
+        if ticks_own_jobs:
+            cron_thread = threading.Thread(
+                target=_start_desktop_cron_ticker,
+                args=(cron_stop,),
+                daemon=True,
+                name="desktop-cron-ticker",
+            )
+            cron_thread.start()
+        else:
+            _log.info(
+                "Desktop cron scheduler not started: this is a pool backend for a "
+                "Bot Mode assistant; the primary backend runs its scheduled tasks"
+            )
+        if sweeps_assistants:
+            # Bot Mode assistants are profiles whose own backend only runs
+            # while they are in use: tick their stores from here (each in an
+            # isolated per-profile child) so their scheduled tasks fire while
+            # the app is open. See cron/bot_profile_sweeper.py.
+            from cron.bot_profile_sweeper import start_bot_profile_sweeper
 
-        threading.Thread(
-            target=start_bot_profile_sweeper,
-            args=(cron_stop,),
-            daemon=True,
-            name="desktop-bot-cron-sweeper",
-        ).start()
+            threading.Thread(
+                target=start_bot_profile_sweeper,
+                args=(cron_stop,),
+                daemon=True,
+                name="desktop-bot-cron-sweeper",
+            ).start()
 
     # Reap idle/dead keep-alive PTY sessions in the background (30-min TTL).
     pty_reaper_task = asyncio.create_task(run_reaper(PTY_REGISTRY))

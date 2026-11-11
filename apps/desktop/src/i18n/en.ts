@@ -2494,6 +2494,12 @@ export const en: Translations = {
     monthdayShortMonthHint: 'Months without this day are skipped.',
     minuteLabel: 'Minute of the hour',
     minuteOption: minute => `:${minute}`,
+    runDoneTitle: name => `“${name}” just ran`,
+    runDoneBody: 'Its result is ready.',
+    runFailedTitle: name => `“${name}” didn’t finish`,
+    runFailedBody: 'Open the schedule to see what went wrong.',
+    runUntitled: 'Scheduled task',
+    viewRun: 'View',
     newCron: 'New cron',
     emptyDescNew:
       'Schedule a prompt to run on a cron expression. AgentX will run it and deliver results to the destination you pick.',

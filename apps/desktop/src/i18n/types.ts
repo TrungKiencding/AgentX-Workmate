@@ -2065,6 +2065,12 @@ export interface Translations {
     monthdayShortMonthHint: string
     minuteLabel: string
     minuteOption: (minute: string) => string
+    runDoneTitle: (name: string) => string
+    runDoneBody: string
+    runFailedTitle: (name: string) => string
+    runFailedBody: string
+    runUntitled: string
+    viewRun: string
     newCron: string
     emptyDescNew: string
     emptyDescSearch: string

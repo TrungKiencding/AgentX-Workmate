@@ -3613,6 +3613,40 @@ def _cron_sig():
         return None
 
 
+# How long the list of assistant homes is reused. Listing reads every
+# profile.yaml; an assistant created a moment ago has no routine due yet.
+_ASSISTANT_HOMES_TTL_S = 30.0
+_assistant_homes_cache: tuple[float, list] | None = None
+
+
+def _assistant_routines_sig():
+    """``(assistant, jobs.json mtime)`` for every Bot Mode assistant.
+
+    An assistant's routine runs in a child of the desktop's primary backend
+    (cron/bot_profile_sweeper.py) under the assistant's own home, so nothing
+    in THIS backend's home moves when it finishes — ``cron.changed`` stays
+    silent and the app could not tell the person a routine had run or failed
+    (pilot feedback 2026-11). The run's bookkeeping (last_run_at/last_status)
+    lands in the assistant's ``cron/jobs.json``; its mtime is the signal.
+    """
+    global _assistant_homes_cache
+    now = time.monotonic()
+    cached = _assistant_homes_cache
+    if cached is None or now - cached[0] > _ASSISTANT_HOMES_TTL_S:
+        from cron.bot_profile_sweeper import bot_profile_homes
+
+        cached = (now, bot_profile_homes(_watcher_home()))
+        _assistant_homes_cache = cached
+    sig = []
+    for name, home in cached[1]:
+        try:
+            mtime = (home / "cron" / "jobs.json").stat().st_mtime_ns
+        except OSError:
+            mtime = None
+        sig.append((name, mtime))
+    return tuple(sig)
+
+
 def _sessions_sig():
     """Newest mtime across state.db and its WAL — the cross-process change
     signal. Messaging-gateway turns and cron runs are written by OTHER
@@ -3686,6 +3720,7 @@ def _pairing_sig():
 _CHANGE_WATCHES: dict[str, tuple[float, Any, Any]] = {
     "pet.changed": (2.0, _pet_sig, _pet_changed_payload),
     "cron.changed": (1.0, _cron_sig, lambda: {}),
+    "routines.changed": (5.0, _assistant_routines_sig, lambda: {}),
     "sessions.changed": (0.5, _sessions_sig, lambda: {}),
     "platforms.changed": (2.0, _platforms_sig, lambda: {}),
     "pairing.changed": (2.0, _pairing_sig, lambda: {}),

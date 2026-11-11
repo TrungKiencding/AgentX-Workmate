@@ -34,7 +34,8 @@ import { ChatIdentity } from './chat-identity'
 import { BOTS_LOCALES, botsText } from './i18n'
 import { isResetCommand, withHandoff } from './mention'
 import { displayName } from './naming'
-import { $createRequest, BotsPage } from './page'
+import { $createRequest, $selection, BotsPage } from './page'
+import { collectFinishedRoutines, invalidateAfterRun, routineTitle } from './routines'
 import { $botMeta, bindStorage, PLUGIN_ID } from './state'
 import type { Bot } from './types'
 import { WorkspaceSwitcher } from './workspace-switcher'
@@ -137,6 +138,45 @@ const plugin: HermesPlugin = {
       }
     ])
 
+    // Say so when an assistant's routine has run (or failed): in the app, and
+    // through the OS when the person is somewhere else. The first pass only
+    // records the current state.
+    const announceRoutineRuns = () => {
+      collectFinishedRoutines()
+        .then(runs => {
+          for (const { job, profile } of runs) {
+            const failed = Boolean(job.last_status && job.last_status !== 'ok')
+            const task = routineTitle(job, b().routineUntitled)
+            const who = displayName({ name: profile }, $botMeta.get()[profile], b().primaryName)
+            const title = failed ? b().routineFailedTitle(task) : b().routineRanTitle(task)
+
+            const message = failed
+              ? (job.last_error_kind && b().failure[job.last_error_kind]) || b().lastFailed
+              : b().routineRanBody(who)
+
+            host.notify({
+              action: {
+                label: b().routineRanView,
+                onClick: () => {
+                  $selection.set({ kind: 'bot', name: profile })
+                  host.navigate(BOTS_ROUTE)
+                }
+              },
+              id: `cron-run:${job.job_id}`,
+              kind: failed ? 'error' : 'success',
+              message,
+              scope: 'app',
+              title
+            })
+            ctx.os.notify({ body: message, title })
+            void invalidateAfterRun(profile)
+          }
+        })
+        .catch(() => undefined)
+    }
+
+    announceRoutineRuns()
+    ctx.onDispose(host.onEvent('routines.changed', announceRoutineRuns))
     ctx.onDispose(() => bindStorage(null))
   }
 }

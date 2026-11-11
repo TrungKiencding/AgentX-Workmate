@@ -366,6 +366,7 @@ export {
   useI18n,
   usePluginI18n
 } from '@/i18n'
+export { claimRunAnnouncement, finishedRuns, type RunStamps } from '@/lib/cron-runs'
 /** THE compact-number formatter — every user-facing count/token figure goes
  *  through here (1230 → "1.2k", 1_500_000 → "1.5M"). Don't hand-roll `/1000`. */
 export { compactNumber } from '@/lib/format'

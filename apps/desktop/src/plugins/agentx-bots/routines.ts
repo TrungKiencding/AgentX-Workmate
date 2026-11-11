@@ -4,11 +4,12 @@
  * that profile, so the instruction is stored as-is.
  */
 
-import { host, queryClient, useQuery } from '@agentx/plugin-sdk'
+import { claimRunAnnouncement, finishedRuns, host, queryClient, type RunStamps, useQuery } from '@agentx/plugin-sdk'
 
 import type { BotsText } from './i18n'
+import { isPrimary } from './naming'
 import { PLUGIN_ID } from './state'
-import type { CronJob } from './types'
+import type { Bot, CronJob } from './types'
 
 export const ROUTINES_KEY = [PLUGIN_ID, 'routines'] as const
 
@@ -78,6 +79,72 @@ export async function addRoutine(profile: string, routine: NewRoutine): Promise<
  *  that can't round-trip. */
 export function hasControlChars(...values: string[]): boolean {
   return values.some(value => value.includes('\0'))
+}
+
+// ── a routine that has just run ───────────────────────────────────────────────
+//
+// A routine runs in the background, in a child of the primary backend. The
+// backend broadcasts `routines.changed` when an assistant's job store moves;
+// reading the stores then shows which job's last run advanced (lib/cron-runs).
+// Pilot feedback 2026-11: a routine ran or failed and nothing on screen said so.
+
+export interface RoutineRun {
+  job: CronJob
+  profile: string
+}
+
+let seenRuns: null | RunStamps = null
+let collecting: null | Promise<RoutineRun[]> = null
+
+/**
+ * Routines that have run since the last call, across every assistant but the
+ * main one (its jobs are the app's own "Lịch tự động", announced by the core).
+ * The first call only records what is there. Single-flight: a burst of change
+ * events reads the stores once.
+ */
+export function collectFinishedRoutines(): Promise<RoutineRun[]> {
+  collecting ??= (async () => {
+    const roster = await host.requestPrimary<{ profiles?: Bot[] }>('profiles.list', { include_sessions: false })
+    const names = (roster?.profiles ?? []).map(profile => profile.name).filter(name => !isPrimary(name))
+    const stamped: { id: string; job: CronJob; lastRunAt: null | string | undefined; profile: string }[] = []
+
+    for (const profile of names) {
+      try {
+        for (const job of await loadRoutines(profile)) {
+          stamped.push({ id: `${profile}:${job.job_id}`, job, lastRunAt: job.last_run_at, profile })
+        }
+      } catch {
+        // One unreadable store must not hide the others' runs.
+      }
+    }
+
+    const { finished, seen } = finishedRuns(seenRuns, stamped)
+
+    seenRuns = seen
+
+    return finished
+      .filter(run => claimRunAnnouncement(run.job.job_id, run.job.last_run_at))
+      .map(({ job, profile }) => ({ job, profile }))
+  })().finally(() => {
+    collecting = null
+  })
+
+  return collecting
+}
+
+/** Refresh what the Trợ lý page shows for an assistant whose routine ran. */
+export function invalidateAfterRun(profile: string): Promise<unknown> {
+  return Promise.all([
+    invalidateRoutines(profile),
+    queryClient.invalidateQueries({ queryKey: [PLUGIN_ID, 'sessions', profile] }),
+    queryClient.invalidateQueries({ queryKey: [PLUGIN_ID, 'roster'] })
+  ])
+}
+
+/** Test-only: forget what has been seen, as after a fresh launch. */
+export function resetRoutineRunTracking(): void {
+  seenRuns = null
+  collecting = null
 }
 
 // ── schedule picker model ─────────────────────────────────────────────────────

@@ -8250,6 +8250,10 @@ async function spawnPoolBackend(profile, entry) {
         // Marks this dashboard backend as desktop-spawned so it runs the cron
         // scheduler tick loop (the gateway isn't running under the app).
         AGENTX_DESKTOP: '1',
+        // …and as a pool backend: one the app reaps when its profile is idle.
+        // The backend uses this to leave an assistant's scheduled tasks to the
+        // primary backend, which outlives it (hermes_cli/web_server.py).
+        AGENTX_DESKTOP_POOL: '1',
         AGENTX_WEB_DIST: webDist,
         ...(readyFile ? { AGENTX_DESKTOP_READY_FILE: readyFile } : {})
       },
