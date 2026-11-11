@@ -734,6 +734,9 @@ export interface Translations {
       themeTitle: string
       themeDesc: string
       themeProfileNote: (profile: string) => string
+      /** Built-in theme name → its one-line description. Theme *names* are
+       *  proper names and stay as they are. */
+      themeDescriptions: Record<string, string>
       installTitle: string
       installDesc: string
       installPlaceholder: string

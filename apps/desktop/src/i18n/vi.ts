@@ -776,6 +776,17 @@ export const vi: Translations = {
       themeTitle: 'Theme',
       themeDesc: 'Chỉ gồm các bảng màu của desktop. Chế độ màu đã chọn được áp lên trên.',
       themeProfileNote: profile => `Đã lưu cho hồ sơ ${profile} — mỗi hồ sơ giữ theme riêng.`,
+      themeDescriptions: {
+        quiet: 'Xám trung tính ấm — màu chỉ dùng làm tín hiệu',
+        nous: 'Nền trung tính trong như kính, điểm xanh Nous',
+        'night-owl': 'Xanh navy đậm, điểm tím nhạt và xanh lơ',
+        'nous-classic': 'Bản tối xanh hoàng gia nguyên gốc, kèm bảng màu sáng của Nous',
+        midnight: 'Xanh tím đậm với điểm nhấn lạnh',
+        ember: 'Đỏ thẫm và đồng ấm — không khí lò rèn',
+        mono: 'Thang xám gọn gàng — tối giản, tập trung',
+        cyberpunk: 'Xanh neon trên nền đen — kiểu terminal Matrix',
+        slate: 'Xanh đá phiến mát — dành cho lập trình viên'
+      },
       installTitle: 'Cài từ VS Code',
       installDesc:
         'Dán id của extension trên Marketplace (ví dụ dracula-theme.theme-dracula) để chuyển color theme của nó thành một bảng màu desktop.',

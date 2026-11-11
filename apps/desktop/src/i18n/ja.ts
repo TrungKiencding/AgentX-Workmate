@@ -630,6 +630,17 @@ export const ja = defineLocale({
       themeDesc: 'デスクトップ専用のパレットです。選択したモードの上に適用されます。',
       themeProfileNote: profile =>
         `「${profile}」プロファイルに保存されます。プロファイルごとに個別のテーマを保持します。`,
+      themeDescriptions: {
+        quiet: '暖かみのあるニュートラルグレー — 色は合図としてだけ使う',
+        nous: 'ガラスのようなニュートラルに Nous ブルーのアクセント',
+        'night-owl': '深いネイビーにペリウィンクルとシアン',
+        'nous-classic': '初代のロイヤルブルーのダークに、Nous のライトパレット',
+        midnight: '深い青紫にクールなアクセント',
+        ember: '暖かな深紅とブロンズ — 鍛冶場の雰囲気',
+        mono: 'すっきりしたグレースケール — ミニマルで集中できる',
+        cyberpunk: '黒地にネオングリーン — マトリックス風ターミナル',
+        slate: 'クールなスレートブルー — 開発者向けの落ち着いたテーマ'
+      },
       installTitle: 'VS Code から導入',
       installDesc:
         'Marketplace の拡張機能 ID（例: dracula-theme.theme-dracula）を貼り付けると、その配色テーマをデスクトップ用パレットに変換します。',

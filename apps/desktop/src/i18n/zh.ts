@@ -729,6 +729,17 @@ export const zh: Translations = {
       themeTitle: '主题',
       themeDesc: '仅桌面端调色板。所选模式叠加其上。',
       themeProfileNote: profile => `已为「${profile}」配置文件保存——每个配置文件保留各自的主题。`,
+      themeDescriptions: {
+        quiet: '暖调中性灰——颜色只用作信号',
+        nous: '玻璃质感的中性色，配 Nous 蓝色点缀',
+        'night-owl': '深海军蓝，配长春花蓝与青色',
+        'nous-classic': '最初的宝蓝深色，配 Nous 浅色配色',
+        midnight: '深蓝紫色，配冷色点缀',
+        ember: '暖调深红与古铜——锻炉氛围',
+        mono: '干净的灰阶——极简而专注',
+        cyberpunk: '黑底霓虹绿——矩阵终端风格',
+        slate: '冷调石板蓝——专注的开发者主题'
+      },
       installTitle: '从 VS Code 安装',
       installDesc: '粘贴 Marketplace 扩展 ID（例如 dracula-theme.theme-dracula），将其配色主题转换为桌面调色板。',
       installPlaceholder: 'publisher.extension',

@@ -595,6 +595,17 @@ export const zhHant = defineLocale({
       themeTitle: '主題',
       themeDesc: '僅限桌面端的調色盤。所選模式會套用在其上。',
       themeProfileNote: profile => `已為「${profile}」設定檔儲存——每個設定檔保留各自的主題。`,
+      themeDescriptions: {
+        quiet: '暖調中性灰——顏色只用作訊號',
+        nous: '玻璃質感的中性色，配 Nous 藍色點綴',
+        'night-owl': '深海軍藍，配長春花藍與青色',
+        'nous-classic': '最初的寶藍深色，配 Nous 淺色配色',
+        midnight: '深藍紫色，配冷色點綴',
+        ember: '暖調深紅與古銅——鍛爐氛圍',
+        mono: '乾淨的灰階——極簡而專注',
+        cyberpunk: '黑底霓虹綠——矩陣終端風格',
+        slate: '冷調石板藍——專注的開發者主題'
+      },
       installTitle: '從 VS Code 安裝',
       installDesc: '貼上 Marketplace 擴充功能 ID（例如 dracula-theme.theme-dracula），將其配色主題轉換為桌面調色盤。',
       installPlaceholder: 'publisher.extension',

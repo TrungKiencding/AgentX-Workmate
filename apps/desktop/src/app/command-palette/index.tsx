@@ -85,6 +85,7 @@ import { $backendUpdateApply, $backendUpdateStatus, $desktopVersion, requestActi
 import { canOpenNewWindow, openNewWindow } from '@/store/windows'
 import { luminance } from '@/themes/color'
 import { type ThemeMode, useTheme } from '@/themes/context'
+import { themeDescription } from '@/themes/describe'
 import { isUserTheme, resolveTheme } from '@/themes/user-themes'
 
 import { openSession, openSessionIntentFromModifiers } from '../open-session'
@@ -1050,7 +1051,8 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
         icon: Palette,
         id: `search-theme-${theme.name}`,
         keepOpen: true,
-        keywords: ['theme', 'appearance', 'color', 'skin', theme.name, theme.description],
+        // Findable by its description in the app's language and in English.
+        keywords: ['theme', 'appearance', 'color', 'skin', theme.name, theme.description, themeDescription(theme, t)],
         label: theme.label,
         run: () => {
           setTheme(theme.name)
@@ -1199,7 +1201,15 @@ function CommandPaletteBody({ onExited }: { onExited: () => void }) {
                 icon: groupMode === 'light' ? Sun : Moon,
                 id: `theme-${theme.name}-${groupMode}`,
                 keepOpen: true,
-                keywords: ['theme', 'appearance', 'palette', groupMode, theme.label, theme.description ?? ''],
+                keywords: [
+                  'theme',
+                  'appearance',
+                  'palette',
+                  groupMode,
+                  theme.label,
+                  theme.description ?? '',
+                  themeDescription(theme, t)
+                ],
                 label: theme.label,
                 run: () => {
                   setTheme(theme.name)

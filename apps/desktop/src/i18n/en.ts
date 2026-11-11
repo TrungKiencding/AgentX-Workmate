@@ -767,6 +767,17 @@ export const en: Translations = {
       themeTitle: 'Theme',
       themeDesc: 'Desktop palettes only. The selected mode is applied on top.',
       themeProfileNote: profile => `Saved for the ${profile} profile — each profile keeps its own theme.`,
+      themeDescriptions: {
+        quiet: 'Warm neutral grays — colour only as a signal',
+        nous: 'Glass neutrals with Nous blue accents',
+        'night-owl': 'Deep navy with periwinkle and cyan',
+        'nous-classic': 'The original royal-blue dark, with the Nous light palette',
+        midnight: 'Deep blue-violet with cool accents',
+        ember: 'Warm crimson and bronze — forge vibes',
+        mono: 'Clean grayscale — minimal and focused',
+        cyberpunk: 'Neon green on black — matrix terminal',
+        slate: 'Cool slate blue — focused developer theme'
+      },
       installTitle: 'Install from VS Code',
       installDesc:
         'Paste a Marketplace extension id (e.g. dracula-theme.theme-dracula) to convert its color theme into a desktop palette.',
