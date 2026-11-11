@@ -47,7 +47,7 @@ import { type Translations, useI18n } from '@/i18n'
 import { AlertTriangle } from '@/lib/icons'
 import { requestModelOptions } from '@/lib/model-options'
 import { asText } from '@/lib/text'
-import { fmtDateTime } from '@/lib/time'
+import { fmtClock, fmtDateTime } from '@/lib/time'
 import { $cronFocusJobId, $cronJobs, setCronFocusJobId, setCronJobs, updateCronJobs } from '@/store/cron'
 import { $changeEventsAvailable, $cronChangeTick } from '@/store/live-sync'
 import { notify, notifyError } from '@/store/notifications'
@@ -82,6 +82,21 @@ import {
   validateCronEditor
 } from './cron-job-model'
 import { jobState, jobTitle, STATE_DOT } from './job-state'
+import {
+  DEFAULT_SCHEDULE_FORM,
+  describeSchedule,
+  LAST_DAY_EVERY_MONTH_HAS,
+  SCHEDULE_MINUTES,
+  SCHEDULE_MONTHDAYS,
+  SCHEDULE_PRESETS,
+  SCHEDULE_WEEKDAYS,
+  scheduleExprFromForm,
+  scheduleFields,
+  type ScheduleForm,
+  scheduleFormFromExpr,
+  type SchedulePreset,
+  withSchedulePreset
+} from './schedule-form'
 
 const DEFAULT_DELIVER = 'local'
 
@@ -92,16 +107,6 @@ const MODEL_DEFAULT_VALUE = '__default__'
 // "Start from" default: the manual editor (blank cron). Any other value is a
 // blueprint key. Blueprint keys never collide with this sentinel.
 const CUSTOM_TEMPLATE = 'custom'
-
-const SCHEDULE_OPTIONS: ReadonlyArray<ScheduleOption> = [
-  { expr: '0 9 * * *', value: 'daily' },
-  { expr: '0 9 * * 1-5', value: 'weekdays' },
-  { expr: '0 9 * * 1', value: 'weekly' },
-  { expr: '0 9 1 * *', value: 'monthly' },
-  { expr: '0 * * * *', value: 'hourly' },
-  { expr: '*/15 * * * *', value: 'every-15-minutes' },
-  { value: 'custom' }
-]
 
 const STATE_TONE: Record<string, PanelPillTone> = {
   enabled: 'good',
@@ -143,119 +148,13 @@ function jobProvider(job: CronJob): string {
   return asText(job.provider).trim()
 }
 
-function cronParts(expr: string): null | string[] {
-  const parts = expr.trim().replace(/\s+/g, ' ').split(' ')
+const formatScheduleClock = (hour: number, minute: number): string =>
+  fmtClock.format(new Date(2000, 0, 1, hour, minute))
 
-  return parts.length === 5 ? parts : null
-}
-
-function dayName(value: string, c: Translations['cron']): string {
-  return c.days[value] ?? c.dayFallback(value)
-}
-
-function formatCronTime(minute: string, hour: string): string {
-  const numericHour = Number(hour)
-  const numericMinute = Number(minute)
-
-  if (!Number.isInteger(numericHour) || !Number.isInteger(numericMinute)) {
-    return `${hour}:${minute}`
-  }
-
-  return new Date(2000, 0, 1, numericHour, numericMinute).toLocaleTimeString(undefined, {
-    hour: 'numeric',
-    minute: '2-digit'
-  })
-}
-
-function isIntegerToken(value: string): boolean {
-  return /^\d+$/.test(value)
-}
-
-function scheduleOptionForExpr(expr: string): ScheduleOption {
-  const normalized = expr.trim().replace(/\s+/g, ' ')
-  const exactMatch = SCHEDULE_OPTIONS.find(option => option.expr === normalized)
-
-  if (exactMatch) {
-    return exactMatch
-  }
-
-  const parts = cronParts(normalized)
-
-  if (!parts) {
-    return SCHEDULE_OPTIONS[SCHEDULE_OPTIONS.length - 1]
-  }
-
-  const [minute, hour, dayOfMonth, month, dayOfWeek] = parts
-
-  if (dayOfMonth === '*' && month === '*' && dayOfWeek === '*' && isIntegerToken(minute) && isIntegerToken(hour)) {
-    return SCHEDULE_OPTIONS.find(option => option.value === 'daily') ?? SCHEDULE_OPTIONS[0]
-  }
-
-  if (dayOfMonth === '*' && month === '*' && dayOfWeek === '1-5' && isIntegerToken(minute) && isIntegerToken(hour)) {
-    return SCHEDULE_OPTIONS.find(option => option.value === 'weekdays') ?? SCHEDULE_OPTIONS[0]
-  }
-
-  if (
-    dayOfMonth === '*' &&
-    month === '*' &&
-    isIntegerToken(dayOfWeek) &&
-    isIntegerToken(minute) &&
-    isIntegerToken(hour)
-  ) {
-    return SCHEDULE_OPTIONS.find(option => option.value === 'weekly') ?? SCHEDULE_OPTIONS[0]
-  }
-
-  if (
-    month === '*' &&
-    dayOfWeek === '*' &&
-    isIntegerToken(dayOfMonth) &&
-    isIntegerToken(minute) &&
-    isIntegerToken(hour)
-  ) {
-    return SCHEDULE_OPTIONS.find(option => option.value === 'monthly') ?? SCHEDULE_OPTIONS[0]
-  }
-
-  if (hour === '*' && dayOfMonth === '*' && month === '*' && dayOfWeek === '*' && isIntegerToken(minute)) {
-    return SCHEDULE_OPTIONS.find(option => option.value === 'hourly') ?? SCHEDULE_OPTIONS[0]
-  }
-
-  if (normalized === '*/15 * * * *') {
-    return SCHEDULE_OPTIONS.find(option => option.value === 'every-15-minutes') ?? SCHEDULE_OPTIONS[0]
-  }
-
-  return SCHEDULE_OPTIONS[SCHEDULE_OPTIONS.length - 1]
-}
-
-function scheduleSummary(option: ScheduleOption, expr: string, c: Translations['cron']): string {
-  const parts = cronParts(expr)
-
-  if (!parts) {
-    return c.scheduleHints[option.value] ?? ''
-  }
-
-  const [minute, hour, dayOfMonth, , dayOfWeek] = parts
-
-  if (option.value === 'daily') {
-    return c.everyDayAt(formatCronTime(minute, hour))
-  }
-
-  if (option.value === 'weekdays') {
-    return c.weekdaysAt(formatCronTime(minute, hour))
-  }
-
-  if (option.value === 'weekly') {
-    return c.everyDayOfWeekAt(dayName(dayOfWeek, c), formatCronTime(minute, hour))
-  }
-
-  if (option.value === 'monthly') {
-    return c.monthlyOnDayAt(dayOfMonth, formatCronTime(minute, hour))
-  }
-
-  if (option.value === 'hourly') {
-    return minute === '0' ? c.topOfHour : c.everyHourAt(minute.padStart(2, '0'))
-  }
-
-  return c.scheduleHints[option.value] ?? ''
+/** The schedule as a sentence in the app's language; the raw expression only
+ *  when it has no plain reading (a hand-written cron line, a one-shot). */
+function scheduleSentence(expr: string, c: Translations['cron']): string {
+  return describeSchedule(expr, c, formatScheduleClock)
 }
 
 function formatTime(iso?: null | string): string {
@@ -291,7 +190,7 @@ interface CronViewProps extends React.ComponentProps<'section'> {
 }
 
 export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setStatusbarItemGroup }: CronViewProps) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const c = t.cron
   // Source of truth is the shared atom (also fed by the controller poll), so the
   // sidebar and this overlay never drift — a delete here clears the sidebar row
@@ -460,14 +359,18 @@ export function CronView({ onClose, onOpenSession, setStatusbarItemGroup: _setSt
   // 'default', matching the manual create path in handleEditorSave.
   async function handleBlueprintCreate(blueprint: AutomationBlueprint, values: Record<string, string>) {
     const profile = profileScope === ALL_PROFILES ? 'default' : profileScope
-    const job = await instantiateAutomationBlueprint({ blueprint: blueprint.key, values }, profile)
+    const job = await instantiateAutomationBlueprint({ blueprint: blueprint.key, locale, values }, profile)
 
     updateCronJobs(rows => {
       const rest = rows.filter(row => row.id !== job.id)
 
       return [...rest, job]
     })
-    notify({ kind: 'success', title: c.blueprints.scheduled, message: asText(job.schedule_display) || blueprint.title })
+    notify({
+      kind: 'success',
+      title: c.blueprints.scheduled,
+      message: scheduleSentence(jobScheduleExpr(job), c) || blueprint.title
+    })
     setEditor({ mode: 'closed' })
   }
 
@@ -639,7 +542,7 @@ function CronJobDetail({
 
         <PanelMeta
           rows={[
-            { label: c.frequencyLabel, value: jobScheduleDisplay(job) },
+            { label: c.frequencyLabel, value: scheduleSentence(jobScheduleExpr(job), c) || jobScheduleDisplay(job) },
             { label: c.last.replace(/:$/, ''), value: formatTime(job.last_run_at) },
             { label: c.next.replace(/:$/, ''), value: formatTime(job.next_run_at) },
             { label: c.deliverLabel, value: c.deliveryLabels[deliver] ?? deliver },
@@ -827,7 +730,7 @@ function CronEditorDialog({
   onClose: () => void
   onSave: (values: EditorValues) => Promise<void>
 }) {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const c = t.cron
   const open = editor.mode !== 'closed'
   const isEdit = editor.mode === 'edit'
@@ -836,8 +739,7 @@ function CronEditorDialog({
 
   const [name, setName] = useState('')
   const [prompt, setPrompt] = useState('')
-  const [schedule, setSchedule] = useState('')
-  const [schedulePreset, setSchedulePreset] = useState('daily')
+  const [scheduleForm, setScheduleForm] = useState<ScheduleForm>(DEFAULT_SCHEDULE_FORM)
   const [deliver, setDeliver] = useState(DEFAULT_DELIVER)
   const [modelChoice, setModelChoice] = useState<CronModelSelection>({ model: '', provider: '' })
   // Blueprint fills typed slots (time/enum/weekdays/text) instead of the raw
@@ -852,9 +754,11 @@ function CronEditorDialog({
 
   // The blueprint catalog powers the create dialog's "Start from" dropdown; it's
   // meaningless when editing an existing job, so skip the fetch there.
+  // Titles, labels and option labels come back in the app's language, so the
+  // catalog is cached per locale.
   const blueprintsQuery = useQuery({
-    queryKey: ['cron-blueprints'],
-    queryFn: async () => (await getAutomationBlueprints()).blueprints,
+    queryKey: ['cron-blueprints', locale],
+    queryFn: async () => (await getAutomationBlueprints(locale)).blueprints,
     enabled: open && !isEdit
   })
 
@@ -890,8 +794,7 @@ function CronEditorDialog({
 
     setName(initial ? jobName(initial) : '')
     setPrompt(initial ? jobPrompt(initial) : '')
-    setSchedule(initial ? jobScheduleExpr(initial) : (SCHEDULE_OPTIONS[0].expr ?? ''))
-    setSchedulePreset(initial ? scheduleOptionForExpr(jobScheduleExpr(initial)).value : 'daily')
+    setScheduleForm(scheduleFormFromExpr(initial ? jobScheduleExpr(initial) : ''))
     setDeliver(initial ? jobDeliver(initial) : DEFAULT_DELIVER)
     setModelChoice({ model: initial ? jobModel(initial) : '', provider: initial ? jobProvider(initial) : '' })
     setSlotValues({})
@@ -907,23 +810,19 @@ function CronEditorDialog({
     setError(null)
   }, [blueprint])
 
-  const selectedScheduleOption =
-    SCHEDULE_OPTIONS.find(candidate => candidate.value === schedulePreset) ?? SCHEDULE_OPTIONS[0]
+  const schedule = scheduleExprFromForm(scheduleForm)
+  const scheduleShows = scheduleFields(scheduleForm.preset)
+  const scheduleHint = scheduleSentence(schedule, c)
 
-  function handleSchedulePresetChange(nextPreset: string) {
-    setSchedulePreset(nextPreset)
+  function updateSchedule(patch: Partial<ScheduleForm>) {
+    setScheduleForm(current => ({ ...current, ...patch }))
     setError(null)
-
-    const option = SCHEDULE_OPTIONS.find(candidate => candidate.value === nextPreset)
-
-    if (option?.expr) {
-      setSchedule(option.expr)
-    } else if (scheduleOptionForExpr(schedule).value !== 'custom') {
-      setSchedule('')
-    }
   }
 
-  const scheduleHint = scheduleSummary(selectedScheduleOption, schedule, c)
+  // A minute stored outside the offered steps (":07") stays selectable.
+  const minuteOptions = SCHEDULE_MINUTES.includes(scheduleForm.minute)
+    ? SCHEDULE_MINUTES
+    : [...SCHEDULE_MINUTES, scheduleForm.minute].sort((a, b) => Number(a) - Number(b))
 
   // Configured providers with at least one available model — mirrors the chat
   // model picker's gate so only actually-selectable models are offered.
@@ -1109,14 +1008,20 @@ function CronEditorDialog({
 
             <div className="grid items-start gap-4 sm:grid-cols-2">
               <Field htmlFor="cron-frequency" label={c.frequencyLabel}>
-                <Select onValueChange={handleSchedulePresetChange} value={schedulePreset}>
+                <Select
+                  onValueChange={next => {
+                    setScheduleForm(current => withSchedulePreset(current, next as SchedulePreset))
+                    setError(null)
+                  }}
+                  value={scheduleForm.preset}
+                >
                   <SelectTrigger className="h-9 rounded-md" id="cron-frequency">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {SCHEDULE_OPTIONS.map(option => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {c.scheduleLabels[option.value]}
+                    {SCHEDULE_PRESETS.map(preset => (
+                      <SelectItem key={preset} value={preset}>
+                        {c.scheduleLabels[preset]}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -1133,6 +1038,102 @@ function CronEditorDialog({
                 />
               </Field>
             </div>
+
+            {scheduleForm.preset === 'custom' ? (
+              <Field htmlFor="cron-schedule" label={c.customScheduleLabel}>
+                <Input
+                  className="font-mono"
+                  id="cron-schedule"
+                  onChange={event => updateSchedule({ custom: event.target.value })}
+                  placeholder={c.customPlaceholder}
+                  value={scheduleForm.custom}
+                />
+                <FieldHint>{scheduleHint || c.customHint}</FieldHint>
+              </Field>
+            ) : (
+              <div className="grid gap-3">
+                {(scheduleShows.weekday || scheduleShows.monthday || scheduleShows.time || scheduleShows.minute) && (
+                  <div className="grid items-start gap-4 sm:grid-cols-2">
+                    {scheduleShows.weekday && (
+                      <Field htmlFor="cron-weekday" label={c.weekdayLabel}>
+                        <Select onValueChange={weekday => updateSchedule({ weekday })} value={scheduleForm.weekday}>
+                          <SelectTrigger className="h-9 rounded-md" id="cron-weekday">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SCHEDULE_WEEKDAYS.map(day => (
+                              <SelectItem key={day} value={day}>
+                                {c.days[day] ?? c.dayFallback(day)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    )}
+
+                    {scheduleShows.monthday && (
+                      <Field htmlFor="cron-monthday" label={c.monthdayLabel}>
+                        <Select onValueChange={monthday => updateSchedule({ monthday })} value={scheduleForm.monthday}>
+                          <SelectTrigger className="h-9 rounded-md" id="cron-monthday">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SCHEDULE_MONTHDAYS.map(day => (
+                              <SelectItem key={day} value={day}>
+                                {c.monthdayOption(day)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {Number(scheduleForm.monthday) > LAST_DAY_EVERY_MONTH_HAS && (
+                          <FieldHint>{c.monthdayShortMonthHint}</FieldHint>
+                        )}
+                      </Field>
+                    )}
+
+                    {scheduleShows.time && (
+                      <Field htmlFor="cron-time" label={c.timeLabel}>
+                        <Input
+                          id="cron-time"
+                          // A cleared time field reports ''; keep the last valid time
+                          // rather than silently saving the fallback.
+                          onChange={event => event.target.value && updateSchedule({ time: event.target.value })}
+                          required
+                          type="time"
+                          value={scheduleForm.time}
+                        />
+                      </Field>
+                    )}
+
+                    {scheduleShows.minute && (
+                      <Field htmlFor="cron-minute" label={c.minuteLabel}>
+                        <Select onValueChange={minute => updateSchedule({ minute })} value={scheduleForm.minute}>
+                          <SelectTrigger className="h-9 rounded-md" id="cron-minute">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {minuteOptions.map(minute => (
+                              <SelectItem key={minute} value={minute}>
+                                {c.minuteOption(minute.padStart(2, '0'))}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </Field>
+                    )}
+                  </div>
+                )}
+
+                {scheduleHint && (
+                  <p
+                    aria-live="polite"
+                    className="rounded-md bg-(--ui-bg-quinary) px-3 py-2 text-xs font-medium text-foreground"
+                  >
+                    {scheduleHint}
+                  </p>
+                )}
+              </div>
+            )}
 
             {!scriptOnlyJob && (
               <Field htmlFor="cron-model" label={c.modelLabel} optional optionalLabel={c.optional}>
@@ -1179,26 +1180,6 @@ function CronEditorDialog({
               </Field>
             )}
 
-            {schedulePreset === 'custom' ? (
-              <Field htmlFor="cron-schedule" label={c.customScheduleLabel}>
-                <Input
-                  className="font-mono"
-                  id="cron-schedule"
-                  onChange={event => setSchedule(event.target.value)}
-                  placeholder={c.customPlaceholder}
-                  value={schedule}
-                />
-                <FieldHint>{c.customHint}</FieldHint>
-              </Field>
-            ) : (
-              <div className="rounded-md bg-(--ui-bg-quinary) px-3 py-2">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="font-medium text-foreground">{scheduleHint}</span>
-                  <span className="font-mono text-muted-foreground">{schedule}</span>
-                </div>
-              </div>
-            )}
-
             {error && (
               <div className="flex items-start gap-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
@@ -1232,9 +1213,4 @@ interface EditorValues {
   /** Provider slug for the model override ('' = none). */
   provider: string
   schedule: string
-}
-
-interface ScheduleOption {
-  expr?: string
-  value: string
 }

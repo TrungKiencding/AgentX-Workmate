@@ -25,7 +25,6 @@ import {
   addRoutine,
   composeSchedule,
   defaultSchedule,
-  formatClock,
   FREQUENCIES,
   hasControlChars,
   previewSchedule,
@@ -36,8 +35,6 @@ import {
   type Weekday,
   WEEKDAYS
 } from './routines'
-
-const TIMES: readonly string[] = Array.from({ length: 48 }, (_, i) => formatClock(Math.floor(i / 2), (i % 2) * 30))
 
 const digits = (value: string, max: number) => value.replace(/\D/g, '').slice(0, max)
 
@@ -206,12 +203,16 @@ export function RoutineDialog({
                 {needsTime ? (
                   <>
                     <span>{b.atTime}</span>
-                    <Choice
-                      label={b.atTime}
-                      onChange={time => upd({ time })}
-                      options={TIMES.map(id => ({ id, label: id }))}
-                      value={TIMES.includes(schedule.time) ? schedule.time : '08:00'}
-                      width="w-28"
+                    {/* A free time field: the half-hour list this replaced could
+                        not say 21:15 (pilot feedback 2026-11-10). A cleared
+                        field reports ''; keep the last valid time instead. */}
+                    <Input
+                      aria-label={b.atTime}
+                      className="w-32"
+                      onChange={event => event.target.value && upd({ time: event.target.value })}
+                      required
+                      type="time"
+                      value={schedule.time}
                     />
                   </>
                 ) : null}

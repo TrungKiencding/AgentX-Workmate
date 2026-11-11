@@ -2047,7 +2047,6 @@ export interface Translations {
     states: Record<string, string>
     deliveryLabels: Record<string, string>
     scheduleLabels: Record<string, string>
-    scheduleHints: Record<string, string>
     days: Record<string, string>
     dayFallback: (value: string) => string
     everyDayAt: (time: string) => string
@@ -2056,6 +2055,16 @@ export interface Translations {
     monthlyOnDayAt: (dayOfMonth: string, time: string) => string
     topOfHour: string
     everyHourAt: (minute: string) => string
+    everyMinutes: (count: number) => string
+    everyHours: (count: number) => string
+    everyDays: (count: number) => string
+    timeLabel: string
+    weekdayLabel: string
+    monthdayLabel: string
+    monthdayOption: (day: string) => string
+    monthdayShortMonthHint: string
+    minuteLabel: string
+    minuteOption: (minute: string) => string
     newCron: string
     emptyDescNew: string
     emptyDescSearch: string

@@ -2444,15 +2444,6 @@ export const ja = defineLocale({
       'every-15-minutes': '15 分ごと',
       custom: 'カスタム'
     },
-    scheduleHints: {
-      daily: '毎日午前 9:00',
-      weekdays: '月曜日から金曜日の午前 9:00',
-      weekly: '毎週月曜日午前 9:00',
-      monthly: '毎月 1 日午前 9:00',
-      hourly: '毎時 0 分',
-      'every-15-minutes': '15 分ごと',
-      custom: 'Cron 構文または自然言語'
-    },
     days: {
       '0': '日曜日',
       '1': '月曜日',
@@ -2470,6 +2461,16 @@ export const ja = defineLocale({
     monthlyOnDayAt: (dayOfMonth, time) => `毎月 ${dayOfMonth} 日 ${time} に`,
     topOfHour: '毎時 0 分',
     everyHourAt: minute => `毎時 :${minute} に`,
+    everyMinutes: count => `${count} 分ごと`,
+    everyHours: count => (count === 1 ? '毎時' : `${count} 時間ごと`),
+    everyDays: count => (count === 1 ? '毎日' : `${count} 日ごと`),
+    timeLabel: '時刻',
+    weekdayLabel: '曜日',
+    monthdayLabel: '日付',
+    monthdayOption: day => `${day} 日`,
+    monthdayShortMonthHint: 'この日がない月はスキップされます。',
+    minuteLabel: '毎時の何分',
+    minuteOption: minute => `:${minute}`,
     newCron: '新しい Cron',
     emptyDescNew:
       'Cron 式でプロンプトを実行するスケジュールを設定します。AgentX が実行して、選択した宛先に結果を送信します。',
@@ -2509,8 +2510,7 @@ export const ja = defineLocale({
     editTitle: 'Cron ジョブを編集',
     createTitle: '新しい Cron ジョブ',
     editDesc: 'スケジュール、プロンプト、または配信先を更新します。変更は次回の実行時に適用されます。',
-    createDesc:
-      'プロンプトを自動実行するスケジュールを設定します。Cron 構文または「15 分ごと」などのフレーズを使用します。',
+    createDesc: 'AgentX に自動で任せる内容と実行時刻を選びます。結果は選んだ送信先に届きます。',
     nameLabel: '名前',
     namePlaceholder: '例: 日次サマリー',
     promptLabel: 'プロンプト',
@@ -2521,8 +2521,8 @@ export const ja = defineLocale({
     modelLabel: 'モデル',
     modelDefault: 'デフォルト（グローバルモデル）',
     customScheduleLabel: 'カスタムスケジュール',
-    customPlaceholder: '0 9 * * * または weekdays at 9am',
-    customHint: 'Cron 式、または「every hour」「weekdays at 9am」のようなフレーズ。',
+    customPlaceholder: '0 9 * * 1-5 または every 2h',
+    customHint: 'cron 式（分 時 日 月 曜日）、または "every 30m"、"every 2h" のような間隔。',
     optional: '省略可能',
     promptRequired: 'プロンプトは必須です。',
     promptScheduleRequired: 'プロンプトとスケジュールは必須です。',

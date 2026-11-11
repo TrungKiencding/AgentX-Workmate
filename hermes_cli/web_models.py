@@ -387,6 +387,7 @@ class CronJobUpdate(BaseModel):
 class AutomationBlueprintInstantiate(BaseModel):
     blueprint: str                      # blueprint key, e.g. "morning-brief"
     values: Dict[str, Any] = {}      # filled slot values from the form
+    locale: Optional[str] = None     # UI language: the job's name + prompt are written in it
 
 
 # --- from web_server.py (originally lines 13002-13019) ---

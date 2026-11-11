@@ -1395,16 +1395,20 @@ export function deleteCronJob(jobId: string): Promise<{ ok: boolean }> {
 // configured gateways), so it carries only the profileScoped() header for
 // routing. instantiate creates a real per-profile job, so it names the target
 // profile explicitly via ?profile=. This mirrors the dashboard's api.ts.
-export function getAutomationBlueprints(): Promise<{ blueprints: AutomationBlueprint[] }> {
+//
+// `locale` is the app's display language: the catalog comes back translated
+// when the backend has a table for it (English otherwise), and a job created
+// from a translated form gets its name and prompt in that language.
+export function getAutomationBlueprints(locale?: string): Promise<{ blueprints: AutomationBlueprint[] }> {
   return window.agentxDesktop.api<{ blueprints: AutomationBlueprint[] }>({
     ...profileScoped(),
-    path: '/api/cron/blueprints',
+    path: locale ? `/api/cron/blueprints?locale=${encodeURIComponent(locale)}` : '/api/cron/blueprints',
     timeoutMs: STARTUP_REQUEST_TIMEOUT_MS
   })
 }
 
 export function instantiateAutomationBlueprint(
-  body: { blueprint: string; values: Record<string, string> },
+  body: { blueprint: string; locale?: string; values: Record<string, string> },
   profile: string
 ): Promise<CronJob> {
   return window.agentxDesktop.api<CronJob>({

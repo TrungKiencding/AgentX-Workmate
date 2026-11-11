@@ -70,7 +70,7 @@ def test_blueprint_instantiate_create_job_off_loop(monkeypatch, loop_probe):
     monkeypatch.setattr(
         bc,
         "fill_blueprint",
-        lambda bp, vals: {"name": "t", "schedule": "0 9 * * *", "prompt": "hi"},
+        lambda bp, vals, **_: {"name": "t", "schedule": "0 9 * * *", "prompt": "hi"},
     )
 
     client = TestClient(web_server.app)
@@ -85,3 +85,42 @@ def test_blueprint_instantiate_create_job_off_loop(monkeypatch, loop_probe):
     assert ("call", False) in seen, (
         f"_call_cron_for_profile must run off the event loop; proof: {seen}"
     )
+
+
+def test_blueprint_routes_serve_and_fill_in_the_callers_language(monkeypatch):
+    """The desktop sends its UI language; the gallery and the created job follow it.
+
+    Pilot feedback 2026-11-10: a Vietnamese "Lịch tự động" dialog listed the
+    templates in English and created jobs named and prompted in English.
+    """
+    from fastapi.testclient import TestClient
+
+    from hermes_cli import web_server
+
+    created = {}
+
+    def fake_call(profile, fn, *args, **kwargs):
+        created.update(kwargs)
+        return {"id": "bp-job-1"}
+
+    monkeypatch.setattr(web_server, "_call_cron_for_profile", fake_call)
+    monkeypatch.setattr(web_server, "_has_valid_session_token", lambda req: True)
+    client = TestClient(web_server.app)
+
+    def titles(query):
+        resp = client.get(f"/api/cron/blueprints{query}")
+        assert resp.status_code == 200
+        return {b["key"]: b["title"] for b in resp.json()["blueprints"]}
+
+    assert titles("")["morning-brief"] == "Morning briefing"
+    assert titles("?locale=ja")["morning-brief"] == "Morning briefing"
+    assert titles("?locale=vi")["morning-brief"] == "Bản tin buổi sáng"
+
+    resp = client.post(
+        "/api/cron/blueprints/instantiate",
+        json={"blueprint": "morning-brief", "values": {"time": "07:15"}, "locale": "vi"},
+    )
+    assert resp.status_code == 200
+    assert created["name"] == "Bản tin buổi sáng"
+    assert created["prompt"].startswith("Soạn bản tin buổi sáng")
+    assert created["schedule"] == "15 7 * * *"

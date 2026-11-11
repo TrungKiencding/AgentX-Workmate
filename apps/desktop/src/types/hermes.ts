@@ -879,6 +879,8 @@ export interface AutomationBlueprintField {
   /** When false, options are suggestions — any value is accepted. */
   strict?: boolean
   help: string
+  /** Option value → words to show, when the catalog was served translated. */
+  optionLabels?: Record<string, string>
 }
 
 export interface AutomationBlueprint {
