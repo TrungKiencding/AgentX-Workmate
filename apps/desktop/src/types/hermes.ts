@@ -1149,6 +1149,19 @@ export interface SessionSearchResult {
   session_started: number | null
   snippet: string
   source: string | null
+  // The matched session's own row, when the backend could load it. The row is
+  // what a result is titled by; the snippet is only the text that matched.
+  archived?: boolean
+  ended_at?: null | number
+  input_tokens?: number
+  is_active?: boolean
+  last_active?: null | number
+  message_count?: number
+  output_tokens?: number
+  preview?: null | string
+  started_at?: null | number
+  title?: null | string
+  tool_call_count?: number
 }
 
 export interface SessionSearchResponse {

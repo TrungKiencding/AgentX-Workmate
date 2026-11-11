@@ -28,7 +28,6 @@ import { CirclePlus, Clock, Files, FolderPlus, List, MessageCircle, Puzzle } fro
 import { comboTokens } from '@/lib/keybinds/combo'
 import { PROFILE_MANAGEMENT_ENABLED } from '@/lib/product-flags'
 import { profileColor } from '@/lib/profile-color'
-import { sessionMatchesSearch } from '@/lib/session-search'
 import { isMessagingSource, normalizeSessionSource, sessionSourceLabel } from '@/lib/session-source'
 import { cn } from '@/lib/utils'
 import { $cronJobs } from '@/store/cron'
@@ -148,6 +147,7 @@ import {
   StartWorkButton,
   useRepoWorktreeMap
 } from './projects'
+import { mergeSearchResults } from './search-results'
 import {
   SidebarBlankState,
   SidebarPinnedEmptyState,
@@ -271,31 +271,7 @@ const HEADER_ACTION_BTN =
 const HEADER_NAV_BTN =
   'text-(--ui-text-tertiary) opacity-70 transition-opacity hover:bg-(--ui-control-hover-background) hover:text-foreground hover:opacity-100 focus-visible:opacity-100'
 
-// FTS results cover sessions that aren't in the loaded page; synthesize a
-// minimal SessionInfo so they render in the same row component (resume works
-// by id; the snippet stands in for the preview).
-function searchResultToSession(result: SessionSearchResult): SessionInfo {
-  const ts = result.session_started ?? Date.now() / 1000
-
-  return {
-    archived: false,
-    cwd: null,
-    ended_at: null,
-    id: result.session_id,
-    _lineage_root_id: result.lineage_root ?? null,
-    input_tokens: 0,
-    is_active: false,
-    last_active: ts,
-    message_count: 0,
-    model: result.model ?? null,
-    output_tokens: 0,
-    preview: result.snippet?.trim() || null,
-    source: result.source ?? null,
-    started_at: ts,
-    title: null,
-    tool_call_count: 0
-  }
-}
+const NO_SESSION_IDS: ReadonlySet<string> = new Set()
 
 interface ChatSidebarProps extends React.ComponentProps<typeof Sidebar> {
   currentView: AppView
@@ -391,6 +367,12 @@ export function ChatSidebar({
   const pendingPairingCount = useStore($pendingPairingCount)
   const [searchQuery, setSearchQuery] = useState('')
   const [serverMatches, setServerMatches] = useState<SessionSearchResult[]>([])
+  // Conversations deleted/archived since the server hits were fetched. The hits
+  // are a private copy no delete touches, and the optimistic tombstones are
+  // dropped as soon as the backend catches up — so the ids are held here until
+  // a fresh search (authoritative either way: gone after a delete, back after
+  // a failed one) replaces the hits.
+  const [searchHidden, setSearchHidden] = useState<ReadonlySet<string>>(NO_SESSION_IDS)
   const [searchPending, setSearchPending] = useState(false)
   const [newSessionKbdFlash, setNewSessionKbdFlash] = useState(false)
   const [profileLoadMorePending, setProfileLoadMorePending] = useState<Record<string, boolean>>({})
@@ -520,12 +502,26 @@ export function ChatSidebar({
     [pinnedRealIdSet, pinnedIdSet]
   )
 
+  useEffect(() => {
+    if (!removedSessionIds.size) {
+      return
+    }
+
+    setSearchHidden(current => {
+      const missing = [...removedSessionIds].filter(id => !current.has(id))
+
+      return missing.length ? new Set([...current, ...missing]) : current
+    })
+  }, [removedSessionIds])
+
   // Full-text search across *all* sessions (not just the loaded page) so 699
   // sessions stay findable. Debounced; loaded sessions are matched instantly
-  // client-side and merged ahead of the server hits.
+  // client-side and merged ahead of the server hits. Re-run when the set of
+  // removed conversations changes, so the hits never outlive a delete.
   useEffect(() => {
     if (!trimmedQuery) {
       setServerMatches([])
+      setSearchHidden(NO_SESSION_IDS)
       setSearchPending(false)
 
       return
@@ -540,6 +536,9 @@ export function ChatSidebar({
         .then(res => {
           if (!cancelled) {
             setServerMatches(res.results)
+            // These hits postdate every removal that has reached the backend;
+            // only the ones still in flight need hiding.
+            setSearchHidden($removedSessionIds.get())
           }
         })
         .catch(() => undefined)
@@ -554,32 +553,19 @@ export function ChatSidebar({
       cancelled = true
       window.clearTimeout(id)
     }
-  }, [trimmedQuery])
+  }, [trimmedQuery, removedSessionIds])
 
-  const searchResults = useMemo(() => {
-    if (!trimmedQuery) {
-      return []
-    }
-
-    const out = new Map<string, SessionInfo>()
-
-    for (const s of sortedSessions) {
-      if (sessionMatchesSearch(s, trimmedQuery)) {
-        out.set(s.id, s)
-      }
-    }
-
-    for (const match of serverMatches) {
-      if (out.has(match.session_id)) {
-        continue
-      }
-
-      const loaded = sessionByAnyId.get(match.session_id)
-      out.set(match.session_id, loaded ?? searchResultToSession(match))
-    }
-
-    return [...out.values()]
-  }, [trimmedQuery, sortedSessions, serverMatches, sessionByAnyId])
+  const searchResults = useMemo(
+    () =>
+      mergeSearchResults({
+        loaded: sortedSessions,
+        query: trimmedQuery,
+        removed: removedSessionIds.size ? new Set([...searchHidden, ...removedSessionIds]) : searchHidden,
+        serverMatches,
+        sessionByAnyId
+      }),
+    [trimmedQuery, sortedSessions, serverMatches, sessionByAnyId, searchHidden, removedSessionIds]
+  )
 
   const unpinnedAgentSessions = useMemo(
     () => sortedSessions.filter(s => !isPinnedSession(s)),
