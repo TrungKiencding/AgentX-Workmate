@@ -18,6 +18,7 @@ import { cn } from '@/lib/utils'
 import { $petInfo, $petRoam, setPetRoam } from '@/store/pet'
 import {
   $petBusy,
+  $petCatalogStatus,
   $petGallery,
   $petGalleryError,
   $petGalleryStatus,
@@ -53,6 +54,7 @@ export function PetSettings() {
   const gatewayState = useStore($gatewayState)
   const gallery = useStore($petGallery)
   const status = useStore($petGalleryStatus)
+  const catalog = useStore($petCatalogStatus)
   const error = useStore($petGalleryError)
   const busySlug = useStore($petBusy)
   const petInfo = useStore($petInfo)
@@ -75,6 +77,10 @@ export function PetSettings() {
   const active = gallery?.active ?? ''
   const pets = gallery?.pets ?? []
   const staleBackend = status === 'stale'
+  // The local pets arrive first and are often an empty list; until the petdex
+  // catalog has answered, "empty" means "still loading", not "unreachable".
+  const awaitingPets = pets.length === 0 && (status === 'loading' || catalog === 'loading')
+  const retryCatalog = () => void loadPetGallery(requestGateway)
 
   const selectPet = (slug: string) => {
     void adoptPet(requestGateway, slug, copy.adoptFailed(slug)).then(ok => ok && triggerHaptic('crisp'))
@@ -140,7 +146,7 @@ export function PetSettings() {
               {/* Fixed-height scroll area so filtering never grows/shrinks the
                   page (no layout thrash); the grid scrolls inside it. */}
               <div className="mt-3 h-72 overflow-y-auto pr-1">
-                {status === 'loading' && pets.length === 0 ? (
+                {awaitingPets ? (
                   // First load keeps the grid's shape rather than flashing the
                   // "unreachable" copy before the gallery has even arrived.
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
@@ -155,9 +161,14 @@ export function PetSettings() {
                     ))}
                   </div>
                 ) : pets.length === 0 ? (
-                  <p className="text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
-                    {copy.unreachable}
-                  </p>
+                  <div className="flex flex-col items-start gap-2" role="status">
+                    <p className="text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
+                      {copy.unreachable}
+                    </p>
+                    <Button onClick={retryCatalog} size="sm" variant="outline">
+                      {copy.retry}
+                    </Button>
+                  </div>
                 ) : shown.length === 0 ? (
                   <p className="wrap-anywhere text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
                     {copy.noMatch(query)}
@@ -244,7 +255,20 @@ export function PetSettings() {
               <p className="mt-2 min-h-4 text-[length:var(--conversation-caption-font-size)] text-(--ui-text-tertiary)">
                 {error ? (
                   <span className="text-(--ui-red)">{error}</span>
-                ) : sorted.length > RENDER_CAP ? (
+                ) : awaitingPets ? null : pets.length > 0 && catalog === 'loading' ? (
+                  copy.catalogLoading
+                ) : pets.length > 0 && catalog === 'error' ? (
+                  <>
+                    {copy.catalogOffline}{' '}
+                    <button
+                      className="font-medium text-(--ui-text-secondary) underline underline-offset-2 hover:text-(--ui-text-primary)"
+                      onClick={retryCatalog}
+                      type="button"
+                    >
+                      {copy.retry}
+                    </button>
+                  </>
+                ) : pets.length === 0 ? null : sorted.length > RENDER_CAP ? (
                   copy.countCapped(RENDER_CAP, sorted.length)
                 ) : (
                   copy.count(sorted.length)

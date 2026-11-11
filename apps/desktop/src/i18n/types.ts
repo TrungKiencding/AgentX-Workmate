@@ -746,6 +746,9 @@ export interface Translations {
         chooseDesc: string
         searchPlaceholder: string
         unreachable: string
+        retry: string
+        catalogLoading: string
+        catalogOffline: string
         noMatch: (query: string) => string
         installedTag: string
         generatedTag: string

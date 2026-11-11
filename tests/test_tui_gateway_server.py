@@ -6027,6 +6027,39 @@ def test_pet_gallery_quoted_false_enabled_reports_disabled(tmp_path, monkeypatch
     assert response["result"]["enabled"] is False
 
 
+def test_pet_gallery_reports_what_happened_to_the_catalog(tmp_path, monkeypatch):
+    """The picker needs to tell "petdex is down" from "nothing installed yet".
+
+    Both used to come back as an ok response holding only local pets, so an
+    empty first install showed "couldn't reach petdex" while the catalog was
+    still loading, and a real outage could never be retried.
+    """
+    from agent.pet import manifest
+
+    monkeypatch.setattr(server, "_hermes_home", tmp_path)
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
+    monkeypatch.setattr("agent.pet.store.get_hermes_home", lambda: tmp_path)
+    monkeypatch.setattr(manifest, "prefetch", lambda **_: None)
+
+    def gallery(params):
+        return server.handle_request({"id": "1", "method": "pet.gallery", "params": params})["result"]
+
+    entry = manifest.ManifestEntry.from_dict(
+        {"slug": "boba", "spritesheetUrl": "https://assets.petdex.dev/curated/boba/spritesheet.webp"}
+    )
+    monkeypatch.setattr(manifest, "fetch_manifest", lambda **_: [entry])
+    assert gallery({"localOnly": True}) == {"enabled": False, "active": "", "pets": [], "catalog": "skipped"}
+    full = gallery({})
+    assert full["catalog"] == "ok"
+    assert [p["slug"] for p in full["pets"]] == ["boba"]
+
+    def down(**_):
+        raise manifest.ManifestError("could not fetch petdex manifest: no route")
+
+    monkeypatch.setattr(manifest, "fetch_manifest", down)
+    assert gallery({}) == {"enabled": False, "active": "", "pets": [], "catalog": "unreachable"}
+
+
 def test_pet_info_known_revision_elides_spritesheet(monkeypatch):
     """pet.info with a matching knownRevision must not resend the sheet bytes.
 

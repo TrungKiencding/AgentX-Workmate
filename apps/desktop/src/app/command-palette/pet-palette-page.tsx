@@ -19,6 +19,7 @@ import { Check, Egg, Loader2, PawPrint } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import {
   $petBusy,
+  $petCatalogStatus,
   $petGallery,
   $petGalleryError,
   $petGalleryStatus,
@@ -42,6 +43,7 @@ export function PetPalettePage({ search, onGenerate }: PetPalettePageProps) {
 
   const gallery = useStore($petGallery)
   const status = useStore($petGalleryStatus)
+  const catalog = useStore($petCatalogStatus)
   const error = useStore($petGalleryError)
   const busy = useStore($petBusy)
 
@@ -58,7 +60,9 @@ export function PetPalettePage({ search, onGenerate }: PetPalettePageProps) {
     void adoptPet(requestGateway, slug, copy.adoptFailed).then(ok => ok && triggerHaptic('crisp'))
   }
 
-  if (status === 'loading' && !gallery) {
+  // Local pets arrive first and are often none; an empty list is only final
+  // once the petdex catalog has answered.
+  if ((status === 'loading' && !gallery) || (!gallery?.pets.length && catalog === 'loading')) {
     return <Status icon={<Loader2 className="size-3.5 animate-spin" />} text={copy.loading} />
   }
 
@@ -68,6 +72,10 @@ export function PetPalettePage({ search, onGenerate }: PetPalettePageProps) {
 
   if (!gallery?.pets.length && error) {
     return <Status text={error} tone="error" />
+  }
+
+  if (!gallery?.pets.length && catalog === 'error' && !onGenerate) {
+    return <Status text={copy.error} tone="error" />
   }
 
   const mutating = Boolean(busy)
@@ -95,7 +103,10 @@ export function PetPalettePage({ search, onGenerate }: PetPalettePageProps) {
       {error && <p className="px-2 pb-1 pt-1.5 text-2xs text-(--ui-red)">{error}</p>}
 
       {shown.length === 0 ? (
-        <Status text={copy.empty} />
+        <Status
+          text={!gallery?.pets.length && catalog === 'error' ? copy.error : copy.empty}
+          tone={!gallery?.pets.length && catalog === 'error' ? 'error' : undefined}
+        />
       ) : (
         shown.map(pet => {
           const isActive = enabled && pet.slug === active

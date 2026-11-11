@@ -1566,6 +1566,9 @@ def _(rid, params: dict) -> dict:
     Param ``localOnly`` (bool): skip the remote petdex manifest fetch and return
     only locally-installed pets. The desktop loads this first so the user's own
     pets render instantly instead of waiting on the (possibly slow) manifest.
+
+    ``catalog`` in the result says what happened to the petdex catalog:
+    ``"skipped"`` (localOnly), ``"ok"``, or ``"unreachable"``.
     """
     local_only = bool(params.get("localOnly"))
     try:
@@ -1584,6 +1587,10 @@ def _(rid, params: dict) -> dict:
 
         gallery: list[dict] = []
         seen: set[str] = set()
+        # "skipped" (localOnly), "ok", or "unreachable". Without it the picker
+        # cannot tell "petdex is down" from "nothing installed yet": both come
+        # back as an ok response with only local pets.
+        catalog = "skipped" if local_only else "ok"
         try:
             from agent.pet.manifest import fetch_manifest, prefetch
 
@@ -1609,6 +1616,7 @@ def _(rid, params: dict) -> dict:
                 )
         except Exception as exc:  # noqa: BLE001 - offline: fall back to installed
             logger.debug("pet.gallery manifest fetch failed: %s", exc)
+            catalog = "unreachable"
 
         # Always include locally-installed pets even if the gallery is unreachable.
         for slug, pet in installed.items():
@@ -1629,11 +1637,12 @@ def _(rid, params: dict) -> dict:
                 "enabled": is_truthy_value(pet_cfg.get("enabled"), default=False),
                 "active": str(pet_cfg.get("slug", "") or ""),
                 "pets": gallery,
+                "catalog": catalog,
             },
         )
     except Exception as exc:  # noqa: BLE001
         logger.debug("pet.gallery failed: %s", exc)
-        return _ok(rid, {"enabled": False, "active": "", "pets": []})
+        return _ok(rid, {"enabled": False, "active": "", "pets": [], "catalog": "unreachable"})
 
 
 @method("pet.select")

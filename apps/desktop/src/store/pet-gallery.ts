@@ -45,9 +45,24 @@ export interface PetGallery {
   enabled: boolean
   active: string
   pets: GalleryPet[]
+  /** What happened to the petdex catalog on the backend. Absent on backends
+   *  that predate the field — see `catalogReached`. */
+  catalog?: 'ok' | 'skipped' | 'unreachable'
 }
 
 export type PetGalleryStatus = 'idle' | 'loading' | 'ready' | 'stale' | 'error'
+
+/**
+ * The petdex catalog, tracked apart from the gallery itself. The gallery turns
+ * `ready` as soon as the *local* pets arrive, which on a fresh install is an
+ * empty list — so "ready and empty" cannot mean "petdex is unreachable". The
+ * picker shows its unreachable copy only on `error`, a skeleton on `loading`.
+ */
+export type PetCatalogStatus = 'idle' | 'loading' | 'ready' | 'error'
+
+// The manifest is ~2 MB and the backend retries once, so the catalog request
+// outlives the default 30s RPC timeout on a slow line.
+const CATALOG_REQUEST_TIMEOUT_MS = 75_000
 
 /** The recovering `requestGateway` from `useGatewayRequest` — passed in so the
  *  store reuses the hook's reconnect/reauth handling instead of duplicating it. */
@@ -61,8 +76,19 @@ export type GatewayRequest = <T>(
 /** Profile-scoped pet RPC. Pets are per-profile, so every call carries the active
  *  profile (the gateway no-ops it for the launch profile). One chokepoint so no
  *  call site can forget it. */
-const petRpc = <T>(request: GatewayRequest, method: string, params: Record<string, unknown> = {}): Promise<T> =>
-  request<T>(method, { ...params, profile: petProfile() })
+const petRpc = <T>(
+  request: GatewayRequest,
+  method: string,
+  params: Record<string, unknown> = {},
+  timeoutMs?: number
+): Promise<T> => request<T>(method, { ...params, profile: petProfile() }, timeoutMs)
+
+/** Did the backend reach petdex for this gallery? Older backends don't say, and
+ *  report an outage as an ok response holding only installed pets (which carry
+ *  no spritesheet URL) — so any catalog row is the proof there. */
+function catalogReached(gallery: PetGallery): boolean {
+  return gallery.catalog ? gallery.catalog === 'ok' : gallery.pets.some(pet => Boolean(pet.spritesheetUrl))
+}
 
 /** A JSON-RPC "method not found" — the backend predates the pet RPCs. */
 function isMissingMethod(error: unknown): boolean {
@@ -74,6 +100,7 @@ function isMissingMethod(error: unknown): boolean {
 export const $petGallery = atom<PetGallery | null>(null)
 export const $petGalleryStatus = atom<PetGalleryStatus>('idle')
 export const $petGalleryError = atom<string | null>(null)
+export const $petCatalogStatus = atom<PetCatalogStatus>('idle')
 
 // Which action is in flight, so rows/buttons can show a spinner. A slug for a
 // per-pet mutation; the `TOGGLE_*` sentinels for the on/off switch.
@@ -97,6 +124,7 @@ export function resetPetGallery(): void {
   $petGallery.set(null)
   $petGalleryStatus.set('idle')
   $petGalleryError.set(null)
+  $petCatalogStatus.set('idle')
   $petBusy.set(null)
 }
 
@@ -115,11 +143,19 @@ export function loadPetThumb(request: GatewayRequest, slug: string, url?: string
 
 /**
  * Fetch the gallery once and cache it. Subsequent calls are no-ops while a
- * ready snapshot is held; pass `{ force: true }` to bypass the cache (e.g. a
- * manual refresh). Concurrent callers share a single in-flight request.
+ * ready snapshot *with its petdex catalog* is held; pass `{ force: true }` to
+ * bypass the cache (e.g. a manual refresh). A snapshot whose catalog never
+ * arrived is not final: the next call (reopening the picker, the retry button)
+ * asks for the catalog again. Concurrent callers share a single in-flight
+ * request.
  */
 export function loadPetGallery(request: GatewayRequest, options: { force?: boolean } = {}): Promise<void> {
-  if (!options.force && $petGallery.get() && $petGalleryStatus.get() === 'ready') {
+  if (
+    !options.force &&
+    $petGallery.get() &&
+    $petGalleryStatus.get() === 'ready' &&
+    $petCatalogStatus.get() === 'ready'
+  ) {
     return Promise.resolve()
   }
 
@@ -132,6 +168,8 @@ export function loadPetGallery(request: GatewayRequest, options: { force?: boole
       $petGalleryStatus.set('loading')
     }
 
+    $petCatalogStatus.set('loading')
+
     let localOk = false
 
     try {
@@ -143,7 +181,11 @@ export function loadPetGallery(request: GatewayRequest, options: { force?: boole
       ])
 
       if (local) {
-        $petGallery.set(local)
+        // A retry must not swap an already-merged catalog for the local-only
+        // list while phase 2 runs.
+        const held = $petGallery.get()
+
+        $petGallery.set(held && held.pets.length > local.pets.length ? { ...held, ...local, pets: held.pets } : local)
         $petGalleryStatus.set('ready')
         $petGalleryError.set(null)
         localOk = true
@@ -157,24 +199,31 @@ export function loadPetGallery(request: GatewayRequest, options: { force?: boole
         $petGalleryStatus.set('error')
         $petGalleryError.set(e instanceof Error ? e.message : translateNow('commandCenter.pets.error'))
       }
-    } finally {
-      galleryLoad = null
     }
 
     // Phase 2: merge in the full petdex catalog in the background. A slow/failed
-    // manifest fetch never hides the local pets shown in phase 1.
+    // manifest fetch never hides the local pets shown in phase 1 — but it is
+    // recorded, so the picker can say so and offer a retry.
+    let catalog: PetCatalogStatus = 'error'
+
     if (localOk) {
       try {
-        const full = await petRpc<PetGallery>(request, 'pet.gallery')
+        const full = await petRpc<PetGallery>(request, 'pet.gallery', {}, CATALOG_REQUEST_TIMEOUT_MS)
 
-        if (full) {
+        if (full && catalogReached(full)) {
           $petGallery.set(full)
           $petGalleryStatus.set('ready')
+          catalog = 'ready'
         }
       } catch {
         // Keep the local-only gallery; the petdex catalog just stays unmerged.
       }
     }
+
+    // Cleared only now: releasing the latch between the phases let a second
+    // caller start a duplicate load while the catalog was still in flight.
+    galleryLoad = null
+    $petCatalogStatus.set(catalog)
   })()
 
   return galleryLoad
