@@ -56,7 +56,7 @@ DEPLOYMENT_LITELLM_BASE_URL = "https://aigw.astralx.com.vn"
 #: Hosts the gateway answered at before. A saved chat or a fallback entry can
 #: still name one; it means this account's gateway, and the request goes to the
 #: address on record (``account_inference.AccountInference.allows``).
-RETIRED_GATEWAY_HOSTS = ("aigw.dev-server.cloud",)
+RETIRED_GATEWAY_HOSTS = ("aigw.dev-server.cloud", "vtn-4000.wondertek.space")
 
 #: Model pinned as an account's default the first time its key is minted.
 #:

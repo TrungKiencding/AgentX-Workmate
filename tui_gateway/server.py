@@ -2519,7 +2519,7 @@ def _start_agent_build(sid: str, session: dict) -> None:
             _schedule_mcp_late_refresh(sid, agent)
         except Exception as e:
             current["agent_error"] = str(e)
-            _emit("error", sid, {"message": f"agent init failed: {e}"})
+            _emit("error", sid, _agent_init_error_payload(e))
         finally:
             if home_token is not None:
                 reset_hermes_home_override(home_token)
@@ -4149,6 +4149,20 @@ def _persist_live_session_system_prompt(session: dict | None) -> None:
         db.update_system_prompt(getattr(agent, "session_id", None) or session_key, prompt)
     except Exception:
         logger.debug("failed to persist live session system prompt", exc_info=True)
+
+
+def _agent_init_error_payload(exc: BaseException) -> dict:
+    """The ``error`` frame for an agent that could not be built.
+
+    A failure that knows what it is carries a ``code`` (see
+    ``AccountGatewayError``); the client then says *that* instead of reading
+    "agent init failed" as a fault of the local app.
+    """
+    payload: dict = {"message": f"agent init failed: {exc}"}
+    code = getattr(exc, "code", None)
+    if isinstance(code, str) and code.strip():
+        payload["code"] = code.strip()
+    return payload
 
 
 # Stable leading text of the model-switch marker, shared by the builder and the
@@ -6758,11 +6772,20 @@ def _make_agent(
             # The switch already resolved concrete credentials/endpoint; honor
             # persisted overrides only while using that original runtime. They
             # must not leak into a different fallback provider/model pair.
-            if override_base_url:
+            #
+            # Never over an account's managed gateway, though: there the
+            # address, key and mode on record ARE the runtime. A chat saved
+            # before the gateway moved carries the retired address; it is
+            # accepted as "the gateway" precisely on the promise that the
+            # request goes to the address on record — writing the saved one
+            # back sent the turn (and the account's key) to a host the
+            # gateway had left.
+            managed = runtime.get("source") == "account-gateway"
+            if override_base_url and not managed:
                 runtime["base_url"] = override_base_url
-            if override_api_key:
+            if override_api_key and not managed:
                 runtime["api_key"] = override_api_key
-            if override_api_mode:
+            if override_api_mode and not managed:
                 runtime["api_mode"] = override_api_mode
     else:
         model, requested_provider = _resolve_startup_runtime()

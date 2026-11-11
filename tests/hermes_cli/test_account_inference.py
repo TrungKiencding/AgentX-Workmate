@@ -98,7 +98,13 @@ def test_resolved_custom_sessions_must_match_gateway_endpoint(account_home):
 
 @pytest.mark.parametrize(
     "saved",
-    ["https://aigw.dev-server.cloud/v1", "https://aigw.dev-server.cloud", "HTTPS://AIGW.DEV-SERVER.CLOUD/v1/"],
+    [
+        "https://aigw.dev-server.cloud/v1",
+        "https://aigw.dev-server.cloud",
+        "HTTPS://AIGW.DEV-SERVER.CLOUD/v1/",
+        # The address before that one (it stopped answering in September 2026).
+        "https://vtn-4000.wondertek.space/v1",
+    ],
 )
 def test_a_chat_saved_before_the_gateway_moved_goes_to_the_gateway(account_home, saved):
     """The retired address is accepted as the gateway and never used: the
@@ -123,6 +129,54 @@ def test_only_the_retired_address_itself_passes_as_the_gateway(account_home, oth
     assert not account_inference().allows("custom", other)
     with pytest.raises(ValueError, match="only use models through"):
         resolve_runtime_provider(requested="custom", explicit_base_url=other)
+
+
+def test_the_gateways_own_echoed_provider_resolves_to_the_gateway(account_home):
+    """Pilot 2026-11: "This account can only use models through AgentX AI
+    Gateway" on a chat that was on a gateway model all along.
+
+    The gateway is reported back to clients as provider ``custom``; a client
+    that echoes the session's provider sends exactly that, with no endpoint.
+    """
+    runtime = resolve_runtime_provider(requested="custom")
+
+    assert runtime["base_url"] == "https://gateway.test/v1"
+    assert runtime["api_key"] == "sk-test-account-gateway-key"
+    assert runtime["source"] == "account-gateway"
+
+
+def test_a_bare_custom_is_only_accepted_where_the_gateway_is_what_runs(account_home):
+    policy = account_inference()
+
+    assert policy.accepts_runtime_request("custom")
+    assert policy.accepts_runtime_request("CUSTOM", "  ")
+    # A stored entry is still judged by ``allows``: "custom" with no endpoint
+    # is no evidence that a saved setting belongs to the gateway.
+    assert not policy.allows("custom")
+    # And naming another endpoint or vendor is refused either way.
+    assert not policy.accepts_runtime_request("custom", "https://other.test/v1")
+    assert not policy.accepts_runtime_request("anthropic")
+
+
+def test_account_errors_carry_a_code_the_clients_have_words_for(account_home, monkeypatch):
+    from hermes_cli.account_inference import (
+        AccountGatewayNotConfigured,
+        AccountProviderNotAllowed,
+        require_account_provider,
+    )
+
+    with pytest.raises(AccountProviderNotAllowed) as refused:
+        resolve_runtime_provider(requested="anthropic")
+    assert refused.value.code == "model_not_allowed"
+    assert isinstance(refused.value, ValueError)
+
+    with pytest.raises(AccountProviderNotAllowed):
+        require_account_provider("anthropic")
+
+    monkeypatch.delenv("COMPANY_AI_API_KEY")
+    with pytest.raises(AccountGatewayNotConfigured) as unconfigured:
+        resolve_runtime_provider(requested="company-ai")
+    assert unconfigured.value.code == "auth_failed"
 
 
 def test_missing_key_never_autodetects_another_provider(account_home, monkeypatch):

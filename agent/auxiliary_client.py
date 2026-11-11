@@ -5941,15 +5941,17 @@ def resolve_provider_client(
     Returns:
         (client, resolved_model) or (None, None) if auth is unavailable.
     """
-    from hermes_cli.account_inference import account_inference
+    from hermes_cli.account_inference import AccountProviderNotAllowed, account_inference
 
     policy = account_inference()
     if policy is not None:
         from hermes_cli.runtime_provider import resolve_runtime_provider
 
         requested = (provider or "auto").strip().lower()
-        if requested not in {"", "auto"} and not policy.allows(requested, explicit_base_url or ""):
-            raise ValueError("This account can only use models through AgentX AI Gateway.")
+        if requested not in {"", "auto"} and not policy.accepts_runtime_request(
+            requested, explicit_base_url or ""
+        ):
+            raise AccountProviderNotAllowed()
         runtime = resolve_runtime_provider(
             requested=policy.provider, explicit_base_url=explicit_base_url
         )

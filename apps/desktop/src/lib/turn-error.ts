@@ -104,6 +104,14 @@ const TEXT_RULES: readonly [RegExp, string][] = [
     'quota_exceeded'
   ],
   [/not allowed to (?:access|use|call) (?:this )?model|team not allowed|model not allowed/i, 'model_not_allowed'],
+  // A signed-in account's inference always goes through its AgentX gateway
+  // (hermes_cli/account_inference.py). These two arrive wrapped in "agent init
+  // failed: …", and were read as a fault of the local app — "restart Workmate"
+  // — when the first means this chat is pinned to a model the account cannot
+  // use, and the second that the account has no AI key yet (pilot feedback
+  // 2026-11). They sit above the agent-init rule for backends that send no code.
+  [/can only use models through AgentX AI Gateway/i, 'model_not_allowed'],
+  [/AgentX AI Gateway is not configured for this account/i, 'auth_failed'],
   [/rate[_ -]?limit|too many requests|requests per min|tokens per min/i, 'rate_limited'],
   [OVERLOADED_TEXT, 'overloaded'],
   [

@@ -1263,7 +1263,11 @@ export function useGatewayEventHandler(deps: GatewayEventDeps) {
       } else if (event.type === 'error') {
         const errorMessage = coerceGatewayText(payload?.message).trim()
         const looksLikeProviderSetup = isProviderSetupErrorMessage(errorMessage)
-        const errorCode = turnErrorCode({ online: deviceOnline(), text: errorMessage })
+        // A bare `error` frame names its failure only when the backend knew
+        // what it was (an account-gateway refusal carries a code); otherwise
+        // the text is read.
+        const frameCode = typeof payload?.code === 'string' ? payload.code : undefined
+        const errorCode = turnErrorCode({ code: frameCode, online: deviceOnline(), text: errorMessage })
         const turnError = describeTurnError({ code: errorCode, text: errorMessage }, translationsNow())
 
         // A turn that errors out has also ended — drop any open blocking prompt

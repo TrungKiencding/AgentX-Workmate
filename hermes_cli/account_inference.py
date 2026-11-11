@@ -31,6 +31,40 @@ def _is_retired_gateway(endpoint: str) -> bool:
     )
 
 
+class AccountGatewayError(ValueError):
+    """An account's inference could not be resolved to its AgentX gateway.
+
+    ``code`` is what a client shows the failure under. Without it the desktop
+    read "agent init failed: …" and reported a generic local error — "Workmate
+    hit a problem on this machine, restart it" — for what is really "this chat
+    is pinned to a model your account cannot use" (pilot feedback 2026-11).
+    The codes are ones the clients already have words for.
+    """
+
+    code = "operation_failed"
+
+
+class AccountProviderNotAllowed(AccountGatewayError):
+    """A chat, fallback or setting names a provider/endpoint other than the gateway."""
+
+    code = "model_not_allowed"
+
+    def __init__(self) -> None:
+        super().__init__("This account can only use models through AgentX AI Gateway.")
+
+
+class AccountGatewayNotConfigured(AccountGatewayError):
+    """The account has no gateway address or key on record yet."""
+
+    code = "auth_failed"
+
+    def __init__(self) -> None:
+        super().__init__(
+            "AgentX AI Gateway is not configured for this account. "
+            "Retry gateway setup or skip it for now."
+        )
+
+
 @dataclass(frozen=True)
 class AccountInference:
     provider: str
@@ -52,6 +86,29 @@ class AccountInference:
         named = slug in {expected, f"custom:{expected}"}
         resolved = slug == "custom" and bool(endpoint) and own
         return (named or resolved) and (not endpoint or own)
+
+    def accepts_runtime_request(self, provider: str, base_url: str = "") -> bool:
+        """Whether a *runtime* request may be resolved for this account.
+
+        Everything :meth:`allows` accepts, plus a bare ``custom`` with no
+        endpoint. ``custom`` is how the gateway itself is reported back to
+        clients (``resolve_runtime_provider`` returns it as the provider), so
+        a client that echoes the session's provider on its next request sends
+        exactly that — without the endpoint, which it never had. Rejecting it
+        failed chats that were on a gateway model all along with "This account
+        can only use models through AgentX AI Gateway".
+
+        This is safe only where the caller then resolves to the account's own
+        gateway unconditionally, which is why it is not part of ``allows``:
+        config sanitation and catalog filtering use that to decide whether a
+        *stored* entry is the gateway's, and a stored ``custom`` with no
+        endpoint is not evidence of anything.
+        """
+        from hermes_cli.litellm_admin import normalize_base_url
+
+        if (provider or "").strip().lower() == "custom" and not normalize_base_url(base_url or ""):
+            return True
+        return self.allows(provider, base_url)
 
 
 def account_inference() -> AccountInference | None:
@@ -85,4 +142,4 @@ def account_inference() -> AccountInference | None:
 def require_account_provider(provider: str, base_url: str = "") -> None:
     policy = account_inference()
     if policy is not None and not policy.allows(provider, base_url):
-        raise ValueError("This account can only use models through AgentX AI Gateway.")
+        raise AccountProviderNotAllowed()

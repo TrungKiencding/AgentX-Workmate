@@ -140,3 +140,91 @@ def test_apply_model_switch_does_not_leak_process_env():
     # Sibling session is completely untouched.
     assert sess_a["model_override"] is None
     assert sess_a["agent"].model == "minimax/m3"
+
+
+def _make_agent_with_override(runtime, override):
+    """Build an agent for a session that persisted ``override``; return the
+    kwargs AIAgent was constructed with."""
+    from types import SimpleNamespace
+
+    fake_cfg = {"model": {"default": "gateway-model"}, "agent": {"system_prompt": "test"}}
+    resolution = SimpleNamespace(runtime=dict(runtime), used_fallback=False, selected_model=None)
+
+    with (
+        patch("tui_gateway.server._load_cfg", return_value=fake_cfg),
+        patch("tui_gateway.server._get_db", return_value=MagicMock()),
+        patch("tui_gateway.server._load_tool_progress_mode", return_value="compact"),
+        patch("tui_gateway.server._load_reasoning_config", return_value=None),
+        patch("tui_gateway.server._load_service_tier", return_value=None),
+        patch("tui_gateway.server._load_enabled_toolsets", return_value=None),
+        patch("tui_gateway.server._resolve_runtime_with_fallback", return_value=resolution),
+        patch("hermes_cli.runtime_provider.canonical_custom_identity", return_value=None),
+        patch("run_agent.AIAgent") as mock_agent,
+    ):
+        from tui_gateway.server import _make_agent
+
+        _make_agent("sid-override", "key-override", model_override=override)
+
+        return mock_agent.call_args.kwargs
+
+
+def test_a_saved_gateway_address_never_replaces_the_one_on_record():
+    """A chat saved before the gateway moved carries the retired address. It is
+    accepted as "the gateway" on the promise that the request goes to the
+    address on record — the saved one must not be written back over it, or the
+    turn (and the account's key) goes to a host the gateway has left."""
+    managed = {
+        "provider": "custom",
+        "api_mode": "chat_completions",
+        "base_url": "https://aigw.astralx.com.vn/v1",
+        "api_key": "sk-account",
+        "source": "account-gateway",
+    }
+
+    kwargs = _make_agent_with_override(
+        managed,
+        {
+            "model": "gateway-model",
+            "provider": "custom",
+            "base_url": "https://aigw.dev-server.cloud/v1",
+            "api_key": "sk-stale",
+            "api_mode": "codex_responses",
+        },
+    )
+
+    assert kwargs["base_url"] == "https://aigw.astralx.com.vn/v1"
+    assert kwargs["api_key"] == "sk-account"
+    assert kwargs["api_mode"] == "chat_completions"
+
+
+def test_a_saved_endpoint_still_applies_outside_a_managed_account():
+    """The standalone behaviour is unchanged: a session that switched to a
+    custom endpoint keeps it."""
+    runtime = {
+        "provider": "custom",
+        "api_mode": "chat_completions",
+        "base_url": "https://resolved.example/v1",
+        "api_key": "sk-resolved",
+    }
+
+    kwargs = _make_agent_with_override(
+        runtime,
+        {"model": "m", "provider": "custom", "base_url": "https://mine.example/v1", "api_key": "sk-mine"},
+    )
+
+    assert kwargs["base_url"] == "https://mine.example/v1"
+    assert kwargs["api_key"] == "sk-mine"
+
+
+def test_agent_init_error_frame_carries_the_failures_own_code():
+    from hermes_cli.account_inference import AccountProviderNotAllowed
+    from tui_gateway.server import _agent_init_error_payload
+
+    typed = _agent_init_error_payload(AccountProviderNotAllowed())
+    assert typed["code"] == "model_not_allowed"
+    assert typed["message"].startswith("agent init failed: This account can only use models")
+
+    plain = _agent_init_error_payload(RuntimeError("boom"))
+    assert plain == {"message": "agent init failed: boom"}
+    # A non-string ``code`` attribute (an OSError errno, an HTTP status) is not one of ours.
+    assert "code" not in _agent_init_error_payload(OSError(2, "No such file"))

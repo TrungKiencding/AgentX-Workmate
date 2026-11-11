@@ -59,6 +59,8 @@ export type GatewayEventPayload = {
   rendered?: string
   status?: string
   message?: string
+  /** On an `error` frame: the failure's own code, when the backend knew it. */
+  code?: string
   id?: string
   name?: string
   tool_id?: string

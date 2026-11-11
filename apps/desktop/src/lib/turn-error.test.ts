@@ -183,6 +183,14 @@ describe('classifyTurnErrorText', () => {
     ['Could not connect to AgentX gateway', 'local_error'],
     ['request timed out after 30s: prompt.submit', 'local_error'],
     ['agent initialization timed out after 601s — your message was not sent', 'local_error'],
+    // An account-gateway refusal arrives wrapped in "agent init failed: …"; it
+    // is about the chat's model or the account's key, not the local app.
+    ['agent init failed: This account can only use models through AgentX AI Gateway.', 'model_not_allowed'],
+    [
+      'agent init failed: AgentX AI Gateway is not configured for this account. Retry gateway setup or skip it for now.',
+      'auth_failed'
+    ],
+    ['agent init failed: something else broke', 'local_error'],
     ['Turn cancelled before the agent was ready', 'local_error'],
     // Words only, no status.
     ['BadRequestError: unsupported parameter', 'bad_request'],
@@ -194,6 +202,20 @@ describe('classifyTurnErrorText', () => {
 })
 
 describe('turnErrorCode', () => {
+  // Pilot 2026-11: the card said "Workmate hit a problem on this machine …
+  // restart Workmate" over "This account can only use models through AgentX AI
+  // Gateway" — the wrong failure and the wrong remedy.
+  it('shows an account-gateway refusal as a model the account cannot use', () => {
+    const text = 'agent init failed: This account can only use models through AgentX AI Gateway.'
+
+    // With the code a current backend sends…
+    expect(turnErrorCode({ code: 'model_not_allowed', text })).toBe('model_not_allowed')
+    // …and from the text alone, for one that does not.
+    expect(turnErrorCode({ text })).toBe('model_not_allowed')
+    expect(describeTurnError({ text }, en).kind).toBe('model_not_allowed')
+    expect(describeTurnError({ text }, en).retry).toBe(false)
+  })
+
   it("keeps the gateway's code over the text", () => {
     expect(turnErrorCode({ code: 'rate_limited', text: 'Connection error.' })).toBe('rate_limited')
     expect(turnErrorCode({ code: 'license_expired', text: 'whatever' })).toBe('license_expired')
