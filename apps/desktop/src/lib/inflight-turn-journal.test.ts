@@ -273,6 +273,97 @@ describe('mergeInFlightMessages', () => {
   })
 })
 
+// Pilot 2026-11: the app was closed mid-turn, reopened, and the person sent a
+// new message — which then rendered ABOVE the interrupted turn's tool runs and
+// reasoning. The journal took the new turn's live row for its own.
+describe('a journaled turn the conversation has moved past', () => {
+  const journal = [
+    user('u1', 'analyse the standings'),
+    assistantWithTool('assistant-stream-1', 'sources match', { interim: true, pending: false }),
+    assistantWithTool('assistant-stream-2', 'checking order', { pending: true })
+  ]
+
+  it('puts the interrupted rows back above the newer prompt when the transcript holds nothing of them', () => {
+    const base = [
+      user('m1', 'analyse the standings'),
+      user('m3', 'continue'),
+      assistant('inflight-assistant-9', 'continuing…', { pending: true })
+    ]
+
+    const result = mergeInFlightMessages(base, journal, { keepPending: true })
+
+    expect(result.messages.map(message => message.id)).toEqual([
+      'm1',
+      'assistant-stream-1',
+      'assistant-stream-2',
+      'm3',
+      'inflight-assistant-9'
+    ])
+    // The old rows are history: settled, and not where live deltas go.
+    expect(result.messages.slice(1, 3).every(message => message.pending !== true)).toBe(true)
+    expect(result.streamId).toBeNull()
+    // The new turn's live row is left exactly as the backend projected it.
+    expect(result.messages[4]).toBe(base[2])
+  })
+
+  it('is caught up when the transcript already stores what the interrupted turn produced', () => {
+    const base = [
+      user('m1', 'analyse the standings'),
+      assistant('m2', 'sources match\n\nchecking order'),
+      user('m3', 'continue'),
+      assistant('inflight-assistant-9', 'continuing…', { pending: true })
+    ]
+
+    const result = mergeInFlightMessages(base, journal, { keepPending: true })
+
+    expect(result).toMatchObject({ applied: false, caughtUp: true })
+    expect(result.messages).toBe(base)
+  })
+
+  it('never grafts the old turn onto the reply of the new one', () => {
+    const base = [
+      user('m1', 'analyse the standings'),
+      user('m3', 'continue'),
+      assistant('m4', 'done — here is the rest')
+    ]
+
+    const result = mergeInFlightMessages(base, journal)
+
+    expect(result.messages.map(message => message.id)).toEqual([
+      'm1',
+      'assistant-stream-1',
+      'assistant-stream-2',
+      'm3',
+      'm4'
+    ])
+    expect(result.messages[4]).toBe(base[2])
+  })
+})
+
+describe('a mid-turn correction is not the conversation moving on', () => {
+  it('still overlays the live projection when the later user row is the journaled correction', () => {
+    const journal = [
+      user('u1', 'analyse the standings'),
+      user('u2', 'only the top five'),
+      assistantWithTool('assistant-stream-1', 'narrowing down', { pending: true })
+    ]
+
+    const base = [
+      user('m1', 'analyse the standings'),
+      user('m2', 'only the top five'),
+      assistant('inflight-assistant-9', 'narrowing', { pending: true })
+    ]
+
+    const result = mergeInFlightMessages(base, journal, { keepPending: true })
+
+    // Same turn: the journal's structure lands on the projection row, in place.
+    expect(result.applied).toBe(true)
+    expect(result.messages.map(message => message.id)).toEqual(['m1', 'm2', 'inflight-assistant-9'])
+    expect(result.messages[2].parts.some(part => part.type === 'tool-call')).toBe(true)
+    expect(result.streamId).toBe('inflight-assistant-9')
+  })
+})
+
 describe('mid-turn redirect corrections', () => {
   beforeEach(() => {
     window.localStorage.clear()

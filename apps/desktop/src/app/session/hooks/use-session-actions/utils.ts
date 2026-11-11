@@ -556,11 +556,50 @@ export function preserveLocalPendingTurnMessages(
 
   const latestAuthoritativeUser = [...nextMessages].reverse().find(message => message.role === 'user')
   const preserved: ChatMessage[] = []
+
+  // The newest prompt the backend has accepted splits the local rows in two.
+  // Whatever stream rows sit BEFORE it locally belong to an earlier turn — one
+  // that was stopped, typically: Stop only clears `pending`, the rows keep
+  // their `assistant-stream-*` ids for the life of the view, and the stored
+  // transcript folds that turn into ONE row, so they never find a text-equal
+  // twin there. Treated as an uncommitted live reply they were re-appended at
+  // the END on every reconcile — below the prompt sent after them (pilot
+  // feedback 2026-11: "tin nhắn nằm trên suy luận của bot").
+  //
+  // Such a row is history. If the backend committed that turn (an assistant
+  // row precedes the prompt), the stored row is the authority and the local
+  // one is dropped; if it committed nothing, the local rows are the only copy
+  // and are kept — above the prompt, where they happened.
+  const anchorText = latestAuthoritativeUser ? textWithoutReferenceLines(chatMessageText(latestAuthoritativeUser)) : null
+  const anchorNextIndex = latestAuthoritativeUser ? nextMessages.indexOf(latestAuthoritativeUser) : -1
+
+  const anchorLocalIndex =
+    anchorText === null
+      ? -1
+      : previousMessages.findLastIndex(
+          message => message.role === 'user' && textWithoutReferenceLines(chatMessageText(message)) === anchorText
+        )
+
+  const priorTurnCommitted = (() => {
+    for (let index = anchorNextIndex - 1; index >= 0; index -= 1) {
+      const candidate = nextMessages[index]
+
+      if (isGatewaySystemMarker(candidate) || candidate.hidden) {
+        continue
+      }
+
+      return candidate.role === 'assistant'
+    }
+
+    return false
+  })()
+
+  const preservedBeforeAnchor: ChatMessage[] = []
   // Authoritative id → richer local pending row. Replacing (not appending)
   // avoids painting both the empty inflight shell and the full stream bubble.
   const replacements = new Map<string, ChatMessage>()
 
-  for (const message of previousMessages) {
+  for (const [localIndex, message] of previousMessages.entries()) {
     if (isGatewaySystemMarker(message)) {
       continue
     }
@@ -574,6 +613,16 @@ export function preserveLocalPendingTurnMessages(
       message.role === 'assistant' && (message.pending === true || message.id.startsWith('assistant-stream-'))
 
     if (!isOptimisticUser && !isPendingAssistant) {
+      continue
+    }
+
+    // A settled stream row from before the newest accepted prompt: an earlier
+    // turn's, never the live reply (see above).
+    if (isPendingAssistant && message.pending !== true && localIndex < anchorLocalIndex && !nextIds.has(message.id)) {
+      if (!priorTurnCommitted) {
+        preservedBeforeAnchor.push(message)
+      }
+
       continue
     }
 
@@ -652,7 +701,18 @@ export function preserveLocalPendingTurnMessages(
   const withReplacements =
     replacements.size > 0 ? nextMessages.map(message => replacements.get(message.id) ?? message) : nextMessages
 
-  return preserved.length ? [...withReplacements, ...preserved] : withReplacements
+  // Rows of an earlier, uncommitted turn go back above the prompt that
+  // followed them; the live turn's rows go at the end.
+  const ordered =
+    preservedBeforeAnchor.length > 0 && anchorNextIndex >= 0
+      ? [
+          ...withReplacements.slice(0, anchorNextIndex),
+          ...preservedBeforeAnchor,
+          ...withReplacements.slice(anchorNextIndex)
+        ]
+      : withReplacements
+
+  return preserved.length ? [...ordered, ...preserved] : ordered
 }
 
 /**

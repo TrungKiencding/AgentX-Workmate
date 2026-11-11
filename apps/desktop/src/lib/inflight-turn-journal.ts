@@ -360,6 +360,45 @@ export function mergeInFlightMessages(
 
   const afterUser = baseMessages.slice(matchingUserIndex + 1)
 
+  // The conversation has moved on: a later prompt follows the journaled one.
+  // The journaled turn is then over — the app was closed while it ran, it came
+  // back, and the person wrote again. Everything past that later prompt
+  // belongs to the NEW turn; reading its reply or its live projection as this
+  // turn's used to drop the old turn's rows underneath the new prompt (pilot
+  // feedback 2026-11: "tin nhắn nằm trên suy luận của bot").
+  //
+  // A mid-turn redirect is not that: its correction is a second user row of
+  // the SAME turn, and the journal carries it.
+  const tailUsers = tail.filter(message => message.role === 'user')
+
+  const laterUserOffset = afterUser.findIndex(
+    message =>
+      message.role === 'user' && !message.hidden && !tailUsers.some(tailRow => userMessagesMatch(message, tailRow))
+  )
+
+  if (laterUserOffset >= 0) {
+    const ownReply = afterUser.slice(0, laterUserOffset).find(assistantHasRecoverableContent)
+
+    if (ownReply || tailAssistants.length === 0) {
+      // The transcript holds what the turn produced before it was cut short.
+      return { ...noop, caughtUp: true }
+    }
+
+    // It holds nothing of it: the journal is the only copy. Put it back where
+    // it happened — between its prompt and the next — settled, and never as
+    // the stream the live turn writes into.
+    const settled = normalizeRecoveredTail(tailMessages, false).slice(tailUserIndex + 1)
+    const cut = matchingUserIndex + 1 + laterUserOffset
+
+    return {
+      applied: true,
+      caughtUp: false,
+      messages: [...baseMessages.slice(0, cut), ...withoutBaseIds(settled, baseMessages), ...baseMessages.slice(cut)],
+      streamId: null,
+      turnStartedAt: null
+    }
+  }
+
   const completedReply = afterUser.find(
     message => assistantHasRecoverableContent(message) && !isLiveProjectionRow(message)
   )
