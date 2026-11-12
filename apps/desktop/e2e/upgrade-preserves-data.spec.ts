@@ -30,7 +30,6 @@ import { _electron, type ElectronApplication, type Page } from '@playwright/test
 import {
   buildAppEnv,
   createSandbox,
-  protectUserCommandLinks,
   type Sandbox,
   writeEnvFile,
   writeMockProviderConfig
@@ -194,8 +193,6 @@ test('installing a newer build over an older one keeps conversations, settings a
   test.setTimeout(3_600_000)
   const testInfo = test.info()
   const sandbox = createSandbox('upgrade')
-  // Both installs re-point ~/.local/bin/agentx at this sandbox.
-  const restoreCommandLinks = protectUserCommandLinks()
   let mock: MockServer | undefined
   let app: ElectronApplication | undefined
 
@@ -309,6 +306,5 @@ test('installing a newer build over an older one keeps conversations, settings a
       sandbox.cleanup()
     }
 
-    restoreCommandLinks()
   }
 })
