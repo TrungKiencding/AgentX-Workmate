@@ -1148,6 +1148,39 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 
 ## Chat, tools & boot surfaces
 
+The conversation's **session resources** surface (`app/chat/session-resources/`)
+is a floating, 320px card in the chat's upper-right corner: 16px corners, subtle
+border, level-1 shadow, and single-line resource rows. It opens by default once
+a conversation has started (a bound session with transcript content). An empty
+draft or allocated-but-empty session has no card, toggle, or reserved gutter.
+One persistent icon toggles it directly during a started conversation;
+resizing or opening a document does not change that choice. The same card stays
+beside the large viewer. At wide chat widths the conversation's containing block
+narrows to reserve clearance, keeping transcript and docked composer on the same
+centerline. Do not use padding to reserve this gutter: absolute-positioned
+children center on the padding box while in-flow children use the content box.
+The transcript reserves symmetric scrollbar gutters so overflowing history
+stays centered with the composer too.
+At narrow widths the card floats above it, bounded by the chat's available area.
+The composer stays mounted and its floating mode retains viewport positioning.
+
+Only Changes, Outputs, Sources, the actual items, and their add actions are
+visible. No explanatory subtitles, counters, search field, or pinning step.
+Empty Outputs has the short “Create an output” action; empty Sources has no
+paragraph. Output creation inserts into the scoped composer and source addition
+uses the existing file picker. Changes opens the existing cwd-scoped review.
+File selection uses the existing preview pane. Long inventories scroll without
+an item cap; full targets remain available through tooltips. Collection uses the
+complete session history, preserves identity on no-ops, and guards stale opens
+across session/profile/cwd changes. Background events never open a viewer.
+
+An identity-less new-chat draft has no resource sidebar or project / Changes
+summary, even if its selected folder is inherited from the previous
+conversation. Late message or repo-status updates may not populate that draft.
+Keep workspace caches intact so returning to the original conversation restores
+its resources; the composer's separate workspace controls still own folder
+selection and working-tree status.
+
 - **The home surface is a greeting and a folder list** (`components/chat/intro.tsx`,
   `app/chat/home-workspaces.tsx`), centred in the room above the docked
   composer (`.home-surface`, `justify-content: safe center` — once a short

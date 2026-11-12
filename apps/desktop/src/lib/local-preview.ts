@@ -51,10 +51,11 @@ function basename(value: string) {
 }
 
 function extension(value: string) {
-  const clean = value.split(/[?#]/, 1)[0] || value
-  const idx = clean.lastIndexOf('.')
+  // HTTP URLs have already taken the URL branch; this is a native path,
+  // whose literal '#' and '?' characters must survive classification.
+  const idx = value.lastIndexOf('.')
 
-  return idx >= 0 ? clean.slice(idx).toLowerCase() : ''
+  return idx >= 0 ? value.slice(idx).toLowerCase() : ''
 }
 
 function joinPath(base: string, rel: string) {
@@ -66,10 +67,16 @@ function joinPath(base: string, rel: string) {
 }
 
 function pathToFileUrl(path: string) {
-  const encoded = path
+  const normalized = path.replace(/\\/g, '/')
+
+  const encoded = normalized
     .split('/')
-    .map(part => encodeURIComponent(part))
+    .map((part, index) => (index === 0 && /^[a-z]:$/i.test(part) ? part : encodeURIComponent(part)))
     .join('/')
+
+  if (normalized.startsWith('//')) {
+    return `file:${encoded}`
+  }
 
   return `file://${encoded.startsWith('/') ? encoded : `/${encoded}`}`
 }
@@ -90,10 +97,19 @@ export function localPreviewTarget(rawTarget: string, cwd?: string | null): Prev
   if (/^file:\/\//i.test(raw)) {
     try {
       path = decodeURIComponent(new URL(raw).pathname)
+      const host = new URL(raw).hostname
+
+      if (host && host !== 'localhost') {
+        path = `//${host}${path}`
+      }
+
+      if (/^\/[a-z]:\//i.test(path)) {
+        path = path.slice(1)
+      }
     } catch {
       path = raw.replace(/^file:\/\//i, '')
     }
-  } else if (!raw.startsWith('/') && cwd) {
+  } else if (!raw.startsWith('/') && !/^(?:~\/|[a-z]:[\\/]|\\\\)/i.test(raw) && cwd) {
     path = joinPath(cwd, raw)
   }
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDialog } from '@/components/ui/confirm-dialog'
+import { Tip } from '@/components/ui/tooltip'
 import type { DesktopDevice } from '@/global'
 import { useI18n } from '@/i18n'
 import { ChevronLeft, ChevronRight, Monitor } from '@/lib/icons'
@@ -378,14 +379,15 @@ function DeviceTable({
               <tr className="border-t border-(--border-subtle) align-middle" key={group.key}>
                 <td className="min-w-0 py-2.5 pr-4">
                   <div className="flex min-w-0 items-center gap-2">
-                    <button
-                      className="min-w-0 truncate text-left text-base text-(--text-primary) underline-offset-4 hover:underline"
-                      onClick={() => onOpen(group)}
-                      title={name}
-                      type="button"
-                    >
-                      {name}
-                    </button>
+                    <Tip label={name}>
+                      <button
+                        className="min-w-0 truncate text-left text-base text-(--text-primary) underline-offset-4 hover:underline"
+                        onClick={() => onOpen(group)}
+                        type="button"
+                      >
+                        {name}
+                      </button>
+                    </Tip>
                     {group.current ? <Pill tone="primary">{copy.deviceCurrent}</Pill> : null}
                   </div>
                   <p className="truncate text-xs text-muted-foreground">{meta}</p>

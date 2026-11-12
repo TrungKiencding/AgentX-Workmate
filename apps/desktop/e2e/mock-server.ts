@@ -133,6 +133,8 @@ function respondWithProviderError(res: ServerResponse, mode: ProviderErrorMode, 
 }
 
 export interface MockServerOptions {
+  /** Real agent/tool-loop fixture with an isolated per-server script cursor. */
+  scriptedTurns?: readonly ScriptedTurn[]
   /** Pause the matching stream after its first token for session-switch E2E coverage. */
   holdFirstStreamForPrompt?: string
 /** Pause the first completion whose request JSON contains this text. */
@@ -439,6 +441,7 @@ function includesBlockingClarifyTrigger(value: unknown): boolean {
  */
 export function startMockServer(options: MockServerOptions = {}): Promise<MockServer> {
   return new Promise((resolve, reject) => {
+    let scriptedTurnIndex = 0
     const receivedPrompts: string[] = []
     let resolveHeldStreamStarted: (() => void) | null = null
     let releaseHeldStream: (() => void) | null = null
@@ -531,6 +534,12 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
           if (providerErrorMode) {
             respondWithProviderError(res, providerErrorMode, model)
 
+            return
+          }
+          if (options.scriptedTurns?.length) {
+            const turn = options.scriptedTurns[Math.min(scriptedTurnIndex++, options.scriptedTurns.length - 1)]
+            if (stream) streamScriptedTurn(res, model, turn, `custom-${scriptedTurnIndex}`)
+            else nonStreamingScriptedTurn(res, model, turn, `custom-${scriptedTurnIndex}`)
             return
           }
           const isInterimTrigger = userText.includes('E2E_INTERIM_TRIGGER')
@@ -784,6 +793,7 @@ function streamScriptedTurn(
   res: ServerResponse,
   model: string,
   turn: ScriptedTurn,
+  callNamespace = String(_scriptIndex),
 ): void {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -801,7 +811,7 @@ function streamScriptedTurn(
         sseChunk(model, {
           tool_calls: turn.toolCalls!.map((tc, idx) => ({
             index: idx,
-            id: `call_e2e_${_scriptIndex}_${idx}`,
+            id: `call_e2e_${callNamespace}_${idx}`,
             type: 'function',
             function: { name: tc.name, arguments: JSON.stringify(tc.args) },
           })),
@@ -827,7 +837,7 @@ function streamScriptedTurn(
           sseChunk(model, {
             tool_calls: turn.toolCalls!.map((tc, idx) => ({
               index: idx,
-              id: `call_e2e_${_scriptIndex}_${idx}`,
+              id: `call_e2e_${callNamespace}_${idx}`,
               type: 'function',
               function: { name: tc.name, arguments: JSON.stringify(tc.args) },
             })),
@@ -855,6 +865,7 @@ function nonStreamingScriptedTurn(
   res: ServerResponse,
   model: string,
   turn: ScriptedTurn,
+  callNamespace = String(_scriptIndex),
 ): void {
   const hasToolCalls = turn.toolCalls && turn.toolCalls.length > 0
   const finishReason = hasToolCalls ? 'tool_calls' : 'stop'
@@ -865,7 +876,7 @@ function nonStreamingScriptedTurn(
   }
   if (hasToolCalls) {
     message.tool_calls = turn.toolCalls!.map((tc, idx) => ({
-      id: `call_e2e_${_scriptIndex}_${idx}`,
+      id: `call_e2e_${callNamespace}_${idx}`,
       type: 'function',
       function: { name: tc.name, arguments: JSON.stringify(tc.args) },
     }))

@@ -161,6 +161,15 @@ interface AuxTaskCopy {
 }
 
 export interface Translations {
+  sessionResources: {
+    title: string
+    createOutput: string
+    addSource: string
+    changes: string
+    outputs: string
+    sources: string
+    openFailed: string
+  }
   common: {
     apply: string
     unknownError: string

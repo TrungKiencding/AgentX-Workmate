@@ -1,0 +1,207 @@
+/* Hallmark · component: session resources · theme: screenshot reference / existing tokens
+ * pre-emit critique: P5 H5 E4 S5 R5 V4
+ * states: default · hover · focus · active · disabled · loading · error · success
+ */
+.session-workspace {
+  container: session-workspace / inline-size;
+  display: flex;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.session-conversation {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.session-conversation [data-slot='aui_thread-viewport'] {
+  /* Balance the themed scrollbar so overflowing history keeps the same
+     centerline as the composer outside the scrollport. */
+  scrollbar-gutter: stable both-edges;
+}
+.session-workspace[data-resources='true'] > .session-conversation {
+  padding-top: 44px;
+}
+.session-resources-launcher {
+  position: absolute;
+  top: 4px;
+  right: 12px;
+  z-index: 5;
+}
+.session-resources-launcher [data-active='true'] {
+  background: var(--bg-hover);
+}
+.session-resources-card {
+  position: absolute;
+  top: 44px;
+  right: 12px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  width: min(320px, calc(100% - 24px));
+  max-height: min(520px, calc(100% - var(--composer-measured-height, 160px) - 64px));
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--bg-app);
+  color: var(--text-secondary);
+  animation: session-resources-enter var(--dur-short) var(--ease-out);
+}
+.session-resources-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.session-resources-scroll {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.session-resources-section {
+  margin: 0 18px;
+  padding: 12px 0;
+}
+.session-resources-section + .session-resources-section {
+  border-top: 1px solid var(--border-subtle);
+}
+.session-resources-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+  margin-bottom: 4px;
+}
+.session-resources-section-heading h3 {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+.session-resources-section-heading [data-slot='button'] {
+  color: var(--text-tertiary);
+}
+.session-resources-section ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.session-resources-changes {
+  margin: 0 18px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.session-resources-project {
+  overflow: hidden;
+  margin-bottom: 4px;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.session-resource-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  gap: 12px;
+  padding: 4px 0;
+  border-radius: var(--radius-control);
+  text-align: start;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+  cursor: pointer;
+  transition: background-color var(--dur-micro);
+}
+.session-resource-row:hover {
+  background: var(--bg-hover);
+}
+.session-resource-row:active {
+  background: var(--bg-pressed);
+}
+.session-resource-row:focus-visible,
+.session-resources-empty-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.session-resource-row:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+.session-resource-row > .codicon {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+.session-resource-row[data-output='true'] > .codicon {
+  color: var(--accent);
+}
+.session-resource-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.session-resource-type {
+  flex-shrink: 0;
+  max-width: 56px;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.session-resources-empty-action {
+  display: block;
+  width: 100%;
+  padding: 4px 0;
+  color: var(--text-tertiary);
+  text-align: start;
+  font-size: 14px;
+  line-height: 24px;
+  border-radius: var(--radius-control);
+}
+.session-resources-empty-action:hover {
+  color: var(--text-secondary);
+}
+.session-resources-empty-action:active {
+  background: var(--bg-pressed);
+}
+.session-resource-error {
+  margin: 0 0 8px;
+  color: var(--danger);
+  font-size: 13px;
+}
+@container session-workspace (min-width: 1040px) {
+  .session-workspace[data-resources='true'] > .session-conversation {
+    padding-top: 0;
+  }
+  .session-workspace[data-resources='true'][data-resources-expanded='true'] > .session-conversation {
+    /* Narrow the containing block itself so the absolute composer and the
+       in-flow transcript share the same center and width constraints. */
+    margin-right: 352px;
+  }
+}
+@keyframes session-resources-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .session-resources-card {
+    animation: none;
+  }
+  .session-resource-row {
+    transition: none;
+  }
+}

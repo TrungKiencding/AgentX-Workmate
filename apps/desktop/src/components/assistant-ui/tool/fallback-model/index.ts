@@ -906,7 +906,7 @@ function collectResultItems(value: unknown): unknown[] {
   return payload === record ? [] : collectResultItems(payload)
 }
 
-function extractSearchResults(result: unknown, limit = 6): SearchResultRow[] {
+export function extractSearchResults(result: unknown, limit = 6): SearchResultRow[] {
   const list = collectResultItems(result)
 
   return list
@@ -1101,7 +1101,11 @@ function browserNavigateUrl(args: Record<string, unknown>, result: Record<string
   return schemelessUrl(args.url) || findFirstUrl(args.url) || findFirstUrl(args, result)
 }
 
-function toolPreviewTarget(toolName: string, args: Record<string, unknown>, result: Record<string, unknown>): string {
+export function toolPreviewTarget(
+  toolName: string,
+  args: Record<string, unknown>,
+  result: Record<string, unknown>
+): string {
   const direct =
     firstStringField(result, ['preview', 'url', 'target']) ||
     firstStringField(args, ['preview', 'url', 'target', 'path', 'file', 'filepath']) ||

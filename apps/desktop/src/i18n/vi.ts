@@ -12,6 +12,15 @@ import type { Translations } from './types'
 // Everything a non-engineer reads is plain Vietnamese, and Vietnamese has no
 // plural inflection, so `n === 1` branches collapse to one form.
 export const vi: Translations = {
+  sessionResources: {
+    title: 'Tài nguyên phiên',
+    createOutput: 'Tạo kết quả',
+    addSource: 'Thêm nguồn',
+    changes: 'Thay đổi',
+    outputs: 'Kết quả',
+    sources: 'Nguồn',
+    openFailed: 'Không thể mở mục này. Chọn lại để thử.'
+  },
   common: {
     unknownError: 'Lỗi không xác định',
     apply: 'Áp dụng',

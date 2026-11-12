@@ -3,6 +3,15 @@ import { FIELD_DESCRIPTIONS, FIELD_LABELS } from '@/app/settings/constants'
 import type { Translations } from './types'
 
 export const en: Translations = {
+  sessionResources: {
+    title: 'Session resources',
+    createOutput: 'Create an output',
+    addSource: 'Add a source',
+    changes: 'Changes',
+    outputs: 'Outputs',
+    sources: 'Sources',
+    openFailed: 'Could not open this item. Select it to retry.'
+  },
   common: {
     unknownError: 'Unknown error',
     apply: 'Apply',

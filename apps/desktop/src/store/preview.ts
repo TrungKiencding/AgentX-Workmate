@@ -103,7 +103,7 @@ export const $previewTabs = persistentAtom<PreviewTab[]>(TABS_STORAGE_KEY, [], {
   // entirely — the registry behind them doesn't survive a reload either.
   encode: tabs =>
     JSON.stringify(
-      tabs.filter(tab => tab.target.kind !== 'artifact'),
+      tabs.filter(tab => tab.target.kind !== 'artifact' && !(tab.target.dataUrl && !tab.target.path)),
       (key, value) => (key === 'dataUrl' ? undefined : value)
     )
 })

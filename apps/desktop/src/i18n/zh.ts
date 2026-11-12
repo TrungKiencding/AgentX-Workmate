@@ -3,6 +3,15 @@ import { defineFieldCopy } from '@/app/settings/field-copy'
 import type { Translations } from './types'
 
 export const zh: Translations = {
+  sessionResources: {
+    title: '会话资源',
+    createOutput: '创建输出',
+    addSource: '添加来源',
+    changes: '更改',
+    outputs: '输出',
+    sources: '来源',
+    openFailed: '无法打开此项目。请再次选择以重试。'
+  },
   common: {
     unknownError: '未知错误',
     apply: '应用',

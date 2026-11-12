@@ -52,6 +52,15 @@ const countItems = counted(COUNTED_ITEMS)
 const countFields = counted({ one: 'حقل واحد', two: 'حقلان', few: 'حقول', many: 'حقلًا', other: 'حقل' })
 
 export const ar = defineLocale({
+  sessionResources: {
+    title: 'موارد المحادثة',
+    createOutput: 'إنشاء مخرج',
+    addSource: 'إضافة مصدر',
+    changes: 'التغييرات',
+    outputs: 'المخرجات',
+    sources: 'المصادر',
+    openFailed: 'تعذر فتح هذا العنصر. حدده مرة أخرى لإعادة المحاولة.'
+  },
   common: {
     unknownError: 'خطأ غير معروف',
     apply: 'تطبيق',

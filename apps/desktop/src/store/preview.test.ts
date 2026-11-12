@@ -133,4 +133,17 @@ describe('preview store', () => {
 
     expect(window.localStorage.getItem('agentx.desktop.previewTabs.v2') ?? '').not.toContain('base64')
   })
+
+  it('does not restore a data-only image tab with no backing file after reload', () => {
+    openPreview({
+      kind: 'file',
+      label: 'image.png',
+      source: 'image:transient',
+      url: 'image:transient',
+      dataUrl: 'data:image/png;base64,AAAA',
+      previewKind: 'image'
+    })
+    expect($previewTabs.get()).toHaveLength(1)
+    expect(window.localStorage.getItem('agentx.desktop.previewTabs.v2') ?? '').not.toContain('image:transient')
+  })
 })
