@@ -123,6 +123,9 @@ test('the app gets the sandbox home and none of the shell credentials', () => {
     {
       AGENTX_DESKTOP_AGENTX_ROOT: '/src/agentx',
       AGENTX_HOME: '/Users/someone/.agentx',
+      HOME: '/Users/someone',
+      ZDOTDIR: '/Users/someone',
+      XDG_CONFIG_HOME: '/Users/someone/.config',
       ANTHROPIC_BASE_URL: 'https://proxy.example',
       OPENAI_API_KEY: 'sk-test',
       PATH: '/usr/bin'
@@ -130,10 +133,20 @@ test('the app gets the sandbox home and none of the shell credentials', () => {
     paths
   )
 
-  assert.deepEqual(env, {
-    AGENTX_DESKTOP_AGENTX_ROOT: '/src/agentx',
-    AGENTX_DESKTOP_USER_DATA_DIR: paths.userDataDir,
-    AGENTX_HOME: paths.agentxHome,
-    PATH: '/usr/bin'
-  })
+  assert.equal(env.AGENTX_DESKTOP_AGENTX_ROOT, '/src/agentx')
+  assert.equal(env.AGENTX_DESKTOP_USER_DATA_DIR, paths.userDataDir)
+  assert.equal(env.AGENTX_HOME, paths.agentxHome)
+  assert.equal(env.OPENAI_API_KEY, undefined)
+  assert.equal(env.ANTHROPIC_BASE_URL, undefined)
+  assert.equal(env.HOME, '/Users/someone', 'native Keychain access keeps the real HOME')
+  if (process.platform !== 'win32') {
+    assert.ok(env.PATH.split(path.delimiter)[0].startsWith(paths.runDir + path.sep))
+    assert.equal(env.PATH.split(path.delimiter).at(-1), '/usr/bin')
+    const probe = path.join(paths.runDir, 'install-probe.sh')
+    fs.writeFileSync(probe, 'printf "%s" "$HOME"\n')
+    const home = spawnSync('bash', [probe], { env, encoding: 'utf8' }).stdout
+    assert.ok(home.startsWith(paths.runDir + path.sep))
+  } else {
+    assert.equal(env.PATH, '/usr/bin')
+  }
 })
