@@ -245,6 +245,14 @@ from hermes_cli.env_loader import load_hermes_dotenv
 from utils import base_url_host_matches, base_url_hostname, fast_safe_load
 
 _hermes_home = get_hermes_home()
+if __name__ == "__main__":
+    from hermes_cli.cli_sso import selected_home
+    from hermes_constants import get_active_account
+
+    _selected_home = None if get_active_account() else selected_home()
+    if _selected_home is not None:
+        os.environ["AGENTX_HOME"] = str(_selected_home)
+        _hermes_home = _selected_home
 _project_env = Path(__file__).parent / '.env'
 load_hermes_dotenv(hermes_home=_hermes_home, project_env=_project_env)
 
@@ -4352,29 +4360,8 @@ class ChatConsole:
         """
         yield self
 
-# ASCII Art - AGENTX WORKMATE wordmark, 5x5 pixel font (needs ~90 cols)
-WORKMATE_LOGO = """[bold #7DF9FF] ███   ████ █████ █   █ █████ █   █       █   █  ███  ████  █   █ █   █  ███  █████ █████[/]
-[bold #38BDF8]█   █ █     █     ██  █   █    █ █        █   █ █   █ █   █ █  █  ██ ██ █   █   █   █    [/]
-[#4F7BF7]█████ █  ██ ████  █ █ █   █     █         █ █ █ █   █ ████  ███   █ █ █ █████   █   ████ [/]
-[#6366F1]█   █ █   █ █     █  ██   █    █ █        ██ ██ █   █ █  █  █  █  █   █ █   █   █   █    [/]
-[#8B5CF6]█   █  ███  █████ █   █   █   █   █       █   █  ███  █   █ █   █ █   █ █   █   █   █████[/]"""
-
-# ASCII Art - AgentX Caduceus (compact, fits in left panel)
-WORKMATE_MASCOT = """[#7DF9FF]            ██            [/]
-[#7DF9FF]            ██            [/]
-[#38BDF8]         ████████         [/]
-[#38BDF8] ████████████████████████ [/]
-[#38BDF8] ██                    ██ [/]
-[#4F7BF7] ██  ████        ████  ██ [/]
-[#4F7BF7] ██  ████        ████  ██ [/]
-[#4F7BF7] ██                    ██ [/]
-[#4F7BF7] ██     ██████████     ██ [/]
-[#6366F1] ██                    ██ [/]
-[#6366F1] ████████████████████████ [/]
-[#6366F1]  ██████████████████████  [/]
-[#8B5CF6]      ████      ████      [/]
-[#8B5CF6]     ██████    ██████     [/]"""
-
+# Keep compatibility imports while sharing the banner artwork.
+from hermes_cli.banner import WORKMATE_LOGO, WORKMATE_MASCOT
 
 
 def _build_compact_banner() -> str:
@@ -10333,6 +10320,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     raise RuntimeError("inventory context unavailable")
                 providers = build_models_payload(
                     ctx,
+                    refresh=force_refresh,
                     probe_custom_providers=force_refresh,
                     probe_current_custom_provider=not force_refresh,
                 )["providers"]
@@ -10340,6 +10328,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 providers = []
 
             if not providers:
+                from hermes_cli.account_inference import account_inference
+
+                if account_inference() is not None:
+                    _cprint("  No assigned models are available. Run 'agentx login' to refresh your account access.")
+                    return
                 _cprint("  No authenticated providers found.")
                 _cprint("")
                 _cprint("  /model <name>                        switch model (persists)")
@@ -19496,6 +19489,15 @@ def main(
         python cli.py -w -q "Fix issue #123"     # Single query in worktree
     """
     global _active_worktree
+
+    if not (gateway or list_tools or list_toolsets):
+        from hermes_cli import cli_sso
+
+        try:
+            cli_sso.require_session(interactive=False)
+        except cli_sso.CLISignInError as exc:
+            print(str(exc), file=sys.stderr)
+            raise SystemExit(1) from exc
 
     # Force UTF-8 stdio on Windows before any banner/print() runs — the
     # Rich console prints Unicode box-drawing characters that would

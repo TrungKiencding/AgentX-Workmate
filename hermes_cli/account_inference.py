@@ -65,6 +65,49 @@ class AccountGatewayNotConfigured(AccountGatewayError):
         )
 
 
+class AccountModelNotAllowed(AccountGatewayError):
+    code = "model_not_allowed"
+
+    def __init__(self) -> None:
+        super().__init__("This model is not assigned to your AgentX account. Use /model to choose an assigned model.")
+
+
+def account_models(*, include_auxiliary: bool = False, refresh: bool = False) -> tuple[str, ...]:
+    """The service-issued grant, never a user-editable provider catalog."""
+    from hermes_cli.account_provisioning import read_state, _FEATURE_FIELDS
+    from hermes_constants import get_user_root
+
+    home = get_hermes_home()
+    if refresh:
+        from hermes_cli.account_credentials import mailbox
+        from hermes_cli.account_provisioning import ensure_account_key
+        from hermes_cli.accounts import read_account_identity
+
+        credentials = mailbox().current()
+        identity = read_account_identity(get_user_root())
+        if credentials is not None and identity is not None:
+            result = ensure_account_key(
+                identity, get_user_root().name, bearer=credentials.bearer,
+                device_id=credentials.device_id, device_name=credentials.device_name, home=home,
+            )
+            if not result.ok:
+                raise AccountGatewayError(result.detail or "Could not refresh AgentX model access.")
+    state = read_state(home) or read_state(get_user_root())
+    models = state.get("models") or []
+    if not isinstance(models, list):
+        models = []
+    if include_auxiliary:
+        reachable = state.get("reachable_models")
+        models = [*models, *(reachable if isinstance(reachable, list) else []),
+                  *(state.get(field) for field in _FEATURE_FIELDS)]
+    return tuple(dict.fromkeys(m for m in models if isinstance(m, str) and m.strip()))
+
+
+def require_account_model(model: str) -> None:
+    if model and model not in account_models(include_auxiliary=True):
+        raise AccountModelNotAllowed()
+
+
 @dataclass(frozen=True)
 class AccountInference:
     provider: str

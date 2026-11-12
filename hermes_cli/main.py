@@ -567,6 +567,14 @@ def _apply_account_override() -> None:
         i += 1
 
     if slug is None:
+        from hermes_cli.cli_sso import selected_home
+        from hermes_constants import get_active_account
+
+        if get_active_account():
+            return  # an explicitly scoped child must not follow another shell
+        home = selected_home()
+        if home is not None:
+            os.environ["AGENTX_HOME"] = str(home)
         return
 
     try:
@@ -1036,6 +1044,16 @@ def _relative_time(ts) -> str:
 
 def _has_any_provider_configured() -> bool:
     """Check if at least one inference provider is usable."""
+    from hermes_cli.account_inference import account_inference
+
+    if account_inference() is not None:
+        from hermes_cli.runtime_provider import resolve_runtime_provider
+
+        try:
+            resolve_runtime_provider()
+            return True
+        except ValueError:
+            return False
     from hermes_cli.config import get_env_path, get_hermes_home, load_config
     from hermes_cli.auth import get_auth_status
 
@@ -2672,6 +2690,13 @@ def _resolve_use_tui(args) -> bool:
 
 def cmd_chat(args):
     """Run interactive chat CLI."""
+    from hermes_cli import cli_sso
+
+    try:
+        cli_sso.require_session(interactive=not bool(getattr(args, "query", None)))
+    except cli_sso.CLISignInError as exc:
+        print(str(exc), file=sys.stderr)
+        raise SystemExit(1) from exc
     use_tui = _resolve_use_tui(args)
 
     _apply_safe_mode(args)
@@ -3199,7 +3224,7 @@ def cmd_setup(args):
     """Interactive setup wizard."""
     from hermes_cli.setup import run_setup_wizard
 
-    run_setup_wizard(args)
+    return run_setup_wizard(args)
 
 
 def cmd_model(args):
@@ -3238,6 +3263,12 @@ def select_provider_and_model(args=None):
     provider picker, credential prompting, model selection, and config
     persistence.
     """
+    from hermes_cli import cli_sso
+
+    if cli_sso.enabled():
+        cli_sso.require_session(interactive=True)
+        return cli_sso.select_model()
+
     from hermes_cli.auth import (
         resolve_provider,
         AuthError,
@@ -4738,7 +4769,19 @@ def _run_anthropic_oauth_flow(save_env_value):
 
 
 def cmd_login(args):
-    """Authenticate AgentX CLI with a provider."""
+    """Sign the terminal into an AgentX SSO account."""
+    from hermes_cli import cli_sso
+
+    if cli_sso.enabled():
+        if getattr(args, "provider", None):
+            print("CLI models are managed by AgentX SSO. Run agentx login without --provider.", file=sys.stderr)
+            return 1
+        try:
+            cli_sso.login(no_browser=args.no_browser, timeout=args.timeout)
+        except (cli_sso.CLISignInError, KeyboardInterrupt) as exc:
+            print(str(exc) or "Sign-in cancelled.", file=sys.stderr)
+            return 1
+        return 0
     from hermes_cli.auth import login_command
 
     login_command(args)
@@ -4746,6 +4789,14 @@ def cmd_login(args):
 
 def cmd_logout(args):
     """Clear provider authentication."""
+    from hermes_cli import cli_sso
+
+    if cli_sso.enabled():
+        if getattr(args, "provider", None):
+            print("Run agentx logout without --provider to sign out of AgentX SSO.", file=sys.stderr)
+            return 1
+        cli_sso.logout()
+        return
     from hermes_cli.auth import logout_command
 
     logout_command(args)
@@ -4753,6 +4804,11 @@ def cmd_logout(args):
 
 def cmd_auth(args):
     """Manage pooled credentials."""
+    from hermes_cli import cli_sso
+
+    if cli_sso.enabled() and getattr(args, "auth_action", None) != "spotify":
+        print("Model credentials are managed by AgentX SSO. Use agentx login or agentx logout.", file=sys.stderr)
+        return 1
     from hermes_cli.auth_commands import auth_command
 
     auth_command(args)
@@ -12979,6 +13035,24 @@ def main():
     # so introspection/management commands (agentx hooks list, cron
     # list, gateway status, mcp add, ...) don't pay discovery cost or
     # trigger consent prompts for hooks the user is still inspecting.
+    # Authenticate before plugins, session resolution, or CLI config are
+    # initialized. A bare install must never fall through to vendor setup.
+    if args.command in {None, "chat", "model", "setup"} or getattr(args, "oneshot", None):
+        from hermes_cli import cli_sso
+
+        try:
+            cli_sso.require_session(interactive=not bool(
+                getattr(args, "oneshot", None) or getattr(args, "query", None)
+                or getattr(args, "non_interactive", False)
+            ))
+            if cli_sso.enabled():
+                from hermes_cli.runtime_provider import resolve_runtime_provider
+
+                resolve_runtime_provider(requested=getattr(args, "provider", None), target_model=getattr(args, "model", None))
+        except (cli_sso.CLISignInError, ValueError) as exc:
+            print(str(exc), file=sys.stderr)
+            sys.exit(1)
+
     _prepare_agent_startup(args)
 
     # Handle top-level --oneshot / -z: single-shot mode, stdout = final

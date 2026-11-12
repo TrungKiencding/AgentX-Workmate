@@ -885,9 +885,15 @@ def setup_model_provider(config: dict, *, quick: bool = False):
     """
     from hermes_cli.config import load_config, save_config
 
-    print_header("Inference Provider")
-    print_info("Choose how to connect to your main chat model.")
-    print_info(f"   Guide: {_DOCS_BASE}/integrations/providers")
+    from hermes_cli import cli_sso
+
+    if cli_sso.enabled():
+        print_header("AgentX account models")
+        print_info("Choose from the models assigned to your signed-in account.")
+    else:
+        print_header("Inference Provider")
+        print_info("Choose how to connect to your main chat model.")
+        print_info(f"   Guide: {_DOCS_BASE}/integrations/providers")
     print()
 
     # Delegate to the shared agentx model flow — handles provider picker,
@@ -2962,6 +2968,15 @@ def run_setup_wizard(args):
       agentx setup telemetry — just local shared metrics
       agentx setup agent     — just agent settings
     """
+    from hermes_cli import cli_sso
+
+    sso_managed = cli_sso.enabled()
+    if sso_managed:
+        cli_sso.require_session(interactive=not bool(getattr(args, "non_interactive", False)))
+        if getattr(args, "portal", False):
+            print_error("Model access is managed by AgentX SSO. Use agentx model to choose an assigned model.")
+            return 1
+
     from hermes_cli.config import is_managed, managed_error
     if is_managed():
         managed_error("run setup wizard")
@@ -3042,9 +3057,10 @@ def run_setup_wizard(args):
     # Check if this is an existing installation with a provider configured
     from hermes_cli.auth import get_active_provider
 
-    active_provider = get_active_provider()
+    active_provider = None if sso_managed else get_active_provider()
     is_existing = (
-        bool(get_env_value("OPENROUTER_API_KEY"))
+        sso_managed
+        or bool(get_env_value("OPENROUTER_API_KEY"))
         or bool(get_env_value("OPENAI_BASE_URL"))
         or active_provider is not None
     )

@@ -17,6 +17,14 @@ from unittest.mock import patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def standalone_setup(monkeypatch):
+    """Exercise the self-hosted wizard; SSO account setup has its own E2E suite."""
+    from hermes_cli.config_defaults import DEFAULT_CONFIG
+
+    monkeypatch.setitem(DEFAULT_CONFIG["accounts"]["litellm"], "enabled", False)
+
+
 def _make_setup_args(**overrides):
     return Namespace(
         non_interactive=overrides.get("non_interactive", False),

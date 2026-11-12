@@ -11,6 +11,14 @@ from unittest.mock import patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def standalone_provider_setup(monkeypatch):
+    """This suite exercises the explicitly unmanaged/self-hosted picker."""
+    from hermes_cli.config_defaults import DEFAULT_CONFIG
+
+    monkeypatch.setitem(DEFAULT_CONFIG["accounts"]["litellm"], "enabled", False)
+
+
 @pytest.fixture
 def config_home(tmp_path, monkeypatch):
     """Isolated AGENTX_HOME with a minimal config."""

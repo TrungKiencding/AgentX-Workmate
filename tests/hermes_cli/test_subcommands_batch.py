@@ -99,15 +99,8 @@ def test_config_get_unset_subcommands_parse():
 
 
 
-# ── deprecated `agentx login` fails gracefully, not with argparse error ────
-#
-# `agentx login` is a removed command; its handler (`login_command` in
-# `hermes_cli/auth.py`) prints a deprecation notice pointing at `agentx auth` /
-# `agentx model` and exits 0.  Two behavior contracts guard the UX:
-#   1. ANY `--provider <value>` (including ones the user actually wants, like
-#      `anthropic`) must parse and reach the handler — never crash in argparse
-#      with `invalid choice` before the friendly redirect is printed (#24756).
-#   2. The subcommand must not advertise itself in the parser help row.
+# SSO login is discoverable. Old --provider aliases still parse so the
+# handler can explain the account policy without an argparse failure.
 
 
 def _login_parser():
@@ -119,17 +112,12 @@ def _login_parser():
 
 
 
-def test_login_subparser_help_is_suppressed():
-    """The deprecated `login` row must not appear in `agentx --help`.
-
-    Must hold without leaking argparse's literal `==SUPPRESS==` placeholder,
-    which `help=argparse.SUPPRESS` emits for a top-level subparser on 3.12+.
-    The fix omits the `help=` kwarg entirely instead.
-    """
+def test_login_subparser_advertises_sso():
     parser = argparse.ArgumentParser(prog="agentx")
     sub = parser.add_subparsers(dest="command")
     build_login_parser(sub, cmd_login=_h("login"))
     help_text = parser.format_help()
+    assert "Sign in with your AgentX SSO account" in help_text
     # The misleading old help string must be gone from the top-level usage.
     assert "Authenticate with an inference provider" not in help_text
     # And no leaked SUPPRESS placeholder row.

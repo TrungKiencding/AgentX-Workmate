@@ -7,6 +7,12 @@ import pytest
 from hermes_cli.config import DEFAULT_CONFIG, load_config, save_config
 
 
+@pytest.fixture(autouse=True)
+def standalone_setup(monkeypatch):
+    """These legacy setup tests exercise the explicit self-hosted mode."""
+    monkeypatch.setitem(DEFAULT_CONFIG["accounts"]["litellm"], "enabled", False)
+
+
 def _make_setup_args(**overrides):
     return Namespace(
         non_interactive=overrides.get("non_interactive", False),

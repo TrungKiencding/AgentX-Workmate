@@ -1798,6 +1798,10 @@ def resolve_runtime_provider(
             raise AccountProviderNotAllowed()
         if explicit_base_url and not policy.allows(policy.provider, explicit_base_url):
             raise AccountProviderNotAllowed()
+        if target_model:
+            from hermes_cli.account_inference import require_account_model
+
+            require_account_model(target_model)
         key = _getenv(policy.key_env, "").strip()
         if not policy.base_url or not has_usable_secret(key):
             raise AccountGatewayNotConfigured()
