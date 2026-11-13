@@ -117,7 +117,11 @@ function EnvVarField({ envVar, isSet, onSaved, onCleared }: EnvVarFieldProps) {
 
   async function handleClear() {
     if (
-      !(await requestConfirm({ confirmLabel: t.common.remove, destructive: true, title: copy.removeConfirm(envVar.key) }))
+      !(await requestConfirm({
+        confirmLabel: t.common.remove,
+        destructive: true,
+        title: copy.removeConfirm(envVar.key)
+      }))
     ) {
       return
     }

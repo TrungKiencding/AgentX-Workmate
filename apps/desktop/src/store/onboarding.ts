@@ -247,6 +247,7 @@ async function completeWithModelConfirm(
       if (!active()) {
         return
       }
+
       onFail(error instanceof Error ? error.message : translateNow('onboarding.messages.couldNotSaveModel'))
 
       return

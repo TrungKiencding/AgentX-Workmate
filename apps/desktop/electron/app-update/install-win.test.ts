@@ -42,7 +42,8 @@ describe('Windows install preflight', () => {
 
     const lines = script.split('\r\n')
 
-    const waitLine = 'powershell.exe -NoProfile -NonInteractive -Command "Wait-Process -Id 4242 -Timeout 90 -ErrorAction SilentlyContinue" >nul 2>nul'
+    const waitLine =
+      'powershell.exe -NoProfile -NonInteractive -Command "Wait-Process -Id 4242 -Timeout 90 -ErrorAction SilentlyContinue" >nul 2>nul'
     expect(lines).toContain(waitLine)
     expect(script).not.toContain('findstr')
     expect(script).not.toContain('tasklist')

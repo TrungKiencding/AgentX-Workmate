@@ -1332,7 +1332,11 @@ describe('buildToolView browser_navigate title', () => {
       part({
         toolName: 'browser_navigate',
         args: { url: 'https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs' },
-        result: { success: true, url: 'https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs', title: 'Docs' }
+        result: {
+          success: true,
+          url: 'https://github.com/TrungKiencding/AgentX-Workmate/tree/main/website/docs',
+          title: 'Docs'
+        }
       }),
       ''
     )

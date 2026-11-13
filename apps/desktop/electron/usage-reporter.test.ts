@@ -101,6 +101,7 @@ describe('usage reporting', () => {
     })
 
     let now = 0
+
     const reporter = new UsageReporter({
       identity: async () => identity,
       version: '1.1.1',
