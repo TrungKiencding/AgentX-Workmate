@@ -112,11 +112,29 @@ class ClassifiedError:
         """The reason a failed turn reports (``failure_reason`` on its result).
 
         The recovery reason, except where the same recovery covers failures a
-        person reads differently: a connection that could not be made retries
-        like a timeout, but is reported as ``connection_failed``.
+        person reads differently and must act on differently:
+
+        - a connection that could not be made retries like a timeout, but is
+          reported as ``connection_failed``;
+        - a stream the provider cut off mid-answer retries like a timeout, but
+          is reported as ``stream_interrupted`` (nothing "took too long");
+        - a gateway that gave up waiting on its upstream (HTTP 504, Cloudflare
+          524) retries like a server error, but is reported as ``timeout``;
+        - a key or team refused one model (LiteLLM answers that with a 401)
+          rotates like an auth failure, but is reported as
+          ``model_not_allowed`` — signing in again does not grant the model.
+
+        Every value this returns is in ``REPORTED_FAILURE_REASONS``.
         """
-        if self.reason == FailoverReason.timeout and self.error_context.get("connect_failed"):
-            return "connection_failed"
+        if self.reason == FailoverReason.timeout:
+            if self.error_context.get("connect_failed"):
+                return "connection_failed"
+            if self.error_context.get("stream_dropped"):
+                return "stream_interrupted"
+        if self.reason == FailoverReason.server_error and self.error_context.get("gateway_timeout"):
+            return FailoverReason.timeout.value
+        if self.is_auth and self.error_context.get("model_access_denied"):
+            return "model_not_allowed"
         return self.reason.value
 
     @property
@@ -130,7 +148,27 @@ class ClassifiedError:
 
 
 
+#: Every value ``ClassifiedError.failure_reason`` can take: the recovery reasons
+#: plus the ones it reports apart from their recovery. Surfaces that turn a
+#: failed turn's ``failure_reason`` into words (gateway chat replies, the cron
+#: failure kind, the desktop's failure code) key off this set.
+REPORTED_FAILURE_REASONS = frozenset(
+    {reason.value for reason in FailoverReason}
+    | {"connection_failed", "stream_interrupted", "model_not_allowed"}
+)
+
+
 # ── Provider-specific patterns ──────────────────────────────────────────
+
+# A key or team that may not call the requested model. LiteLLM (the AgentX AI
+# Gateway) answers that with a 401 "Authentication Error, key not allowed to
+# access model …" — an entitlement of the credential, not a broken credential.
+_MODEL_ACCESS_DENIED_PATTERNS = (
+    "not allowed to access model",
+    "not allowed to access this model",
+    "not allowed to use model",
+    "not allowed to call model",
+)
 
 # Patterns that indicate billing exhaustion (not transient rate limit)
 _BILLING_PATTERNS = [
@@ -897,6 +935,14 @@ _SSL_TRANSIENT_PATTERNS = [
 
 # ── Classification pipeline ─────────────────────────────────────────────
 
+def _model_access_context(error_msg: str) -> Dict[str, Any]:
+    """error_context marking an auth rejection as one model refused (see
+    ``_MODEL_ACCESS_DENIED_PATTERNS``), so it is reported as such."""
+    if any(p in error_msg for p in _MODEL_ACCESS_DENIED_PATTERNS):
+        return {"model_access_denied": True}
+    return {}
+
+
 def classify_api_error(
     error: Exception,
     *,
@@ -1294,7 +1340,10 @@ def classify_api_error(
         # (Part 1 of Fixes #52310.)
         from agent.reasoning_timeouts import get_reasoning_stale_timeout_floor
         if get_reasoning_stale_timeout_floor(model) is not None:
-            return _result(FailoverReason.timeout, retryable=True)
+            return _result(
+                FailoverReason.timeout, retryable=True,
+                error_context={"stream_dropped": True},
+            )
         # Absolute token/message-count thresholds are only a proxy for smaller
         # context windows.  Large-context sessions can have hundreds of
         # messages while still being far below their actual token budget.
@@ -1307,7 +1356,10 @@ def classify_api_error(
                 retryable=True,
                 should_compress=True,
             )
-        return _result(FailoverReason.timeout, retryable=True)
+        return _result(
+            FailoverReason.timeout, retryable=True,
+            error_context={"stream_dropped": True},
+        )
 
     # ── 7b. Stale-call circuit breaker → failover immediately ──────
     # _check_stale_giveup() in agent/chat_completion_helpers.py raises a
@@ -1372,6 +1424,7 @@ def _classify_by_status(
             retryable=False,
             should_rotate_credential=True,
             should_fallback=True,
+            error_context=_model_access_context(error_msg),
         )
 
     if status_code == 403:
@@ -1396,6 +1449,7 @@ def _classify_by_status(
             FailoverReason.auth,
             retryable=False,
             should_fallback=True,
+            error_context=_model_access_context(error_msg),
         )
 
     if status_code == 402:
@@ -1474,6 +1528,31 @@ def _classify_by_status(
             return result_fn(
                 FailoverReason.overloaded,
                 retryable=True,
+            )
+        # OpenAI (and LiteLLM forwarding it) sends an exhausted quota as a
+        # 429 with code ``insufficient_quota`` — the same status as a
+        # throttle, but no amount of waiting refills it. Reading it as a rate
+        # limit retried with backoff and then told the person the service was
+        # "busy". Only the explicit code counts, or OpenAI's wording without
+        # a quota *window*: Gemini's free tier sends the very same "You
+        # exceeded your current quota" for its per-minute limit, alongside
+        # RESOURCE_EXHAUSTED / "quota exceeded for metric" / "retry in Ns",
+        # and that one does refill.
+        if (
+            error_code.lower() == "insufficient_quota"
+            or "insufficient_quota" in error_msg
+            or (
+                "exceeded your current quota" in error_msg
+                and not any(p in error_msg for p in _RATE_LIMIT_PATTERNS)
+                and "quota exceeded for metric" not in error_msg
+                and "retry in" not in error_msg
+            )
+        ):
+            return result_fn(
+                FailoverReason.billing,
+                retryable=False,
+                should_rotate_credential=True,
+                should_fallback=True,
             )
         # Distinguish an OpenRouter-aggregator upstream 429 (an upstream model
         # like DeepSeek rate-limited OpenRouter's aggregate traffic) from an
@@ -1592,9 +1671,14 @@ def _classify_by_status(
             should_fallback=True,
         )
 
-    # Other 5xx — retryable
+    # Other 5xx — retryable. A 504 / Cloudflare 524 is a proxy that gave up
+    # waiting on its upstream: same recovery, reported as a timeout.
     if 500 <= status_code < 600:
-        return result_fn(FailoverReason.server_error, retryable=True)
+        return result_fn(
+            FailoverReason.server_error,
+            retryable=True,
+            error_context={"gateway_timeout": True} if status_code in {504, 524} else {},
+        )
 
     return None
 

@@ -2518,6 +2518,9 @@ def _start_agent_build(sid: str, session: dict) -> None:
             # _schedule_mcp_late_refresh. Cache-safe (pre-first-turn only).
             _schedule_mcp_late_refresh(sid, agent)
         except Exception as e:
+            # The client only gets str(e); keep the traceback where an
+            # administrator can find what actually failed to build.
+            logger.exception("agent init failed (session %s)", sid)
             current["agent_error"] = str(e)
             _emit("error", sid, _agent_init_error_payload(e))
         finally:

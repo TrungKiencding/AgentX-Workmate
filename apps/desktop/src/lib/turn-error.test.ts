@@ -245,10 +245,35 @@ describe('turnErrorCode', () => {
     ).toBe('content_filtered')
     // …and a refused connection as a timeout.
     expect(turnErrorCode({ code: 'timeout', text: 'Connection error.' })).toBe('network_error')
+    // …a stream the provider cut off as a timeout: nothing took too long.
+    expect(
+      turnErrorCode({
+        code: 'timeout',
+        text: 'peer closed connection without sending complete message body (incomplete chunked read)'
+      })
+    ).toBe('stream_interrupted')
+    // …and LiteLLM's 401 for a model the key may not call as a broken sign-in:
+    // signing in again does not grant the model.
+    expect(
+      turnErrorCode({
+        code: 'auth_failed',
+        text: "HTTP 401: Authentication Error, key not allowed to access model. This key can only access models=['minimax-m3']. Tried to access gpt-5"
+      })
+    ).toBe('model_not_allowed')
+    // A broken key stays a broken key.
+    expect(turnErrorCode({ code: 'auth_failed', text: 'HTTP 401: Incorrect API key provided' })).toBe('auth_failed')
     // A vague reading never replaces the code, and other codes stand.
     expect(turnErrorCode({ code: 'bad_request', text: 'HTTP 400: unsupported value' })).toBe('bad_request')
     expect(turnErrorCode({ code: 'timeout', text: 'HTTP 429' })).toBe('timeout')
     expect(turnErrorCode({ code: 'rate_limited', text: 'Budget has been exceeded!' })).toBe('rate_limited')
+  })
+
+  it("reads the backend's offline summary as a network failure", () => {
+    expect(
+      classifyTurnErrorText(
+        "AgentX can't reach the model provider. You may be offline. Check your internet connection and try again."
+      )
+    ).toBe('network_error')
   })
 
   it('tells an overloaded provider apart from other upstream failures', () => {

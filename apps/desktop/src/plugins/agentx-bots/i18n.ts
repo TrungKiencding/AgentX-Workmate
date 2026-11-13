@@ -314,6 +314,10 @@ const en: BotsMessages = {
     timeout: 'The last run took too long and was stopped.',
     auth: 'The last run couldn’t reach the AI service. Try signing in again.',
     model_not_found: 'The last run couldn’t use the selected model. Pick another model for this assistant.',
+    unreachable: 'The last run couldn’t reach the AI service. Check the network connection, then try again.',
+    too_long: 'The last run had more content than the selected model can read at once. Shorten the task or pick a model with a larger context.',
+    content_filtered: 'The last run was refused by the AI service’s content filter. Reword the task.',
+    request_rejected: 'The selected model couldn’t process the last run. Pick another model for this assistant.',
     service_unavailable: 'The last run couldn’t use the AI service. Try again later.',
     unknown: 'Last run failed'
   },
@@ -588,6 +592,10 @@ const vi: BotsMessages = {
     timeout: 'Lần chạy trước mất quá nhiều thời gian nên đã dừng.',
     auth: 'Lần chạy trước không kết nối được dịch vụ AI. Hãy thử đăng nhập lại.',
     model_not_found: 'Lần chạy trước không dùng được model đã chọn. Hãy chọn model khác cho trợ lý.',
+    unreachable: 'Lần chạy trước không kết nối được dịch vụ AI. Kiểm tra kết nối mạng rồi thử lại.',
+    too_long: 'Lần chạy trước có nhiều nội dung hơn mức model đã chọn đọc được một lần. Hãy rút gọn lịch hoặc chọn model có ngữ cảnh lớn hơn.',
+    content_filtered: 'Lần chạy trước bị bộ lọc nội dung của dịch vụ AI từ chối. Hãy diễn đạt lại yêu cầu.',
+    request_rejected: 'Model đã chọn không xử lý được lần chạy trước. Hãy chọn model khác cho trợ lý.',
     service_unavailable: 'Lần chạy trước không dùng được dịch vụ AI. Hãy thử lại sau.',
     unknown: 'Lần chạy trước bị lỗi'
   },

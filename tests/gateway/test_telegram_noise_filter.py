@@ -441,3 +441,71 @@ def test_structured_errors_offer_relevant_recovery(reason, hint):
     safe = _sanitize_gateway_final_response("telegram", "PRIVATE-DIAGNOSTIC", failure_reason=reason)
     assert hint in safe
     assert "PRIVATE-DIAGNOSTIC" not in safe
+
+
+# ── A reply says what the person can do about *this* failure ────────────
+# (review 2026-11-13: the catch-all told every unmapped failure — a malformed
+# request, a gateway bug — that "the AI service is temporarily unavailable",
+# sending people to wait out an outage that was not happening.)
+
+
+@pytest.mark.parametrize("reason,hint,not_hint", [
+    # LiteLLM sends this as a 401; signing in again does not grant the model.
+    ("model_not_allowed", "cannot use the selected AI model", "sign-in"),
+    # An account privacy setting excludes the model's endpoints; rephrasing cannot help.
+    ("provider_policy_blocked", "provider settings", "rephras"),
+    ("format_error", "could not process this request", "temporarily"),
+    ("thinking_signature", "could not process this request", "temporarily"),
+    ("image_too_large", "smaller image", "temporarily"),
+    ("stream_interrupted", "cut off", "took too long"),
+    ("ssl_cert_verification", "secure connection", "local model"),
+    ("overloaded", "temporarily unavailable", "Something went wrong"),
+    ("server_error", "temporarily unavailable", "Something went wrong"),
+    # Nothing says the provider is at fault: do not blame it.
+    ("unknown", "Something went wrong", "AI service is temporarily"),
+])
+def test_structured_failure_reply_matches_what_happened(reason, hint, not_hint):
+    safe = _sanitize_gateway_final_response("telegram", "PRIVATE-DIAGNOSTIC", failure_reason=reason, failed=True)
+    assert hint in safe
+    assert not_hint not in safe
+    assert "PRIVATE-DIAGNOSTIC" not in safe
+
+
+def test_every_reported_failure_reason_gets_a_reply():
+    from agent.error_classifier import REPORTED_FAILURE_REASONS
+
+    for reason in REPORTED_FAILURE_REASONS:
+        safe = _sanitize_gateway_final_response("telegram", "PRIVATE-DIAGNOSTIC", failure_reason=reason, failed=True)
+        assert safe.startswith(("⚠️", "⏱️")), reason
+        assert "PRIVATE-DIAGNOSTIC" not in safe, reason
+
+
+def test_legacy_4xx_envelope_is_not_reported_as_an_outage():
+    safe = _sanitize_gateway_final_response("telegram", "API call failed after 3 retries: HTTP 400: Invalid schema for function")
+    assert "could not process this request" in safe
+    assert "temporarily" not in safe
+
+
+@pytest.mark.parametrize("answer", [
+    "Error code: E21 on this washing machine means the drain pump is blocked.",
+    "HTTP 500 errors usually mean the server crashed while handling the request.",
+    "Connection refused means nothing is listening on that port — start the server first.",
+    "Budget exceeded warnings appear when a project spends more than planned.",
+    "The request failed: curl returned 401 because the token you pasted expired.",
+])
+def test_a_successful_answer_is_never_rewritten_into_a_failure_notice(answer):
+    """The assistant's own answer can open with an error envelope's words."""
+    assert _sanitize_gateway_final_response("telegram", answer, failed=False) == answer
+
+
+def test_a_successful_answer_is_still_redacted():
+    answer = "Your key is sk-" + "A1" * 30 + " — keep it secret."
+    safe = _sanitize_gateway_final_response("telegram", answer, failed=False)
+    assert "A1" * 30 not in safe
+
+
+def test_a_failed_turn_without_a_reason_still_hides_the_envelope():
+    raw = "API call failed after 3 retries: HTTP 503: Service Unavailable req_private"
+    safe = _sanitize_gateway_final_response("telegram", raw, failed=True)
+    assert "temporarily unavailable" in safe
+    assert "req_private" not in safe

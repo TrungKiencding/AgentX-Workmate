@@ -132,7 +132,7 @@ const TEXT_RULES: readonly [RegExp, string][] = [
     'local_error'
   ],
   [
-    /connection error|apiconnectionerror|connecterror|econnrefused|econnreset|enotfound|eai_again|etimedout|getaddrinfo|network (?:is )?unreachable|failed to fetch|fetch failed|could not connect|connection refused|name resolution|certificate verify failed/i,
+    /connection error|apiconnectionerror|connecterror|econnrefused|econnreset|enotfound|eai_again|etimedout|getaddrinfo|network (?:is )?unreachable|failed to fetch|fetch failed|could not connect|connection refused|name resolution|certificate verify failed|can(?:'|’|no)t reach the model provider/i,
     'network_error'
   ],
   [/agent init(?:ialization)?\b|before the agent was ready/i, 'local_error'],
@@ -216,13 +216,20 @@ export function classifyTurnErrorText(text: string): string {
 const VAGUE_READINGS = new Set([TURN_ERROR_FALLBACK_CODE, 'bad_request'])
 
 /**
- * Whether the text names the failure better than the gateway's code. The
+ * Readings that may replace a code the gateway gave, by that code. The
  * backend's classifier files what it does not recognise under a broad bucket
  * — a provider's wording it has no pattern for as a malformed request
- * (`bad_request`), and a backend older than 1.1.3 also a refused connection as
- * `timeout`. Those buckets give way to a precise reading; every other code
- * stands.
+ * (`bad_request`). A backend older than this check also reported a refused
+ * connection and a stream cut off mid-answer as `timeout`, and LiteLLM's
+ * "key not allowed to access model" (a 401) as `auth_failed` — which sent the
+ * person to sign in again for a model their account was never granted.
  */
+const PRECISE_READINGS: Readonly<Record<string, ReadonlySet<string>>> = {
+  auth_failed: new Set(['model_not_allowed']),
+  timeout: new Set(['network_error', 'stream_interrupted'])
+}
+
+/** Whether the text names the failure better than the gateway's code. */
 function textNamesItBetter(given: string, read: string): boolean {
   if (!given || given === TURN_ERROR_FALLBACK_CODE) {
     return true
@@ -232,7 +239,7 @@ function textNamesItBetter(given: string, read: string): boolean {
     return !VAGUE_READINGS.has(read)
   }
 
-  return given === 'timeout' && read === 'network_error'
+  return PRECISE_READINGS[given]?.has(read) ?? false
 }
 
 /**

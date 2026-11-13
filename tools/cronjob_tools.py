@@ -587,7 +587,9 @@ def _format_job(job: Dict[str, Any]) -> Dict[str, Any]:
     if job.get("last_status") not in (None, "", "ok"):
         from cron.scheduler import classify_cron_failure
 
-        result["last_error_kind"] = classify_cron_failure(job.get("last_error"))
+        result["last_error_kind"] = classify_cron_failure(
+            job.get("last_error"), agent_run=not job.get("no_agent")
+        )
     if job.get("script"):
         result["script"] = job["script"]
     if job.get("no_agent"):

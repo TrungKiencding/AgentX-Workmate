@@ -25,18 +25,19 @@ from hermes_cli.account_license import READ_ONLY_CODE, LicenseReadOnly
 FALLBACK_CODE = "operation_failed"
 _CODE_SHAPE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,79}$")
 
-#: ``agent.error_classifier.FailoverReason`` values, in the shared words.
+#: ``agent.error_classifier.REPORTED_FAILURE_REASONS``, in the shared words.
 _REASON_CODES = {
     "auth": "auth_failed",
     "auth_permanent": "auth_failed",
+    "model_not_allowed": "model_not_allowed",
     "billing": "quota_exceeded",
-    "billing_unverified": "quota_exceeded",
     "budget_exceeded": "quota_exceeded",
     "rate_limit": "rate_limited",
     "upstream_rate_limit": "rate_limited",
     "overloaded": "upstream_error",
     "server_error": "upstream_error",
     "timeout": "timeout",
+    "stream_interrupted": "stream_interrupted",
     "connection_failed": "network_error",
     "ssl_cert_verification": "network_error",
     "context_overflow": "context_too_long",
@@ -44,7 +45,9 @@ _REASON_CODES = {
     "long_context_tier": "context_too_long",
     "image_too_large": "bad_request",
     "model_not_found": "model_unavailable",
-    "provider_policy_blocked": "content_filtered",
+    # An account privacy setting excludes every endpoint serving the model
+    # (OpenRouter): the model is out of reach, the message is not at fault.
+    "provider_policy_blocked": "model_unavailable",
     "content_policy_blocked": "content_filtered",
     "format_error": "bad_request",
     "invalid_encrypted_content": "bad_request",
@@ -118,6 +121,12 @@ def _failure_reason_code(result: Mapping[str, Any]) -> str | None:
         return "app_shutdown"
     if reason == "response_truncated":
         return "stream_interrupted"
+    if reason == "billing" and result.get("billing_unverified"):
+        # The provider's body is the same for a spent overage bucket and a
+        # content-filter rejection (agent.error_classifier, #82154): saying
+        # "quota exceeded" would assert what the backend itself could not
+        # tell. Report it as a request the model would not take.
+        return "bad_request"
     return _REASON_CODES.get(reason, FALLBACK_CODE)
 
 

@@ -47,6 +47,9 @@ def _unanswered(exit_reason: str, answer: str | None = None) -> dict:
         (_failed("context_overflow"), "error", "context_too_long"),
         (_failed("model_not_found"), "error", "model_unavailable"),
         (_failed("content_policy_blocked"), "error", "content_filtered"),
+        (_failed("provider_policy_blocked"), "error", "model_unavailable"),
+        (_failed("model_not_allowed"), "error", "model_not_allowed"),
+        (_failed("stream_interrupted"), "error", "stream_interrupted"),
         (_failed("format_error"), "error", "bad_request"),
         (_failed("budget_exceeded"), "error", "quota_exceeded"),
         (_failed("connection_failed"), "error", "network_error"),
@@ -200,11 +203,79 @@ def test_an_exception_out_of_the_turn_says_why(finish):
 
 def test_every_failover_reason_has_a_shared_code():
     """A reason the classifier can give is never sent as the fallback by omission."""
-    from agent.error_classifier import FailoverReason
+    from agent.error_classifier import REPORTED_FAILURE_REASONS
     from tui_gateway.usage_outcome import _REASON_CODES
 
-    missing = {reason.value for reason in FailoverReason} - set(_REASON_CODES)
-    assert missing == set()
+    assert REPORTED_FAILURE_REASONS - set(_REASON_CODES) == set()
+    # And nothing is mapped that the classifier never reports (a dead key
+    # reads as handled while the real value falls through).
+    assert set(_REASON_CODES) - REPORTED_FAILURE_REASONS == set()
+
+
+class _Status(Exception):
+    def __init__(self, message, status_code, body=None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.body = body or {}
+
+
+@pytest.mark.parametrize(
+    ("error", "code"),
+    [
+        # LiteLLM refuses a model the key or team may not call with a 401; it
+        # is not a broken sign-in, and signing in again does not fix it.
+        (
+            _Status(
+                "Authentication Error, key not allowed to access model. "
+                "This key can only access models=['minimax-m3']. Tried to access gpt-5",
+                401,
+            ),
+            "model_not_allowed",
+        ),
+        (_Status("Authentication Error, Invalid proxy server token passed.", 401), "auth_failed"),
+        # A proxy that gave up waiting on its upstream timed out; it is not an outage.
+        (_Status("<html><title>aigw | 524: A timeout occurred</title></html>", 524), "timeout"),
+        (_Status("Gateway Time-out", 504), "timeout"),
+        (_Status("Bad gateway", 502), "upstream_error"),
+        # An exhausted OpenAI quota is not a throttle that waiting clears.
+        (
+            _Status(
+                "You exceeded your current quota, please check your plan and billing details.",
+                429,
+                {"error": {"message": "You exceeded your current quota.", "code": "insufficient_quota"}},
+            ),
+            "quota_exceeded",
+        ),
+        # Gemini's free tier says the same words for a per-minute window.
+        (
+            _Status(
+                "You exceeded your current quota, please check your plan and billing details. "
+                "Quota exceeded for metric: generate_content_free_tier_requests, limit: 10. "
+                "Please retry in 39.5s.",
+                429,
+            ),
+            "rate_limited",
+        ),
+    ],
+)
+def test_an_exception_is_reported_as_what_the_person_must_do(error, code):
+    assert exception_failure_code(error) == code
+
+
+def test_a_stream_cut_off_mid_answer_is_not_a_slow_model():
+    class RemoteProtocolError(Exception):
+        pass
+
+    error = RemoteProtocolError(
+        "peer closed connection without sending complete message body (incomplete chunked read)"
+    )
+    assert exception_failure_code(error) == "stream_interrupted"
+
+
+def test_an_unverified_billing_wall_is_not_reported_as_spent_quota():
+    """The backend could not tell a spent bucket from a content filter (#82154)."""
+    assert turn_failure_code(_failed("billing", billing_unverified=True), "error") == "bad_request"
+    assert turn_failure_code(_failed("billing", billing_unverified=False), "error") == "quota_exceeded"
 
 
 def test_a_refused_connection_that_ended_the_turn_is_a_network_error():

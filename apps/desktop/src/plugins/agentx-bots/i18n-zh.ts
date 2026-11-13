@@ -62,6 +62,10 @@ export const zh: BotsMessages = {
     timeout: '上次运行耗时过长，已被停止。',
     auth: '上次运行无法连接 AI 服务。请尝试重新登录。',
     model_not_found: '上次运行无法使用所选模型。请为这位助手选择其他模型。',
+    unreachable: '上次运行无法连接 AI 服务。请检查网络连接后再试。',
+    too_long: '上次运行的内容超出了所选模型一次能读取的量。请精简任务，或选择上下文更大的模型。',
+    content_filtered: '上次运行被 AI 服务的内容过滤器拒绝。请换一种说法描述任务。',
+    request_rejected: '所选模型无法处理上次运行。请为此助手选择其他模型。',
     service_unavailable: '上次运行无法使用 AI 服务。请稍后再试。',
     unknown: '上次运行失败'
   },

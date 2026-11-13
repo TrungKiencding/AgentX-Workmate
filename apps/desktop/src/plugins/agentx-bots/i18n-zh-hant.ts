@@ -62,6 +62,10 @@ export const zhHant: BotsMessages = {
     timeout: '上次執行耗時過長，已被停止。',
     auth: '上次執行無法連上 AI 服務。請嘗試重新登入。',
     model_not_found: '上次執行無法使用所選模型。請為這位助理選擇其他模型。',
+    unreachable: '上次執行無法連線 AI 服務。請檢查網路連線後再試。',
+    too_long: '上次執行的內容超出所選模型一次能讀取的量。請精簡任務，或選擇脈絡更大的模型。',
+    content_filtered: '上次執行被 AI 服務的內容過濾器拒絕。請換個說法描述任務。',
+    request_rejected: '所選模型無法處理上次執行。請為此助理選擇其他模型。',
     service_unavailable: '上次執行無法使用 AI 服務。請稍後再試。',
     unknown: '上次執行失敗'
   },

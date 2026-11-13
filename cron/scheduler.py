@@ -136,6 +136,10 @@ CRON_FAILURE_KINDS = (
     "timeout",
     "auth",
     "model_not_found",
+    "unreachable",
+    "too_long",
+    "content_filtered",
+    "request_rejected",
     "service_unavailable",
     "unknown",
 )
@@ -157,36 +161,108 @@ _CRON_FAILURE_REASONS = {
     "timeout": "took too long to finish. Ask me to retry this task.",
     "auth": "could not connect to the AI service. Please check the connection settings or contact support.",
     "model_not_found": "could not use its selected model. Ask me to choose another model for this task.",
+    "unreachable": "could not reach the AI service. Check the network connection (or that a local model is running), then ask me to retry.",
+    "too_long": "has more content than the selected model can read at once. Ask me to shorten this task or choose a model with a larger context.",
+    "content_filtered": "was refused by the AI service's content filter. Ask me to reword this task.",
+    "request_rejected": "could not be processed by the selected model. Ask me to choose another model for this task.",
     "service_unavailable": "could not use the AI service. Try another model or try again later.",
     "unknown": "could not finish. Please try again later or contact support.",
 }
 
-_API_REASON_TO_FAILURE_KIND = {
+# The agent's classified ``failure_reason`` (agent.error_classifier
+# REPORTED_FAILURE_REASONS, plus the turn finalizer's own) → failure kind.
+# A reason not listed falls to "unknown" rather than to a wrong guess.
+_FAILURE_REASON_TO_KIND = {
     "billing": "usage_limit",
     "budget_exceeded": "usage_limit",
+    "billing_unverified": "service_unavailable",
     "rate_limit": "rate_limit",
     "upstream_rate_limit": "rate_limit",
     "timeout": "timeout",
     "auth": "auth",
     "auth_permanent": "auth",
+    "model_not_allowed": "model_not_found",
     "model_not_found": "model_not_found",
+    "provider_policy_blocked": "model_not_found",
+    "connection_failed": "unreachable",
+    "ssl_cert_verification": "unreachable",
+    "context_overflow": "too_long",
+    "payload_too_large": "too_long",
+    "long_context_tier": "too_long",
+    "content_policy_blocked": "content_filtered",
+    "format_error": "request_rejected",
+    "image_too_large": "request_rejected",
+    "invalid_encrypted_content": "request_rejected",
+    "multimodal_tool_content_unsupported": "request_rejected",
+    "thinking_signature": "request_rejected",
+    "oauth_long_context_beta_forbidden": "request_rejected",
+    "llama_cpp_grammar_pattern": "request_rejected",
+    "overloaded": "service_unavailable",
+    "server_error": "service_unavailable",
+    "stream_interrupted": "service_unavailable",
+    "response_truncated": "service_unavailable",
+    "interpreter_shutdown": "interrupted",
 }
 
+# A failed agent run's error carries the reason the agent classified it under
+# (``[failure_reason:<reason>] <error>``), so the kind is read from what the
+# agent knew — status code, exception type, error body — not re-guessed from
+# the one-line summary, which keeps none of that.
+FAILURE_REASON_MARKER_RE = re.compile(r"\[failure_reason:([a-z0-9_:]+)\]")
 
-def classify_cron_failure(error: str | None) -> str:
-    """One of ``CRON_FAILURE_KINDS`` for a run's error text. Never raises."""
+# The scheduler's own words for a run cut short by a shutdown (see
+# mark_running_jobs_interrupted and run_one_job), and Python's when the
+# executor is already gone. A provider's "stream interrupted" or a 503 body
+# mentioning "shutdown" is not one.
+_INTERRUPTED_RUN_RE = re.compile(
+    r"\b(?:gateway|interpreter) shutdown\b"
+    r"|interrupted by (?:the )?(?:gateway|app)\b"
+    r"|cannot schedule new futures after (?:interpreter )?shutdown"
+)
+
+
+def _cron_failure_marker(result: dict) -> str:
+    """The ``[failure_reason:…]`` prefix for a failed agent result, or ''."""
+    reason = str(result.get("failure_reason") or "")
+    if reason == "billing" and result.get("billing_unverified"):
+        reason = "billing_unverified"
+    if not FAILURE_REASON_MARKER_RE.fullmatch(f"[failure_reason:{reason}]"):
+        return ""
+    return f"[failure_reason:{reason}] "
+
+
+def classify_cron_failure(error: str | None, *, agent_run: bool = True) -> str:
+    """One of ``CRON_FAILURE_KINDS`` for a run's error text. Never raises.
+
+    ``agent_run`` is False for a ``no_agent`` (script-only) job: its error is
+    the script's own output, which no AI service produced — reading an
+    "HTTP 400" the script printed as a model refusal would send the person to
+    pick another model for a job that uses none.
+    """
     text = str(error or "")
     lower = text.lower()
     if "[drift_skip" in lower:
         return "drift_skip"
     if "[blocked_config" in lower:
         return "blocked_config"
-    if "interrupted" in lower or "shutdown" in lower:
+    marker = FAILURE_REASON_MARKER_RE.search(lower)
+    if marker:
+        reason = marker.group(1)
+        if reason.startswith("session_persistence_failed"):
+            return "unknown"
+        return _FAILURE_REASON_TO_KIND.get(reason, "unknown")
+    if _INTERRUPTED_RUN_RE.search(lower):
         return "interrupted"
     if re.search(r"idle for \d+s\s*\(limit \d+s\)", lower):
         return "stalled"
     if "terminal_cwd" in lower and ("lock" in lower or "timed out" in lower):
         return "busy"
+    if re.search(r"\bscript timed out after \d+s\b", lower):
+        return "timeout"  # _run_job_script's own words
+    if not agent_run:
+        return "unknown"
+    # No marker: an error the scheduler raised itself, or one recorded before
+    # the marker existed. Read the text the way the agent would have.
     try:
         from agent.error_classifier import classify_api_error
 
@@ -199,7 +275,7 @@ def classify_cron_failure(error: str | None) -> str:
         return "unknown"
     if classified.billing_unverified:
         return "service_unavailable"
-    return _API_REASON_TO_FAILURE_KIND.get(classified.reason.value, "unknown")
+    return _FAILURE_REASON_TO_KIND.get(classified.failure_reason, "unknown")
 
 
 def _summarize_cron_failure_for_delivery(job: dict, error: str | None) -> str:
@@ -209,7 +285,9 @@ def _summarize_cron_failure_for_delivery(job: dict, error: str | None) -> str:
     Even unknown errors use a fixed message: truncation is not sanitization.
     """
     job_name = job.get("name") or "Scheduled task"
-    reason = _CRON_FAILURE_REASONS[classify_cron_failure(error)]
+    reason = _CRON_FAILURE_REASONS[
+        classify_cron_failure(error, agent_run=not job.get("no_agent"))
+    ]
     return f"⚠️ {job_name}: {reason}"
 
 
@@ -4588,7 +4666,10 @@ def run_job(
                 or final_response_text
                 or "agent reported failure"
             )
-            raise RuntimeError(_err_text)
+            # Keep the agent's classification with the error (see
+            # FAILURE_REASON_MARKER_RE): the summary text alone has lost the
+            # status code and exception type it was classified from.
+            raise RuntimeError(_cron_failure_marker(result) + str(_err_text))
         if max_iteration_summary:
             logger.warning(
                 "Job '%s' reached the iteration limit but produced a final fallback response; "

@@ -591,8 +591,26 @@ def _format_exec_approval_fallback(
         + ", ".join(choices[:-1]) + f", or {choices[-1]}."
     )
 
+#: Failure reasons a chat reply explains as "the model could not take this
+#: request": deterministic rejections that sending the same turn again will not
+#: fix, so the reply must not say "temporarily" or "try again in a moment".
+_GATEWAY_REQUEST_REJECTED_REASONS = frozenset({
+    "format_error",
+    "invalid_encrypted_content",
+    "multimodal_tool_content_unsupported",
+    "thinking_signature",
+    "oauth_long_context_beta_forbidden",
+    "llama_cpp_grammar_pattern",
+})
+
+
 def _gateway_provider_error_reply(text: str, *, failure_reason: str | None = None) -> str:
-    """Map provider failures to a short recovery message for chat users."""
+    """Map provider failures to a short recovery message for chat users.
+
+    The reply names what the person can do about *this* failure. A reason the
+    agent classified is authoritative; without one, the text is read the way
+    the legacy status strings were. The full error stays in the gateway log.
+    """
     # Once the agent classified the outcome, unrelated codes/phrases inside
     # nested upstream payloads must not override that decision.
     legacy_text = text if failure_reason is None else ""
@@ -607,17 +625,35 @@ def _gateway_provider_error_reply(text: str, *, failure_reason: str | None = Non
         "budget exceeded", "budget has been exceeded",
     )):
         return "⚠️ The AI service has reached its usage limit. Try another model or contact support."
+    if failure_reason == "model_not_allowed" or "not allowed to access model" in lower:
+        # Checked before auth: LiteLLM sends this refusal as a 401.
+        return (
+            "⚠️ Your account cannot use the selected AI model. "
+            "Choose another model or ask your administrator for access."
+        )
     if failure_reason in {"auth", "auth_permanent"} or _GATEWAY_AUTH_ERROR_RE.search(legacy_text):
         return (
             "⚠️ The AI service could not verify your connection. "
             "Check your sign-in or connection settings, or contact support."
         )
-    if failure_reason in {"provider_policy_blocked", "content_policy_blocked"} or _GATEWAY_PROVIDER_POLICY_RE.search(legacy_text):
+    if failure_reason == "provider_policy_blocked":
+        # An account data/privacy setting excludes every endpoint serving the
+        # model (OpenRouter). Rephrasing the message cannot change that.
+        return (
+            "⚠️ The selected AI model is not available with the current AI provider "
+            "settings. Choose another model or contact support."
+        )
+    if failure_reason == "content_policy_blocked" or _GATEWAY_PROVIDER_POLICY_RE.search(legacy_text):
         return (
             "⚠️ The AI service could not accept this request. Try rephrasing your message."
         )
     if failure_reason in {"rate_limit", "upstream_rate_limit"} or _GATEWAY_RATE_LIMIT_RE.search(legacy_text):
         return "⏱️ The AI service is busy. Please wait a moment and try again."
+    if failure_reason == "ssl_cert_verification":
+        return (
+            "⚠️ Could not make a secure connection to the AI service. A network proxy or "
+            "security software may be interfering; contact support if this continues."
+        )
     if failure_reason == "connection_failed" or _GATEWAY_CONNECTION_ERROR_RE.search(legacy_text):
         return (
             "⚠️ The AI service is not responding. If you use a local model, "
@@ -625,12 +661,31 @@ def _gateway_provider_error_reply(text: str, *, failure_reason: str | None = Non
         )
     if failure_reason in {"context_overflow", "payload_too_large", "long_context_tier"}:
         return "⚠️ This conversation is too long for the selected model. Shorten it or start a new chat."
+    if failure_reason == "image_too_large":
+        return "⚠️ The attached image is too large for the selected model. Send a smaller image."
     if failure_reason == "model_not_found":
         return "⚠️ The selected AI model is unavailable. Please choose another model or contact support."
     if failure_reason == "timeout":
         return "⚠️ The AI service took too long to respond. Please try again in a moment."
+    if failure_reason == "stream_interrupted":
+        return "⚠️ The AI service's answer was cut off part-way. Please try again."
+    legacy_status = re.search(r"\bHTTP\s*([45])\d\d\b", legacy_text, re.IGNORECASE)
+    if failure_reason in _GATEWAY_REQUEST_REJECTED_REASONS or (
+        legacy_status is not None and legacy_status.group(1) == "4"
+    ):
+        return (
+            "⚠️ The AI model could not process this request. "
+            "Try another model, or contact support if this continues."
+        )
+    if failure_reason is None or failure_reason in {"overloaded", "server_error"}:
+        return (
+            "⚠️ The AI service is temporarily unavailable. Please try again in a moment."
+        )
+    # ``unknown``: nothing says the AI service is at fault — it may be this
+    # gateway. Do not send the person to wait on a provider outage.
     return (
-        "⚠️ The AI service is temporarily unavailable. Please try again in a moment."
+        "⚠️ Something went wrong while handling this message. "
+        "Please try again; if it keeps happening, contact support."
     )
 
 
@@ -681,8 +736,16 @@ def _looks_like_gateway_provider_error(text: str) -> bool:
     return bool(_GATEWAY_PROVIDER_ERROR_SHAPE_RE.search(body))
 
 
+def _agent_result_failed(result: Any) -> bool | None:
+    """Whether an agent result is a failed turn; None when it is not a result."""
+    if not isinstance(result, dict):
+        return None
+    return bool(result.get("failed") or result.get("error"))
+
+
 def _sanitize_gateway_final_response(
     platform: Any, text: str, *, failure_reason: str | None = None,
+    failed: bool | None = None,
 ) -> str:
     """Sanitize final gateway replies before sending them to chat surfaces.
 
@@ -692,6 +755,12 @@ def _sanitize_gateway_final_response(
     bodies, request IDs, leaked credentials, or policy text. Only programmatic
     surfaces in ``_GATEWAY_RAW_TEXT_PLATFORMS`` (CLI/TUI ``local`` diagnostics,
     API JSON, webhook payloads) keep the raw text unchanged.
+
+    ``failed`` says whether the turn failed, when the caller knows. A turn
+    that did not fail is the assistant's own answer: it is redacted, never
+    rewritten into a provider-failure notice because it opens with words an
+    error envelope also opens with ("Error code: E21 on this washer means…",
+    or the error of a command the agent ran and is reporting).
     """
     if not text:
         return text
@@ -721,11 +790,13 @@ def _sanitize_gateway_final_response(
         # The agent's structured outcome is authoritative when available.
         # Keep heuristics only for legacy/provider status strings, and leave
         # non-provider outcomes (license, storage, cancellation) to their own UX.
-        from agent.error_classifier import FailoverReason
+        from agent.error_classifier import REPORTED_FAILURE_REASONS
 
-        if failure_reason in {reason.value for reason in FailoverReason} | {"connection_failed"}:
+        if failure_reason in REPORTED_FAILURE_REASONS:
             logger.warning("Chat provider failure (%s): %s", failure_reason, redacted)
             return _gateway_provider_error_reply(redacted, failure_reason=failure_reason)
+    if failed is False:
+        return redacted
     if _looks_like_gateway_provider_error(redacted):
         logger.warning("Chat provider failure: %s", redacted)
         return _gateway_provider_error_reply(redacted)
@@ -5871,6 +5942,7 @@ class TurnRunner:
             final_response = _sanitize_gateway_final_response(
                 ctx.source.platform, final_response,
                 failure_reason=result.get("failure_reason") if result.get("failed") else None,
+                failed=_agent_result_failed(result),
             )
             if not final_response:
                 final_response = f"⚠️ {result['error']}" if result.get("error") else ""
@@ -18912,6 +18984,7 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                 response = _sanitize_gateway_final_response(
                     source.platform, response,
                     failure_reason=agent_result.get("failure_reason") if agent_result.get("failed") else None,
+                    failed=_agent_result_failed(agent_result),
                 )
 
             # Ordering contract: the agent thread already updated the contextvar
