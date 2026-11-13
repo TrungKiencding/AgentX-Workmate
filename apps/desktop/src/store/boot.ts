@@ -21,6 +21,11 @@ const INITIAL_BOOT_STATE: DesktopBootState = {
 
 export const $desktopBoot = atom<DesktopBootState>(INITIAL_BOOT_STATE)
 
+// The phase main.ts announces when it tears the backend down to boot it again
+// (`resetBootProgressForReconnect`): Retry, a completed sign-in, a re-home.
+// Keep the two in step.
+export const BOOT_RESTART_PHASE = 'backend.restart'
+
 function clampProgress(value: number) {
   if (!Number.isFinite(value)) {
     return 0
@@ -35,8 +40,13 @@ export function applyDesktopBootProgress(progress: DesktopBootProgress) {
   const mergedProgress = progress.running ? Math.max(current.progress, nextProgress) : nextProgress
 
   // Don't let a late progress event (error: null) clobber a previously-set
-  // boot failure — failDesktopBoot is terminal for this boot cycle.
-  const error = progress.error ?? (current.running ? null : current.error)
+  // boot failure — failDesktopBoot is terminal for this boot cycle. A restart
+  // is the one event that opens a NEW cycle, and the old cycle's error must
+  // not ride into it: "running" plus a stale error is a state no surface owns
+  // (the failure and sign-in screens wait for !running, the loading screen
+  // for !error), so the window showed the bare chat shell until the reload.
+  const startsNewCycle = progress.running && progress.phase === BOOT_RESTART_PHASE
+  const error = progress.error ?? (current.running || startsNewCycle ? null : current.error)
 
   $desktopBoot.set({
     ...current,

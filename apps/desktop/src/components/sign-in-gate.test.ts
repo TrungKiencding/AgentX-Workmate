@@ -38,6 +38,16 @@ describe('shouldShowSignInGate', () => {
     }
   })
 
+  it('keeps the window through the hand-off after a successful sign-in', () => {
+    // resetBootstrap restarts the backend before the reload: boot flips back
+    // to running, and the error may be cleared or still be the marker. The
+    // gate must not let go and expose the chat shell in between.
+    expect(shouldShowSignInGate({ ...base, bootRunning: true, handingOff: true })).toBe(true)
+    expect(shouldShowSignInGate({ ...base, bootError: null, bootRunning: true, handingOff: true })).toBe(true)
+    expect(shouldShowSignInGate({ ...base, handingOff: true, onboardingStatus: 'starting' })).toBe(true)
+    expect(shouldShowSignInGate({ ...base, bootRunning: true, handingOff: false })).toBe(false)
+  })
+
   it('takes over once onboarding is idle or has errored', () => {
     expect(shouldShowSignInGate({ ...base, onboardingStatus: 'idle' })).toBe(true)
     expect(shouldShowSignInGate({ ...base, onboardingStatus: 'error' })).toBe(true)

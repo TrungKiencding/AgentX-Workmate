@@ -7928,6 +7928,9 @@ async function testDesktopConnectionConfig(input: any = {}) {
   }
 }
 
+// The renderer reads this phase as the start of a new boot cycle and drops the
+// previous cycle's error with it (BOOT_RESTART_PHASE in src/store/boot.ts) —
+// keep the two in step.
 function resetBootProgressForReconnect() {
   updateBootProgress(
     {

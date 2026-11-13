@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { $desktopBoot } from '@/store/boot'
 import { $gateway, reportPrimaryGatewayState } from '@/store/gateway'
+import { $notifications, resetNotifications } from '@/store/notifications'
 import { $gatewayState } from '@/store/session'
 import { $tileBindingGeneration } from '@/store/session-states'
 
@@ -400,5 +401,66 @@ describe('useGatewayBoot re-attaches tiles when the socket reopens', () => {
     act(() => reportPrimaryGatewayState('open'))
 
     expect(generation()).toBe(before)
+  })
+})
+
+// A failed boot is owned by a full-screen surface, and the toast raised with
+// it sits underneath. It used to outlive that surface: after signing in, the
+// window showed the chat with "Desktop boot failed — AgentX sign-in required"
+// on it until the reload.
+describe('useGatewayBoot boot-failure toast', () => {
+  const SIGN_IN_REQUIRED = 'AgentX sign-in required. Sign in with your AgentX account to start using AgentX Workmate.'
+
+  beforeEach(() => resetNotifications())
+
+  it('raises no toast for "sign-in required" — the sign-in screen is the whole answer', async () => {
+    const desktop = fakeDesktop()
+    desktop.getConnection = vi.fn(async () => {
+      throw new Error(SIGN_IN_REQUIRED)
+    })
+    ;(window as { agentxDesktop?: unknown }).agentxDesktop = desktop
+
+    render(<Harness />)
+    await flushAsync()
+
+    expect($desktopBoot.get().error).toBe(SIGN_IN_REQUIRED)
+    expect($notifications.get()).toEqual([])
+  })
+
+  it('still toasts a real boot failure', async () => {
+    const desktop = fakeDesktop()
+    desktop.getConnection = vi.fn(async () => {
+      throw new Error('AgentX backend exited before it became ready (1).')
+    })
+    ;(window as { agentxDesktop?: unknown }).agentxDesktop = desktop
+
+    render(<Harness />)
+    await flushAsync()
+
+    expect($notifications.get()).toHaveLength(1)
+    expect($notifications.get()[0].kind).toBe('error')
+  })
+
+  it('withdraws the toast once a soft gateway switch recovers the boot in place', async () => {
+    const desktop = fakeDesktop()
+    const connect = desktop.getConnection
+    desktop.getConnection = vi.fn(async () => {
+      throw new Error('Could not connect to AgentX gateway')
+    })
+    ;(window as { agentxDesktop?: unknown }).agentxDesktop = desktop
+
+    render(<Harness />)
+    await flushAsync()
+    expect($notifications.get()).toHaveLength(1)
+
+    // "Use local gateway" from the recovery overlay: no reload follows, so
+    // nothing else would ever take the toast down.
+    desktop.getConnection = connect
+    act(() => connectionApplied?.())
+    await flushAsync()
+
+    expect($gatewayState.get()).toBe('open')
+    expect($desktopBoot.get().error).toBeNull()
+    expect($notifications.get()).toEqual([])
   })
 })

@@ -57,6 +57,8 @@ export function SignInOverlay() {
   const visible = shouldShowSignInGate({
     bootError: boot.error,
     bootRunning: boot.running,
+    // Signed in: hold the window through the backend restart and the reload.
+    handingOff: done,
     onboardingStatus: onboarding.flow.status
   })
 
