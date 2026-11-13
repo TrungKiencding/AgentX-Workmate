@@ -7,6 +7,7 @@ import { type ComposerAttachment, stashSessionDraft, takeSessionDraft } from '@/
 import { isBrowsingHistory } from '@/store/composer-input-history'
 
 import {
+  appendToDraft,
   cloneAttachments,
   DRAFT_PERSIST_DEBOUNCE_MS,
   isPendingDraftPersistCurrent,
@@ -140,17 +141,12 @@ export function useComposerDraft({
   )
 
   const appendExternalText = useCallback(
-    (text: string, mode: ComposerInsertMode) => {
-      const value = text.trim()
-
-      if (!value) {
-        return
+    (text: string, mode: ComposerInsertMode, once = false) => {
+      // Repaints (and refocuses) even when nothing was added: pressing the
+      // button again still brings the caret to the text it asked for.
+      if (text.trim()) {
+        paintDraft(appendToDraft(draftRef.current, text, mode, once))
       }
-
-      const base = mode === 'inline' ? draftRef.current.trimEnd() : draftRef.current
-      const sep = mode === 'inline' ? (base ? ' ' : '') : base && !base.endsWith('\n') ? '\n\n' : ''
-
-      paintDraft(`${base}${sep}${value}`)
     },
     [paintDraft]
   )
@@ -190,9 +186,9 @@ export function useComposerDraft({
       setFocusRequestId(id => id + 1)
     })
 
-    const offInsert = onComposerInsertRequest(({ mode, target: requested, text }) => {
+    const offInsert = onComposerInsertRequest(({ mode, once, target: requested, text }) => {
       if (requested === target) {
-        appendExternalText(text, mode)
+        appendExternalText(text, mode, once)
       }
     })
 

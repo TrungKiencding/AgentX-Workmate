@@ -1149,30 +1149,61 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 ## Chat, tools & boot surfaces
 
 The conversation's **session resources** surface (`app/chat/session-resources/`)
-is a floating, 320px card in the chat's upper-right corner: 16px corners, subtle
-border, level-1 shadow, and single-line resource rows. It opens by default once
-a conversation has started (a bound session with transcript content). An empty
-draft or allocated-but-empty session has no card, toggle, or reserved gutter.
-One persistent icon toggles it directly during a started conversation;
-resizing or opening a document does not change that choice. The same card stays
-beside the large viewer. At wide chat widths the conversation's containing block
-narrows to reserve clearance, keeping transcript and docked composer on the same
-centerline. Do not use padding to reserve this gutter: absolute-positioned
-children center on the padding box while in-flow children use the content box.
+is a 320px card in the chat's upper-right corner: 16px corners, level-1 shadow,
+single-line rows. It exists once a conversation has started (a bound session
+with transcript content); an empty draft or allocated-but-empty session has no
+card, toggle, or reserved gutter. One icon toggles it.
+
+**The card never covers the conversation unasked.** `index.tsx` measures the
+chat and sets `data-layout`; the stylesheet lays out from that attribute alone
+(the 1040px threshold lives in one place, `DOCK_MIN_WIDTH`).
+
+- **Docked** (chat ≥ 1040px): the card has its own column. The conversation's
+  containing block narrows to reserve it, keeping transcript and docked
+  composer on the same centerline — do not reserve the gutter with padding:
+  absolute-positioned children center on the padding box while in-flow
+  children use the content box. Shown by one remembered choice
+  (`$sessionResourcesPinned`, persisted): closing it is a choice about the
+  card, not about one conversation, so it stays closed in the next one.
+- **Floating** (narrower — a small window, a split tile, a viewer open beside
+  the chat): the card can only sit over the transcript, so it is closed until
+  asked for, per conversation. Opening a file from it keeps it in reach for
+  the next file; touching the conversation it covers puts it away. Opening a
+  file from the docked card therefore *hides* the card when the viewer takes
+  its column — the reply stays readable.
+
 The transcript reserves symmetric scrollbar gutters so overflowing history
-stays centered with the composer too.
-At narrow widths the card floats above it, bounded by the chat's available area.
-The composer stays mounted and its floating mode retains viewport positioning.
+stays centered with the composer. The composer stays mounted and its floating
+mode retains viewport positioning.
+
+**Every row needs evidence** (`model.ts` — the rules are its header). An output
+is a file the backend verified (`files_created`), the target of a successful
+writing tool, or an explicit hand-over in the reply (a link or image to a
+file, a `MEDIA:` tag, an artifact). A source is what the user brought or a
+successful reading tool opened, web search hits, and links a reply cites. A
+path that is only *mentioned* — in prose, in inline code, in a command's
+output, in a file-search listing — is neither; a failed or still-running call
+proves nothing; an arbitrary tool's relative path is not resolved against the
+session folder. A file that was read and then edited is listed once, as an
+output. Newest first. Two files of one name show their folder. Do not add
+pattern-matching for paths here: widen the backend's verified list instead.
 
 Only Changes, Outputs, Sources, the actual items, and their add actions are
 visible. No explanatory subtitles, counters, search field, or pinning step.
-Empty Outputs has the short “Create an output” action; empty Sources has no
-paragraph. Output creation inserts into the scoped composer and source addition
-uses the existing file picker. Changes opens the existing cwd-scoped review.
-File selection uses the existing preview pane. Long inventories scroll without
-an item cap; full targets remain available through tooltips. Collection uses the
-complete session history, preserves identity on no-ops, and guards stale opens
-across session/profile/cwd changes. Background events never open a viewer.
+Changes (the folder's uncommitted work, shown only when there is some) opens
+the cwd-scoped review. An output's type tag is its extension — short, and the
+same in every language. "Create an output" writes a whole, sendable request
+into the scoped composer, once; a surface without a composer (a read-only
+messaging conversation) does not offer it. Source addition uses the existing
+file picker. A row whose file is gone says so in the row instead of opening a
+viewer on a read error. Long inventories scroll without an item cap; full
+targets remain available through tooltips.
+
+Reading the history never blocks a frame: the collector reads newest messages
+first in ~8ms passes and the list fills in; it is kept across collapses, so
+reopening the card rereads nothing. A hidden tab reads nothing. Stale opens
+are guarded across session/profile/cwd changes. Background events never open
+a viewer.
 
 An identity-less new-chat draft has no resource sidebar or project / Changes
 summary, even if its selected folder is inherited from the previous

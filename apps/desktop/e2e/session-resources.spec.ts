@@ -37,6 +37,19 @@ async function expectChatColumnAligned(page: Page): Promise<void> {
     .toBeLessThan(1.5)
 }
 
+/** The floating card may sit over the transcript only while it is asked for. */
+async function expectTranscriptUncovered(page: Page): Promise<void> {
+  const covered = await page
+    .locator('[data-chat-surface]:visible .session-workspace')
+    .last()
+    .evaluate(element => {
+      const card = element.querySelector('[data-testid="session-resources"]')?.getBoundingClientRect()
+      const transcript = element.querySelector('[data-slot="aui_thread-content"]')?.getBoundingClientRect()
+      return Boolean(card && transcript && card.left < transcript.right && card.right > transcript.left)
+    })
+  expect(covered, 'Nothing may cover the transcript unasked').toBe(false)
+}
+
 interface SettingsTestWindow extends Window {
   agentxDesktop: {
     settings: { setDefaultProjectDir: (dir: string) => Promise<unknown> }
@@ -183,10 +196,22 @@ test('lists delivered document, spreadsheet, image and archive files and renders
     await toggle.click()
     await expect(dock).toBeVisible()
     await expectChatColumnAligned(page)
+    // Type tags are the extension itself, the same in every language.
+    await expect
+      .poll(async () => (await dock.locator('.session-resource-type').allTextContents()).sort())
+      .toEqual(['DOCX', 'SVG', 'XLSX', 'ZIP'])
     await dock.getByRole('button', { name: /Report.docx/ }).click()
     await expect(page.frameLocator('iframe[title="Report.docx"]').getByText('Quarterly report content')).toBeVisible({
       timeout: 20_000
     })
+    // The viewer took the card's column: it steps aside instead of covering
+    // the reply, and comes back over the transcript only when asked for.
+    await expect(dock).toHaveCount(0)
+    await expectTranscriptUncovered(page)
+    await expectChatColumnAligned(page)
+    await toggle.click()
+    await expect(dock).toBeVisible()
+    // Opening one file after another keeps the list in reach.
     await page
       .getByTestId('session-resources')
       .getByRole('button', { name: /Revenue.xlsx/ })
@@ -197,7 +222,14 @@ test('lists delivered document, spreadsheet, image and archive files and renders
       .getByRole('button', { name: /Drawing.svg/ })
       .click()
     await expect(page.locator('img[alt="Drawing.svg"]')).toBeVisible({ timeout: 20_000 })
+    await expect(dock).toBeVisible()
     await page.screenshot({ path: testInfo.outputPath('resource-formats.png') })
+    // Going back to the conversation puts the floating card away.
+    await page
+      .locator('[data-chat-surface]:visible [data-slot="aui_thread-content"]')
+      .last()
+      .click({ position: { x: 8, y: 8 } })
+    await expect(dock).toHaveCount(0)
   } finally {
     await app.close().catch(() => undefined)
     await mock.close()
@@ -256,14 +288,31 @@ test('collects real tool outputs, opens the large viewer, and adapts without ove
         return window.getContentBounds().width
       }, width)
       await expect.poll(() => page.evaluate(() => window.innerWidth)).toBe(contentWidth)
+      const workspace = page.locator('[data-chat-surface]:visible .session-workspace').last()
+      const docked = (await workspace.evaluate(element => element.clientWidth)) >= 1040
+      await expect(workspace).toHaveAttribute('data-layout', docked ? 'docked' : 'floating')
       await expectChatColumnAligned(page)
-      await layoutToggle.click()
-      await expect(dock).toHaveCount(0)
-      await expectChatColumnAligned(page)
-      await layoutToggle.click()
-      await expect(dock).toBeVisible()
+      if (docked) {
+        // Docked: shown by the remembered choice, beside the transcript.
+        await expect(dock).toBeVisible()
+        await expectTranscriptUncovered(page)
+        await layoutToggle.click()
+        await expect(dock).toHaveCount(0)
+        await expectChatColumnAligned(page)
+        await layoutToggle.click()
+        await expect(dock).toBeVisible()
+      } else {
+        // Floating: closed until asked for, and closed again afterwards.
+        await expect(dock).toHaveCount(0)
+        await layoutToggle.click()
+        await expect(dock).toBeVisible()
+        await expectChatColumnAligned(page)
+        await layoutToggle.click()
+        await expect(dock).toHaveCount(0)
+      }
       await expectChatColumnAligned(page)
     }
+    await expect(dock).toBeVisible()
     await page.screenshot({ path: testInfo.outputPath('resources-wide.png') })
     const paint = await dock.evaluate(element => {
       const style = getComputedStyle(element)
@@ -299,18 +348,24 @@ test('collects real tool outputs, opens the large viewer, and adapts without ove
     expect(fixedOrigin).toEqual({ x: 0, y: 0 })
     await dock.getByRole('button', { name: /Báo cáo kết quả.html/ }).click()
     await expect(page.getByRole('tab', { name: /Báo cáo kết quả.html/ })).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Session resources', exact: true })).toBeVisible()
-    await page.screenshot({ path: testInfo.outputPath('resources-viewer.png') })
     const toggle = page.getByRole('button', { name: 'Session resources', exact: true })
+    await expect(toggle).toBeVisible()
+    // Beside the large viewer the chat is narrow: the card is put away and
+    // the reply stays readable.
+    await expect(dock).toHaveCount(0)
+    await expectTranscriptUncovered(page)
+    await expectChatColumnAligned(page)
+    await page.screenshot({ path: testInfo.outputPath('resources-viewer.png') })
+    await toggle.click()
     await expect(dock).toBeVisible()
     await expect(dock.getByRole('button', { name: /dataset.custom/ })).toBeVisible()
-    await toggle.click()
-    await expect(dock).not.toBeVisible()
     await expectChatColumnAligned(page)
     await toggle.click()
-    await expect(dock).toBeVisible()
+    await expect(dock).toHaveCount(0)
     await expectChatColumnAligned(page)
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].setSize(900, 760))
+    await expect(dock).toHaveCount(0)
+    await toggle.click()
     await expect(dock).toBeVisible()
     await expectChatColumnAligned(page)
     const bounds = await dock.boundingBox()
@@ -320,6 +375,9 @@ test('collects real tool outputs, opens the large viewer, and adapts without ove
     await page.screenshot({ path: testInfo.outputPath('resources-compact.png') })
     await page.reload()
     await waitForAppReady(fixture)
+    await expect(toggle).toBeVisible({ timeout: 30_000 })
+    await expect(dock).toHaveCount(0)
+    await toggle.click()
     await expect(dock.getByRole('button', { name: /dataset.custom/ })).toBeVisible({ timeout: 30_000 })
   } finally {
     await app.close().catch(() => undefined)

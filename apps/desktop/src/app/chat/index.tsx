@@ -641,6 +641,7 @@ export const ChatView = memo(function ChatView({
         suppressMessages={routeSessionMismatch}
       >
         <SessionWorkspace
+          canCompose={showChatBar}
           enabled={!routeSessionMismatch && !loadingSession && !resumeExhausted}
           onAddSource={isMessagingConversation ? undefined : onPickFiles}
           sessionKey={queueSessionKey || activeSessionId || 'draft'}

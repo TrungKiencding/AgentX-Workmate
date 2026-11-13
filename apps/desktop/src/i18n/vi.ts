@@ -13,10 +13,12 @@ import type { Translations } from './types'
 // plural inflection, so `n === 1` branches collapse to one form.
 export const vi: Translations = {
   sessionResources: {
-    title: 'Tài nguyên phiên',
+    title: 'Kết quả và nguồn',
     createOutput: 'Tạo kết quả',
+    createOutputPrompt: 'Tổng hợp kết quả của cuộc trò chuyện này thành một tệp tài liệu.',
     addSource: 'Thêm nguồn',
     changes: 'Thay đổi',
+    changesHint: 'Thay đổi chưa commit trong thư mục này',
     outputs: 'Kết quả',
     sources: 'Nguồn',
     openFailed: 'Không thể mở mục này. Chọn lại để thử.'

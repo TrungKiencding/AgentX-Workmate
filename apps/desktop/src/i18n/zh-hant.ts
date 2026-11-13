@@ -6,8 +6,10 @@ export const zhHant = defineLocale({
   sessionResources: {
     title: '對話資源',
     createOutput: '建立輸出',
+    createOutputPrompt: '把這次對話的結果整理成一個文件檔案。',
     addSource: '新增來源',
     changes: '變更',
+    changesHint: '此資料夾中尚未提交的變更',
     outputs: '輸出',
     sources: '來源',
     openFailed: '無法開啟此項目。請再次選取以重試。'

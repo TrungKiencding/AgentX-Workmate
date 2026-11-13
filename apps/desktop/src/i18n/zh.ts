@@ -6,8 +6,10 @@ export const zh: Translations = {
   sessionResources: {
     title: '会话资源',
     createOutput: '创建输出',
+    createOutputPrompt: '把这次对话的结果整理成一个文档文件。',
     addSource: '添加来源',
     changes: '更改',
+    changesHint: '此文件夹中尚未提交的更改',
     outputs: '输出',
     sources: '来源',
     openFailed: '无法打开此项目。请再次选择以重试。'

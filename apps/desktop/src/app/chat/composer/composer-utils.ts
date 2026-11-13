@@ -20,6 +20,25 @@ export const COMPOSER_FADE_BACKGROUND =
 // unmount/pagehide flushes bypass it.
 export const DRAFT_PERSIST_DEBOUNCE_MS = 400
 
+/**
+ * A draft with text added from outside the editor (a dropped file, a button
+ * elsewhere in the app). `inline` continues the last line; `block` starts a
+ * new paragraph. With `once`, a draft that already holds the text is returned
+ * unchanged — the button was pressed again, not a second request.
+ */
+export function appendToDraft(draft: string, text: string, mode: 'block' | 'inline', once = false): string {
+  const value = text.trim()
+
+  if (!value || (once && draft.includes(value))) {
+    return draft
+  }
+
+  const base = mode === 'inline' ? draft.trimEnd() : draft
+  const sep = mode === 'inline' ? (base ? ' ' : '') : base && !base.endsWith('\n') ? '\n\n' : ''
+
+  return `${base}${sep}${value}`
+}
+
 // `draw` is in [0, 1). Replaying a stored draw against another pool lands on the
 // matching slot — the same line in a new language.
 export const pickPlaceholder = (pool: readonly string[], draw = Math.random()) => pool[Math.floor(draw * pool.length)]

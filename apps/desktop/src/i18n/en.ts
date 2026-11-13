@@ -6,8 +6,10 @@ export const en: Translations = {
   sessionResources: {
     title: 'Session resources',
     createOutput: 'Create an output',
+    createOutputPrompt: 'Put the result of this conversation into a document file.',
     addSource: 'Add a source',
     changes: 'Changes',
+    changesHint: 'Uncommitted changes in this folder',
     outputs: 'Outputs',
     sources: 'Sources',
     openFailed: 'Could not open this item. Select it to retry.'

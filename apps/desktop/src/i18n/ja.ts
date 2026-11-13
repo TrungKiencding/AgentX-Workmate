@@ -6,8 +6,10 @@ export const ja = defineLocale({
   sessionResources: {
     title: '会話のリソース',
     createOutput: '出力を作成',
+    createOutputPrompt: 'この会話の結果をドキュメントファイルにまとめてください。',
     addSource: 'ソースを追加',
     changes: '変更',
+    changesHint: 'このフォルダー内の未コミットの変更',
     outputs: '出力',
     sources: 'ソース',
     openFailed: 'この項目を開けませんでした。もう一度選択してください。'

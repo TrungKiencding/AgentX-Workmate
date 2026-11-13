@@ -11,6 +11,8 @@ import { $repoStatusByCwd, _resetCodingStatusForTests } from '@/store/coding-sta
 import { $previewTabs, closeRightRail } from '@/store/preview'
 import { $activeGatewayProfile } from '@/store/profile'
 
+import { $sessionResourcesPinned, setSessionResourcesPinned } from './store'
+
 import { SessionWorkspace } from './index'
 
 vi.mock('@/lib/local-preview', async importOriginal => ({
@@ -38,14 +40,40 @@ const view: SessionView = {
   $messagesEmpty: computed($messages, messages => messages.length === 0)
 }
 
-function mount(onAddSource = vi.fn()) {
+function mount(onAddSource = vi.fn(), canCompose = true) {
   return render(
     <SessionViewProvider value={view}>
-      <SessionWorkspace enabled onAddSource={onAddSource}>
+      <SessionWorkspace canCompose={canCompose} enabled onAddSource={onAddSource}>
         <div data-testid="composer">Composer remains mounted</div>
       </SessionWorkspace>
     </SessionViewProvider>
   )
+}
+
+// jsdom lays nothing out: give the chat a width, and a ResizeObserver the test
+// fires by hand, so the docked/floating decision runs for real.
+let chatWidth = 0
+let resizeObservers: Array<() => void> = []
+
+const resizeChat = (width: number) => {
+  chatWidth = width
+  act(() => resizeObservers.forEach(notify => notify()))
+}
+
+const widthDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'clientWidth')!
+
+/** Stand in for the desktop bridge's file stat for one test. */
+function withFileStat(stat: { exists: boolean; isFile: boolean }) {
+  const previousBridge = window.agentxDesktop
+
+  Object.defineProperty(window, 'agentxDesktop', {
+    configurable: true,
+    writable: true,
+    value: { statPath: async () => ({ byteSize: 0, mimeType: '', modifiedMs: 0, ...stat }) }
+  })
+
+  return () =>
+    Object.defineProperty(window, 'agentxDesktop', { configurable: true, writable: true, value: previousBridge })
 }
 
 const dock = () => screen.getByTestId('session-resources')
@@ -55,12 +83,38 @@ beforeEach(() => {
   $runtimeId.set('runtime-a')
   $storedId.set('stored-a')
   closeRightRail()
+  setSessionResourcesPinned(true)
   vi.mocked(normalizeOrLocalPreviewTarget).mockImplementation(async (path, cwd) => localPreviewTarget(path, cwd))
+  chatWidth = 0
+  resizeObservers = []
+  Object.defineProperty(Element.prototype, 'clientWidth', { configurable: true, get: () => chatWidth })
+  vi.stubGlobal(
+    'ResizeObserver',
+    class {
+      private readonly notify: () => void
+
+      constructor(callback: ResizeObserverCallback) {
+        this.notify = () => callback([], this as unknown as ResizeObserver)
+      }
+
+      observe() {
+        resizeObservers.push(this.notify)
+      }
+
+      disconnect() {
+        resizeObservers = resizeObservers.filter(notify => notify !== this.notify)
+      }
+
+      unobserve() {}
+    }
+  )
 })
 afterEach(() => {
   cleanup()
   closeRightRail()
   vi.clearAllMocks()
+  vi.unstubAllGlobals()
+  Object.defineProperty(Element.prototype, 'clientWidth', widthDescriptor)
 })
 
 describe('session resources interactions', () => {
@@ -148,7 +202,8 @@ describe('session resources interactions', () => {
   it('lists every resource without extra search chrome and resets on session switch', async () => {
     mount()
     act(() => $messages.set(Array.from({ length: 30 }, (_, i) => reply(`/work/report-${i}.zip`))))
-    expect(within(dock()).getAllByRole('listitem')).toHaveLength(30)
+    // A long history is read in short passes; the list fills in.
+    await waitFor(() => expect(within(dock()).getAllByRole('listitem')).toHaveLength(30))
     expect(within(dock()).queryByRole('searchbox')).toBeNull()
     act(() => {
       $storedId.set('stored-b')
@@ -238,20 +293,129 @@ describe('session resources interactions', () => {
     expect(screen.getByRole('button', { name: 'Session resources' }).getAttribute('aria-expanded')).toBe('true')
   })
 
-  it('keeps a collapsed card closed during streaming, then opens for the next session', () => {
+  it('remembers a closed card through streaming and into the next conversation', () => {
     mount()
     const toggle = screen.getByRole('button', { name: 'Session resources' })
     fireEvent.click(toggle)
+    expect($sessionResourcesPinned.get()).toBe(false)
     act(() => $messages.set([{ ...reply('/work/report.pdf'), pending: true }]))
     expect(screen.queryByTestId('session-resources')).toBeNull()
     act(() => {
       $storedId.set('next-session')
       $runtimeId.set('next-runtime')
-      $messages.set([])
+      $messages.set([reply('/work/new-session.pdf')])
     })
+    // Closing it is a choice about the card, not about one conversation.
     expect(screen.queryByTestId('session-resources')).toBeNull()
-    act(() => $messages.set([reply('/work/new-session.pdf')]))
+    fireEvent.click(screen.getByRole('button', { name: 'Session resources' }))
+    expect(within(dock()).getByText('new-session.pdf')).toBeTruthy()
+    expect($sessionResourcesPinned.get()).toBe(true)
+  })
+
+  it('floats closed in a narrow chat, opens on request, and steps aside when the conversation is touched', async () => {
+    const mounted = mount()
+    const workspace = mounted.container.querySelector('.session-workspace')!
+    expect(workspace.getAttribute('data-layout')).toBe('docked')
     expect(dock()).toBeTruthy()
+
+    // A viewer opens beside the chat: the card no longer has a column.
+    resizeChat(680)
+    expect(workspace.getAttribute('data-layout')).toBe('floating')
+    expect(screen.queryByTestId('session-resources')).toBeNull()
+    const toggle = screen.getByRole('button', { name: 'Session resources' })
+    expect(toggle.getAttribute('aria-expanded')).toBe('false')
+
+    fireEvent.click(toggle)
+    expect(dock()).toBeTruthy()
+    // Opening a file keeps the list in reach for the next one…
+    fireEvent.click(within(dock()).getByRole('button', { name: /report.pdf/ }))
+    await waitFor(() => expect($previewTabs.get()).toHaveLength(1))
+    expect(dock()).toBeTruthy()
+    // …and going back to the conversation puts it away.
+    fireEvent.pointerDown(screen.getByTestId('composer'))
+    expect(screen.queryByTestId('session-resources')).toBeNull()
+    // None of this touched the remembered choice for the docked card.
+    expect($sessionResourcesPinned.get()).toBe(true)
+
+    resizeChat(1200)
+    expect(workspace.getAttribute('data-layout')).toBe('docked')
+    expect(dock()).toBeTruthy()
+
+    // Back to narrow: closed again, whatever it was the last time.
+    resizeChat(680)
+    fireEvent.click(screen.getByRole('button', { name: 'Session resources' }))
+    resizeChat(1200)
+    resizeChat(680)
+    expect(screen.queryByTestId('session-resources')).toBeNull()
+  })
+
+  it('says in the row that a file is gone instead of opening a viewer on it', async () => {
+    const restore = withFileStat({ exists: false, isFile: false })
+
+    try {
+      mount()
+      fireEvent.click(within(dock()).getByRole('button', { name: /report.pdf/ }))
+      await waitFor(() => expect(within(dock()).getByRole('alert').textContent).toBe('The file was moved or deleted.'))
+      expect($previewTabs.get()).toEqual([])
+    } finally {
+      restore()
+    }
+  })
+
+  it('does not open a folder as if it were a file', async () => {
+    const restore = withFileStat({ exists: true, isFile: false })
+
+    try {
+      mount()
+      fireEvent.click(within(dock()).getByRole('button', { name: /report.pdf/ }))
+      await waitFor(() =>
+        expect(within(dock()).getByRole('alert').textContent).toBe('Could not open this item. Select it to retry.')
+      )
+      expect($previewTabs.get()).toEqual([])
+    } finally {
+      restore()
+    }
+  })
+
+  it('offers no way to create an output where there is no composer to write into', () => {
+    $messages.set([{ id: 'hello', role: 'user', parts: [{ type: 'text', text: 'Hello' }] }])
+    mount(undefined, false)
+    expect(within(dock()).queryByRole('button', { name: 'Create an output' })).toBeNull()
+    expect(within(dock()).queryByRole('button', { name: 'Add a source' })).toBeTruthy()
+  })
+
+  it('labels an output by its extension and leaves a clean folder without a Changes row', async () => {
+    $repoStatusByCwd.set({
+      '/work': {
+        branch: 'main',
+        defaultBranch: 'main',
+        detached: false,
+        ahead: 0,
+        behind: 0,
+        staged: 0,
+        unstaged: 0,
+        untracked: 0,
+        conflicted: 0,
+        changed: 0,
+        added: 0,
+        removed: 0,
+        files: []
+      }
+    })
+
+    try {
+      $messages.set([reply('/work/Báo cáo.docx'), reply('/work/Slides.pptx'), reply('/work/data.parquet')])
+      mount()
+      expect(within(dock()).queryByRole('button', { name: /Changes/ })).toBeNull()
+      await waitFor(() =>
+        expect([...dock().querySelectorAll('.session-resource-type')].map(node => node.textContent)).toEqual([
+          'PPTX',
+          'DOCX'
+        ])
+      )
+    } finally {
+      _resetCodingStatusForTests()
+    }
   })
 
   it('uses the existing source picker and scoped composer for the add buttons', async () => {
@@ -264,8 +428,15 @@ describe('session resources interactions', () => {
       fireEvent.click(within(dock()).getByRole('button', { name: 'Add a source' }))
       expect(onAddSource).toHaveBeenCalledOnce()
       fireEvent.click(within(dock()).getByRole('button', { name: 'Create an output' }))
+      // A whole request, not the button's own label — and only once however
+      // often the button is pressed.
       await waitFor(() =>
-        expect(inserted).toHaveBeenCalledWith(expect.objectContaining({ text: 'Create an output', target: 'main' }))
+        expect(inserted).toHaveBeenCalledWith({
+          mode: 'block',
+          once: true,
+          target: 'main',
+          text: 'Put the result of this conversation into a document file.'
+        })
       )
     } finally {
       unsubscribe()

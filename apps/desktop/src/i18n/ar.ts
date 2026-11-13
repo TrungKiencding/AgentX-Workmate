@@ -55,8 +55,10 @@ export const ar = defineLocale({
   sessionResources: {
     title: 'موارد المحادثة',
     createOutput: 'إنشاء مخرج',
+    createOutputPrompt: 'اجمع نتيجة هذه المحادثة في ملف مستند.',
     addSource: 'إضافة مصدر',
     changes: 'التغييرات',
+    changesHint: 'تغييرات غير مودعة في هذا المجلد',
     outputs: 'المخرجات',
     sources: 'المصادر',
     openFailed: 'تعذر فتح هذا العنصر. حدده مرة أخرى لإعادة المحاولة.'

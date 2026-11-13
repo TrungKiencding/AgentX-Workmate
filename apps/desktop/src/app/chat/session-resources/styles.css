@@ -3,7 +3,12 @@
  * states: default · hover · focus · active · disabled · loading · error · success
  */
 .session-workspace {
-  container: session-workspace / inline-size;
+  /* The card's geometry, in one place. The docked gutter is the card plus its
+     own inset on each side (12 + 320 + 20). */
+  --session-resources-width: 320px;
+  --session-resources-inset: 12px;
+  --session-resources-launcher-row: 44px;
+  --session-resources-gutter: calc(var(--session-resources-width) + var(--session-resources-inset) + 20px);
   display: flex;
   position: relative;
   flex: 1;
@@ -23,13 +28,21 @@
      centerline as the composer outside the scrollport. */
   scrollbar-gutter: stable both-edges;
 }
-.session-workspace[data-resources='true'] > .session-conversation {
-  padding-top: 44px;
+/* Floating layout (index.tsx decides which, from the chat's width): the
+   transcript runs to the corner, so the toggle gets a row of its own. */
+.session-workspace[data-resources='true'][data-layout='floating'] > .session-conversation {
+  padding-top: var(--session-resources-launcher-row);
+}
+/* Docked layout: narrow the containing block itself so the absolute composer
+   and the in-flow transcript share the same center and width constraints. */
+.session-workspace[data-resources='true'][data-layout='docked'][data-resources-expanded='true']
+  > .session-conversation {
+  margin-inline-end: var(--session-resources-gutter);
 }
 .session-resources-launcher {
   position: absolute;
   top: 4px;
-  right: 12px;
+  inset-inline-end: var(--session-resources-inset);
   z-index: 5;
 }
 .session-resources-launcher [data-active='true'] {
@@ -37,12 +50,12 @@
 }
 .session-resources-card {
   position: absolute;
-  top: 44px;
-  right: 12px;
+  top: var(--session-resources-launcher-row);
+  inset-inline-end: var(--session-resources-inset);
   z-index: 4;
   display: flex;
   flex-direction: column;
-  width: min(320px, calc(100% - 24px));
+  width: min(var(--session-resources-width), calc(100% - 2 * var(--session-resources-inset)));
   max-height: min(520px, calc(100% - var(--composer-measured-height, 160px) - 64px));
   overflow: hidden;
   border-radius: 16px;
@@ -148,6 +161,16 @@
   white-space: nowrap;
   text-overflow: ellipsis;
 }
+.session-resource-folder {
+  /* Gives way before the name does. */
+  flex: 0 100 auto;
+  min-width: 0;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
 .session-resource-type {
   flex-shrink: 0;
   max-width: 56px;
@@ -176,16 +199,6 @@
   margin: 0 0 8px;
   color: var(--danger);
   font-size: 13px;
-}
-@container session-workspace (min-width: 1040px) {
-  .session-workspace[data-resources='true'] > .session-conversation {
-    padding-top: 0;
-  }
-  .session-workspace[data-resources='true'][data-resources-expanded='true'] > .session-conversation {
-    /* Narrow the containing block itself so the absolute composer and the
-       in-flow transcript share the same center and width constraints. */
-    margin-right: 352px;
-  }
 }
 @keyframes session-resources-enter {
   from {

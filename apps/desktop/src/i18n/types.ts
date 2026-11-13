@@ -164,8 +164,13 @@ export interface Translations {
   sessionResources: {
     title: string
     createOutput: string
+    /** The request "Create an output" writes into the composer — a whole,
+     *  sendable sentence, not the button's label. */
+    createOutputPrompt: string
     addSource: string
     changes: string
+    /** What the Changes row counts: the folder's working tree, not the turn. */
+    changesHint: string
     outputs: string
     sources: string
     openFailed: string
