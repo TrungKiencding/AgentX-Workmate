@@ -79,7 +79,9 @@ def _builtin_gateway_liveness() -> Optional[bool]:
             return True  # external provider fires jobs without the gateway
         from hermes_cli.gateway import find_gateway_pids
 
-        return bool(find_gateway_pids())
+        # home_verified: a gateway of another AGENTX_HOME does not tick
+        # this home's jobs.
+        return bool(find_gateway_pids(home_verified=True))
     except Exception:
         return None
 
@@ -276,7 +278,8 @@ def cron_status():
         print()
         return
 
-    pids = find_gateway_pids()
+    # home_verified: only a gateway running in THIS home fires these jobs.
+    pids = find_gateway_pids(home_verified=True)
     if pids:
         # The gateway PROCESS is alive — but the cron ticker THREAD inside it
         # can die silently, or stay alive while every tick fails. Check both

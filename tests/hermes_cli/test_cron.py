@@ -114,7 +114,7 @@ class TestGatewayNotRunningWarning:
 
     def test_list_warns_when_gateway_absent(self, tmp_cron_dir, capsys, monkeypatch):
         create_job(prompt="Daily report", schedule="0 11 * * *")
-        monkeypatch.setattr("hermes_cli.gateway.find_gateway_pids", lambda: [])
+        monkeypatch.setattr("hermes_cli.gateway.find_gateway_pids", lambda **_k: [])
         cron_command(Namespace(cron_command="list", all=True))
         out = capsys.readouterr().out
         assert "Gateway is not running" in out
@@ -138,7 +138,7 @@ class TestExternalCronProviderStatus:
         )
         # Even with NO gateway process and NO ticker heartbeat, Chronos status
         # must NOT report a stall / "not firing".
-        monkeypatch.setattr("hermes_cli.gateway.find_gateway_pids", lambda: [])
+        monkeypatch.setattr("hermes_cli.gateway.find_gateway_pids", lambda **_k: [])
         cron_command(Namespace(cron_command="status"))
         out = capsys.readouterr().out
         assert "chronos" in out
@@ -158,7 +158,7 @@ class TestExternalCronProviderStatus:
         monkeypatch.setattr(
             "hermes_cli.cron._active_cron_provider_name", lambda: "chronos"
         )
-        monkeypatch.setattr("hermes_cli.gateway.find_gateway_pids", lambda: [])
+        monkeypatch.setattr("hermes_cli.gateway.find_gateway_pids", lambda **_k: [])
         cron_command(
             Namespace(
                 cron_command="create",
@@ -194,7 +194,7 @@ def test_cron_list_warns_when_gateway_not_running(monkeypatch, capsys):
             }
         ],
     )
-    monkeypatch.setattr("hermes_cli.gateway.find_gateway_pids", lambda: [])
+    monkeypatch.setattr("hermes_cli.gateway.find_gateway_pids", lambda **_k: [])
     monkeypatch.setattr(cron_cli, "_active_cron_provider_name", lambda: "builtin")
 
     cron_cli.cron_list()
