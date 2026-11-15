@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
-import { claimRunAnnouncement, finishedRuns, RECENT_RUN_MS, resetRunAnnouncements } from './cron-runs'
+import {
+  claimRunAnnouncement,
+  finishedRuns,
+  RECENT_RUN_MS,
+  resetRunAnnouncements,
+  RUN_EXCERPT_MAX,
+  runExcerpt
+} from './cron-runs'
 
 const NOW = Date.parse('2026-11-10T21:00:30+07:00')
 const at = (offsetMs: number) => new Date(NOW + offsetMs).toISOString()
@@ -72,5 +79,34 @@ describe('claimRunAnnouncement', () => {
     // The next run of the same job is a new announcement.
     expect(claimRunAnnouncement('j1', at(0))).toBe(true)
     expect(claimRunAnnouncement('j2', at(-1_000))).toBe(true)
+  })
+})
+
+describe('runExcerpt', () => {
+  it('passes a short result through as one line', () => {
+    expect(runExcerpt('⏰ 20:30 rồi —\n  đến giờ họp nhóm.')).toBe('⏰ 20:30 rồi — đến giờ họp nhóm.')
+  })
+
+  it('is empty when there is nothing to show', () => {
+    expect(runExcerpt(undefined)).toBe('')
+    expect(runExcerpt(null)).toBe('')
+    expect(runExcerpt(' \n\t ')).toBe('')
+  })
+
+  it('cuts a long result at a word, within the limit', () => {
+    const excerpt = runExcerpt('một hai ba bốn năm sáu bảy tám chín mười '.repeat(20))
+
+    expect(excerpt.length).toBeLessThanOrEqual(RUN_EXCERPT_MAX)
+    expect(excerpt.endsWith('…')).toBe(true)
+    expect(excerpt).not.toMatch(/\s…$/)
+    // No word is cut in half.
+    expect('một hai ba bốn năm sáu bảy tám chín mười'.split(' ')).toContain(excerpt.slice(0, -1).split(' ').pop())
+  })
+
+  it('still cuts text that has no spaces', () => {
+    const excerpt = runExcerpt('x'.repeat(1000))
+
+    expect(excerpt).toHaveLength(RUN_EXCERPT_MAX)
+    expect(excerpt.endsWith('…')).toBe(true)
   })
 })

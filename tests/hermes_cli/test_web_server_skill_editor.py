@@ -206,3 +206,27 @@ class TestCronJobSkills:
         )
         assert resp.status_code == 200
         assert resp.json()["skills"] == []
+
+
+class TestCronJobOutputPreview:
+    def test_list_carries_what_the_last_run_said(self, client, isolated_profiles):
+        """The desktop app announces a finished run off GET /api/cron/jobs, and
+        for a job with no chat to deliver into (a reminder made in a desktop
+        chat) that announcement is the only place the result appears — so the
+        list must pass ``last_output_preview`` through, not whitelist it away."""
+        from hermes_cli.web_server import _call_cron_for_profile
+
+        job = client.post(
+            "/api/cron/jobs",
+            json={"prompt": "Nhắc họp", "schedule": "30m"},
+        ).json()
+        _call_cron_for_profile(
+            "default", "mark_job_run", job["id"], True,
+            output_preview="⏰ 20:30 rồi — đến giờ họp nhóm dự án.",
+        )
+
+        listed = client.get("/api/cron/jobs", params={"profile": "default"}).json()
+        match = [j for j in listed if j["id"] == job["id"]]
+        assert match, "a completed one-shot must stay in the list"
+        assert match[0]["last_status"] == "ok"
+        assert match[0]["last_output_preview"] == "⏰ 20:30 rồi — đến giờ họp nhóm dự án."

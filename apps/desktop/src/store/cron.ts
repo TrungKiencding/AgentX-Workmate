@@ -1,7 +1,7 @@
 import { atom } from 'nanostores'
 
 import { translateNow } from '@/i18n'
-import { claimRunAnnouncement, finishedRuns, type RunStamps } from '@/lib/cron-runs'
+import { claimRunAnnouncement, finishedRuns, runExcerpt, type RunStamps } from '@/lib/cron-runs'
 import type { CronJob } from '@/types/hermes'
 
 import { dispatchNativeNotification } from './native-notifications'
@@ -37,7 +37,12 @@ function announceFinishedRuns(jobs: CronJob[]): void {
 
     const failed = Boolean(job.last_status && job.last_status !== 'ok')
     const title = translateNow(failed ? 'cron.runFailedTitle' : 'cron.runDoneTitle', jobLabel(job))
-    const message = translateNow(failed ? 'cron.runFailedBody' : 'cron.runDoneBody')
+
+    // A good run is announced with what it said: a reminder made in a chat has
+    // nowhere else to arrive, so this toast is the reminder. A failed run
+    // keeps its plain line — its diagnostic is not for a notification.
+    const said = failed ? '' : runExcerpt(job.last_output_preview)
+    const message = failed ? translateNow('cron.runFailedBody') : said || translateNow('cron.runDoneBody')
 
     notify({
       action: {
@@ -47,6 +52,9 @@ function announceFinishedRuns(jobs: CronJob[]): void {
           requestCronReview()
         }
       },
+      // A toast that carries the run's words is the message itself, so it
+      // waits to be read; the generic line keeps the usual timeout.
+      ...(said ? { durationMs: 0 } : {}),
       id: `cron-run:${job.id}`,
       kind: failed ? 'error' : 'success',
       message,

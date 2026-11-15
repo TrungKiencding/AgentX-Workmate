@@ -483,6 +483,79 @@ def _is_cron_silence_response(text: str) -> bool:
 
     return is_autonomous_silence_response(text)
 
+
+# Markdown → plain text for a one-line excerpt. Deliberately narrower than
+# gateway.platforms.helpers.strip_markdown, whose emphasis rules pair up any
+# two asterisks: here "2*3*4", "snake_case" and a redaction mask ("***") must
+# come through untouched, because the excerpt may be the whole message.
+_PREVIEW_RULE_LINE_RE = re.compile(r"^[ \t]*(?:[-=*_|:][ \t]*){3,}$", re.MULTILINE)
+_PREVIEW_FENCE_RE = re.compile(r"```[a-zA-Z0-9_+-]*")
+_PREVIEW_HEADING_RE = re.compile(r"^[ \t]{0,3}#{1,6}[ \t]+", re.MULTILINE)
+_PREVIEW_BULLET_RE = re.compile(r"^[ \t]*[-*+][ \t]+", re.MULTILINE)
+_PREVIEW_QUOTE_RE = re.compile(r"^[ \t]*>[ \t]?", re.MULTILINE)
+_PREVIEW_LINK_RE = re.compile(r"!?\[([^\]\n]+)\]\([^)\n]+\)")
+_PREVIEW_CODE_RE = re.compile(r"`([^`\n]+)`")
+_PREVIEW_EMPHASIS_RE = re.compile(
+    r"(?<![\w*_])(\*{1,3}|_{1,3})(?=[^\s*_])([^*_\n]+?)(?<=\S)\1(?![\w*_])"
+)
+
+
+def _preview_plain_text(text: str) -> str:
+    text = _PREVIEW_RULE_LINE_RE.sub("", text)
+    text = _PREVIEW_FENCE_RE.sub("", text)
+    text = _PREVIEW_HEADING_RE.sub("", text)
+    text = _PREVIEW_BULLET_RE.sub("• ", text)
+    text = _PREVIEW_QUOTE_RE.sub("", text)
+    text = _PREVIEW_LINK_RE.sub(r"\1", text)
+    text = _PREVIEW_CODE_RE.sub(r"\1", text)
+    # Twice: "**bold with _nested_ inside**" unwraps from the inside out.
+    for _ in range(2):
+        text = _PREVIEW_EMPHASIS_RE.sub(r"\2", text)
+    return " ".join(text.split())
+
+
+def _cron_output_preview(text: Any) -> Optional[str]:
+    """A notification-sized, plain-text excerpt of a run's final response.
+
+    Stored on the job record (``last_output_preview``) so a surface with no
+    chat channel can show what the run said: a reminder created in the desktop
+    app has no origin to deliver to, and its run used to be announced only as
+    "the schedule just ran" with the reminder itself one click away.
+
+    The excerpt leaves this process in a polled payload and an OS
+    notification, so it is redacted first and unconditionally. Fail closed:
+    if redaction cannot run there is no preview, and the announcement falls
+    back to its generic wording.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return None
+    try:
+        from agent.redact import redact_sensitive_text
+
+        cleaned = redact_sensitive_text(text, force=True)
+    except Exception:
+        return None
+    # Attachments are named by MEDIA: tags; a path is not part of the message.
+    try:
+        from gateway.platforms.base import BasePlatformAdapter
+
+        _media, cleaned = BasePlatformAdapter.extract_media(cleaned)
+    except Exception:
+        pass
+    cleaned = _preview_plain_text(str(cleaned or ""))
+    if not cleaned:
+        return None
+    from cron.jobs import OUTPUT_PREVIEW_MAX_CHARS
+
+    if len(cleaned) > OUTPUT_PREVIEW_MAX_CHARS:
+        cut = cleaned[: OUTPUT_PREVIEW_MAX_CHARS - 1]
+        # Prefer a word boundary, unless that would throw away most of it.
+        head, sep, _tail = cut.rpartition(" ")
+        if sep and len(head) >= OUTPUT_PREVIEW_MAX_CHARS // 2:
+            cut = head
+        cleaned = cut.rstrip() + "…"
+    return cleaned
+
 # ---------------------------------------------------------------------------
 # Persistent thread pool for parallel cron jobs.
 # The tick function submits jobs here and returns immediately so the ticker
@@ -5135,7 +5208,17 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
                     status="blocked_config",
                 )
             else:
-                mark_job_run(job["id"], success, error, delivery_error=delivery_error)
+                # What the run said, for surfaces that announce a run off the
+                # job record instead of receiving a delivery (the desktop app:
+                # deliver=origin with no origin delivers nowhere). Only a run
+                # that would have been delivered has one — not a [SILENT] run,
+                # not a failure, whose diagnostic stays out of notifications.
+                _mark_kwargs = {"delivery_error": delivery_error}
+                if success and should_deliver:
+                    _preview = _cron_output_preview(final_response)
+                    if _preview:
+                        _mark_kwargs["output_preview"] = _preview
+                mark_job_run(job["id"], success, error, **_mark_kwargs)
         normalized_deliver = _normalize_deliver_value(job.get("deliver", "local"))
         if delivery_error:
             delivery_outcome = "failed"

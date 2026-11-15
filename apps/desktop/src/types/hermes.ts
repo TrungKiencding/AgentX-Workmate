@@ -814,6 +814,9 @@ export interface CronJob {
   enabled: boolean
   id: string
   last_error?: null | string
+  /** Short plain-text excerpt of what the last good run said (redacted by the
+   *  backend); absent after a silent or failed run. */
+  last_output_preview?: null | string
   last_run_at?: null | string
   /** 'ok' after a good run; anything else means the last run failed. */
   last_status?: null | string

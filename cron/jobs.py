@@ -2061,9 +2061,16 @@ def clear_drift_alerted(job_id: str) -> None:
     _set_alert_flag(job_id, "drift_alerted", False)
 
 
+# Upper bound for ``last_output_preview`` on a job record. The preview is a
+# notification-sized excerpt of the last run's response, not a copy of it —
+# the full output stays in OUTPUT_DIR and in the run's session.
+OUTPUT_PREVIEW_MAX_CHARS = 280
+
+
 def mark_job_run(job_id: str, success: bool, error: Optional[str] = None,
                  delivery_error: Optional[str] = None,
-                 status: Optional[str] = None):
+                 status: Optional[str] = None,
+                 output_preview: Optional[str] = None):
     """
     Mark a job as having been run.
     
@@ -2078,6 +2085,13 @@ def mark_job_run(job_id: str, success: bool, error: Optional[str] = None,
     the pre-dispatch configuration validation refused to run the agent
     (T1-26), so `cronjob list` distinguishes "your config is broken" from
     "the run itself failed".
+
+    ``output_preview`` is a short, already-redacted plain-text excerpt of this
+    run's response (see ``cron.scheduler._cron_output_preview``), stored as
+    ``last_output_preview``. A surface with no chat channel — the desktop app —
+    announces a run off the job list, so the record has to carry what the run
+    said. It describes this run only: a run that passes none (silent, failed)
+    clears the previous one.
     """
     with _jobs_lock():
         jobs = load_jobs()
@@ -2087,6 +2101,12 @@ def mark_job_run(job_id: str, success: bool, error: Optional[str] = None,
                 job["last_run_at"] = now
                 job["last_status"] = status or ("ok" if success else "error")
                 job["last_error"] = error if not success else None
+                _preview = (
+                    output_preview.strip()
+                    if success and isinstance(output_preview, str)
+                    else ""
+                )
+                job["last_output_preview"] = _preview[:OUTPUT_PREVIEW_MAX_CHARS] or None
                 # A healthy run means the configuration validates again — drop
                 # the preflight alert-dedup marker so a FUTURE config break
                 # re-alerts instead of being silently swallowed. Same contract

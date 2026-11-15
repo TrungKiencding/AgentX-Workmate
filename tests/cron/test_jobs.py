@@ -460,6 +460,38 @@ class TestMarkJobRun:
         assert updated["last_error"] is None
         assert updated["last_delivery_error"] == "platform 'telegram' not configured"
 
+    def test_output_preview_kept_on_completed_oneshot(self, tmp_cron_dir):
+        """A reminder is a one-shot: the record that says it ran must also say
+        what it said, or a surface with no chat channel has nothing to show."""
+        job = create_job(prompt="Remind", schedule="30m", repeat=1)
+        mark_job_run(job["id"], success=True, output_preview="⏰ 20:30 rồi — đến giờ họp nhóm")
+        updated = get_job(job["id"])
+        assert updated["state"] == "completed"
+        assert updated["last_output_preview"] == "⏰ 20:30 rồi — đến giờ họp nhóm"
+        listed = {j["id"]: j for j in list_jobs(include_disabled=True)}
+        assert listed[job["id"]]["last_output_preview"] == "⏰ 20:30 rồi — đến giờ họp nhóm"
+
+    def test_output_preview_never_outlives_its_run(self, tmp_cron_dir):
+        """The preview describes the last run only: a later run without one
+        (silent, or failed) must not leave the previous run's words behind."""
+        job = create_job(prompt="Report", schedule="every 1h")
+        mark_job_run(job["id"], success=True, output_preview="first run")
+        assert get_job(job["id"])["last_output_preview"] == "first run"
+
+        mark_job_run(job["id"], success=True)
+        assert get_job(job["id"]).get("last_output_preview") is None
+
+        mark_job_run(job["id"], success=True, output_preview="third run")
+        mark_job_run(job["id"], success=False, error="timeout", output_preview="must not be kept")
+        assert get_job(job["id"]).get("last_output_preview") is None
+
+    def test_output_preview_is_bounded(self, tmp_cron_dir):
+        from cron.jobs import OUTPUT_PREVIEW_MAX_CHARS
+
+        job = create_job(prompt="Report", schedule="every 1h")
+        mark_job_run(job["id"], success=True, output_preview="x" * 5000)
+        assert len(get_job(job["id"])["last_output_preview"]) <= OUTPUT_PREVIEW_MAX_CHARS
+
 
     def test_recurring_cron_not_disabled_when_croniter_missing(self, tmp_cron_dir, monkeypatch):
         """Regression test for issue #16265.

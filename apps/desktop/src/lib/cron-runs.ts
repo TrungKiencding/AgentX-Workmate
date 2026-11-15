@@ -64,6 +64,29 @@ export function finishedRuns<T extends RunStamped>(
   return { finished, seen: next }
 }
 
+/** How much of a run's result an announcement shows: a toast or an OS
+ *  notification holds a few lines, and the whole result is one click away. */
+export const RUN_EXCERPT_MAX = 180
+
+/**
+ * What a finished run said, sized for an announcement — or '' when it left
+ * nothing to show. The backend sends `last_output_preview` already redacted
+ * and flattened to plain text; this only fits it to the surface.
+ */
+export function runExcerpt(preview: null | string | undefined, max: number = RUN_EXCERPT_MAX): string {
+  const text = typeof preview === 'string' ? preview.replace(/\s+/g, ' ').trim() : ''
+
+  if (text.length <= max) {
+    return text
+  }
+
+  const cut = text.slice(0, max - 1)
+  const lastSpace = cut.lastIndexOf(' ')
+
+  // Prefer a word boundary, unless that would throw away most of it.
+  return `${(lastSpace >= max / 2 ? cut.slice(0, lastSpace) : cut).trimEnd()}…`
+}
+
 // One run, one announcement. The core cron store and the assistants plugin can
 // both see the same job (a list scoped to every profile includes assistants'
 // routines), and each would otherwise notify.

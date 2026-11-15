@@ -490,6 +490,48 @@ class TestLocalDeliveryNotice:
         assert created["deliver"] == "origin"
         assert "local-only cron job" not in created["message"]
 
+    @pytest.mark.parametrize("deliver", [None, "origin"])
+    def test_desktop_session_is_told_where_the_result_really_shows(self, deliver):
+        """A reminder made in a desktop chat was promised "straight into this
+        chat" and then appeared nowhere in it. The desktop has no chat-delivery
+        channel but it does announce runs, so the notice must say exactly that
+        — and must not send the agent to a messaging platform it then
+        contradicts."""
+        from gateway.session_context import set_session_vars
+
+        set_session_vars(source="desktop")
+        kwargs = {"deliver": deliver} if deliver else {}
+        created = json.loads(
+            cronjob(action="create", prompt="Nhắc họp", schedule="30m", **kwargs)
+        )
+        assert created["success"] is True
+        message = created["message"]
+        assert "will NOT be posted into this chat" in message
+        assert "notification on this computer" in message
+        assert "Lịch tự động" in message
+        # The CLI/TUI wording does not describe this surface.
+        assert "CLI/TUI" not in message
+        assert "deliver='telegram'" not in message
+
+    def test_desktop_session_explicit_local_no_notice(self):
+        from gateway.session_context import set_session_vars
+
+        set_session_vars(source="desktop")
+        created = json.loads(
+            cronjob(action="create", prompt="x", schedule="30m", deliver="local")
+        )
+        assert "will NOT be posted into this chat" not in created["message"]
+
+    def test_tui_session_keeps_the_cli_wording(self):
+        from gateway.session_context import set_session_vars
+
+        set_session_vars(source="tui")
+        created = json.loads(
+            cronjob(action="create", prompt="x", schedule="every 2m")
+        )
+        assert "local-only cron job" in created["message"]
+        assert "CLI/TUI sessions have no live-delivery channel" in created["message"]
+
 
 class TestValidateCronBaseUrl:
     """The cron base_url guard must not let a NAMED custom provider's stored
