@@ -939,6 +939,56 @@ def extract_edit_diff(
     return _diff_from_snapshot(snapshot)
 
 
+_UNIFIED_HUNK_RE = re.compile(r"^@@ -\d+(?:,(\d+))? \+\d+(?:,(\d+))? @@")
+
+
+def count_diff_line_stats(diff: str) -> dict[str, int]:
+    """Count the added and removed lines of a whole unified diff.
+
+    Counted from the full diff, never from the inline preview: the preview is
+    capped (``_MAX_INLINE_DIFF_LINES``), so a 267-line new file previews 78
+    ``+`` lines and would be reported as ``+78``.
+
+    Hunk lengths decide what is a changed line, so a removed ``-- note`` (which
+    reads ``--- note``) is a removal and not the next file's header. A hunk
+    with no lengths, or one that runs short, falls back to reading the prefix.
+    """
+    added = removed = 0
+    old_left = new_left = 0  # lines the current hunk still owes
+
+    for line in diff.splitlines():
+        if old_left > 0 or new_left > 0:
+            if line.startswith("\\"):  # "\ No newline at end of file"
+                continue
+            if line.startswith("+") and new_left > 0:
+                added += 1
+                new_left -= 1
+                continue
+            if line.startswith("-") and old_left > 0:
+                removed += 1
+                old_left -= 1
+                continue
+            if (line.startswith(" ") or not line) and old_left > 0 and new_left > 0:
+                old_left -= 1
+                new_left -= 1
+                continue
+            old_left = new_left = 0  # hunk ran short: read this line afresh
+
+        hunk = _UNIFIED_HUNK_RE.match(line)
+        if hunk:
+            old_left = int(hunk.group(1)) if hunk.group(1) is not None else 1
+            new_left = int(hunk.group(2)) if hunk.group(2) is not None else 1
+            continue
+        if line.startswith(("--- ", "+++ ")):
+            continue
+        if line.startswith("+"):
+            added += 1
+        elif line.startswith("-"):
+            removed += 1
+
+    return {"added": added, "removed": removed}
+
+
 def _emit_inline_diff(diff_text: str, print_fn) -> bool:
     """Emit rendered diff text through the CLI's prompt_toolkit-safe printer."""
     if print_fn is None or not diff_text:
@@ -1055,8 +1105,13 @@ def render_edit_diff_with_delta(
     function_args: dict | None = None,
     snapshot: LocalEditSnapshot | None = None,
     print_fn=None,
+    stats: dict | None = None,
 ) -> bool:
-    """Render an edit diff inline without taking over the terminal UI."""
+    """Render an edit diff inline without taking over the terminal UI.
+
+    ``stats``, when given, receives the ``added``/``removed`` line counts of
+    the whole diff — what is rendered is a capped preview of it.
+    """
     diff = extract_edit_diff(
         tool_name,
         result,
@@ -1065,6 +1120,11 @@ def render_edit_diff_with_delta(
     )
     if not diff:
         return False
+    if stats is not None:
+        try:
+            stats.update(count_diff_line_stats(diff))
+        except Exception as exc:
+            logger.debug("Could not count inline diff lines: %s", exc)
     try:
         rendered_lines = _summarize_rendered_diff_sections(diff)
     except Exception as exc:

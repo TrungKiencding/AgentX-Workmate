@@ -5731,14 +5731,20 @@ def _on_tool_complete(sid: str, tool_call_id: str, name: str, args: dict, result
         from agent.display import render_edit_diff_with_delta
 
         rendered: list[str] = []
+        diff_stats: dict = {}
         if render_edit_diff_with_delta(
             name,
             result,
             function_args=args,
             snapshot=snapshot,
             print_fn=rendered.append,
+            stats=diff_stats,
         ):
             payload["inline_diff"] = "\n".join(rendered)
+            # inline_diff is a capped preview (80 lines). The +/- of the whole
+            # change rides beside it so a client never counts the preview.
+            if diff_stats:
+                payload["inline_diff_stats"] = diff_stats
     except Exception:
         pass
     if _tool_progress_enabled(sid) or payload.get("inline_diff") or _tool_lifecycle_required_for_ui(name):

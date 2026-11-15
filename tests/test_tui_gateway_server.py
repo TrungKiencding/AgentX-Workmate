@@ -1150,6 +1150,32 @@ def test_tui_non_interactive_tool_lifecycle_stays_hidden_when_tool_progress_off(
     assert events == []
 
 
+def test_tool_complete_carries_real_diff_stats_past_the_preview_cap(monkeypatch, tmp_path):
+    """The inline diff is a capped preview; its +/- must not be read as the
+    size of the change. A 200-line new file is +200, not +78."""
+    events: list[tuple[str, str, dict]] = []
+    monkeypatch.setattr(
+        server, "_emit", lambda event_type, sid, payload: events.append((event_type, sid, payload))
+    )
+    monkeypatch.setitem(
+        server._sessions,
+        "diff-stats-test",
+        {"tool_progress_mode": "all", "tool_started_at": {}},
+    )
+
+    target = tmp_path / "analysis.py"
+    args = {"path": str(target), "content": "..."}
+
+    server._on_tool_start("diff-stats-test", "tool-1", "write_file", args)
+    target.write_text("".join(f"line {i}\n" for i in range(200)), encoding="utf-8")
+    server._on_tool_complete("diff-stats-test", "tool-1", "write_file", args, '{"bytes_written": 1}')
+
+    complete = [payload for event_type, _sid, payload in events if event_type == "tool.complete"]
+    assert len(complete) == 1
+    assert "omitted" in complete[0]["inline_diff"]
+    assert complete[0]["inline_diff_stats"] == {"added": 200, "removed": 0}
+
+
 def test_dispatch_rejects_non_object_request():
     resp = server.dispatch([])
 

@@ -74,6 +74,8 @@ export type GatewayEventPayload = {
   summary?: string
   error?: string | boolean
   inline_diff?: string
+  /** +/- of the whole edit; `inline_diff` is only a capped preview of it. */
+  inline_diff_stats?: { added?: number; removed?: number }
   duration_s?: number
   todos?: unknown
   model?: string
@@ -730,6 +732,7 @@ function toolResult(
   return {
     ...parsedResult,
     ...(payload?.inline_diff ? { inline_diff: payload.inline_diff } : {}),
+    ...(payload?.inline_diff_stats ? { inline_diff_stats: payload.inline_diff_stats } : {}),
     ...(summary ? { summary } : {}),
     ...(payload?.message ? { message: payload.message } : {}),
     ...(payload?.duration_s !== undefined ? { duration_s: payload.duration_s } : {}),
