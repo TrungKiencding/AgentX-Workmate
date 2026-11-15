@@ -217,6 +217,38 @@ describe('HubStatus', () => {
     await waitFor(() => expect(invalidate).toHaveBeenCalledWith({ queryKey: ['skills-list'] }))
   })
 
+  it("the reload it asks for is one the MCP store's probes wait out", async () => {
+    const { $gateway } = await import('@/store/gateway')
+    const { mcpReloadInFlight, resetMcpReloads } = await import('./mcp-model')
+    let land!: (value: unknown) => void
+    const request = vi.fn(() => new Promise(resolve => (land = resolve)))
+    $gateway.set({ request } as unknown as Parameters<typeof $gateway.set>[0])
+
+    try {
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 1 }))
+      await renderStatus()
+      await waitFor(() => expect(tickSkillHub).toHaveBeenCalledTimes(1))
+      expect(mcpReloadInFlight()).toBe(false)
+
+      getSkillHubChanges.mockResolvedValue(changes({ mcp_revision: 2 }))
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Sync now' }))
+      })
+
+      // A probe started now would be cancelled by this reload: the store holds it back.
+      await waitFor(() => expect(request).toHaveBeenCalledWith('reload.mcp', { confirm: true }))
+      expect(mcpReloadInFlight()).toBe(true)
+
+      await act(async () => {
+        land({})
+      })
+      expect(mcpReloadInFlight()).toBe(false)
+    } finally {
+      resetMcpReloads()
+      $gateway.set(null)
+    }
+  })
+
   it('an MCP server the sync changed here reloads MCP in live sessions and refreshes the MCP catalog', async () => {
     const { $gateway } = await import('@/store/gateway')
     const request = vi.fn().mockResolvedValue({})

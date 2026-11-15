@@ -150,6 +150,51 @@ export const serverFingerprint = (server: Record<string, unknown>): string =>
 export const probeKey = (name: string, server: Record<string, unknown> | undefined): string =>
   `${normalizeProfileKey($activeGatewayProfile.get())}::${name}::${serverFingerprint(server ?? {})}`
 
+// A probe and a reload take turns. `reload.mcp` shuts the backend's MCP loop
+// down and rebuilds it, and that cancels a probe still connecting on the loop:
+// the test endpoint then answers `ok: false` for a server that is merely
+// starting (the reload itself connects it a moment later). A write fires a
+// reload and a probe together, so the card read "Lỗi kết nối" until someone
+// pressed "Thử lại". Reloads are counted here, outside the component, so a
+// store that mounts while one is still in flight waits for it too.
+const reloadsInFlight = new Set<symbol>()
+let reloadsStarted = 0
+let reloadsLanded: Promise<unknown> = Promise.resolve()
+
+/** Counts a `reload.mcp` request as in flight until it settles. Returns the request itself. */
+export function trackMcpReload<T>(request: Promise<T>): Promise<T> {
+  const token = Symbol('reload.mcp')
+  reloadsInFlight.add(token)
+  reloadsStarted += 1
+
+  const landed = request.then(
+    () => reloadsInFlight.delete(token),
+    () => reloadsInFlight.delete(token)
+  )
+
+  reloadsLanded = Promise.all([reloadsLanded, landed])
+
+  return request
+}
+
+export const mcpReloadInFlight = (): boolean => reloadsInFlight.size > 0
+
+/** How many reloads have begun: a probe compares before and after to see one began under it. */
+export const mcpReloadsStarted = (): number => reloadsStarted
+
+/** Resolves once no reload is in flight. */
+export async function mcpReloadsLanded(): Promise<void> {
+  while (reloadsInFlight.size > 0) {
+    await reloadsLanded
+  }
+}
+
+/** Forgets every reload in flight (tests start cold). */
+export function resetMcpReloads(): void {
+  reloadsInFlight.clear()
+  reloadsLanded = Promise.resolve()
+}
+
 export type Probe = McpTestResult | 'probing'
 
 // 'missing-runtime': the server's command (or the runtime it needs, uv for

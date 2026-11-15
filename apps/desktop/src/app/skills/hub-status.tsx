@@ -23,7 +23,7 @@ import type { SkillHubChangesResponse, SkillHubInstallRow, SkillHubUpdate } from
 
 import { AGENTX_CONFIG_KEY } from '../hooks/use-config-record'
 
-import { MCP_GATEWAY_KEY } from './mcp-model'
+import { MCP_GATEWAY_KEY, trackMcpReload } from './mcp-model'
 import { ReplaceEditedSkillDialog, type ReplaceTarget } from './replace-edited-dialog'
 
 // What the hub wants on this machine, and what the backend did about it.
@@ -178,10 +178,12 @@ export function useHubSync(): HubSync {
     if (seenMcpRevision !== null && seenMcpRevision !== mcpRevision) {
       void queryClient.invalidateQueries({ queryKey: ['mcp-catalog'] })
       void queryClient.invalidateQueries({ queryKey: AGENTX_CONFIG_KEY })
-      void $gateway
-        .get()
-        ?.request('reload.mcp', { confirm: true })
-        .catch(() => undefined)
+      const gateway = $gateway.get()
+
+      // Tracked: the MCP store's probes wait this reload out (it would cancel them).
+      if (gateway) {
+        void trackMcpReload(gateway.request('reload.mcp', { confirm: true })).catch(() => undefined)
+      }
     }
 
     if (seenMcpRevision !== mcpRevision) {
