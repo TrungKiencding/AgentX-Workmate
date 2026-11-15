@@ -15168,6 +15168,17 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
             def run_agent():
                 nonlocal result
+                if getattr(self, "_single_query_mode", False):
+                    # Single-query (`chat -q`): no later turn exists for a
+                    # detached subagent's result to re-enter. main() declares
+                    # the channel stateless, but this thread starts with an
+                    # empty context, so repeat it here.
+                    try:
+                        from gateway.session_context import declare_stateless_channel
+
+                        declare_stateless_channel()
+                    except Exception:
+                        pass
                 # Set callbacks inside the agent thread so thread-local storage
                 # in terminal_tool is populated for this thread.  The main thread
                 # registration (run() line ~9046) is invisible here because
@@ -19754,6 +19765,24 @@ def main(
         os.environ["AGENTX_SINGLE_QUERY_SESSION"] = "1"
         if not cli._claim_active_session("cli", stderr=bool(quiet)):
             sys.exit(1)
+        # A single-query run prints one response and exits. Nothing drains
+        # process_registry.completion_queue afterwards (only the interactive
+        # process_loop and the gateway watchers do), so a top-level
+        # delegate_task — forced into the background — was interrupted at
+        # exit and its result never reached the user. Declare the channel
+        # stateless, as `agentx -z` does, so delegations run inline and
+        # return within the turn. Scoped to this call (reset in ``finally``)
+        # so in-process callers are not left with a stateless context.
+        _stateless_reset = None
+        try:
+            from gateway.session_context import _SESSION_ASYNC_DELIVERY
+
+            _stateless_token = _SESSION_ASYNC_DELIVERY.set(False)
+
+            def _stateless_reset() -> None:
+                _SESSION_ASYNC_DELIVERY.reset(_stateless_token)
+        except Exception:
+            _stateless_reset = None
         try:
             query, single_query_images = _collect_query_images(query, image)
             # Kanban workers spawn with ``agentx chat -q "work kanban task <id>"``;
@@ -19972,7 +20001,11 @@ def main(
                 cli.chat(query, images=single_query_images or None)
                 cli._print_exit_summary(clear_screen=False)
         finally:
-            _finalize_single_query(cli)
+            try:
+                _finalize_single_query(cli)
+            finally:
+                if _stateless_reset is not None:
+                    _stateless_reset()
         return
     
     # Run interactive mode
