@@ -94,6 +94,7 @@ import {
   tokenPreview
 } from './connection-config'
 import { describeCrashReason, installCrashForensics } from './crash-forensics'
+import { CronUsageOutbox } from './cron-usage-outbox'
 import { adoptServedDashboardToken } from './dashboard-token'
 import { DOCUMENT_MIME_TYPES, previewKindForFile } from './deliverables'
 import { loadOrCreateInstallationId, sshOwnershipId } from './desktop-installation'
@@ -6263,6 +6264,8 @@ async function resolveLocalBackendAuth(
   // owned by the Keycloak layer (keyed by realm, not by the ephemeral port), so
   // the entry here is the current access token, not the refresh authority.
   _nativeTokens.set(baseUrl, session.tokens)
+  // A session to send with: what scheduled runs left while there was none goes now.
+  scheduleCronUsageDrain()
 
   const ticket = await patience.run('ws ticket', () => mintGatewayWsTicket(baseUrl))
 
@@ -10480,6 +10483,42 @@ const usageReporter = new UsageReporter({
       : null
   }
 })
+
+// Scheduled runs fire with or without this app; each leaves its event in its home's
+// outbox, and this sends them with the signed-in session (cron-usage-outbox.ts).
+const cronUsageOutbox = new CronUsageOutbox({
+  root: AGENTX_HOME,
+  identity: async () => {
+    const config = keycloakConfigForProfile()
+
+    return config
+      ? usageIdentityFromSession(await ensureKeycloakAccessToken(config, keycloakDeps()), config.issuer)
+      : null
+  },
+  deliver: (identity, events) => usageReporter.deliver(identity, events),
+  log: rememberLog
+})
+
+const CRON_USAGE_DRAIN_MS = 5 * 60 * 1000
+let cronUsageDrainTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Drains the outbox shortly (a sign-in or a backend start), then every few minutes. */
+function scheduleCronUsageDrain(delayMs = 15_000): void {
+  if (cronUsageDrainTimer) {
+    clearTimeout(cronUsageDrainTimer)
+  }
+
+  cronUsageDrainTimer = setTimeout(() => {
+    cronUsageDrainTimer = null
+    void cronUsageOutbox.drain().finally(() => {
+      if (!cronUsageDrainTimer) {
+        scheduleCronUsageDrain(CRON_USAGE_DRAIN_MS)
+      }
+    })
+  }, delayMs)
+  // Never what keeps the app from quitting: a file left unsent goes next time.
+  cronUsageDrainTimer.unref?.()
+}
 
 ipcMain.handle('agentx:usage:event', (_event, signal) => {
   if (!signal || typeof signal.key !== 'string' || signal.key.length > 512) {

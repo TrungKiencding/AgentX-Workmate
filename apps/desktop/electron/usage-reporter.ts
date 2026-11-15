@@ -46,6 +46,26 @@ const FALLBACK_ERROR_CODE = 'operation_failed'
 /** The `error_code` shape the SSO console accepts. */
 const ERROR_CODE = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,79}$/
 
+/** What a source says of one operation; the reporter adds the product, release and platform. */
+export interface UsageEventFacts {
+  event_id: string
+  occurred_at: string
+  feature: string
+  outcome: 'success' | 'failure'
+  duration_ms: number
+  error_code?: string
+}
+
+/**
+ * How a delivery ended: `accepted` (202); `refused` with the console's HTTP
+ * status (a 4xx other than 429: retrying the same events cannot help); or
+ * `failed` when three attempts got no answer, a 5xx or a 429 (try later).
+ */
+export type UsageDelivery = 'accepted' | { refused: number } | 'failed'
+
+/** The most events one request carries (sso_console/api/routes_analytics.py). */
+export const USAGE_BATCH_MAX = 100
+
 /** Main-process owner: multiple renderer windows cannot duplicate a turn. */
 export class UsageReporter {
   private readonly active = new Map<string, ActiveTurn>()
@@ -111,63 +131,18 @@ export class UsageReporter {
         return false
       }
 
-      const issuer = new URL(current.issuer)
-
-      if (issuer.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(issuer.hostname)) {
-        return false
-      }
-
-      const event = {
-        product: 'agentx-workmate',
-        event_id: randomUUID(),
-        occurred_at: new Date().toISOString(),
-        feature: 'chat.turn',
-        outcome: failed ? 'failure' : 'success',
-        version: this.deps.version,
-        os: this.deps.os,
-        browser: 'Native',
-        duration_ms: Math.min(3600000, Math.max(0, Math.round(this.now() - turn.started))),
-        ...(failed ? { error_code: code && ERROR_CODE.test(code) ? code : FALLBACK_ERROR_CODE } : {})
-      }
-
-      let lastFailure = ''
-
-      for (let attempt = 0; attempt < 3; attempt++) {
-        try {
-          const response = await (this.deps.fetch || fetch)(`${issuer.origin}/sso/api/analytics/events`, {
-            method: 'POST',
-            redirect: 'error',
-            headers: {
-              Authorization: `Bearer ${current.token}`,
-              'Content-Type': 'application/json',
-              'X-SSO-Request': '1'
-            },
-            body: JSON.stringify({ events: [event] }),
-            signal: AbortSignal.timeout(3000)
-          })
-
-          if (response.status === 202) {
-            return true
+      return (
+        (await this.deliver(current, [
+          {
+            event_id: randomUUID(),
+            occurred_at: new Date().toISOString(),
+            feature: 'chat.turn',
+            outcome: failed ? 'failure' : 'success',
+            duration_ms: Math.min(3600000, Math.max(0, Math.round(this.now() - turn.started))),
+            ...(failed ? { error_code: code && ERROR_CODE.test(code) ? code : FALLBACK_ERROR_CODE } : {})
           }
-
-          if (response.status < 500 && response.status !== 429) {
-            this.logOnce(`[usage] the SSO console refused usage metrics: HTTP ${response.status}`)
-
-            return false
-          }
-
-          lastFailure = `HTTP ${response.status}`
-        } catch (error) {
-          /* Retry with the same UUID; never include prompt text. */
-          lastFailure = error instanceof Error ? error.name : 'network error'
-        }
-
-        if (attempt < 2) {
-          await (this.deps.sleep || (ms => new Promise(resolve => setTimeout(resolve, ms))))((attempt + 1) * 1000)
-        }
-      }
-
-      this.logOnce(`[usage] usage metrics could not be delivered after 3 attempts: ${lastFailure}`)
+        ])) === 'accepted'
+      )
     } catch {
       /* Metrics never change the operation or sign-in result. */
     } finally {
@@ -175,5 +150,79 @@ export class UsageReporter {
     }
 
     return false
+  }
+
+  /**
+   * Sends events as `identity`, retrying the same request (same UUIDs) twice. Never
+   * logs a token or event content, and never throws. Not for `identity` without a
+   * token, or more than `USAGE_BATCH_MAX` events: those are refused here.
+   */
+  async deliver(identity: UsageIdentity, events: UsageEventFacts[]): Promise<UsageDelivery> {
+    if (!identity.token || events.length === 0 || events.length > USAGE_BATCH_MAX) {
+      return { refused: 0 }
+    }
+
+    let issuer: URL
+
+    try {
+      issuer = new URL(identity.issuer)
+    } catch {
+      return { refused: 0 }
+    }
+
+    if (issuer.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(issuer.hostname)) {
+      return { refused: 0 }
+    }
+
+    const body = JSON.stringify({
+      events: events.map(event => ({
+        product: 'agentx-workmate',
+        ...event,
+        version: this.deps.version,
+        os: this.deps.os,
+        browser: 'Native'
+      }))
+    })
+
+    let lastFailure = ''
+
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const response = await (this.deps.fetch || fetch)(`${issuer.origin}/sso/api/analytics/events`, {
+          method: 'POST',
+          redirect: 'error',
+          headers: {
+            Authorization: `Bearer ${identity.token}`,
+            'Content-Type': 'application/json',
+            'X-SSO-Request': '1'
+          },
+          body,
+          signal: AbortSignal.timeout(3000)
+        })
+
+        if (response.status === 202) {
+          return 'accepted'
+        }
+
+        if (response.status < 500 && response.status !== 429) {
+          this.logOnce(`[usage] the SSO console refused usage metrics: HTTP ${response.status}`)
+
+          return { refused: response.status }
+        }
+
+        lastFailure = `HTTP ${response.status}`
+      } catch (error) {
+        /* Retry with the same UUIDs; never include prompt text. */
+        lastFailure = error instanceof Error ? error.name : 'network error'
+      }
+
+      if (attempt < 2) {
+        await (this.deps.sleep || (ms => new Promise(resolve => setTimeout(resolve, ms))))((attempt + 1) * 1000)
+      }
+    }
+
+    this.logOnce(`[usage] usage metrics could not be delivered after 3 attempts: ${lastFailure}`)
+
+    return 'failed'
   }
 }

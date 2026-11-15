@@ -108,6 +108,13 @@ def exception_failure_code(error: BaseException) -> str:
         return FALLBACK_CODE
 
 
+def reason_failure_code(reason: str, *, billing_unverified: bool = False) -> str:
+    """The code of a classified ``failure_reason`` alone, for a run that kept only that
+    (a scheduled run's ``[failure_reason:…]`` marker, cron/scheduler.py)."""
+    code = _failure_reason_code({"failure_reason": reason, "billing_unverified": billing_unverified})
+    return code or FALLBACK_CODE
+
+
 def _failure_reason_code(result: Mapping[str, Any]) -> str | None:
     """The code of the classified reason a failed result carries, if it carries one."""
     reason = str(result.get("failure_reason") or "")

@@ -278,6 +278,55 @@ def classify_cron_failure(error: str | None, *, agent_run: bool = True) -> str:
     return _FAILURE_REASON_TO_KIND.get(classified.failure_reason, "unknown")
 
 
+# A failed run's kind in the SSO usage metrics' shared words (AgentX-sso
+# docs/dashboard.md, "Mã lỗi"), for the ``cron.run`` event (cron/usage_outbox.py).
+_KIND_USAGE_CODES = {
+    "drift_skip": "config_drift",
+    "blocked_config": "invalid_config",
+    "interrupted": "app_shutdown",
+    "stalled": "timeout",
+    "busy": "busy",
+    "usage_limit": "quota_exceeded",
+    "rate_limit": "rate_limited",
+    "timeout": "timeout",
+    "auth": "auth_failed",
+    "model_not_found": "model_unavailable",
+    "unreachable": "network_error",
+    "too_long": "context_too_long",
+    "content_filtered": "content_filtered",
+    "request_rejected": "bad_request",
+    "service_unavailable": "upstream_error",
+    "unknown": "operation_failed",
+}
+
+
+def cron_usage_failure_code(error: str | None, *, agent_run: bool = True) -> str:
+    """The ``error_code`` of a failed run's ``cron.run`` event. Never raises.
+
+    The reason the agent classified the failure under (its ``[failure_reason:…]``
+    marker) is read the way a chat turn's is (tui_gateway/usage_outcome.py), so a
+    rate limit is ``rate_limited`` whether a person or a schedule hit it. Without
+    one, the run's kind (``classify_cron_failure``) says it; a script-only job
+    whose script failed is ``script_failed``.
+    """
+    try:
+        text = str(error or "")
+        kind = classify_cron_failure(text, agent_run=agent_run)
+        marker = FAILURE_REASON_MARKER_RE.search(text.lower())
+        if marker and kind not in ("drift_skip", "blocked_config"):
+            from tui_gateway.usage_outcome import reason_failure_code
+
+            reason = marker.group(1)
+            if reason == "billing_unverified":  # _cron_failure_marker's own name for it
+                return reason_failure_code("billing", billing_unverified=True)
+            return reason_failure_code(reason)
+        if kind == "unknown" and not agent_run:
+            return "script_failed"
+        return _KIND_USAGE_CODES.get(kind, "operation_failed")
+    except Exception:  # noqa: BLE001 - a metric's label must not break the run
+        return "operation_failed"
+
+
 def _summarize_cron_failure_for_delivery(job: dict, error: str | None) -> str:
     """Describe the impact and recovery without copying diagnostic text to chat.
 
@@ -449,6 +498,7 @@ _LEGACY_HOME_TARGET_ENV_VARS = {
 
 from cron.jobs import get_due_jobs, mark_job_run, save_job_output, advance_next_runs, claim_dispatch, heartbeat_run_claim
 from cron.executions import create_execution, finish_execution, mark_execution_running
+from cron.usage_outbox import record_fire as _record_cron_usage
 
 # Sentinel: when a cron agent has nothing new to report, it can start its
 # response with this marker to suppress delivery.  Output is still saved
@@ -5035,6 +5085,9 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
     execution_id = job.get("execution_id")
     if not execution_id:
         execution_id = create_execution(job["id"], source="direct")["id"]
+    # Set once the run starts: a fire that never ran (its claim refused) is no
+    # run in the usage metrics.
+    usage_started: float | None = None
     try:
         # Pre-run dispatch claim (issue #38758): atomically commit a finite
         # one-shot's dispatch BEFORE its side effect runs, so a tick that dies
@@ -5058,6 +5111,7 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
         # The attempt is claimed durably before executor/provider dispatch and
         # becomes running only immediately before the actual run.
         mark_execution_running(execution_id)
+        usage_started = time.monotonic()
 
         # Run the job under the profile's secret scope. get_secret() fails
         # closed outside a scope once profile isolation is in play (multiple
@@ -5197,7 +5251,8 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
         # Treat empty final_response as a soft failure so last_status
         # is not "ok" — the agent ran but produced nothing useful.
         # (issue #8585)
-        if success and not final_response.strip():
+        empty_response = success and not final_response.strip()
+        if empty_response:
             success = False
             error = "Agent completed but produced empty response (model error, timeout, or misconfiguration)"
 
@@ -5234,6 +5289,10 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
             error=error,
             delivery_outcome=delivery_outcome,
         )
+        _queue_cron_usage_event(
+            execution_id, job, success=success, error=error, started=usage_started,
+            error_code="empty_response" if empty_response else None,
+        )
         return True
 
     except BaseException as e:  # noqa: BLE001 — deliberate: see below
@@ -5264,9 +5323,42 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
                 "Failed to finish execution record for job %s: %s",
                 job["id"], record_err,
             )
+        _queue_cron_usage_event(
+            execution_id, job, success=False, error=_err_text, started=usage_started,
+            # Cancelled, interrupted or exiting: the process went down under the run.
+            error_code=None if isinstance(e, Exception) else "app_shutdown",
+        )
         if not isinstance(e, Exception):
             raise
         return False
+
+
+def _queue_cron_usage_event(
+    execution_id: str,
+    job: dict,
+    *,
+    success: bool,
+    error: str | None,
+    started: float | None,
+    error_code: str | None = None,
+) -> None:
+    """One ``cron.run`` event for a run that started, for the desktop to send to the
+    SSO usage metrics (cron/usage_outbox.py). Never raises."""
+    if started is None:
+        return
+    try:
+        code = None
+        if not success:
+            code = error_code or cron_usage_failure_code(error, agent_run=not job.get("no_agent"))
+        _record_cron_usage(
+            _get_hermes_home(),
+            execution_id,
+            success=success,
+            duration_ms=(time.monotonic() - started) * 1000,
+            error_code=code,
+        )
+    except Exception as record_err:  # noqa: BLE001 - metrics never change the run
+        logger.warning("Job %s: usage event not queued: %s", job.get("id"), type(record_err).__name__)
 
 
 def _notify_provider_jobs_changed() -> None:
