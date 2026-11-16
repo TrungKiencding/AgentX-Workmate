@@ -34,6 +34,36 @@ const ERROR_CODE = /^[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,79}$/
 const PROFILE_NAME = /^[a-z0-9][a-z0-9_-]{0,63}$/
 /** A file larger than this was not written by the backend. */
 const MAX_FILE_BYTES = 4096
+/**
+ * Events sent in one pass, across every home. The console takes 600 usage events
+ * a minute per person, shared with live chat turns; a backlog (the app closed for
+ * days, many routines) sent in one go would spend that minute and get the chat
+ * turns refused. The rest goes on the next pass, minutes later.
+ */
+export const PASS_MAX_EVENTS = 300
+/**
+ * The console's answers that mean "these events are malformed": sending them
+ * again would be refused the same way. Anything else it refuses (a 404 while it
+ * is being deployed, a 409…) says nothing about the events, so they wait.
+ */
+const MALFORMED_STATUSES = new Set([400, 413, 422])
+
+/**
+ * True for an event that only fails because it reads as ahead of the console's
+ * clock — this machine's clock runs fast, or was set back since the run. It is
+ * kept: once the clocks agree it is an ordinary event. One dated further ahead
+ * than an event can live is no clock drift, and is not kept.
+ */
+export function isAheadOfClock(text: string, nowMs: number): boolean {
+  try {
+    const value = JSON.parse(text) as { occurred_at?: unknown }
+    const occurred = typeof value?.occurred_at === 'string' ? Date.parse(value.occurred_at) : NaN
+
+    return Number.isFinite(occurred) && occurred > nowMs + MAX_FUTURE_MS && occurred <= nowMs + MAX_AGE_MS
+  } catch {
+    return false
+  }
+}
 
 /** One event from the outbox, as the console takes it; null for anything else. */
 export function parseCronUsageEvent(text: string, fileName: string, nowMs: number): UsageEventFacts | null {
@@ -141,9 +171,11 @@ export interface CronUsageDrain {
   sent: number
   /** Deleted unsent: too old, not an event, or refused by the console as malformed. */
   dropped: number
-  /** Left for a later pass: no session, or the console could not take them now. */
+  /** Left for a later pass: no session, the console could not take them now, ahead of its clock, or past this pass's budget. */
   kept: number
 }
+
+type BatchOutcome = 'stop' | 'continue'
 
 /** Drains the outbox of every home of the signed-in person; one pass at a time. */
 export class CronUsageOutbox {
@@ -177,9 +209,11 @@ export class CronUsageOutbox {
         return result
       }
 
+      const budget = { left: PASS_MAX_EVENTS }
+
       for (const home of await cronUsageHomes(this.deps.root, identity.subject)) {
-        if (!(await this.drainHome(path.join(home, OUTBOX_DIR), identity, result))) {
-          break // the console cannot take events now; the other homes wait with this one
+        if (!(await this.drainHome(path.join(home, OUTBOX_DIR), identity, result, budget))) {
+          break // the console cannot take events now, or this pass sent its share; the other homes wait
         }
       }
 
@@ -193,8 +227,13 @@ export class CronUsageOutbox {
     return result
   }
 
-  /** False when the console could not take events now (the pass stops there). */
-  private async drainHome(dir: string, identity: UsageIdentity, result: CronUsageDrain): Promise<boolean> {
+  /** False when the pass stops here: the console could not take events now, or the budget is spent. */
+  private async drainHome(
+    dir: string,
+    identity: UsageIdentity,
+    result: CronUsageDrain,
+    budget: { left: number }
+  ): Promise<boolean> {
     const now = (this.deps.now || Date.now)()
     const ready: { file: string; event: UsageEventFacts }[] = []
 
@@ -205,6 +244,7 @@ export class CronUsageOutbox {
 
       const file = path.join(dir, name)
       let event: UsageEventFacts | null = null
+      let ahead = false
 
       try {
         const stat = await fsp.lstat(file)
@@ -214,7 +254,9 @@ export class CronUsageOutbox {
         }
 
         if (stat.size <= MAX_FILE_BYTES) {
-          event = parseCronUsageEvent(await fsp.readFile(file, 'utf8'), name, now)
+          const text = await fsp.readFile(file, 'utf8')
+          event = parseCronUsageEvent(text, name, now)
+          ahead = !event && isAheadOfClock(text, now)
         }
       } catch {
         continue // gone meanwhile
@@ -222,42 +264,86 @@ export class CronUsageOutbox {
 
       if (event) {
         ready.push({ file, event })
+      } else if (ahead) {
+        result.kept++ // a clock out of step, not a bad event: it goes once the clocks agree
       } else {
         await this.remove(file)
         result.dropped++
       }
     }
 
-    for (let start = 0; start < ready.length; start += USAGE_BATCH_MAX) {
-      const batch = ready.slice(start, start + USAGE_BATCH_MAX)
+    const sendable = ready.slice(0, Math.max(0, budget.left))
+    const overBudget = ready.length - sendable.length
 
-      const delivery = await this.deps.deliver(
-        identity,
-        batch.map(entry => entry.event)
-      )
+    for (let start = 0; start < sendable.length; start += USAGE_BATCH_MAX) {
+      const batch = sendable.slice(start, start + USAGE_BATCH_MAX)
+      budget.left -= batch.length
 
-      if (delivery === 'accepted') {
-        await Promise.all(batch.map(entry => this.remove(entry.file)))
-        result.sent += batch.length
-
-        continue
-      }
-
-      // 401/403: this session's token was refused — another session, or a sign-in, may
-      // send them. 'failed': no answer, a 5xx or a 429. Either way, they wait.
-      if (delivery === 'failed' || delivery.refused === 401 || delivery.refused === 403 || delivery.refused === 0) {
-        result.kept += ready.length - start
+      if ((await this.sendBatch(identity, batch, result)) === 'stop') {
+        result.kept += sendable.length - start - batch.length + overBudget
 
         return false
       }
-
-      // Any other 4xx: the console says these events are malformed, and sending them
-      // again would be refused the same way.
-      await Promise.all(batch.map(entry => this.remove(entry.file)))
-      result.dropped += batch.length
     }
 
-    return true
+    if (overBudget > 0) {
+      result.kept += overBudget
+
+      return false
+    }
+
+    return budget.left > 0
+  }
+
+  /**
+   * Sends one batch; 'stop' when the console cannot take events now (what the batch
+   * did not send is counted kept). A batch refused as malformed is sent again one
+   * event at a time, so a single bad event — one dated past the console's window by
+   * a clock out of step — does not take the good ones down with it.
+   */
+  private async sendBatch(
+    identity: UsageIdentity,
+    batch: { file: string; event: UsageEventFacts }[],
+    result: CronUsageDrain
+  ): Promise<BatchOutcome> {
+    const delivery = await this.deps.deliver(
+      identity,
+      batch.map(entry => entry.event)
+    )
+
+    if (delivery === 'accepted') {
+      await Promise.all(batch.map(entry => this.remove(entry.file)))
+      result.sent += batch.length
+
+      return 'continue'
+    }
+
+    // 'failed': no answer, a 5xx or a 429. 401/403: this session's token was refused —
+    // another session, or a sign-in, may send them. Any other refusal that is not about
+    // the events themselves (a 404 mid-deploy…). Either way, they wait.
+    if (delivery === 'failed' || !MALFORMED_STATUSES.has(delivery.refused)) {
+      result.kept += batch.length
+
+      return 'stop'
+    }
+
+    if (batch.length === 1) {
+      // The console says this event is malformed; sending it again would be refused the same way.
+      await this.remove(batch[0].file)
+      result.dropped++
+
+      return 'continue'
+    }
+
+    for (let index = 0; index < batch.length; index++) {
+      if ((await this.sendBatch(identity, [batch[index]], result)) === 'stop') {
+        result.kept += batch.length - index - 1
+
+        return 'stop'
+      }
+    }
+
+    return 'continue'
   }
 
   private async remove(file: string): Promise<void> {

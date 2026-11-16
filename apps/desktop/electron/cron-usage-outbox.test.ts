@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { accountSlugForIdentity } from './account-slug'
-import { cronUsageHomes, CronUsageOutbox, OUTBOX_DIR, parseCronUsageEvent } from './cron-usage-outbox'
+import { cronUsageHomes, CronUsageOutbox, OUTBOX_DIR, PASS_MAX_EVENTS, parseCronUsageEvent } from './cron-usage-outbox'
 import type { UsageDelivery, UsageEventFacts, UsageIdentity } from './usage-reporter'
 import { UsageReporter } from './usage-reporter'
 
@@ -218,6 +218,66 @@ describe('draining', () => {
 
     expect(await outbox(async () => ({ refused: 422 })).outbox.drain()).toEqual({ sent: 0, dropped: 1, kept: 0 })
     expect(waiting(home)).toEqual([])
+  })
+
+  it('drops only the event the console refuses when a batch is refused as malformed', async () => {
+    const home = accountHome()
+    queue(home, event(1, NOW))
+    queue(home, event(2, NOW))
+    queue(home, event(3, NOW))
+    const deliver = vi.fn(async (_who: UsageIdentity, events: UsageEventFacts[]): Promise<UsageDelivery> =>
+      events.some(e => e.event_id === uuid(2)) ? { refused: 422 } : 'accepted'
+    )
+
+    expect(await outbox(deliver).outbox.drain()).toEqual({ sent: 2, dropped: 1, kept: 0 })
+    expect(deliver.mock.calls.map(([, events]) => events.map(e => e.event_id))).toEqual([
+      [uuid(1), uuid(2), uuid(3)],
+      [uuid(1)],
+      [uuid(2)],
+      [uuid(3)]
+    ])
+    expect(waiting(home)).toEqual([])
+  })
+
+  it.each([404, 405, 409])('keeps them when the console refuses for a reason that is not the events (HTTP %i)', async status => {
+    const home = accountHome()
+    queue(home, event(1, NOW))
+    queue(home, event(2, NOW))
+
+    expect(await outbox(async () => ({ refused: status })).outbox.drain()).toEqual({ sent: 0, dropped: 0, kept: 2 })
+    expect(waiting(home)).toEqual([`${uuid(1)}.json`, `${uuid(2)}.json`])
+  })
+
+  it('keeps an event dated ahead of the clock (a clock out of step) instead of deleting it', async () => {
+    const home = accountHome()
+    const tenMinutes = 10 * 60 * 1000
+    const eightDays = 8 * 24 * 60 * 60 * 1000
+    queue(home, event(1, NOW + tenMinutes))
+    queue(home, event(2, NOW + eightDays))
+    const deliver = answering('accepted')
+
+    expect(await outbox(deliver).outbox.drain()).toEqual({ sent: 0, dropped: 1, kept: 1 })
+    expect(deliver).not.toHaveBeenCalled()
+    expect(waiting(home)).toEqual([`${uuid(1)}.json`])
+  })
+
+  it(`sends at most ${PASS_MAX_EVENTS} events a pass, so a backlog does not spend the chat turns' rate limit`, async () => {
+    const home = accountHome()
+    const assistant = path.join(home, 'profiles', 'tro-ly')
+
+    for (let n = 1; n <= PASS_MAX_EVENTS + 50; n++) {
+      queue(home, event(n, NOW))
+    }
+
+    queue(assistant, event(9999, NOW))
+    const deliver = answering('accepted')
+    const box = outbox(deliver).outbox
+
+    expect(await box.drain()).toEqual({ sent: PASS_MAX_EVENTS, dropped: 0, kept: 50 })
+    expect(waiting(assistant)).toEqual([`${uuid(9999)}.json`])
+    expect(await box.drain()).toEqual({ sent: 51, dropped: 0, kept: 0 })
+    expect(waiting(home)).toEqual([])
+    expect(waiting(assistant)).toEqual([])
   })
 
   it('deletes unsent what the console would refuse, says so once, and leaves temporary files alone', async () => {
