@@ -12,6 +12,7 @@ import type { SessionInfo, SessionMessage } from '@/types/hermes'
 import {
   appendLiveSessionProjection,
   applyRuntimeInfo,
+  branchSeedFiles,
   chatMessageArraysEquivalent,
   chatMessagesEquivalent,
   chatPartsEquivalent,
@@ -160,6 +161,39 @@ describe('toBranchMessages', () => {
 
     expect(out.map(b => b.source.id)).toEqual(['u', 'a'])
     expect(out[0]).toMatchObject({ content: 'hi', role: 'user' })
+  })
+})
+
+describe('branchSeedFiles', () => {
+  it('carries the files an assistant turn produced or handed over', () => {
+    const turn = {
+      ...msg('a', 'assistant', 'done'),
+      createdFiles: [{ name: 'chart.png', path: '/out/chart.png' }],
+      parts: [
+        {
+          type: 'tool-call' as const,
+          toolCallId: 't1',
+          toolName: 'deliver_file',
+          args: {},
+          argsText: '',
+          result: JSON.stringify({ success: true, path: '/out/deck.pptx' })
+        },
+        {
+          type: 'tool-call' as const,
+          toolCallId: 't2',
+          toolName: 'deliver_file',
+          args: {},
+          argsText: '',
+          result: { error: 'missing' },
+          isError: true
+        },
+        { type: 'text' as const, text: 'done' }
+      ]
+    }
+
+    expect(branchSeedFiles(turn)).toEqual([{ path: '/out/chart.png' }, { path: '/out/deck.pptx' }])
+    expect(branchSeedFiles({ ...turn, role: 'user' })).toEqual([])
+    expect(branchSeedFiles(msg('plain', 'assistant', 'hi'))).toEqual([])
   })
 })
 

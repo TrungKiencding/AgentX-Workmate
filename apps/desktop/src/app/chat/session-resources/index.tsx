@@ -29,6 +29,7 @@ import {
   type SessionResourceCollector,
   type SessionResourceProgress
 } from './model'
+import { useFilePresence } from './presence'
 import { $sessionResourcesPinned, setSessionResourcesPinned } from './store'
 
 /** The chat is wide enough to give the card its own column at this width.
@@ -53,9 +54,10 @@ interface SessionWorkspaceProps {
 }
 
 interface ResourcesContentProps {
-  collector: SessionResourceCollector
+  progress: SessionResourceProgress
   cwd: string
   sessionId: string
+  onMissing: (id: string) => void
   onCreateOutput?: () => void
   onAddSource?: () => void
 }
@@ -64,6 +66,7 @@ interface ResourceRowProps {
   cwd: string
   sessionId: string
   item: SessionResource
+  onMissing: (id: string) => void
   output: boolean
 }
 
@@ -93,8 +96,10 @@ export function SessionWorkspace({
   const toggleRef = useRef<HTMLButtonElement>(null)
   const docked = useDockedLayout(rootRef)
   const panelId = useId()
+  const countId = useId()
   const resourcesEnabled = enabled && Boolean(storedId || runtimeId) && !messagesEmpty
   const key = `${profile}:${sessionKey || storedId || runtimeId || 'draft'}`
+  const sessionId = storedId || runtimeId || ''
 
   // The floating card is asked for, in one conversation, while the chat is
   // narrow. Leaving either puts it away, so coming back never finds it open.
@@ -109,6 +114,29 @@ export function SessionWorkspace({
   // Kept across collapses: reopening the card rereads nothing it already read.
   // A new conversation or folder starts clean: key and cwd are its identity.
   const collector = useMemo(createSessionResourceCollector, [key, cwd])
+  // Read while the card is closed too: the closed launcher says how many
+  // results there are, so a narrow window still shows that a file was made.
+  const read = useResources(collector, cwd, resourcesEnabled ? sessionId : '')
+  // Files deleted or moved away since leave the list (the transcript keeps
+  // its record of them).
+  const listed = useMemo(() => [...read.resources.outputs, ...read.resources.sources], [read.resources])
+  const paneVisible = usePaneVisible()
+  const presence = useFilePresence(listed, resourcesEnabled && paneVisible)
+
+  const progress = useMemo(() => {
+    if (!presence.missing.size) {
+      return read
+    }
+
+    const present = (item: SessionResource) => !presence.missing.has(item.id)
+
+    return {
+      ...read,
+      resources: { outputs: read.resources.outputs.filter(present), sources: read.resources.sources.filter(present) }
+    }
+  }, [presence.missing, read])
+
+  const outputCount = progress.resources.outputs.length
 
   const setExpanded = (next: boolean) => {
     if (docked) {
@@ -163,6 +191,7 @@ export function SessionWorkspace({
             <Tip label={expanded ? t.common.collapse : t.sessionResources.title}>
               <Button
                 aria-controls={panelId}
+                aria-describedby={!expanded && outputCount > 0 ? countId : undefined}
                 aria-expanded={expanded}
                 aria-label={t.sessionResources.title}
                 data-active={expanded}
@@ -189,6 +218,16 @@ export function SessionWorkspace({
                   <circle cx="4" cy="15" r="1.5" />
                   <path d="M10 5h7M10 10h7M10 15h7M2.5 10h3" />
                 </svg>
+                {!expanded && outputCount > 0 && (
+                  <>
+                    <span aria-hidden="true" className="session-resources-count" data-testid="session-resources-count">
+                      {outputCount > 99 ? '99+' : outputCount}
+                    </span>
+                    <span className="sr-only" id={countId}>
+                      {`${t.sessionResources.outputs}: ${outputCount}`}
+                    </span>
+                  </>
+                )}
               </Button>
             </Tip>
           </div>
@@ -207,7 +246,6 @@ export function SessionWorkspace({
               role="complementary"
             >
               <ResourcesContent
-                collector={collector}
                 cwd={cwd}
                 key={`${key}:${cwd}`}
                 onAddSource={onAddSource}
@@ -221,7 +259,9 @@ export function SessionWorkspace({
                         })
                     : undefined
                 }
-                sessionId={storedId || runtimeId || ''}
+                onMissing={presence.markMissing}
+                progress={progress}
+                sessionId={sessionId}
               />
             </div>
           )}
@@ -279,7 +319,10 @@ const NOTHING: SessionResourceProgress = { complete: true, resources: { outputs:
 function useResources(collector: SessionResourceCollector, cwd: string, sessionId: string): SessionResourceProgress {
   const view = useSessionView()
   const visible = usePaneVisible()
-  const [progress, setProgress] = useState(NOTHING_READ)
+  // Tied to the collector it came from: a new conversation or folder starts
+  // from nothing read, never from the last one's list.
+  const [state, setState] = useState({ collector, progress: NOTHING_READ })
+  const progress = state.collector === collector ? state.progress : NOTHING_READ
 
   // Layout effect: the first pass lands before the card's first paint, so a
   // conversation that fits the budget never flashes an empty card.
@@ -298,8 +341,12 @@ function useResources(collector: SessionResourceCollector, cwd: string, sessionI
 
       const next = collector.step(view.$messages.get(), cwd, READ_BUDGET_MS)
 
-      setProgress(current =>
-        current.resources === next.resources && current.complete === next.complete ? current : next
+      setState(current =>
+        current.collector === collector &&
+        current.progress.resources === next.resources &&
+        current.progress.complete === next.complete
+          ? current
+          : { collector, progress: next }
       )
 
       if (!next.complete) {
@@ -334,10 +381,10 @@ function useResources(collector: SessionResourceCollector, cwd: string, sessionI
   return sessionId ? progress : NOTHING
 }
 
-function ResourcesContent({ collector, cwd, sessionId, onCreateOutput, onAddSource }: ResourcesContentProps) {
+function ResourcesContent({ progress, cwd, sessionId, onCreateOutput, onAddSource, onMissing }: ResourcesContentProps) {
   const { t } = useI18n()
   const copy = t.sessionResources
-  const { complete, resources } = useResources(collector, cwd, sessionId)
+  const { complete, resources } = progress
   const status = useStore(repoStatusForCwd(sessionId ? cwd : null))
   const visible = usePaneVisible()
   useEffect(() => (visible && sessionId ? registerRepoStatusCwd(cwd) : undefined), [cwd, sessionId, visible])
@@ -380,6 +427,7 @@ function ResourcesContent({ collector, cwd, sessionId, onCreateOutput, onAddSour
                     cwd={cwd}
                     item={item}
                     key={item.id}
+                    onMissing={onMissing}
                     output={section === 'outputs'}
                     sessionId={sessionId}
                   />
@@ -398,11 +446,11 @@ function ResourcesContent({ collector, cwd, sessionId, onCreateOutput, onAddSour
   )
 }
 
-function ResourceRow({ item, cwd, sessionId, output }: ResourceRowProps) {
+function ResourceRow({ item, cwd, sessionId, output, onMissing }: ResourceRowProps) {
   const { t } = useI18n()
   const view = useSessionView()
   const [opening, setOpening] = useState(false)
-  const [error, setError] = useState<'failed' | 'missing' | null>(null)
+  const [failed, setFailed] = useState(false)
   const alive = useRef(true)
   // Lifecycle flag only; session/profile identity is read from its owning atoms.
   // eslint-disable-next-line no-restricted-syntax
@@ -420,7 +468,7 @@ function ResourceRow({ item, cwd, sessionId, output }: ResourceRowProps) {
     }
 
     setOpening(true)
-    setError(null)
+    setFailed(false)
     const runtimeId = view.$runtimeId.get()
     const storedId = view.$storedId.get()
     const profile = $activeGatewayProfile.get()
@@ -476,7 +524,12 @@ function ResourceRow({ item, cwd, sessionId, output }: ResourceRowProps) {
           }
 
           if (stat && !(stat.exists && stat.isFile)) {
-            setError(stat.exists ? 'failed' : 'missing')
+            if (stat.exists) {
+              setFailed(true)
+            } else {
+              // Gone: the row leaves the list rather than offer a dead click.
+              onMissing(item.id)
+            }
 
             return
           }
@@ -486,7 +539,7 @@ function ResourceRow({ item, cwd, sessionId, output }: ResourceRowProps) {
       }
     } catch {
       if (alive.current) {
-        setError('failed')
+        setFailed(true)
       }
     } finally {
       if (alive.current) {
@@ -521,9 +574,9 @@ function ResourceRow({ item, cwd, sessionId, output }: ResourceRowProps) {
           )}
         </button>
       </Tip>
-      {error && (
+      {failed && (
         <p className="session-resource-error" role="alert">
-          {error === 'missing' ? t.fileCard.missingBody : t.sessionResources.openFailed}
+          {t.sessionResources.openFailed}
         </p>
       )}
     </li>

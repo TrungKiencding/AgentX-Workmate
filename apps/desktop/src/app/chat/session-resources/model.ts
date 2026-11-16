@@ -18,7 +18,10 @@
  *   - web search hits, and the web links a reply cites.
  *
  * A file that is both (read, then edited) is listed once, as an output.
- * Newest first, so the result of the last turn is the first row.
+ * Newest first, so the result of the last turn is the first row; within a
+ * turn, what it handed over leads (see RANK). A compaction divider carries
+ * the files of the turns it summarized away (`carryOutputsAcrossCompaction`)
+ * and is read for those alone.
  */
 
 import remarkParse from 'remark-parse'
@@ -74,12 +77,20 @@ type ToolCallPart = Extract<ChatMessagePart, { type: 'tool-call' }>
 
 /** One piece of evidence. `titled` — the label is a human title (link text, a
  *  search hit's title), which beats a label derived from the address. `order`
- *  — the message part it came from, so a turn lists its newest step first. */
+ *  — the message part it came from, so a turn lists its newest step first.
+ *  `rank` — how plainly the turn said "this is for you" (see RANK). */
 interface Found {
   item: SessionResource
   order: number
+  rank: number
   titled: boolean
 }
+
+/** Within one turn, what the model handed over leads; the files the backend
+ *  saw it write come next; whatever a tool merely wrote on the way comes last.
+ *  A turn that renders ten check images before delivering one deck lists the
+ *  deck first. */
+const RANK = { handover: 2, verified: 1, written: 0 } as const
 
 interface MessageEvidence {
   aliases: Array<[string, SessionResource]>
@@ -265,14 +276,15 @@ function resource(raw: string, cwd: string, { absoluteOnly = false, label }: Res
   })
 }
 
-const found = (item: SessionResource, titled = false): Found => ({ item, order: 0, titled })
+const found = (item: SessionResource, titled = false): Found => ({ item, order: 0, rank: RANK.written, titled })
 
 function plainText(node: MarkdownNode): string {
   return node.value || node.children?.map(plainText).join('') || ''
 }
 
-/** A human title beats an address-derived label; otherwise the first wins. */
-function keep(list: Map<string, Found>, entry: Found | null, order: number) {
+/** A human title beats an address-derived label; otherwise the first wins.
+ *  The strongest evidence's rank wins either way. */
+function keep(list: Map<string, Found>, entry: Found | null, order: number, rank: number = entry?.rank ?? 0) {
   if (!entry) {
     return
   }
@@ -280,9 +292,11 @@ function keep(list: Map<string, Found>, entry: Found | null, order: number) {
   const existing = list.get(entry.item.id)
 
   if (!existing) {
-    list.set(entry.item.id, { ...entry, order })
+    list.set(entry.item.id, { ...entry, order, rank })
   } else if (entry.titled && !existing.titled) {
-    list.set(entry.item.id, { ...entry, order: existing.order })
+    list.set(entry.item.id, { ...entry, order: existing.order, rank: Math.max(rank, existing.rank) })
+  } else if (rank > existing.rank) {
+    list.set(entry.item.id, { ...existing, rank })
   }
 }
 
@@ -296,7 +310,9 @@ function messageEvidence(message: ChatMessage, cwd: string): MessageEvidence {
   const assistant = message.role === 'assistant'
   let order = 0
 
-  const output = (target: string, options?: ResourceOptions) => keep(outputs, resource(target, cwd, options), order)
+  const output = (target: string, options?: ResourceOptions, rank: number = RANK.written) =>
+    keep(outputs, resource(target, cwd, options), order, rank)
+
   const source = (target: string, options?: ResourceOptions) => keep(sources, resource(target, cwd, options), order)
 
   /** A link the message makes on purpose. The user's are what they brought;
@@ -310,7 +326,7 @@ function messageEvidence(message: ChatMessage, cwd: string): MessageEvidence {
 
     const made = assistant && (entry.item.kind !== 'url' || handover || isDeliverablePath(entry.item.target))
 
-    keep(made ? outputs : sources, entry, order)
+    keep(made ? outputs : sources, entry, order, RANK.handover)
   }
 
   const scanUrls = (value: string) => {
@@ -366,7 +382,8 @@ function messageEvidence(message: ChatMessage, cwd: string): MessageEvidence {
               target: id,
               artifact: { content: node.value, detection }
             }),
-            order
+            order,
+            RANK.handover
           )
         }
 
@@ -412,7 +429,7 @@ function messageEvidence(message: ChatMessage, cwd: string): MessageEvidence {
 
   const scanText = (text: string) => {
     for (const url of embeddedImageUrls(text)) {
-      keep(assistant ? outputs : sources, resource(url, cwd), order)
+      keep(assistant ? outputs : sources, resource(url, cwd), order, RANK.handover)
     }
 
     // Read off the raw text: a quoted reference or tag (`@file:\`a b.docx\``)
@@ -424,7 +441,7 @@ function messageEvidence(message: ChatMessage, cwd: string): MessageEvidence {
     }
 
     for (const match of text.matchAll(MEDIA_TAG_RE)) {
-      keep(assistant ? outputs : sources, resource(unquote(match[1]), cwd), order)
+      keep(assistant ? outputs : sources, resource(unquote(match[1]), cwd), order, RANK.handover)
     }
 
     if (MARKDOWN_STRUCTURE_RE.test(text)) {
@@ -454,7 +471,7 @@ function messageEvidence(message: ChatMessage, cwd: string): MessageEvidence {
     for (const text of [result.output, result.stdout, typeof part.result === 'string' ? part.result : null]) {
       if (typeof text === 'string') {
         for (const match of text.matchAll(MEDIA_TAG_RE)) {
-          output(unquote(match[1]))
+          output(unquote(match[1]), undefined, RANK.handover)
         }
       }
     }
@@ -489,7 +506,9 @@ function messageEvidence(message: ChatMessage, cwd: string): MessageEvidence {
       return
     }
 
-    const add = role === 'writes' ? output : source
+    // deliver_file is the hand-over itself; other writers write on the way.
+    const writtenRank = part.toolName === 'deliver_file' ? RANK.handover : RANK.written
+    const add = role === 'writes' ? (target: string, options?: ResourceOptions) => output(target, options, writtenRank) : source
 
     // The backend resolves symlinks (e.g. macOS /var -> /private/var). Its
     // result is authoritative over the requested path; use that evidence to
@@ -511,7 +530,7 @@ function messageEvidence(message: ChatMessage, cwd: string): MessageEvidence {
       const generated = generatedImageFromResult(part.result)
 
       if (generated) {
-        output(generated)
+        output(generated, undefined, RANK.handover)
       }
     }
 
@@ -542,13 +561,15 @@ function messageEvidence(message: ChatMessage, cwd: string): MessageEvidence {
     scanText(ref)
   }
 
-  for (const part of message.parts) {
+  // A compaction divider's summary is the model's notes, not something anyone
+  // linked or attached: only the files it carries over count.
+  for (const part of message.compaction ? [] : message.parts) {
     order += 1
 
     if (part.type === 'text') {
       scanText(part.text)
     } else if (part.type === 'image') {
-      keep(assistant ? outputs : sources, resource(String(part.image), cwd), order)
+      keep(assistant ? outputs : sources, resource(String(part.image), cwd), order, RANK.handover)
     } else if (part.type === 'tool-call' && assistant) {
       scanToolCall(part)
     }
@@ -558,13 +579,15 @@ function messageEvidence(message: ChatMessage, cwd: string): MessageEvidence {
   order += 1
 
   for (const file of message.createdFiles || []) {
-    output(file.path, { label: file.name })
+    output(file.path, { label: file.name }, RANK.verified)
   }
 
   // Newest step first; a step's own rows stay in the order it gave them.
-  const newestFirst = (list: Map<string, Found>) => [...list.values()].sort((a, b) => b.order - a.order)
+  // Outputs put the strongest evidence ahead of that (see RANK).
+  const newestFirst = (list: Map<string, Found>, ranked = false) =>
+    [...list.values()].sort((a, b) => (ranked ? b.rank - a.rank : 0) || b.order - a.order)
 
-  return { aliases, outputs: newestFirst(outputs), sources: newestFirst(sources) }
+  return { aliases, outputs: newestFirst(outputs, true), sources: newestFirst(sources) }
 }
 
 /** A URL, or a path that names its own root — not a bare word or host. */
@@ -687,13 +710,18 @@ export function createSessionResourceCollector(): SessionResourceCollector {
 
     const deadline = performance.now() + budgetMs
     const evidence: MessageEvidence[] = []
+    // Which turn each piece of evidence belongs to, newest turn = 0. A turn
+    // can span several assistant messages; its prompt closes it.
+    const turnOf: number[] = []
+    let turn = 0
     let read = 0
     let complete = true
 
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const message = messages[index]
 
-      if (message.hidden || !['assistant', 'user'].includes(message.role)) {
+      // A compaction divider carries the files of the turns it summarized.
+      if (message.hidden || !(['assistant', 'user'].includes(message.role) || message.compaction)) {
         continue
       }
 
@@ -711,11 +739,20 @@ export function createSessionResourceCollector(): SessionResourceCollector {
         } else {
           complete = false
 
+          if (message.role === 'user') {
+            turn += 1
+          }
+
           continue
         }
       }
 
       evidence.push(items)
+      turnOf.push(turn)
+
+      if (message.role === 'user') {
+        turn += 1
+      }
     }
 
     const aliases = new Map<string, SessionResource>()
@@ -739,21 +776,26 @@ export function createSessionResourceCollector(): SessionResourceCollector {
       return current
     }
 
-    const merge = (pick: (items: MessageEvidence) => Found[]) => {
+    const merge = (pick: (items: MessageEvidence) => Found[], ranked = false) => {
       const merged = new Map<string, Found>()
+      const ordered = evidence.flatMap((items, index) => pick(items).map(entry => ({ entry, turn: turnOf[index] })))
 
-      for (const items of evidence) {
-        for (const entry of pick(items)) {
-          const item = canonical(entry.item)
+      // Outputs: newest turn first, and within a turn — however many assistant
+      // messages it took — what was handed over first (see RANK).
+      if (ranked) {
+        ordered.sort((a, b) => a.turn - b.turn || b.entry.rank - a.entry.rank)
+      }
 
-          keep(merged, item === entry.item ? entry : { ...entry, item }, 0)
-        }
+      for (const { entry } of ordered) {
+        const item = canonical(entry.item)
+
+        keep(merged, item === entry.item ? entry : { ...entry, item }, 0)
       }
 
       return merged
     }
 
-    const outputs = merge(items => items.outputs)
+    const outputs = merge(items => items.outputs, true)
     const sources = merge(items => items.sources)
 
     const next: SessionResources = {

@@ -1023,6 +1023,88 @@ function withUniqueToolCallIds(messages: ChatMessage[]): ChatMessage[] {
   })
 }
 
+/** The files an assistant message shows as produced: the backend's list and
+ *  the ones handed over through `deliver_file`. */
+export function messageOutputFiles(message: ChatMessage): DeliverableFile[] {
+  if (message.role !== 'assistant') {
+    return []
+  }
+
+  const files = new Map((message.createdFiles ?? []).map(file => [file.path, file]))
+
+  for (const part of message.parts) {
+    if (part.type !== 'tool-call' || part.toolName !== 'deliver_file' || part.isError) {
+      continue
+    }
+
+    let result: unknown = part.result
+
+    if (typeof result === 'string') {
+      try {
+        result = JSON.parse(result)
+      } catch {
+        continue
+      }
+    }
+
+    const record = result && typeof result === 'object' ? (result as Record<string, unknown>) : null
+
+    if (record && typeof record.path === 'string' && record.path && !files.has(record.path)) {
+      files.set(record.path, {
+        mimeType: typeof record.mime_type === 'string' ? record.mime_type : undefined,
+        name: typeof record.name === 'string' && record.name ? record.name : record.path.split(/[\\/]/).pop() || record.path,
+        path: record.path,
+        sizeBytes: typeof record.size_bytes === 'number' ? record.size_bytes : undefined
+      })
+    }
+  }
+
+  return [...files.values()]
+}
+
+/**
+ * A compaction that summarized turns away takes their bubbles off screen —
+ * and with them the only record, until the next reload reads the archived
+ * rows, of the files those turns produced. Keep them: whatever the replaced
+ * transcript showed as produced and the new one no longer does rides on the
+ * newest compaction divider, where the session's results list still finds it.
+ */
+export function carryOutputsAcrossCompaction(previous: readonly ChatMessage[], next: ChatMessage[]): ChatMessage[] {
+  const dividerIndex = next.findLastIndex(message => message.compaction)
+
+  if (dividerIndex < 0) {
+    return next
+  }
+
+  const kept = new Set(next.flatMap(message => messageOutputFiles(message).map(file => file.path)))
+  const lost = new Map<string, DeliverableFile>()
+
+  for (const message of previous) {
+    for (const file of messageOutputFiles(message)) {
+      if (!kept.has(file.path) && !lost.has(file.path)) {
+        lost.set(file.path, file)
+      }
+    }
+
+    if (message.compaction) {
+      for (const file of message.createdFiles ?? []) {
+        if (!kept.has(file.path) && !lost.has(file.path)) {
+          lost.set(file.path, file)
+        }
+      }
+    }
+  }
+
+  if (!lost.size) {
+    return next
+  }
+
+  const divider = next[dividerIndex]
+  const createdFiles = [...(divider.createdFiles ?? []), ...lost.values()]
+
+  return next.map((message, index) => (index === dividerIndex ? { ...message, createdFiles } : message))
+}
+
 export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
   const result: ChatMessage[] = []
   let pendingToolParts: ChatMessagePart[] = []

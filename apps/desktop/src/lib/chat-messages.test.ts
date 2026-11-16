@@ -6,9 +6,11 @@ import type { ChatMessage, ChatMessagePart } from './chat-messages'
 import {
   appendAssistantTextPart,
   appendReasoningPart,
+  carryOutputsAcrossCompaction,
   chatMessageText,
   collectUnspokenTurnSpeech,
   mergeFinalAssistantText,
+  messageOutputFiles,
   preserveLocalAssistantErrors,
   reasoningPart,
   renderMediaTags,
@@ -1415,5 +1417,61 @@ describe('collectUnspokenTurnSpeech', () => {
     expect(collectUnspokenTurnSpeech([], null)).toBeNull()
     expect(collectUnspokenTurnSpeech([assistant('a1', 'Done.')], 'a1')).toBeNull()
     expect(collectUnspokenTurnSpeech([user('u1', 'hello'), assistant('a1', '')], null)).toBeNull()
+  })
+})
+
+describe('carryOutputsAcrossCompaction', () => {
+  const delivered: ChatMessage = {
+    id: 'a1',
+    role: 'assistant',
+    createdFiles: [{ name: 'notes.md', path: '/out/notes.md' }],
+    parts: [
+      {
+        type: 'tool-call',
+        toolCallId: 't',
+        toolName: 'deliver_file',
+        args: {},
+        argsText: '',
+        result: JSON.stringify({ success: true, path: '/out/deck.pptx', name: 'deck.pptx', size_bytes: 9 })
+      },
+      { type: 'text', text: 'Here it is.' }
+    ]
+  }
+
+  const kept: ChatMessage = {
+    id: 'a2',
+    role: 'assistant',
+    createdFiles: [{ name: 'still.pdf', path: '/out/still.pdf' }],
+    parts: [{ type: 'text', text: 'later' }]
+  }
+
+  const divider: ChatMessage = { id: 'c', role: 'system', compaction: { summary: 's' }, parts: [] }
+
+  it('reads what a turn produced, handed over or listed', () => {
+    expect(messageOutputFiles(delivered).map(file => file.name)).toEqual(['notes.md', 'deck.pptx'])
+    expect(messageOutputFiles({ ...delivered, role: 'user' })).toEqual([])
+  })
+
+  it('moves the files of summarized turns onto the newest divider', () => {
+    const next = carryOutputsAcrossCompaction([delivered, kept], [divider, kept])
+
+    expect(next[0].createdFiles?.map(file => file.path)).toEqual(['/out/notes.md', '/out/deck.pptx'])
+    expect(next[1]).toBe(kept)
+  })
+
+  it('leaves a transcript alone when nothing was summarized away', () => {
+    const same = [delivered, kept]
+
+    expect(carryOutputsAcrossCompaction(same, same)).toBe(same)
+    // A refused compaction returns no divider at all.
+    const refused = [kept]
+    expect(carryOutputsAcrossCompaction([delivered, kept], refused)).toBe(refused)
+  })
+
+  it('keeps what an earlier divider carried through the next compaction', () => {
+    const first = carryOutputsAcrossCompaction([delivered, kept], [divider, kept])
+    const second = carryOutputsAcrossCompaction(first, [{ ...divider, id: 'c2' }])
+
+    expect(second[0].createdFiles?.map(file => file.name)).toEqual(['notes.md', 'deck.pptx', 'still.pdf'])
   })
 })

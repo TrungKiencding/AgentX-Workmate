@@ -99,6 +99,7 @@ import {
   applyRuntimeInfo,
   applyStoredSessionPreviewRuntimeInfo,
   type BranchMessage,
+  branchSeedFiles,
   chatMessageArraysEquivalent,
   isSessionGoneError,
   liveTurnStreamId,
@@ -1205,7 +1206,11 @@ export function useSessionActions({
               source: 'desktop',
               ...(cwd && { cwd }),
               ...(profile ? { profile } : {}),
-              messages: branchMessages.map(({ content, role }) => ({ content, role })),
+              messages: branchMessages.map(({ content, role, source }) => {
+                const files = branchSeedFiles(source)
+
+                return files.length ? { content, files_created: files, role } : { content, role }
+              }),
               ...(parentStoredId && { parent_session_id: parentStoredId })
             })
 

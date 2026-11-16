@@ -1028,6 +1028,43 @@ export const toBranchMessages = (messages: ChatMessage[]): BranchMessage[] =>
     .map(message => ({ content: chatMessageText(message), role: message.role, source: message }))
     .filter(({ content, role }) => content.trim() && (role === 'assistant' || role === 'user'))
 
+/**
+ * The files a copied assistant turn produced, for the branch seed: the ones
+ * the backend listed and the ones handed over through `deliver_file`. A seed
+ * carries text only, so without this a branch of a chat that made a report
+ * has no way back to the report. The gateway re-checks every path.
+ */
+export function branchSeedFiles(message: ChatMessage): Array<{ path: string }> {
+  if (message.role !== 'assistant') {
+    return []
+  }
+
+  const paths = new Set((message.createdFiles ?? []).map(file => file.path))
+
+  for (const part of message.parts) {
+    if (part.type !== 'tool-call' || part.toolName !== 'deliver_file' || part.isError) {
+      continue
+    }
+
+    const result = typeof part.result === 'string' ? safeJson(part.result) : part.result
+    const path = result && typeof result === 'object' ? (result as { path?: unknown }).path : undefined
+
+    if (typeof path === 'string' && path) {
+      paths.add(path)
+    }
+  }
+
+  return [...paths].map(path => ({ path }))
+}
+
+function safeJson(value: string): unknown {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
+}
+
 export function upsertOptimisticSession(
   created: SessionCreateResponse,
   id: string,

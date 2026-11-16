@@ -218,3 +218,25 @@
     transition: none;
   }
 }
+/* How many results the closed card holds: a narrow window floats the card
+   away by default, and this is what says a file was made. */
+.session-resources-launcher button {
+  position: relative;
+}
+.session-resources-count {
+  position: absolute;
+  top: -3px;
+  inset-inline-end: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding-inline: 4px;
+  border-radius: 999px;
+  background: var(--dt-primary);
+  color: var(--dt-primary-foreground);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}

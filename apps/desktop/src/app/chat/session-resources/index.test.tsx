@@ -64,13 +64,13 @@ const widthDescriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'clie
 
 /** Stand in for the desktop bridge's file stat for one test. */
 function withFileStat(stat: { exists: boolean; isFile: boolean }) {
+  return withStatPath(async () => ({ byteSize: 0, mimeType: '', modifiedMs: 0, ...stat }))
+}
+
+function withStatPath(statPath: () => Promise<unknown>) {
   const previousBridge = window.agentxDesktop
 
-  Object.defineProperty(window, 'agentxDesktop', {
-    configurable: true,
-    writable: true,
-    value: { statPath: async () => ({ byteSize: 0, mimeType: '', modifiedMs: 0, ...stat }) }
-  })
+  Object.defineProperty(window, 'agentxDesktop', { configurable: true, writable: true, value: { statPath } })
 
   return () =>
     Object.defineProperty(window, 'agentxDesktop', { configurable: true, writable: true, value: previousBridge })
@@ -349,14 +349,47 @@ describe('session resources interactions', () => {
     expect(screen.queryByTestId('session-resources')).toBeNull()
   })
 
-  it('says in the row that a file is gone instead of opening a viewer on it', async () => {
-    const restore = withFileStat({ exists: false, isFile: false })
+  it('counts the results on the closed launcher so a narrow window still shows a file was made', () => {
+    mount()
+    resizeChat(680)
+    const toggle = screen.getByRole('button', { name: 'Session resources' })
+    expect(screen.getByTestId('session-resources-count').textContent).toBe('1')
+    expect(toggle.getAttribute('aria-describedby')).toBe(screen.getByText('Outputs: 1').id)
+
+    act(() => $messages.set([reply('/work/report.pdf'), { ...reply('/work/chart.png'), id: 'second' }]))
+    expect(screen.getByTestId('session-resources-count').textContent).toBe('2')
+
+    // Open, the list says it; the count would only repeat it.
+    fireEvent.click(toggle)
+    expect(screen.queryByTestId('session-resources-count')).toBeNull()
+    expect(toggle.getAttribute('aria-describedby')).toBeNull()
+  })
+
+  it('drops a file that is gone from disk, and lists it again when it comes back', async () => {
+    let exists = false
+    const restore = withStatPath(async () => ({ byteSize: 0, exists, isFile: exists, mimeType: '', modifiedMs: 0 }))
 
     try {
       mount()
-      fireEvent.click(within(dock()).getByRole('button', { name: /report.pdf/ }))
-      await waitFor(() => expect(within(dock()).getByRole('alert').textContent).toBe('The file was moved or deleted.'))
+      await waitFor(() => expect(within(dock()).queryByRole('button', { name: /report.pdf/ })).toBeNull())
       expect($previewTabs.get()).toEqual([])
+
+      // Restored from the trash: back on the next check (coming back to the window).
+      exists = true
+      act(() => void window.dispatchEvent(new Event('focus')))
+      await waitFor(() => expect(within(dock()).getByRole('button', { name: /report.pdf/ })).toBeTruthy())
+    } finally {
+      restore()
+    }
+  })
+
+  it('keeps a file whose presence nobody can answer for', async () => {
+    const restore = withStatPath(async () => null)
+
+    try {
+      mount()
+      await act(async () => {})
+      expect(within(dock()).getByRole('button', { name: /report.pdf/ })).toBeTruthy()
     } finally {
       restore()
     }

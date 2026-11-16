@@ -265,6 +265,57 @@ describe('session resource collection', () => {
     ])
   })
 
+  it('lists what a turn handed over before the files it wrote on the way', () => {
+    const result = collect([
+      message('Bộ slide đã sẵn sàng.', {
+        createdFiles: [{ name: 'out.pdf', path: '/work/out.pdf' }],
+        parts: [
+          tool('write_file', { path: '/work/build.py' }, { success: true }),
+          tool('deliver_file', { path: '/work/deck.pptx' }, { success: true, path: '/work/deck.pptx' }),
+          tool('write_file', { path: '/work/check-1.png' }, { success: true }),
+          { type: 'text', text: 'Bộ slide đã sẵn sàng.' }
+        ]
+      })
+    ])
+
+    expect(result.outputs.map(item => item.label)).toEqual(['deck.pptx', 'out.pdf', 'check-1.png', 'build.py'])
+  })
+
+  it('ranks a hand-over first across all the assistant messages of one turn', () => {
+    const result = collect([
+      message('làm slide', { id: 'prompt', role: 'user' }),
+      message('', { id: 'a1', parts: [tool('deliver_file', { path: '/work/deck.pptx' }, { success: true })] }),
+      message('', { id: 'a2', parts: [tool('write_file', { path: '/work/verify.js' }, { success: true })] })
+    ])
+
+    expect(result.outputs.map(item => item.label)).toEqual(['deck.pptx', 'verify.js'])
+  })
+
+  it('keeps the newest turn first whatever an older turn handed over', () => {
+    const result = collect([
+      message('', { id: 'old', parts: [tool('deliver_file', { path: '/work/a.docx' }, { success: true })] }),
+      message('tiếp', { id: 'next-prompt', role: 'user' }),
+      message('', { id: 'new', parts: [tool('write_file', { path: '/work/b.md' }, { success: true })] })
+    ])
+
+    expect(result.outputs.map(item => item.label)).toEqual(['b.md', 'a.docx'])
+  })
+
+  it('lists the files a compaction divider carried, and nothing its summary mentions', () => {
+    const result = collect([
+      {
+        id: 'divider',
+        role: 'system',
+        compaction: { summary: 'Earlier the user shared /work/brief.pdf.' },
+        createdFiles: [{ name: 'deck.pptx', path: '/work/deck.pptx' }],
+        parts: [{ type: 'text', text: 'Earlier the user shared /work/brief.pdf and [x](https://example.com).' }]
+      }
+    ])
+
+    expect(result.outputs.map(item => item.label)).toEqual(['deck.pptx'])
+    expect(result.sources).toEqual([])
+  })
+
   it('tells two files of one name apart by their folder', () => {
     const result = collect([
       message('', {
