@@ -63,16 +63,56 @@ def _active_cron_provider_name() -> str:
         return "builtin"
 
 
+def _ticker_stale_after_seconds() -> int:
+    """How old the ticker heartbeat may get before the ticker counts as gone.
+
+    Allows ~3 missed iterations plus slack — derived from the shared interval
+    constant so it tracks the ticker cadence (200s at the 60s default).
+    """
+    from cron.jobs import TICKER_INTERVAL_SECONDS
+
+    return TICKER_INTERVAL_SECONDS * 3 + 20
+
+
+def _app_scheduler_running() -> bool:
+    """Whether the AgentX desktop app is running this home's cron scheduler.
+
+    The desktop app's own backend ticks cron jobs while the app is open
+    (``hermes_cli/web_server.py``: its desktop cron ticker, or the primary
+    backend's sweeper for a Bot Mode assistant) — no gateway process needed.
+    Two signals, either is enough:
+
+    * this process IS a desktop backend (``AGENTX_DESKTOP=1``): the model
+      tool running inside the app must not tell a desktop user to install a
+      gateway service for a reminder the app will fire itself;
+    * the ticker heartbeat of this home is fresh: a CLI run next to an open
+      app sees the app's ticker beating.
+    """
+    import os
+
+    if os.getenv("AGENTX_DESKTOP") == "1":
+        return True
+    try:
+        from cron.jobs import get_ticker_heartbeat_age
+
+        age = get_ticker_heartbeat_age()
+    except Exception:
+        return False
+    return age is not None and age <= _ticker_stale_after_seconds()
+
+
 def _builtin_gateway_liveness() -> Optional[bool]:
     """Tri-state liveness of the builtin cron scheduler's trigger.
 
     Single source of truth shared by the CLI (``_warn_if_gateway_not_running``)
-    and the ``cronjob`` model tool (#87033): the builtin ticker only runs
-    inside the gateway process, so a scheduled job with no live gateway can
-    never fire. Non-builtin providers (e.g. Chronos) fire through their own
-    machinery and are deliberately exempt — a missing gateway process means
-    nothing for them, so they report active. ``None`` = probe failed; callers
-    must not claim either way.
+    and the ``cronjob`` model tool (#87033): outside the desktop app the
+    builtin ticker only runs inside the gateway process, so a scheduled job
+    with no live gateway can never fire. The desktop app runs the same ticker
+    in its own backend while it is open (``_app_scheduler_running``), which
+    counts as active too. Non-builtin providers (e.g. Chronos) fire through
+    their own machinery and are deliberately exempt — a missing gateway
+    process means nothing for them, so they report active. ``None`` = probe
+    failed; callers must not claim either way.
     """
     try:
         if _active_cron_provider_name() != "builtin":
@@ -81,7 +121,9 @@ def _builtin_gateway_liveness() -> Optional[bool]:
 
         # home_verified: a gateway of another AGENTX_HOME does not tick
         # this home's jobs.
-        return bool(find_gateway_pids(home_verified=True))
+        if find_gateway_pids(home_verified=True):
+            return True
+        return _app_scheduler_running()
     except Exception:
         return None
 
@@ -348,6 +390,13 @@ def cron_status():
             print(f"  PID: {', '.join(map(str, pids))}")
             if hb_age is not None:
                 print(f"  Ticker heartbeat: {int(hb_age)}s ago")
+    elif _app_scheduler_running():
+        print(color(
+            "✓ The AgentX desktop app is running the scheduler — cron jobs "
+            "fire automatically while the app is open",
+            Colors.GREEN,
+        ))
+        print("  To fire jobs while the app is closed too: agentx gateway install")
     else:
         print(color("✗ Gateway is not running — cron jobs will NOT fire", Colors.RED))
         print()

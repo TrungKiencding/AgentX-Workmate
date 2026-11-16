@@ -142,3 +142,62 @@ def test_account_gateway_is_not_attributed_to_a_flagless_home(current_home, monk
     )
 
     assert gateway_mod._scan_gateway_pids(set(), home_verified=True) == []
+
+
+# ── The desktop app runs the scheduler itself ──────────────────────────────
+#
+# A desktop backend (AGENTX_DESKTOP=1) ticks this home's jobs while the app is
+# open, with no gateway process. The `cronjob` tool used to read "no gateway"
+# as "will NOT fire" and the model told desktop users to run
+# `agentx gateway install` for a reminder the app then fired on time.
+
+APP_RUNNING = "desktop app is running the scheduler"
+
+
+def _write_heartbeat(home, age_seconds):
+    cron_dir = home / "cron"
+    cron_dir.mkdir(parents=True, exist_ok=True)
+    (cron_dir / "ticker_heartbeat").write_text(str(time.time() - age_seconds), encoding="utf-8")
+
+
+def test_desktop_backend_counts_as_a_running_scheduler(current_home, monkeypatch):
+    monkeypatch.setenv("AGENTX_DESKTOP", "1")
+
+    assert cron_cli._builtin_gateway_liveness() is True
+
+    from tools.cronjob_tools import _gateway_liveness_notice
+
+    notice = _gateway_liveness_notice()
+    assert notice == {"gateway_running": True}
+    assert "warning" not in notice
+
+
+def test_fresh_app_ticker_heartbeat_reports_jobs_will_fire(current_home, monkeypatch, capsys):
+    monkeypatch.delenv("AGENTX_DESKTOP", raising=False)
+    _write_heartbeat(current_home, age_seconds=30)
+
+    assert cron_cli._builtin_gateway_liveness() is True
+
+    cron_cli.cron_status()
+    out = capsys.readouterr().out
+    assert APP_RUNNING in out
+    assert NOT_RUNNING not in out
+
+
+def test_stale_ticker_heartbeat_still_reports_not_running(current_home, monkeypatch, capsys):
+    # The app closed long ago: its last heartbeat must not keep claiming jobs fire.
+    monkeypatch.delenv("AGENTX_DESKTOP", raising=False)
+    _write_heartbeat(current_home, age_seconds=3600)
+
+    assert cron_cli._builtin_gateway_liveness() is False
+
+    from tools.cronjob_tools import _gateway_liveness_notice
+
+    notice = _gateway_liveness_notice()
+    assert notice["gateway_running"] is False
+    assert "warning" in notice
+
+    cron_cli.cron_status()
+    out = capsys.readouterr().out
+    assert NOT_RUNNING in out
+    assert APP_RUNNING not in out
