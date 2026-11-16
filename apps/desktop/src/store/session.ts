@@ -62,6 +62,69 @@ export function forgetRememberedSession(sessionIds: Iterable<string>, profile?: 
 }
 
 /**
+ * Deletes the user asked for that may not have reached the backend yet.
+ *
+ * Deleting a chat closes its runtime over the renderer's socket before the
+ * delete request goes out; a reload or quit in that window dropped the
+ * delete, and the relaunch showed the chat again. Each delete is written
+ * here before the first await and cleared when the backend answers, so a
+ * relaunch can finish what the last run started.
+ */
+const PENDING_SESSION_DELETES_KEY = 'agentx.desktop.pendingSessionDeletes'
+
+export interface PendingSessionDelete {
+  id: string
+  profile: null | string
+}
+
+export function pendingSessionDeletes(): PendingSessionDelete[] {
+  const raw = storedString(PENDING_SESSION_DELETES_KEY)
+
+  if (!raw) {
+    return []
+  }
+
+  try {
+    const parsed: unknown = JSON.parse(raw)
+
+    return Array.isArray(parsed)
+      ? parsed.flatMap(entry =>
+          entry && typeof entry === 'object' && typeof (entry as PendingSessionDelete).id === 'string'
+            ? [
+                {
+                  id: (entry as PendingSessionDelete).id,
+                  profile:
+                    typeof (entry as PendingSessionDelete).profile === 'string'
+                      ? (entry as PendingSessionDelete).profile
+                      : null
+                }
+              ]
+            : []
+        )
+      : []
+  } catch {
+    return []
+  }
+}
+
+function writePendingSessionDeletes(entries: PendingSessionDelete[]): void {
+  persistString(PENDING_SESSION_DELETES_KEY, entries.length ? JSON.stringify(entries) : null)
+}
+
+export function addPendingSessionDelete(entry: PendingSessionDelete): void {
+  writePendingSessionDeletes([...pendingSessionDeletes().filter(pending => pending.id !== entry.id), entry])
+}
+
+export function clearPendingSessionDelete(id: string): void {
+  const entries = pendingSessionDeletes()
+  const next = entries.filter(pending => pending.id !== id)
+
+  if (next.length !== entries.length) {
+    writePendingSessionDeletes(next)
+  }
+}
+
+/**
  * The profile a routed session belongs to, for keying the remembered id.
  *
  * Prefer the owning profile recorded on the session row (the cross-profile

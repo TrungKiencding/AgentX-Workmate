@@ -35,8 +35,12 @@ import {
   $newChatWorkspaceTarget,
   $sessions,
   $yoloActive,
+  addPendingSessionDelete,
+  clearPendingSessionDelete,
   forgetRememberedSession,
+  getRememberedSessionId,
   type NewChatWorkspaceTarget,
+  pendingSessionDeletes,
   rememberedSessionProfile,
   resolveComposerSessionKey,
   sessionPinId,
@@ -55,6 +59,7 @@ import {
   setMessagingPlatformTotals,
   setMessagingSessions,
   setNewChatWorkspaceTarget,
+  setRememberedSessionId,
   setResumeExhaustedSessionId,
   setResumeFailedSessionId,
   setSelectedStoredSessionId,
@@ -226,6 +231,41 @@ function normalizeNewChatWorkspaceTarget(target: NewChatWorkspaceTarget): NewCha
   return typeof target === 'string' ? target.trim() || null : target
 }
 
+// Once per app run: the hook mounts again for tiles and remounts on profile
+// switches, and the backend must get each leftover delete only once.
+let pendingDeletesReplayed = false
+
+/**
+ * Finishes the deletes a reload or quit cut short (see addPendingSessionDelete):
+ * hides those chats at once, asks the backend again, and drops each entry
+ * once it answers. A delete the backend refuses brings the chat back.
+ */
+export async function replayPendingSessionDeletes(
+  hide: (ids: string[]) => void,
+  restore: (ids: string[]) => void,
+  remove: typeof deleteSession = deleteSession
+): Promise<void> {
+  const pending = pendingSessionDeletes()
+
+  if (!pending.length) {
+    return
+  }
+
+  hide(pending.map(entry => entry.id))
+
+  await Promise.all(
+    pending.map(async entry => {
+      try {
+        await remove(entry.id, entry.profile)
+      } catch {
+        restore([entry.id])
+      } finally {
+        clearPendingSessionDelete(entry.id)
+      }
+    })
+  )
+}
+
 export function useSessionActions({
   activeSessionId,
   activeSessionIdRef,
@@ -256,6 +296,22 @@ export function useSessionActions({
   // unconditionally; a fast A → B → C switch could therefore be overwritten
   // by A's delayed session.info event and visibly jump back to A.
   const storedIdRotation = useStore($activeSessionStoredIdRotation)
+
+  useEffect(() => {
+    if (pendingDeletesReplayed) {
+      return
+    }
+
+    pendingDeletesReplayed = true
+    void replayPendingSessionDeletes(
+      ids => {
+        tombstoneSessions(ids)
+        setSessions(prev => prev.filter(session => !ids.some(id => sessionMatchesStoredId(session, id))))
+        setMessagingSessions(prev => prev.filter(session => !ids.some(id => sessionMatchesStoredId(session, id))))
+      },
+      ids => untombstoneSessions(ids)
+    )
+  }, [])
 
   // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
   useEffect(() => {
@@ -1447,12 +1503,20 @@ export function useSessionActions({
         startFreshSessionDraft(true)
       }
 
+      // Before the first await: a reload or quit while the runtime closes
+      // must neither reopen this chat as the remembered one nor lose the
+      // delete — the next launch finishes it (replayPendingSessionDeletes).
+      const rememberedBefore = getRememberedSessionId(rememberedOwner)
+      forgetRememberedSession(removedIds, rememberedOwner)
+      addPendingSessionDelete({ id: storedSessionId, profile: removed?.profile ?? null })
+
       try {
         if (closingRuntimeId) {
           await requestGateway('session.close', { session_id: closingRuntimeId }).catch(() => undefined)
         }
 
         const deletedIds = (await deleteSession(storedSessionId, removed?.profile))?.deleted_ids ?? []
+        clearPendingSessionDelete(storedSessionId)
         clearQueuedPrompts(storedSessionId)
 
         if (closingRuntimeId) {
@@ -1513,6 +1577,13 @@ export function useSessionActions({
         // the conversation just deleted.
         forgetRememberedSession([...removedIds, ...deletedIds], rememberedOwner)
       } catch (err) {
+        // The delete failed: the chat stays, and is remembered as before.
+        clearPendingSessionDelete(storedSessionId)
+
+        if (rememberedBefore && removedIds.includes(rememberedBefore) && !getRememberedSessionId(rememberedOwner)) {
+          setRememberedSessionId(rememberedBefore, rememberedOwner)
+        }
+
         if (droppedLocal.length) {
           setSessions(prev => [...droppedLocal, ...prev])
         }
