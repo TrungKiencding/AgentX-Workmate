@@ -8,6 +8,8 @@ import types
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("self_hosted_inference")
+
 
 _VARS = ("AGENTX_SAFE_MODE", "AGENTX_IGNORE_USER_CONFIG", "AGENTX_IGNORE_RULES")
 

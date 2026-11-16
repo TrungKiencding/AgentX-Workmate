@@ -12,6 +12,8 @@ from unittest.mock import patch
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("self_hosted_inference")
+
 
 @pytest.fixture
 def config_home(tmp_path, monkeypatch):

@@ -14,6 +14,9 @@ fail — catching the exact #60328 regression.
 
 import os
 import sys
+import pytest
+
+pytestmark = pytest.mark.usefixtures("self_hosted_inference")
 
 
 def _run_main_and_capture_yolo_at_startup(monkeypatch, argv):

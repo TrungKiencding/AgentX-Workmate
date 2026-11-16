@@ -5,6 +5,9 @@ from types import ModuleType
 from unittest.mock import MagicMock, patch
 
 from hermes_cli import setup as setup_mod
+import pytest
+
+pytestmark = pytest.mark.usefixtures("self_hosted_inference")
 
 
 # ---------------------------------------------------------------------------

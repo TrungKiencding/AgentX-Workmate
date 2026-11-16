@@ -2243,3 +2243,19 @@ def no_shipped_identity_provider(monkeypatch):
     blanked = copy.deepcopy(DEFAULT_CONFIG["dashboard"]["oauth"]["keycloak"])
     blanked.update({"base_url": "", "realm": "", "client_id": "", "issuer": ""})
     monkeypatch.setitem(DEFAULT_CONFIG["dashboard"]["oauth"], "keycloak", blanked)
+
+
+@pytest.fixture
+def self_hosted_inference(monkeypatch):
+    """Run a suite in the explicit self-hosted mode (no AgentX SSO account).
+
+    Shipped defaults turn ``accounts.litellm`` on, so ``agentx chat``, setup
+    and the model picker sign in before anything else and list only the
+    account's grant. Suites that exercise argument parsing, the standalone
+    wizard or vendor pickers opt out with
+    ``pytestmark = pytest.mark.usefixtures("self_hosted_inference")``; the SSO
+    path has its own suite (tests/hermes_cli/test_cli_sso.py).
+    """
+    from hermes_cli.config_defaults import DEFAULT_CONFIG
+
+    monkeypatch.setitem(DEFAULT_CONFIG["accounts"]["litellm"], "enabled", False)

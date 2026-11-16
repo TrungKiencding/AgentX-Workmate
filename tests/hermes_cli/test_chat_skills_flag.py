@@ -1,4 +1,7 @@
 import sys
+import pytest
+
+pytestmark = pytest.mark.usefixtures("self_hosted_inference")
 
 
 def test_top_level_skills_flag_defaults_to_chat(monkeypatch):

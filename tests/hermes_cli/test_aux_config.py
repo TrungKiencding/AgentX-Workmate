@@ -22,6 +22,8 @@ from hermes_cli.main import (
     _save_aux_choice,
 )
 
+pytestmark = pytest.mark.usefixtures("self_hosted_inference")
+
 
 # ── Default config ──────────────────────────────────────────────────────────
 

@@ -17,6 +17,8 @@ import sys
 
 import pytest
 
+pytestmark = pytest.mark.usefixtures("self_hosted_inference")
+
 
 def _build_parser():
     """Build the agentx argument parser from the real code.

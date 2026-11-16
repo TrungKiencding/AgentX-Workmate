@@ -6,6 +6,8 @@ import pytest
 
 import cli as cli_mod
 
+pytestmark = pytest.mark.usefixtures("self_hosted_inference")
+
 
 # ── A3.1 Test-First: verify _clear_terminal_on_exit gating ──────────────────
 

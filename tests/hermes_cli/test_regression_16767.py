@@ -3,6 +3,9 @@ import sys
 import hermes_cli.model_switch as ms
 from hermes_cli.model_switch import DirectAlias
 from hermes_cli.runtime_provider import _resolve_named_custom_runtime
+import pytest
+
+pytestmark = pytest.mark.usefixtures("self_hosted_inference")
 
 def test_ensure_direct_aliases_mutates_in_place(monkeypatch):
     """_ensure_direct_aliases mutates DIRECT_ALIASES in place (guards against rebinding regression)."""

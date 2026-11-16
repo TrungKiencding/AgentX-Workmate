@@ -4,6 +4,8 @@ import pytest
 
 import cli
 
+pytestmark = pytest.mark.usefixtures("self_hosted_inference")
+
 
 @pytest.fixture(autouse=True)
 def reset_single_query_finalize_state(monkeypatch):
