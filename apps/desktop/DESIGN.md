@@ -1402,6 +1402,22 @@ selection and working-tree status.
   connection. Save and restart use the existing actions. A short fade/rise
   follows manual step changes; reduced motion is still. Detailed guides link
   to the landing's `/docs/kenh-tin-nhan/` platform anchors.
+- **Coach steps show the real screen.** `messaging/guide-figures.tsx` maps a
+  platform's coach step to masked screenshots captured from the live service
+  (`src/assets/messaging-guide/`, WebP at 1x): one at a time under the step
+  text, capped at `max-w-xl`/`max-h-96`, back/next when there are several, a
+  click opens the natural size in a dialog. Tokens, IDs, phone numbers, names
+  and avatars are masked or replaced before a capture lands; a step without a
+  capture shows nothing. Step 1 of the full form offers "Xem từng bước có ảnh"
+  next to the web guide.
+- **WhatsApp links in place.** Step 1 is "Liên kết điện thoại": pick self-chat
+  or a separate number, show the bridge's QR (white mat in both themes, it
+  rotates every ~20s), and the scan saves + enables + restarts on its own —
+  the one coach action that writes, because the scan is the person's explicit
+  act. The run lives in `useWhatsAppLink` at the detail level so the coach and
+  the form share it; leaving the platform cancels it. Fields Workmate writes
+  itself (`WHATSAPP_ENABLED/MODE/DM_POLICY`) stay under "Nâng cao" and are not
+  walked by the coach.
 - **External messaging transcripts are live, branded, and read-only.** Their
   sidebar conversation row carries the platform avatar; a visible header above
   the transcript pairs its title with a quiet, logo-bearing platform `TagChip`.

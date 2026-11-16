@@ -2318,7 +2318,7 @@ export const ja = defineLocale({
     credentialsSet: '認証情報を設定しました',
     needsSetup: '設定が必要',
     gatewayStopped: 'メッセージングゲートウェイが停止中',
-    openSetupGuide: 'セットアップガイドを開く',
+    openSetupGuide: 'Web で詳しいガイドを見る',
     destinationTitle: '会話のアドレス',
     destinationUnavailable: '接続済みですが、このプラットフォームは公開アドレスを提供していません。',
     openDestination: 'アプリで開く',
@@ -2478,7 +2478,7 @@ export const ja = defineLocale({
       signal:
         'アクセスできる場所で signal-cli REST ブリッジを動かし、そのアドレスと登録済みの電話番号を AgentX に教えます。',
       whatsapp:
-        'AgentX に付属の WhatsApp ブリッジを起動し、初回起動時に QR コードをスキャンしてから、この連携をオンにします。',
+        'パソコン版 WhatsApp と同じように、スマートフォンの WhatsApp で QR コードを 1 回スキャンするだけです。コードの貼り付けやターミナルは不要です。',
       bluebubbles:
         'iMessage が使える Mac で BlueBubbles Server を動かして API を公開し、そのアドレスとサーバーのパスワードをここに貼り付けます。',
       homeassistant:
@@ -2540,7 +2540,128 @@ export const ja = defineLocale({
       'このリクエストは期限切れです。ボットにもう一度メッセージを送ってもらい、新しいリクエストをここで承認してください。',
     pairingLockedOut:
       '承認の失敗が続いたため、このプラットフォームは一時的にロックされています。しばらくしてからもう一度お試しください。',
-    waitingSince: minutes => (minutes < 1 ? 'たった今' : `${minutes} 分前`)
+    waitingSince: minutes => (minutes < 1 ? 'たった今' : `${minutes} 分前`),
+    figures: {
+      previous: '前の画像',
+      next: '次の画像',
+      position: (current, total) => `画像 ${current}/${total}`,
+      enlarge: '画像を拡大',
+      showVisual: '画像付きの手順を見る',
+      items: {
+        'telegram-botfather-search': {
+          alt: 'Telegram で BotFather を検索した結果。認証済みアカウントを丸で囲んでいます',
+          caption: '@BotFather を検索し、青いチェックのあるアカウントを選びます。同じ名前の他のアカウントは偽物です。'
+        },
+        'telegram-botfather-token': {
+          alt: 'ボット作成後の BotFather のメッセージ。「HTTP API」の下のコードを丸で囲んでいます',
+          caption:
+            '/newbot を送り、名前と「bot」で終わるユーザー名を決めます。「HTTP API」の下のコード全体をコピーします（画像では隠しています）。'
+        },
+        'telegram-userinfobot-id': {
+          alt: 'Id の行を丸で囲んだ userinfobot の返信',
+          caption: '@userinfobot を開いて Start を押します。Id の行の数字があなたの ID です（画像はサンプル）。'
+        },
+        'discord-new-application': {
+          alt: 'Discord Developer Portal の新規アプリ作成ダイアログ。名前欄・同意欄・作成ボタンに番号付き',
+          caption:
+            'Developer Portal → 新しいアプリ：名前を入力し、同意欄にチェックして作成を押します。人間かどうか確認されることがあります。'
+        },
+        'discord-reset-token': {
+          alt: 'Bot ページのトークン欄。トークンをリセットボタンを丸で囲んでいます',
+          caption:
+            'Bot → トークンをリセット。トークンは一度しか表示されません。すぐコピーして Workmate に貼り付けます。'
+        },
+        'discord-reset-token-confirm': {
+          alt: '赤いボタンを丸で囲んだトークンリセットの確認',
+          caption: '赤いボタンで確定します。Discord がアカウントのパスワードを再度求めます。'
+        },
+        'discord-message-content-intent': {
+          alt: 'オンにしたメッセージコンテンツインテントと変更を保存ボタンに番号付き',
+          caption:
+            '同じ Bot ページでメッセージコンテンツインテントをオンにし、変更を保存します。これがないとボットはメッセージを読めません。'
+        },
+        'telegram-pairing-code': {
+          alt: 'ペアリングコードを丸で囲んだボットのメッセージ',
+          caption:
+            '最初にメッセージすると、ボットがペアリングコードを送ります。これは正常で、Workmate での許可を待っています。'
+        },
+        'workmate-allow-request': {
+          alt: '許可ボタンを丸で囲んだ Workmate のメッセージ要求',
+          caption:
+            'Workmate に戻り、自分の名前であることを確認して許可を押します。その後もう一度ボットにメッセージします（画像はサンプル名）。'
+        },
+        'discord-bot-permissions': {
+          alt: '必要な権限を丸で囲んだボット権限の表',
+          caption:
+            'OAuth2 → URL ジェネレーター：bot と applications.commands、次にチャンネルを見る・メッセージを送信・埋め込みリンク・ファイルを添付・メッセージ履歴を読むを選びます。'
+        },
+        'discord-invite-url': {
+          alt: 'OAuth2 ページ下部の生成された URL 欄を丸で囲んでいます',
+          caption: '生成された URL をコピーしてブラウザで開き、管理しているサーバーを選んでボットを招待します。'
+        },
+        'discord-developer-mode': {
+          alt: '開発者モードのスイッチを丸で囲んだ Discord 設定の開発者セクション',
+          caption:
+            'Discord → ユーザー設定 → 開発者 → 開発者モードをオン。次に自分の名前を右クリック → ユーザー ID をコピー。'
+        }
+      }
+    },
+    whatsapp: {
+      step1Title: 'スマートフォンをリンク',
+      step2Title: 'AgentX にメッセージできる人',
+      step2Body:
+        'コードを貼り付ける必要はありません。既定では、知らない人がメッセージするとペアリングコードが届き、ここで「許可」を押すまで会話できません。あらかじめ番号を許可するには「推奨」を開きます。',
+      step2BodySelf:
+        '自分あてにメッセージする方式です。AgentX と話せるのはあなただけで、Workmate があなたの番号に制限済みです。追加の作業は不要です。',
+      modeLabel: 'AgentX にどうやってメッセージしますか？',
+      modeSelf: '自分の WhatsApp 番号から',
+      modeSelfHint:
+        'WhatsApp の自分とのチャットに書くと、AgentX がそこで返信します。友だちからのメッセージには影響しません。',
+      modeBot: 'AgentX 専用の別の番号で',
+      modeBotHint:
+        '予備の番号（別の端末の WhatsApp Business など）を使います。その番号にメッセージした人は、あなたが許可すると AgentX と会話できます。',
+      showQr: 'QR コードを表示',
+      retry: '新しいコードを作成',
+      preparing: 'QR コードを準備しています…',
+      preparingHint: '初回は WhatsApp コンポーネントのダウンロードに 1 分ほどかかることがあります。',
+      scanTitle: 'スマートフォンの WhatsApp でスキャン',
+      scanSteps: [
+        '使うスマートフォンで WhatsApp を開きます。',
+        'iPhone：「設定」をタップ。Android：右上の ⋮ をタップ。',
+        '「リンク済みデバイス」→「デバイスをリンク」をタップします。',
+        'カメラをこのコードに向けます。カメラアプリではなく WhatsApp 内でスキャンしてください。'
+      ],
+      qrRefresh: 'コードは数秒ごとに変わります。スキャンが終わるまでこの画面を開いたままにしてください。',
+      qrAlt: 'WhatsApp を AgentX にリンクする QR コード',
+      saving: 'スキャンしました。保存して WhatsApp をオンにしています…',
+      linkedTo: who => `${who} とリンク済み`,
+      linkedUnknown: 'WhatsApp アカウントがリンクされています',
+      trySelf: '試すには：WhatsApp で自分とのチャット（自分の名前に「あなた」）を開き、あいさつを送ります。',
+      tryBot:
+        '試すには：別の WhatsApp 番号からこの番号にあいさつを送ります。初回はこのページに表示される要求で「許可」を押します。',
+      relink: '別の番号をリンク',
+      relinkTitle: '別の WhatsApp 番号をリンクしますか？',
+      relinkBody:
+        'AgentX はリンク中の番号の使用をやめ、新しい QR コードを表示します。使いたいスマートフォンでスキャンしてください。',
+      relinkConnected: '別の番号をリンクする前に、手順 3 で接続をオフにして AgentX を再起動してください。',
+      linkedToast: 'WhatsApp をリンクしました',
+      linkedToastBody: 'メッセージの受信を始めるため AgentX を再起動しています。',
+      linkedToastRestart: '「AgentX を再起動」を押すとメッセージの受信が始まります。',
+      linkFailed: 'WhatsApp の設定を保存できませんでした',
+      errors: {
+        notPaired:
+          'WhatsApp はオンですが、スマートフォンがリンクされていません。手順 1 で QR コードを表示し、スマートフォンでスキャンしてください。',
+        bridgeExited:
+          'WhatsApp の接続が止まりました。スマートフォンでこのデバイスを削除した場合は、手順 1 の「別の番号をリンク」から再度スキャンしてください。それ以外は「AgentX を再起動」を押してください。',
+        expired: 'QR コードの期限が切れました。新しいコードを作成して再度スキャンしてください。',
+        noNode:
+          'このコンピューターには WhatsApp に必要な Node.js がありません。AgentX Workmate を再インストールしてから再試行してください。',
+        install:
+          'WhatsApp コンポーネントをダウンロードできませんでした。インターネット接続を確認して再試行してください。',
+        loggedOut: 'WhatsApp がリンクを拒否しました。新しいコードを作成して再度スキャンしてください。',
+        generic: 'WhatsApp はまだリンクされていません。新しいコードを試してください。'
+      }
+    }
   },
 
   profiles: {

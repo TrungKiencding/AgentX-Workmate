@@ -239,6 +239,40 @@ export interface MessagingPlatformInfo {
   name: string
   state?: null | string
   updated_at?: null | string
+  /** WhatsApp only: the linked device session, if one exists on disk. */
+  whatsapp_setup?: WhatsAppSetupInfo
+}
+
+export interface WhatsAppSetupInfo {
+  account_name?: null | string
+  account_phone?: null | string
+  allowed_users_set: boolean
+  home_channel_set: boolean
+  linked?: boolean
+  mode: '' | 'bot' | 'self-chat'
+}
+
+export type WhatsAppLinkMode = 'bot' | 'self-chat'
+
+/** One in-app QR pairing run (`/api/messaging/whatsapp/onboarding/*`). */
+export interface WhatsAppOnboardingSession {
+  account_id: null | string
+  account_name: null | string
+  account_phone: null | string
+  allowed_users: string
+  error: null | string
+  expires_at: string
+  mode: WhatsAppLinkMode
+  pairing_id: string
+  qr_payload: null | string
+  status: 'cancelled' | 'connected' | 'error' | 'expired' | 'installing' | 'starting' | 'waiting'
+}
+
+export interface WhatsAppOnboardingApplyResponse {
+  needs_restart: boolean
+  ok: boolean
+  restart_error?: string
+  restart_started: boolean
 }
 
 export interface MessagingPlatformsResponse {

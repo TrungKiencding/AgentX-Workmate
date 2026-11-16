@@ -2235,7 +2235,7 @@ export const zhHant = defineLocale({
     credentialsSet: '憑證已設定',
     needsSetup: '需要設定',
     gatewayStopped: '訊息閘道已停止',
-    openSetupGuide: '開啟設定指南',
+    openSetupGuide: '在網頁上查看完整指南',
     destinationTitle: '對話地址',
     destinationUnavailable: '已連線，但此平台未提供公開地址。',
     openDestination: '在應用程式中開啟',
@@ -2365,7 +2365,7 @@ export const zhHant = defineLocale({
       mattermost: '在你的 Mattermost 伺服器上建立機器人帳號或個人存取權杖，然後把伺服器位址和權杖貼到這裡。',
       matrix: '用機器人帳號登入 homeserver，然後複製存取權杖、帳號 ID 和 homeserver 位址。',
       signal: '在可連線到的地方執行 signal-cli REST 橋接，然後把該位址和已註冊的電話號碼告訴 AgentX。',
-      whatsapp: '啟動 AgentX 內附的 WhatsApp 橋接，第一次執行時掃描 QR Code，然後開啟這個連接。',
+      whatsapp: '就像使用電腦版 WhatsApp，用手機上的 WhatsApp 掃描一次 QR Code 即可。不需要貼上代碼，也不需要終端機。',
       bluebubbles: '在一台有 iMessage 的 Mac 上執行 BlueBubbles Server，開放它的 API，然後把位址和伺服器密碼貼到這裡。',
       homeassistant:
         '在 Home Assistant 裡開啟你的個人資料頁面，建立一個長期存取權杖。把該權杖和 Home Assistant 位址貼到這裡。',
@@ -2421,7 +2421,115 @@ export const zhHant = defineLocale({
     failedRevoke: name => `撤銷 ${name} 失敗`,
     pairingExpired: '此請求已過期。請對方再次傳訊息給機器人以產生新請求，然後在這裡核准。',
     pairingLockedOut: '核准失敗次數過多 — 這個平台已被暫時鎖定，請稍後再試。',
-    waitingSince: minutes => (minutes < 1 ? '剛剛' : `${minutes} 分鐘前`)
+    waitingSince: minutes => (minutes < 1 ? '剛剛' : `${minutes} 分鐘前`),
+    figures: {
+      previous: '上一張',
+      next: '下一張',
+      position: (current, total) => `圖片 ${current}/${total}`,
+      enlarge: '放大圖片',
+      showVisual: '查看附圖的逐步指南',
+      items: {
+        'telegram-botfather-search': {
+          alt: '在 Telegram 搜尋 BotFather 的結果，已圈出官方認證帳號',
+          caption: '搜尋 @BotFather 並選擇有藍色認證標記的帳號。其他同名帳號都是冒充的。'
+        },
+        'telegram-botfather-token': {
+          alt: '建立機器人後 BotFather 的訊息，已圈出「HTTP API」下方的代碼',
+          caption:
+            '傳送 /newbot，設定名稱，再設定以「bot」結尾的使用者名稱。複製「HTTP API」下方的整行代碼（圖中已遮蔽）。'
+        },
+        'telegram-userinfobot-id': {
+          alt: 'userinfobot 的回覆，已圈出 Id 行',
+          caption: '開啟 @userinfobot 並按 Start。Id 行的數字就是你的 ID（圖中為範例）。'
+        },
+        'discord-new-application': {
+          alt: 'Discord Developer Portal 中建立應用程式的對話框，名稱、同意框與建立按鈕已編號',
+          caption: 'Developer Portal → 新應用程式：輸入名稱，勾選同意框，再按建立。Discord 可能會確認你是否為真人。'
+        },
+        'discord-reset-token': {
+          alt: 'Bot 頁面的 Token 區塊，已圈出重設 Token 按鈕',
+          caption: 'Bot → 重設 Token。Token 只會顯示一次——請立即複製並貼到 Workmate。'
+        },
+        'discord-reset-token-confirm': {
+          alt: '重設 Token 確認框，已圈出紅色按鈕',
+          caption: '按紅色按鈕確認。Discord 會再次要求輸入帳號密碼。'
+        },
+        'discord-message-content-intent': {
+          alt: '已開啟的訊息內容 Intent 與已編號的儲存變更按鈕',
+          caption: '在同一個 Bot 頁面開啟訊息內容 Intent 並按儲存變更。少了這一步機器人無法讀取訊息。'
+        },
+        'telegram-pairing-code': {
+          alt: '機器人訊息，已圈出配對碼',
+          caption: '第一次傳訊息時，機器人會傳送配對碼。這是正常的：它在等你在 Workmate 中允許。'
+        },
+        'workmate-allow-request': {
+          alt: 'Workmate 中的訊息要求，已圈出允許按鈕',
+          caption: '回到 Workmate，確認是你的名字後按允許。接著再傳訊息給機器人（圖中為範例名稱）。'
+        },
+        'discord-bot-permissions': {
+          alt: '機器人權限表，已圈出需要的權限',
+          caption:
+            'OAuth2 → URL 產生器：勾選 bot 與 applications.commands，再選檢視頻道、傳送訊息、嵌入連結、附加檔案、讀取訊息歷史。'
+        },
+        'discord-invite-url': {
+          alt: 'OAuth2 頁面底部產生的 URL，已圈出',
+          caption: '複製產生的 URL，在瀏覽器開啟，選擇你管理的伺服器來邀請機器人。'
+        },
+        'discord-developer-mode': {
+          alt: 'Discord 設定中的開發者區塊，已圈出開發者模式開關',
+          caption: 'Discord → 使用者設定 → 開發者 → 開啟開發者模式。接著在你的名字上按右鍵 → 複製使用者 ID。'
+        }
+      }
+    },
+    whatsapp: {
+      step1Title: '連結手機',
+      step2Title: '誰可以傳訊息給 AgentX',
+      step2Body:
+        '不需要貼上代碼。預設情況下，陌生人傳來訊息會收到配對碼，你在這裡按「允許」後才能對話。想預先允許某些號碼，請展開「建議設定」。',
+      step2BodySelf: '你選擇了傳訊息給自己：只有你能與 AgentX 對話，Workmate 已自動限制為你的號碼。不需要其他操作。',
+      modeLabel: '你要怎麼傳訊息給 AgentX？',
+      modeSelf: '用我自己的 WhatsApp 號碼',
+      modeSelfHint: '在 WhatsApp 裡傳訊息給自己，AgentX 會在那裡回覆。朋友傳給你的訊息不受影響。',
+      modeBot: '用一個 AgentX 專用號碼',
+      modeBotHint:
+        '使用一個備用號碼（例如另一支手機上的 WhatsApp Business）。傳訊息到該號碼的人在你允許後即可與 AgentX 對話。',
+      showQr: '顯示 QR Code',
+      retry: '產生新的 QR Code',
+      preparing: '正在準備 QR Code…',
+      preparingHint: '第一次可能需要約一分鐘，AgentX 正在下載 WhatsApp 元件。',
+      scanTitle: '用手機上的 WhatsApp 掃描',
+      scanSteps: [
+        '在要使用的手機上開啟 WhatsApp。',
+        'iPhone：點「設定」。Android：點右上角的 ⋮。',
+        '點「已連結的裝置」→「連結裝置」。',
+        '將相機對準這個 QR Code。請在 WhatsApp 內掃描，不要用相機 App。'
+      ],
+      qrRefresh: 'QR Code 每隔幾秒會更新——掃描完成前請保持此畫面開啟。',
+      qrAlt: '將 WhatsApp 連結到 AgentX 的 QR Code',
+      saving: '已掃描。正在儲存並開啟 WhatsApp…',
+      linkedTo: who => `已連結 ${who}`,
+      linkedUnknown: '已連結一個 WhatsApp 帳號',
+      trySelf: '試試看：開啟 WhatsApp，找到與你自己的對話（你的名字旁標有「你」），傳一句問候。',
+      tryBot: '試試看：用另一個 WhatsApp 號碼傳一句問候給這個號碼。第一次請在本頁出現要求時按「允許」。',
+      relink: '連結其他號碼',
+      relinkTitle: '要連結另一個 WhatsApp 號碼嗎？',
+      relinkBody: 'AgentX 會停止使用目前連結的號碼並顯示新的 QR Code。請用你想使用的手機掃描。',
+      relinkConnected: '連結其他號碼前，請先在第 3 步關閉連線並重新啟動 AgentX。',
+      linkedToast: 'WhatsApp 已連結',
+      linkedToastBody: 'AgentX 正在重新啟動以開始接收訊息。',
+      linkedToastRestart: '按「重新啟動 AgentX」以開始接收訊息。',
+      linkFailed: '無法儲存 WhatsApp 設定',
+      errors: {
+        notPaired: 'WhatsApp 已開啟，但尚未連結手機。請在第 1 步顯示 QR Code 並用手機掃描。',
+        bridgeExited:
+          'WhatsApp 連線已中斷。如果你在手機上移除了此裝置，請在第 1 步按「連結其他號碼」重新掃描；否則請按「重新啟動 AgentX」。',
+        expired: 'QR Code 已過期。請產生新的 QR Code 後重新掃描。',
+        noNode: '這台電腦缺少 WhatsApp 所需的 Node.js。請重新安裝 AgentX Workmate 後再試。',
+        install: '無法下載 WhatsApp 元件。請檢查網路連線後再試。',
+        loggedOut: 'WhatsApp 拒絕了連結。請產生新的 QR Code 後重新掃描。',
+        generic: 'WhatsApp 尚未連結。請嘗試新的 QR Code。'
+      }
+    }
   },
 
   profiles: {

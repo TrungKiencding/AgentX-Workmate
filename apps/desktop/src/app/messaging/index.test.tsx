@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { en } from '@/i18n/en'
 import type { MessagingPlatformInfo } from '@/types/hermes'
 
 const getMessagingPlatforms = vi.fn()
@@ -112,18 +113,17 @@ describe('MessagingView setup-guide link', () => {
     await renderMessaging()
 
     expect((await screen.findAllByText('Microsoft Teams')).length).toBeGreaterThan(0)
-    expect(screen.queryByText('Open setup guide')).toBeNull()
+    expect(screen.queryByText('Full guide on the web')).toBeNull()
   })
 
   it('opens a real docs URL through the validated external opener', async () => {
-    const docsUrl =
-      'https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/teams.md'
+    const docsUrl = 'https://learn.microsoft.com/en-us/microsoftteams/platform/bots/what-are-bots'
 
     getMessagingPlatforms.mockResolvedValue({ platforms: [platform({ docs_url: docsUrl })] })
 
     await renderMessaging()
 
-    const link = await screen.findByText('Open setup guide')
+    const link = await screen.findByText('Full guide on the web')
     await act(async () => {
       fireEvent.click(link)
     })
@@ -390,6 +390,61 @@ describe('MessagingView guided setup', () => {
     continueGuide()
     fireEvent.click(screen.getByRole('link', { name: 'Open docs' }))
     expect(openExternalLink).toHaveBeenCalledWith('https://t.me/BotFather')
+  })
+
+  it('shows the real, masked screenshot for the step being taught', async () => {
+    mockTelegramGuide()
+    await renderMessaging()
+
+    const figures = en.messaging.figures.items
+    expect(screen.getByAltText(figures['telegram-botfather-search'].alt)).toBeTruthy()
+    expect(screen.getByText('Picture 1/2')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Next picture' }))
+    expect(screen.getByAltText(figures['telegram-botfather-token'].alt)).toBeTruthy()
+    expect((screen.getByRole('button', { name: 'Next picture' }) as HTMLButtonElement).disabled).toBe(true)
+    // Small labels stay readable: the shot opens at its natural size.
+    fireEvent.click(screen.getByRole('button', { name: 'Enlarge picture' }))
+    const enlarged = await screen.findByRole('dialog')
+    expect(within(enlarged).getByAltText(figures['telegram-botfather-token'].alt)).toBeTruthy()
+    fireEvent.keyDown(enlarged, { key: 'Escape' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+
+    continueGuide()
+    // The token step shows where the token comes from, starting fresh.
+    expect(screen.getByAltText(figures['telegram-botfather-token'].alt)).toBeTruthy()
+    expect(screen.queryByText(/Picture \d\/\d/)).toBeNull()
+
+    continueGuide()
+    expect(screen.getByAltText(figures['telegram-userinfobot-id'].alt)).toBeTruthy()
+
+    continueGuide()
+    // The proxy field has no screenshot; nothing stale is left behind.
+    expect(screen.getByLabelText('Proxy URL')).toBeTruthy()
+    expect(coach().querySelector('img')).toBeNull()
+  })
+
+  it('opens the pictured coach from step 1 and links the landing section, not a repository', async () => {
+    getMessagingPlatforms.mockResolvedValue({
+      platforms: [
+        platform({
+          id: 'telegram',
+          name: 'Telegram',
+          env_vars: telegramFields,
+          docs_url: 'https://core.telegram.org/bots/tutorial'
+        })
+      ]
+    })
+    await renderMessaging()
+
+    fireEvent.click(screen.getByText('Full guide on the web'))
+    expect(openExternalLink).toHaveBeenCalledWith(
+      'https://agentx-landingpage.astralx.com.vn/docs/kenh-tin-nhan/#telegram'
+    )
+    expect(openExternalLink).not.toHaveBeenCalledWith(expect.stringContaining('github.com'))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Step by step with pictures' }))
+    expect(coach()).toBeTruthy()
+    expect(screen.getByAltText(en.messaging.figures.items['telegram-botfather-search'].alt)).toBeTruthy()
   })
 
   it('resets the coach when selecting a different platform, keeping each form’s edits', async () => {

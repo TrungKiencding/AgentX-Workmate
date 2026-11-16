@@ -2385,7 +2385,7 @@ export const ar = defineLocale({
     credentialsSet: 'بيانات الاعتماد مضبوطة',
     needsSetup: 'يحتاج إعدادا',
     gatewayStopped: 'البوابة متوقفة',
-    openSetupGuide: 'فتح دليل الإعداد',
+    openSetupGuide: 'الدليل الكامل على الويب',
     destinationTitle: 'عنوان المحادثة',
     destinationUnavailable: 'تم الاتصال، لكن المنصة لا توفر عنوانا عاما.',
     openDestination: 'فتح في التطبيق',
@@ -2577,7 +2577,8 @@ export const ar = defineLocale({
       matrix:
         'سجّل الدخول إلى الخادم الرئيسي (homeserver) بحساب البوت، ثم انسخ رمز الوصول ومعرّف المستخدم وعنوان الخادم الرئيسي.',
       signal: 'شغّل جسر signal-cli REST في مكان يمكن الوصول إليه، ثم زوّد AgentX بعنوانه ورقم الهاتف المسجّل.',
-      whatsapp: 'شغّل جسر WhatsApp المرفق مع AgentX، وامسح رمز QR عند التشغيل الأول، ثم فعّل هذا الاتصال.',
+      whatsapp:
+        'امسح رمز QR واحدًا بـ WhatsApp على هاتفك، تمامًا كما في WhatsApp على الحاسوب. لا رموز للصق ولا نافذة أوامر.',
       bluebubbles:
         'شغّل BlueBubbles Server على جهاز Mac مفعّل فيه iMessage، وافتح واجهة API الخاصة به، ثم الصق العنوان وكلمة مرور الخادم هنا.',
       homeassistant:
@@ -2635,7 +2636,120 @@ export const ar = defineLocale({
     failedRevoke: name => `تعذّر إلغاء وصول ${name}`,
     pairingExpired: 'انتهت صلاحية هذا الطلب. اطلب منهم مراسلة البوت مجددًا للحصول على طلب جديد، ثم اعتمده هنا.',
     pairingLockedOut: 'كثرت محاولات الاعتماد الفاشلة — هذه المنصة مقفلة مؤقتًا. حاول مجددًا لاحقًا.',
-    waitingSince: minutes => (minutes < 1 ? 'للتو' : `منذ ${minutes} د`)
+    waitingSince: minutes => (minutes < 1 ? 'للتو' : `منذ ${minutes} د`),
+    figures: {
+      previous: 'الصورة السابقة',
+      next: 'الصورة التالية',
+      position: (current, total) => `صورة ${current}/${total}`,
+      enlarge: 'تكبير الصورة',
+      showVisual: 'خطوة بخطوة مع صور',
+      items: {
+        'telegram-botfather-search': {
+          alt: 'نتائج البحث عن BotFather في Telegram مع تحديد الحساب الموثّق',
+          caption: 'ابحث عن ‎@BotFather واختر الحساب ذا علامة التوثيق الزرقاء. الحسابات الأخرى بالاسم نفسه مزيّفة.'
+        },
+        'telegram-botfather-token': {
+          alt: 'رسالة BotFather بعد إنشاء البوت مع تحديد الرمز أسفل «HTTP API»',
+          caption:
+            'أرسل ‎/newbot، واختر اسمًا ثم اسم مستخدم ينتهي بـ «bot». انسخ الرمز كاملًا أسفل «HTTP API» (مخفي في الصورة).'
+        },
+        'telegram-userinfobot-id': {
+          alt: 'رد userinfobot مع تحديد سطر Id',
+          caption: 'افتح ‎@userinfobot واضغط Start. الرقم في سطر Id هو معرّفك (الرقم في الصورة مثال).'
+        },
+        'discord-new-application': {
+          alt: 'نافذة إنشاء تطبيق جديد في Discord Developer Portal مع ترقيم حقل الاسم ومربع الموافقة وزر الإنشاء',
+          caption:
+            'Developer Portal ← تطبيق جديد: أدخل اسمًا وحدّد مربع الموافقة ثم اضغط إنشاء. قد يتحقق Discord من أنك إنسان.'
+        },
+        'discord-reset-token': {
+          alt: 'قسم Token في صفحة Bot مع تحديد زر إعادة تعيين Token',
+          caption: 'Bot ← إعادة تعيين Token. يظهر الرمز مرة واحدة فقط — انسخه فورًا والصقه في Workmate.'
+        },
+        'discord-reset-token-confirm': {
+          alt: 'تأكيد إعادة تعيين الرمز مع تحديد الزر الأحمر',
+          caption: 'اضغط الزر الأحمر للتأكيد. سيطلب Discord كلمة مرور حسابك مجددًا.'
+        },
+        'discord-message-content-intent': {
+          alt: 'مفتاح Message Content Intent مفعّل وزر حفظ التغييرات مرقّم',
+          caption:
+            'في صفحة Bot نفسها فعّل Message Content Intent واضغط حفظ التغييرات. من دونه لا يستطيع البوت قراءة الرسائل.'
+        },
+        'telegram-pairing-code': {
+          alt: 'رسالة البوت مع تحديد رمز الاقتران',
+          caption: 'في أول رسالة يرسل البوت رمز اقتران. هذا متوقع: فهو ينتظر أن تسمح له في Workmate.'
+        },
+        'workmate-allow-request': {
+          alt: 'طلب مراسلة في Workmate مع تحديد زر السماح',
+          caption: 'عُد إلى Workmate وتأكد أنه اسمك ثم اضغط سماح. بعدها راسل البوت مرة أخرى (الاسم في الصورة مثال).'
+        },
+        'discord-bot-permissions': {
+          alt: 'جدول أذونات البوت مع تحديد الأذونات المطلوبة',
+          caption:
+            'OAuth2 ← منشئ الرابط: حدّد bot وapplications.commands ثم عرض القنوات وإرسال الرسائل وتضمين الروابط وإرفاق الملفات وقراءة سجل الرسائل.'
+        },
+        'discord-invite-url': {
+          alt: 'حقل الرابط المُنشأ أسفل صفحة OAuth2 محدّد',
+          caption: 'انسخ الرابط المُنشأ وافتحه في المتصفح واختر خادمًا تديره لدعوة البوت.'
+        },
+        'discord-developer-mode': {
+          alt: 'قسم المطوّر في إعدادات Discord مع تحديد مفتاح وضع المطوّر',
+          caption:
+            'Discord ← إعدادات المستخدم ← المطوّر ← فعّل وضع المطوّر. ثم انقر بزر الفأرة الأيمن على اسمك ← نسخ معرّف المستخدم.'
+        }
+      }
+    },
+    whatsapp: {
+      step1Title: 'اربط هاتفك',
+      step2Title: 'من يمكنه مراسلة AgentX',
+      step2Body:
+        'لا حاجة للصق أي رمز. افتراضيًا، يتلقى الغريب الذي يراسلك رمز اقتران ولا يمكنه المحادثة إلا بعد أن تضغط «سماح» هنا. للسماح لبعض الأرقام مسبقًا، افتح «موصى به».',
+      step2BodySelf:
+        'اخترت مراسلة نفسك: أنت فقط من يمكنه محادثة AgentX، وقد قيّده Workmate برقمك تلقائيًا. لا حاجة لأي خطوة أخرى.',
+      modeLabel: 'كيف ستراسل AgentX؟',
+      modeSelf: 'من رقم WhatsApp الخاص بي',
+      modeSelfHint: 'تكتب في محادثتك مع نفسك في WhatsApp ويرد AgentX هناك. لا تتأثر رسائل أصدقائك إليك.',
+      modeBot: 'عبر رقم منفصل لـ AgentX',
+      modeBotHint:
+        'استخدم رقمًا احتياطيًا (مثل WhatsApp Business على هاتف آخر). من يراسل ذلك الرقم يحادث AgentX بعد أن تسمح له.',
+      showQr: 'إظهار رمز QR',
+      retry: 'إنشاء رمز جديد',
+      preparing: 'جارٍ تجهيز رمز QR…',
+      preparingHint: 'قد تستغرق المرة الأولى نحو دقيقة بينما ينزّل AgentX مكوّن WhatsApp.',
+      scanTitle: 'امسح الرمز بـ WhatsApp على هاتفك',
+      scanSteps: [
+        'افتح WhatsApp على الهاتف الذي ستستخدمه.',
+        'iPhone: اضغط الإعدادات. Android: اضغط ⋮ في الزاوية العلوية.',
+        'اضغط الأجهزة المرتبطة ← ربط جهاز.',
+        'وجّه الكاميرا إلى هذا الرمز. امسحه من داخل WhatsApp وليس من تطبيق الكاميرا.'
+      ],
+      qrRefresh: 'يتغير الرمز كل بضع ثوانٍ — أبقِ هذه الشاشة مفتوحة حتى ينتهي المسح.',
+      qrAlt: 'رمز QR لربط WhatsApp بـ AgentX',
+      saving: 'تم المسح. جارٍ الحفظ وتشغيل WhatsApp…',
+      linkedTo: who => `مرتبط بـ ${who}`,
+      linkedUnknown: 'حساب WhatsApp مرتبط',
+      trySelf: 'للتجربة: افتح WhatsApp، وابحث عن محادثتك مع نفسك (اسمك مع «أنت») وأرسل تحية.',
+      tryBot:
+        'للتجربة: من رقم WhatsApp آخر أرسل تحية إلى هذا الرقم. في المرة الأولى اضغط «سماح» عند ظهور الطلب في هذه الصفحة.',
+      relink: 'ربط رقم آخر',
+      relinkTitle: 'ربط رقم WhatsApp مختلف؟',
+      relinkBody: 'سيتوقف AgentX عن استخدام الرقم المرتبط ويعرض رمز QR جديدًا. امسحه بالهاتف الذي تريد استخدامه.',
+      relinkConnected: 'أوقف الاتصال في الخطوة 3 وأعد تشغيل AgentX قبل ربط رقم آخر.',
+      linkedToast: 'تم ربط WhatsApp',
+      linkedToastBody: 'يُعاد تشغيل AgentX لبدء استقبال الرسائل.',
+      linkedToastRestart: 'اضغط «إعادة تشغيل AgentX» لبدء استقبال الرسائل.',
+      linkFailed: 'تعذّر حفظ إعداد WhatsApp',
+      errors: {
+        notPaired: 'WhatsApp مفعّل لكن لا يوجد هاتف مرتبط. أظهر رمز QR في الخطوة 1 وامسحه بهاتفك.',
+        bridgeExited:
+          'توقف اتصال WhatsApp. إذا أزلت هذا الجهاز من هاتفك فاضغط «ربط رقم آخر» في الخطوة 1 لإعادة المسح؛ وإلا فاضغط «إعادة تشغيل AgentX».',
+        expired: 'انتهت صلاحية رمز QR. أنشئ رمزًا جديدًا وامسحه مرة أخرى.',
+        noNode: 'ينقص هذا الحاسوب Node.js الذي يحتاجه WhatsApp. أعد تثبيت AgentX Workmate ثم حاول مجددًا.',
+        install: 'تعذّر تنزيل مكوّن WhatsApp. تحقق من اتصال الإنترنت وحاول مجددًا.',
+        loggedOut: 'رفض WhatsApp الربط. أنشئ رمزًا جديدًا وامسحه مرة أخرى.',
+        generic: 'لم يُربط WhatsApp بعد. جرّب رمزًا جديدًا.'
+      }
+    }
   },
   profiles: {
     close: 'إغلاق',

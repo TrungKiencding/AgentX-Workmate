@@ -2114,7 +2114,7 @@ export const en: Translations = {
     credentialsSet: 'Credentials set',
     needsSetup: 'Needs setup',
     gatewayStopped: 'AgentX messaging is switched off',
-    openSetupGuide: 'Open setup guide',
+    openSetupGuide: 'Full guide on the web',
     destinationTitle: 'Conversation address',
     destinationUnavailable: 'Connected, but this platform does not provide a public address.',
     openDestination: 'Open in app',
@@ -2283,7 +2283,7 @@ export const en: Translations = {
       signal:
         'Run a signal-cli REST bridge somewhere reachable, then point AgentX at the URL and the registered phone number.',
       whatsapp:
-        'Start the WhatsApp bridge that ships with AgentX, scan the QR code on first run, then turn the platform on.',
+        'Scan one QR code with WhatsApp on your phone, just like WhatsApp on a computer. No code to paste and no terminal.',
       bluebubbles:
         'Run BlueBubbles Server on a Mac with iMessage, expose its API, then point AgentX at the URL with the server password.',
       homeassistant:
@@ -2306,6 +2306,124 @@ export const en: Translations = {
         'Expose AgentX as an OpenAI-compatible API. Set an auth key, then point Open WebUI / LobeChat / etc. at the host:port.',
       webhook:
         'Run an HTTP server that other tools (GitHub, GitLab, custom apps) can POST to. Use the secret to verify signatures.'
+    },
+    figures: {
+      previous: 'Previous picture',
+      next: 'Next picture',
+      position: (current, total) => `Picture ${current}/${total}`,
+      enlarge: 'Enlarge picture',
+      showVisual: 'Step by step with pictures',
+      items: {
+        'telegram-botfather-search': {
+          alt: 'Telegram search results for BotFather with the verified account circled',
+          caption:
+            'Search for @BotFather and pick the account with the blue check. Other accounts with the same name are fakes.'
+        },
+        'telegram-botfather-token': {
+          alt: 'BotFather message after creating a bot, with the code under “HTTP API” circled',
+          caption:
+            'Send /newbot, choose a name, then a username ending in “bot”. Copy the whole code under “HTTP API” (masked here).'
+        },
+        'telegram-userinfobot-id': {
+          alt: 'userinfobot reply with the Id line circled',
+          caption: 'Open @userinfobot and press Start. The number on the Id line is your ID (sample number shown).'
+        },
+        'discord-new-application': {
+          alt: 'Create an application dialog in the Discord Developer Portal with the name field, agreement box and Create button numbered',
+          caption:
+            'Developer Portal → New Application: enter a name, tick the agreement box, then click Create. Discord may ask whether you are human.'
+        },
+        'discord-reset-token': {
+          alt: 'Token section of the Bot page with the Reset Token button circled',
+          caption: 'Bot → Reset Token. The token is shown only once — copy it right away and paste it into Workmate.'
+        },
+        'discord-reset-token-confirm': {
+          alt: 'Reset token confirmation with the red button circled',
+          caption: 'Click the red button to confirm. Discord asks for your account password again.'
+        },
+        'discord-message-content-intent': {
+          alt: 'Message Content Intent switched on and the Save Changes button numbered',
+          caption:
+            'On the same Bot page, turn on Message Content Intent and click Save Changes. Without it the bot cannot read messages.'
+        },
+        'telegram-pairing-code': {
+          alt: 'Bot message with the pairing code circled',
+          caption:
+            'The first time you write, the bot sends a pairing code. That is expected: it waits for you to allow it in Workmate.'
+        },
+        'workmate-allow-request': {
+          alt: 'Message request in Workmate with the Allow button circled',
+          caption:
+            'Back in Workmate, check it is your name and click Allow. Then message the bot again (sample name shown).'
+        },
+        'discord-bot-permissions': {
+          alt: 'Bot Permissions table with the needed permissions circled',
+          caption:
+            'OAuth2 → URL Generator: tick bot and applications.commands, then View Channels, Send Messages, Embed Links, Attach Files and Read Message History.'
+        },
+        'discord-invite-url': {
+          alt: 'Generated URL field at the bottom of the OAuth2 page circled',
+          caption: 'Copy the generated URL, open it in your browser and pick a server you manage to invite the bot.'
+        },
+        'discord-developer-mode': {
+          alt: 'Developer section of Discord settings with the Developer Mode switch circled',
+          caption:
+            'Discord → User Settings → Developer → turn on Developer Mode. Then right-click your name → Copy User ID.'
+        }
+      }
+    },
+    whatsapp: {
+      step1Title: 'Link your phone',
+      step2Title: 'Who can message AgentX',
+      step2Body:
+        'No code to paste. By default a stranger who messages gets a pairing code and can only chat after you click “Allow” here. To allow some numbers up front, open “Recommended”.',
+      step2BodySelf:
+        'You chose to message yourself: only you can chat with AgentX, and Workmate already limited it to your number. Nothing else to do.',
+      modeLabel: 'How will you message AgentX?',
+      modeSelf: 'From my own WhatsApp number',
+      modeSelfHint:
+        'You write in your chat with yourself in WhatsApp and AgentX answers there. Friends who message you are unaffected.',
+      modeBot: 'Through a separate number for AgentX',
+      modeBotHint:
+        'Use a spare number (for example WhatsApp Business on another phone). Anyone who messages it chats with AgentX once you allow them.',
+      showQr: 'Show QR code',
+      retry: 'Make a new code',
+      preparing: 'Preparing the QR code…',
+      preparingHint: 'The first time can take about a minute while AgentX downloads the WhatsApp component.',
+      scanTitle: 'Scan with WhatsApp on your phone',
+      scanSteps: [
+        'Open WhatsApp on the phone you will use.',
+        'iPhone: tap Settings. Android: tap ⋮ in the top-right corner.',
+        'Tap Linked devices → Link a device.',
+        'Point the camera at this code. Scan inside WhatsApp, not with the Camera app.'
+      ],
+      qrRefresh: 'The code changes every few seconds — keep this screen open until the scan finishes.',
+      qrAlt: 'QR code to link WhatsApp with AgentX',
+      saving: 'Scanned. Saving and turning WhatsApp on…',
+      linkedTo: who => `Linked to ${who}`,
+      linkedUnknown: 'A WhatsApp account is linked',
+      trySelf: 'To try it: open WhatsApp, find your chat with yourself (your name marked “You”) and say hello.',
+      tryBot:
+        'To try it: from another WhatsApp number, say hello to this number. The first time, click “Allow” when the request appears on this page.',
+      relink: 'Link another number',
+      relinkTitle: 'Link a different WhatsApp number?',
+      relinkBody:
+        'AgentX stops using the linked number and shows a new QR code. Scan it with the phone you want to use.',
+      relinkConnected: 'Turn the connection off in step 3 and restart AgentX before linking another number.',
+      linkedToast: 'WhatsApp linked',
+      linkedToastBody: 'AgentX is restarting to start receiving messages.',
+      linkedToastRestart: 'Click “Restart AgentX” to start receiving messages.',
+      linkFailed: 'Could not save the WhatsApp setup',
+      errors: {
+        notPaired: 'WhatsApp is on but no phone is linked. Show the QR code in step 1 and scan it with your phone.',
+        bridgeExited:
+          'The WhatsApp connection stopped. If you removed this device on your phone, click “Link another number” in step 1 to scan again; otherwise click “Restart AgentX”.',
+        expired: 'The QR code expired. Make a new code and scan again.',
+        noNode: 'This computer is missing Node.js, which WhatsApp needs. Reinstall AgentX Workmate, then try again.',
+        install: 'Could not download the WhatsApp component. Check your internet connection and try again.',
+        loggedOut: 'WhatsApp refused the link. Make a new code and scan again.',
+        generic: 'WhatsApp is not linked yet. Try a new code.'
+      }
     }
   },
 

@@ -77,7 +77,10 @@ import type {
   WebhookCreateResponse,
   WebhookEnableResponse,
   WebhooksResponse,
-  WebmateBackendStatus
+  WebmateBackendStatus,
+  WhatsAppLinkMode,
+  WhatsAppOnboardingApplyResponse,
+  WhatsAppOnboardingSession
 } from '@/types/hermes'
 
 // Desktop startup fires a burst of read-only data calls (config, profiles,
@@ -234,7 +237,11 @@ export type {
   WebhookEnableResponse,
   WebhookRoute,
   WebhooksResponse,
-  WebmateBackendStatus
+  WebmateBackendStatus,
+  WhatsAppLinkMode,
+  WhatsAppOnboardingApplyResponse,
+  WhatsAppOnboardingSession,
+  WhatsAppSetupInfo
 } from '@/types/hermes'
 
 export class HermesGateway extends JsonRpcGatewayClient {
@@ -1205,6 +1212,48 @@ export function testMessagingPlatform(platformId: string): Promise<MessagingPlat
     ...profileScoped(),
     path: `/api/messaging/platforms/${encodeURIComponent(platformId)}/test`,
     method: 'POST'
+  })
+}
+
+// -- WhatsApp in-app QR linking ----------------------------------------------
+// The backend runs the bundled bridge in pair-only mode and relays its QR. The
+// run lives in that backend process's memory, so every call carries the same
+// profile scope; the start/apply bodies take the profile explicitly (the
+// endpoints read it off the body, not the query string).
+
+export function startWhatsAppLink(body: {
+  mode: WhatsAppLinkMode
+  relink?: boolean
+}): Promise<WhatsAppOnboardingSession> {
+  return window.agentxDesktop.api<WhatsAppOnboardingSession>({
+    ...profileScoped(),
+    path: '/api/messaging/whatsapp/onboarding/start',
+    method: 'POST',
+    body: { mode: body.mode, relink: Boolean(body.relink), ...profileScoped() }
+  })
+}
+
+export function getWhatsAppLink(pairingId: string): Promise<WhatsAppOnboardingSession> {
+  return window.agentxDesktop.api<WhatsAppOnboardingSession>({
+    ...profileScoped(),
+    path: `/api/messaging/whatsapp/onboarding/${encodeURIComponent(pairingId)}`
+  })
+}
+
+export function applyWhatsAppLink(pairingId: string, mode: WhatsAppLinkMode): Promise<WhatsAppOnboardingApplyResponse> {
+  return window.agentxDesktop.api<WhatsAppOnboardingApplyResponse>({
+    ...profileScoped(),
+    path: `/api/messaging/whatsapp/onboarding/${encodeURIComponent(pairingId)}/apply`,
+    method: 'POST',
+    body: { mode, ...profileScoped() }
+  })
+}
+
+export function cancelWhatsAppLink(pairingId: string): Promise<{ ok: boolean }> {
+  return window.agentxDesktop.api<{ ok: boolean }>({
+    ...profileScoped(),
+    path: `/api/messaging/whatsapp/onboarding/${encodeURIComponent(pairingId)}`,
+    method: 'DELETE'
   })
 }
 

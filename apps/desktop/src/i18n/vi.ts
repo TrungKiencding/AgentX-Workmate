@@ -2360,7 +2360,7 @@ export const vi: Translations = {
     credentialsSet: 'Đã đặt thông tin đăng nhập',
     needsSetup: 'Cần thiết lập',
     gatewayStopped: 'AgentX đang tắt kết nối tin nhắn',
-    openSetupGuide: 'Mở hướng dẫn thiết lập',
+    openSetupGuide: 'Xem hướng dẫn đầy đủ trên web',
     destinationTitle: 'Địa chỉ trò chuyện',
     destinationUnavailable: 'Đã kết nối, nhưng nền tảng chưa cung cấp địa chỉ công khai.',
     openDestination: 'Mở trong ứng dụng',
@@ -2534,7 +2534,8 @@ export const vi: Translations = {
       matrix: 'Đăng nhập homeserver bằng tài khoản bot, rồi sao chép mã truy cập, ID tài khoản và địa chỉ homeserver.',
       signal:
         'Chạy một cầu nối signal-cli REST ở nơi truy cập được, rồi cho AgentX biết địa chỉ đó và số điện thoại đã đăng ký.',
-      whatsapp: 'Khởi động cầu nối WhatsApp đi kèm AgentX, quét mã QR ở lần chạy đầu, rồi bật kết nối này.',
+      whatsapp:
+        'Quét một mã QR bằng WhatsApp trên điện thoại, giống khi dùng WhatsApp trên máy tính. Không cần dán mã hay mở cửa sổ lệnh.',
       bluebubbles:
         'Chạy BlueBubbles Server trên một máy Mac có iMessage, mở API của nó, rồi dán địa chỉ cùng mật khẩu máy chủ vào đây.',
       homeassistant:
@@ -2557,6 +2558,121 @@ export const vi: Translations = {
         'Mở AgentX thành một API tương thích OpenAI. Đặt một khoá xác thực, rồi trỏ Open WebUI / LobeChat… tới địa chỉ host:port.',
       webhook:
         'Chạy một máy chủ HTTP để các công cụ khác (GitHub, GitLab, ứng dụng của bạn) gửi sự kiện tới. Dùng khoá bí mật để xác minh chữ ký.'
+    },
+    figures: {
+      previous: 'Ảnh trước',
+      next: 'Ảnh sau',
+      position: (current, total) => `Ảnh ${current}/${total}`,
+      enlarge: 'Phóng to ảnh',
+      showVisual: 'Xem từng bước có ảnh',
+      items: {
+        'telegram-botfather-search': {
+          alt: 'Kết quả tìm BotFather trong Telegram, tài khoản chính chủ có dấu tick xanh được khoanh lại',
+          caption: 'Tìm @BotFather và chọn đúng tài khoản có dấu tick xanh. Các tài khoản cùng tên khác là giả mạo.'
+        },
+        'telegram-botfather-token': {
+          alt: 'Tin nhắn của BotFather sau khi tạo bot, dòng mã dưới “HTTP API” được khoanh lại',
+          caption:
+            'Gửi /newbot, đặt tên, rồi đặt username kết thúc bằng “bot”. Sao chép cả dòng mã dưới “HTTP API” (trong ảnh đã che).'
+        },
+        'telegram-userinfobot-id': {
+          alt: 'Tin nhắn của userinfobot với dòng Id được khoanh lại',
+          caption: 'Mở @userinfobot và bấm Start. Số ở dòng Id là ID của bạn (ảnh dùng số mẫu).'
+        },
+        'discord-new-application': {
+          alt: 'Hộp thoại Tạo một ứng dụng mới trong Discord Developer Portal với ô Tên, ô đồng ý và nút Tạo được đánh số',
+          caption:
+            'Developer Portal → Ứng dụng mới: đặt tên, tick ô đồng ý rồi bấm Tạo. Discord có thể hỏi bạn có phải người thật không.'
+        },
+        'discord-reset-token': {
+          alt: 'Mục Token trên trang Bot với nút Đặt lại Token được khoanh lại',
+          caption: 'Mục Bot → Đặt lại Token. Token chỉ hiện một lần — sao chép ngay rồi dán vào Workmate.'
+        },
+        'discord-reset-token-confirm': {
+          alt: 'Hộp thoại xác nhận đặt lại token với nút đỏ được khoanh lại',
+          caption: 'Bấm nút đỏ để xác nhận. Discord sẽ hỏi lại mật khẩu tài khoản của bạn.'
+        },
+        'discord-message-content-intent': {
+          alt: 'Công tắc Intent Nội Dung Tin Nhắn đã bật và nút Lưu thay đổi được đánh số',
+          caption:
+            'Cùng trang Bot: bật Intent Nội Dung Tin Nhắn rồi bấm Lưu thay đổi. Thiếu bước này bot không đọc được tin nhắn.'
+        },
+        'telegram-pairing-code': {
+          alt: 'Tin nhắn của bot với mã ghép nối được khoanh lại',
+          caption: 'Lần đầu nhắn, bot gửi một mã ghép nối. Đây là bình thường: bot chờ bạn cho phép trong Workmate.'
+        },
+        'workmate-allow-request': {
+          alt: 'Yêu cầu nhắn tin trong Workmate với nút Cho phép được khoanh lại',
+          caption:
+            'Trở lại Workmate, kiểm tra đúng tên của bạn rồi bấm Cho phép. Sau đó nhắn lại cho bot (ảnh dùng tên mẫu).'
+        },
+        'discord-bot-permissions': {
+          alt: 'Bảng Quyền hạn Bot với các quyền cần chọn được khoanh lại',
+          caption:
+            'OAuth2 → Công cụ tạo URL: tick bot và applications.commands, rồi chọn Xem Các Kênh, Gửi Tin Nhắn, Nhúng Liên Kết, Đính Kèm Tập Tin, Xem Lịch Sử Tin Nhắn.'
+        },
+        'discord-invite-url': {
+          alt: 'Ô URL được tạo ở cuối trang OAuth2 được khoanh lại',
+          caption: 'Sao chép URL được tạo, mở trong trình duyệt và chọn máy chủ bạn quản lý để mời bot vào.'
+        },
+        'discord-developer-mode': {
+          alt: 'Mục Nhà phát triển trong cài đặt Discord với công tắc Chế Độ Nhà Phát Triển được khoanh lại',
+          caption:
+            'Discord → Cài đặt người dùng → Nhà phát triển → bật Chế Độ Nhà Phát Triển. Sau đó nhấp phải vào tên bạn → Sao chép ID người dùng.'
+        }
+      }
+    },
+    whatsapp: {
+      step1Title: 'Liên kết điện thoại',
+      step2Title: 'Ai được nhắn cho AgentX',
+      step2Body:
+        'Không cần dán mã. Mặc định, người lạ nhắn tới sẽ nhận một mã ghép nối và chỉ trò chuyện được sau khi bạn bấm “Cho phép” ở đây. Muốn cho sẵn vài số, mở “Nên có”.',
+      step2BodySelf:
+        'Bạn đang dùng chế độ nhắn cho chính mình: chỉ bạn trò chuyện được với AgentX, Workmate đã tự giới hạn theo số của bạn. Không cần làm gì thêm.',
+      modeLabel: 'Bạn sẽ nhắn cho AgentX bằng cách nào?',
+      modeSelf: 'Bằng chính số WhatsApp của tôi',
+      modeSelfHint:
+        'Bạn nhắn vào cuộc trò chuyện với chính mình trong WhatsApp, AgentX trả lời ở đó. Bạn bè nhắn cho bạn vẫn như bình thường.',
+      modeBot: 'Bằng một số riêng cho AgentX',
+      modeBotHint:
+        'Dùng một số phụ (ví dụ WhatsApp Business trên máy khác). Ai nhắn vào số đó sẽ trò chuyện với AgentX sau khi bạn cho phép.',
+      showQr: 'Hiện mã QR',
+      retry: 'Tạo mã mới',
+      preparing: 'Đang chuẩn bị mã QR…',
+      preparingHint: 'Lần đầu có thể mất khoảng một phút vì AgentX tải thành phần WhatsApp.',
+      scanTitle: 'Quét mã bằng WhatsApp trên điện thoại',
+      scanSteps: [
+        'Mở WhatsApp trên điện thoại sẽ dùng.',
+        'iPhone: chạm Cài đặt (Settings). Android: chạm ⋮ ở góc trên bên phải.',
+        'Chạm Thiết bị đã liên kết (Linked devices) → Liên kết thiết bị (Link a device).',
+        'Hướng camera vào mã bên cạnh. Quét trong WhatsApp, không dùng ứng dụng Camera.'
+      ],
+      qrRefresh: 'Mã tự đổi sau vài giây — cứ để màn hình này mở cho tới khi quét xong.',
+      qrAlt: 'Mã QR để liên kết WhatsApp với AgentX',
+      saving: 'Đã quét. Đang lưu và bật WhatsApp…',
+      linkedTo: who => `Đã liên kết với ${who}`,
+      linkedUnknown: 'Đã liên kết một tài khoản WhatsApp',
+      trySelf: 'Để thử: mở WhatsApp, tìm cuộc trò chuyện với chính bạn (tên bạn kèm chữ “Bạn”) và gửi một lời chào.',
+      tryBot:
+        'Để thử: từ một số WhatsApp khác, gửi lời chào tới số này. Lần đầu, bấm “Cho phép” khi yêu cầu hiện ở trang này.',
+      relink: 'Liên kết số khác',
+      relinkTitle: 'Liên kết một số WhatsApp khác?',
+      relinkBody: 'AgentX sẽ ngừng dùng số đang liên kết và hiện mã QR mới. Quét mã bằng điện thoại bạn muốn dùng.',
+      relinkConnected: 'Tắt kết nối ở bước 3 và khởi động lại AgentX trước khi liên kết số khác.',
+      linkedToast: 'Đã liên kết WhatsApp',
+      linkedToastBody: 'AgentX đang khởi động lại để bắt đầu nhận tin.',
+      linkedToastRestart: 'Bấm “Khởi động lại AgentX” để bắt đầu nhận tin.',
+      linkFailed: 'Chưa lưu được thiết lập WhatsApp',
+      errors: {
+        notPaired: 'WhatsApp đang bật nhưng chưa liên kết điện thoại. Hiện mã QR ở bước 1 và quét bằng điện thoại.',
+        bridgeExited:
+          'Kết nối WhatsApp bị ngắt. Nếu bạn đã gỡ thiết bị trên điện thoại, bấm “Liên kết số khác” ở bước 1 để quét lại; nếu không, bấm “Khởi động lại AgentX”.',
+        expired: 'Mã QR đã hết hạn. Tạo mã mới rồi quét lại.',
+        noNode: 'Máy này thiếu Node.js — thành phần WhatsApp cần để chạy. Hãy cài lại AgentX Workmate rồi thử lại.',
+        install: 'Chưa tải được thành phần WhatsApp. Kiểm tra kết nối Internet rồi thử lại.',
+        loggedOut: 'WhatsApp đã từ chối liên kết. Tạo mã mới và quét lại.',
+        generic: 'Chưa liên kết được WhatsApp. Thử tạo mã mới.'
+      }
     }
   },
 

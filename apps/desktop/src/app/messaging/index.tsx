@@ -23,7 +23,7 @@ import {
 } from '@/hermes'
 import { type Translations, useI18n } from '@/i18n'
 import { openExternalLink } from '@/lib/external-link'
-import { Check, ExternalLink, HelpCircle, Save, Trash2 } from '@/lib/icons'
+import { Check, ExternalLink, HelpCircle, ImageIcon, Save, Trash2 } from '@/lib/icons'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 import { $changeEventsAvailable, $pairingChangeTick, $platformsChangeTick } from '@/store/live-sync'
@@ -40,8 +40,10 @@ import { PageSearchShell } from '../page-search-shell'
 import { ListRow } from '../settings/primitives'
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
+import { guideFigureIds, GuideFigures } from './guide-figures'
 import { PlatformAvatar } from './platform-icon'
 import { messagingGuideUrl, SetupGuide, useSetupGuide } from './setup-guide'
+import { useWhatsAppLink, WhatsAppLink } from './whatsapp-link'
 
 interface MessagingViewProps extends React.ComponentProps<'section'> {
   setStatusbarItemGroup?: SetStatusbarItemGroup
@@ -52,6 +54,11 @@ type EditMap = Record<string, Record<string, string>>
 // The six platforms an office leads with — a UI ordering constant only. The
 // rest stay one disclosure away; nothing is removed.
 const POPULAR_PLATFORMS = ['telegram', 'whatsapp', 'email', 'slack', 'discord', 'sms']
+
+// Values Workmate writes itself (the WhatsApp QR link saves mode and DM
+// policy; the step-3 switch sets WHATSAPP_ENABLED). The full form still lists
+// them under "Nâng cao"; the coach does not walk a beginner through them.
+const COACH_SKIPPED_FIELDS = new Set(['WHATSAPP_DM_POLICY', 'WHATSAPP_ENABLED', 'WHATSAPP_MODE'])
 
 // "Xem thêm" remembers its answer for the session (not persisted — a fresh
 // launch folds the long tail again).
@@ -579,6 +586,7 @@ export function MessagingView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
                 edits={edits[selected.id] || {}}
                 key={`${activeGatewayProfile}:${selected.id}`}
                 onApprove={user => void handleApprove(user)}
+                onChanged={() => void refreshPlatforms(true)}
                 onClear={key => void handleClear(selected, key)}
                 onEdit={(key, value) =>
                   setEdits(current => ({
@@ -747,6 +755,7 @@ function PlatformDetail({
   approving,
   edits,
   onApprove,
+  onChanged,
   onClear,
   onEdit,
   onRevoke,
@@ -759,6 +768,8 @@ function PlatformDetail({
   approving: null | string
   edits: Record<string, string>
   onApprove: (user: PairingUser) => void
+  /** Something outside the form changed the platform (WhatsApp QR link). */
+  onChanged: () => void
   onClear: (key: string) => void
   onEdit: (key: string, value: string) => void
   onRevoke: (user: PairingUser) => void
@@ -776,8 +787,19 @@ function PlatformDetail({
   const optionalFields = platform.env_vars.filter(field => !field.required && !fieldCopy(field, m).advanced)
   const advancedFields = platform.env_vars.filter(field => !field.required && fieldCopy(field, m).advanced)
   const summary = summaryOf(platform, m)
-  const guide = useSetupGuide(platform.id, [...requiredFields, ...optionalFields, ...advancedFields])
+
+  const guide = useSetupGuide(
+    platform.id,
+    [...requiredFields, ...optionalFields, ...advancedFields].filter(field => !COACH_SKIPPED_FIELDS.has(field.key))
+  )
+
   const helpRef = useRef<HTMLButtonElement>(null)
+  // WhatsApp links by scanning a QR here instead of pasting a token; the
+  // state sits at this level so the coach and the full form share one run.
+  const isWhatsApp = platform.id === 'whatsapp'
+  const whatsappLink = useWhatsAppLink(platform, onChanged)
+  const step1Title = isWhatsApp ? m.whatsapp.step1Title : m.step1Title
+  const step1Done = isWhatsApp ? Boolean(platform.whatsapp_setup?.linked) : platform.configured
 
   const closeGuide = () => {
     guide.close()
@@ -790,7 +812,7 @@ function PlatformDetail({
 
   const guideTitle =
     activeCopy?.label ||
-    (guide.step?.kind === 'prepare' ? m.step1Title : guide.step?.kind === 'test' ? m.guide.testTitle : m.step3Title)
+    (guide.step?.kind === 'prepare' ? step1Title : guide.step?.kind === 'test' ? m.guide.testTitle : m.step3Title)
 
   const guideBody = activeField
     ? m.fieldGuide[activeField.key] || activeCopy?.help || m.guide.fieldFallback
@@ -867,7 +889,7 @@ function PlatformDetail({
         </Tip>
       </header>
 
-      {platform.error_message && <ErrorBanner>{platform.error_message}</ErrorBanner>}
+      {platform.error_message && <ErrorBanner>{platformErrorCopy(platform, m)}</ErrorBanner>}
 
       {platform.enabled && platform.state === 'connected' && (
         <div className="border-y border-(--ui-stroke-tertiary)">
@@ -911,6 +933,7 @@ function PlatformDetail({
           onDocs={() => openExternalLink(messagingGuideUrl(platform.id))}
           title={guideTitle}
         >
+          <GuideFigures ids={guideFigureIds(platform.id, guide.step.id)} key={guide.step.id} />
           {activeField && (
             <MessagingField
               edits={edits}
@@ -921,7 +944,8 @@ function PlatformDetail({
               saving={saving}
             />
           )}
-          {guide.step.kind === 'prepare' && platform.docs_url && (
+          {guide.step.kind === 'prepare' && isWhatsApp && <WhatsAppLink link={whatsappLink} platform={platform} />}
+          {guide.step.kind === 'prepare' && !isWhatsApp && platform.docs_url && (
             <div>
               <Button onClick={() => openExternalLink(platform.docs_url)} size="sm" variant="outline">
                 {m.guide.source}
@@ -937,10 +961,17 @@ function PlatformDetail({
         </SetupGuide>
       ) : (
         <div className="grid gap-6">
-          <Step done={platform.configured} index={1} title={m.step1Title}>
+          <Step done={step1Done} index={1} title={step1Title}>
             <p className="max-w-prose text-sm leading-relaxed text-(--ui-text-secondary)">{introCopy(platform, m)}</p>
-            {setupDocsUrl && (
-              <div>
+            {isWhatsApp && <WhatsAppLink link={whatsappLink} platform={platform} />}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              {!isWhatsApp && (
+                <Button onClick={() => guide.open()} size="sm" variant="outline">
+                  <ImageIcon aria-hidden className="size-3.5" />
+                  {m.figures.showVisual}
+                </Button>
+              )}
+              {setupDocsUrl && (
                 <Button asChild size="sm" variant="textStrong">
                   <a
                     href={setupDocsUrl}
@@ -962,15 +993,21 @@ function PlatformDetail({
                     <ExternalLink className="size-3.5" />
                   </a>
                 </Button>
-              </div>
-            )}
+              )}
+            </div>
           </Step>
 
-          <Step done={platform.configured} index={2} title={m.step2Title}>
+          <Step done={platform.configured} index={2} title={isWhatsApp ? m.whatsapp.step2Title : m.step2Title}>
             {requiredFields.length > 0 ? (
               <div className="grid gap-4">{fieldRows(requiredFields)}</div>
             ) : (
-              <p className="max-w-prose text-sm text-(--ui-text-tertiary)">{m.noTokenNeeded}</p>
+              <p className="max-w-prose text-sm text-(--ui-text-tertiary)">
+                {isWhatsApp
+                  ? platform.whatsapp_setup?.linked && platform.whatsapp_setup.mode === 'self-chat'
+                    ? m.whatsapp.step2BodySelf
+                    : m.whatsapp.step2Body
+                  : m.noTokenNeeded}
+              </p>
             )}
             {optionalFields.length > 0 && (
               <div>
@@ -1065,7 +1102,7 @@ const PLATFORM_INTRO: Record<string, string> = {
   signal:
     'Run a signal-cli REST bridge somewhere reachable, then point AgentX at the URL and the registered phone number.',
   whatsapp:
-    'Start the WhatsApp bridge that ships with AgentX, scan the QR code on first run, then enable the platform.',
+    'Scan one QR code with WhatsApp on your phone, just like WhatsApp on a computer. No code to paste and no terminal.',
   bluebubbles:
     'Run BlueBubbles Server on a Mac with iMessage, expose its API, then point AgentX at the URL with the server password.',
   homeassistant:
@@ -1087,6 +1124,21 @@ const PLATFORM_INTRO: Record<string, string> = {
     'Expose AgentX as an OpenAI-compatible API. Set an auth key, then point Open WebUI / LobeChat / etc. at the host:port.',
   webhook:
     'Run an HTTP server that other tools (GitHub, GitLab, custom apps) can POST to. Use the secret to verify signatures.'
+}
+
+// Adapter failures arrive as English sentences written for a terminal user
+// ("…or run `agentx whatsapp`"). The ones with an in-app remedy are retold.
+export function platformErrorCopy(platform: MessagingPlatformInfo, m: Translations['messaging']): string {
+  const errors = m.whatsapp.errors
+
+  const known: Record<string, string> = {
+    whatsapp_bridge_exited: errors.bridgeExited,
+    whatsapp_node_missing: errors.noNode,
+    whatsapp_not_paired: errors.notPaired,
+    whatsapp_npm_install_failed: errors.install
+  }
+
+  return (platform.error_code && known[platform.error_code]) || platform.error_message || ''
 }
 
 const introCopy = (platform: MessagingPlatformInfo, m: Translations['messaging']) =>

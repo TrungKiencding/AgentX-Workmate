@@ -83,7 +83,9 @@ export function SetupGuide({ children, title, body, guide, onDocs }: SetupGuideP
       aria-label={g.title}
       className="min-w-0 border-s-2 border-(--accent) ps-4"
       onKeyDown={event => {
-        if (event.key === 'Escape') {
+        // React bubbles keys from portaled children (an enlarged screenshot's
+        // dialog) up here; Escape there closes that dialog, not the coach.
+        if (event.key === 'Escape' && event.currentTarget.contains(event.target as Node)) {
           event.preventDefault()
           event.stopPropagation()
           guide.close()

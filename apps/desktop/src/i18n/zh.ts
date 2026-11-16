@@ -2269,7 +2269,7 @@ export const zh: Translations = {
     credentialsSet: '凭据已设置',
     needsSetup: '需要设置',
     gatewayStopped: '消息网关已停止',
-    openSetupGuide: '打开设置指南',
+    openSetupGuide: '在网页上查看完整指南',
     destinationTitle: '会话地址',
     destinationUnavailable: '已连接，但此平台未提供公开地址。',
     openDestination: '在应用中打开',
@@ -2400,7 +2400,7 @@ export const zh: Translations = {
       mattermost: '在你的 Mattermost 服务器上，创建机器人账户或个人访问令牌，然后在此粘贴服务器 URL 和令牌。',
       matrix: '用机器人账户登录你的 homeserver，然后复制访问令牌、用户 ID 和 homeserver URL。',
       signal: '在可访问的位置运行 signal-cli REST 桥接，然后把 AgentX 指向该 URL 和已注册的电话号码。',
-      whatsapp: '启动 AgentX 自带的 WhatsApp 桥接，首次运行时扫描二维码，然后启用该平台。',
+      whatsapp: '像使用电脑版 WhatsApp 一样，用手机上的 WhatsApp 扫描一次二维码即可。无需粘贴代码，也无需终端。',
       bluebubbles:
         '在装有 iMessage 的 Mac 上运行 BlueBubbles Server，暴露其 API，然后用服务器密码把 AgentX 指向该 URL。',
       homeassistant: '在 Home Assistant 中打开你的个人资料并创建长期访问令牌。把它连同你的 HA URL 一起粘贴到这里。',
@@ -2416,6 +2416,113 @@ export const zh: Translations = {
       api_server:
         '把 AgentX 暴露为兼容 OpenAI 的 API。设置一个鉴权密钥，然后把 Open WebUI / LobeChat 等指向 host:port。',
       webhook: '运行一个 HTTP 服务器，供其他工具 (GitHub、GitLab、自定义应用)POST。用 secret 验证签名。'
+    },
+    figures: {
+      previous: '上一张',
+      next: '下一张',
+      position: (current, total) => `图片 ${current}/${total}`,
+      enlarge: '放大图片',
+      showVisual: '查看带图的分步指南',
+      items: {
+        'telegram-botfather-search': {
+          alt: '在 Telegram 中搜索 BotFather 的结果，已圈出官方认证账号',
+          caption: '搜索 @BotFather 并选择带蓝色认证标记的账号。其他同名账号都是冒充的。'
+        },
+        'telegram-botfather-token': {
+          alt: '创建机器人后 BotFather 的消息，已圈出“HTTP API”下方的代码',
+          caption: '发送 /newbot，设置名称，再设置以“bot”结尾的用户名。复制“HTTP API”下方的整行代码（图中已遮挡）。'
+        },
+        'telegram-userinfobot-id': {
+          alt: 'userinfobot 的回复，已圈出 Id 行',
+          caption: '打开 @userinfobot 并点 Start。Id 行的数字就是你的 ID（图中为示例）。'
+        },
+        'discord-new-application': {
+          alt: 'Discord Developer Portal 中新建应用的对话框，名称、同意框和创建按钮已编号',
+          caption: 'Developer Portal → 新建应用：输入名称，勾选同意框，再点创建。Discord 可能会验证你是否为真人。'
+        },
+        'discord-reset-token': {
+          alt: 'Bot 页面的 Token 区域，已圈出重置 Token 按钮',
+          caption: 'Bot → 重置 Token。Token 只显示一次——请立即复制并粘贴到 Workmate。'
+        },
+        'discord-reset-token-confirm': {
+          alt: '重置 Token 确认框，已圈出红色按钮',
+          caption: '点红色按钮确认。Discord 会再次要求输入账号密码。'
+        },
+        'discord-message-content-intent': {
+          alt: '已开启的消息内容 Intent 和已编号的保存更改按钮',
+          caption: '在同一 Bot 页面开启消息内容 Intent 并点保存更改。缺少这一步机器人无法读取消息。'
+        },
+        'telegram-pairing-code': {
+          alt: '机器人消息，已圈出配对码',
+          caption: '第一次发消息时，机器人会发送配对码。这是正常的：它在等你在 Workmate 中允许。'
+        },
+        'workmate-allow-request': {
+          alt: 'Workmate 中的消息请求，已圈出允许按钮',
+          caption: '回到 Workmate，确认是你的名字后点允许。然后再给机器人发消息（图中为示例名称）。'
+        },
+        'discord-bot-permissions': {
+          alt: '机器人权限表，已圈出需要的权限',
+          caption:
+            'OAuth2 → URL 生成器：勾选 bot 和 applications.commands，再选查看频道、发送消息、嵌入链接、附加文件、读取消息历史。'
+        },
+        'discord-invite-url': {
+          alt: 'OAuth2 页面底部生成的 URL，已圈出',
+          caption: '复制生成的 URL，在浏览器中打开，选择你管理的服务器来邀请机器人。'
+        },
+        'discord-developer-mode': {
+          alt: 'Discord 设置中的开发者部分，已圈出开发者模式开关',
+          caption: 'Discord → 用户设置 → 开发者 → 开启开发者模式。然后右键你的名字 → 复制用户 ID。'
+        }
+      }
+    },
+    whatsapp: {
+      step1Title: '关联手机',
+      step2Title: '谁可以给 AgentX 发消息',
+      step2Body:
+        '无需粘贴代码。默认情况下，陌生人发来消息会收到配对码，你在这里点“允许”后才能对话。想预先允许某些号码，请展开“建议设置”。',
+      step2BodySelf: '你选择了给自己发消息：只有你能与 AgentX 对话，Workmate 已自动限制为你的号码。无需其他操作。',
+      modeLabel: '你将如何给 AgentX 发消息？',
+      modeSelf: '用我自己的 WhatsApp 号码',
+      modeSelfHint: '在 WhatsApp 里给自己发消息，AgentX 会在那里回复。朋友给你发的消息不受影响。',
+      modeBot: '用一个 AgentX 专用号码',
+      modeBotHint:
+        '使用一个备用号码（例如另一台手机上的 WhatsApp Business）。给该号码发消息的人在你允许后即可与 AgentX 对话。',
+      showQr: '显示二维码',
+      retry: '生成新二维码',
+      preparing: '正在准备二维码…',
+      preparingHint: '首次可能需要约一分钟，AgentX 正在下载 WhatsApp 组件。',
+      scanTitle: '用手机上的 WhatsApp 扫描',
+      scanSteps: [
+        '在要使用的手机上打开 WhatsApp。',
+        'iPhone：点“设置”。Android：点右上角的 ⋮。',
+        '点“已关联设备”→“关联设备”。',
+        '将摄像头对准此二维码。请在 WhatsApp 内扫描，不要用相机应用。'
+      ],
+      qrRefresh: '二维码每隔几秒会更新——扫描完成前请保持此页面打开。',
+      qrAlt: '将 WhatsApp 关联到 AgentX 的二维码',
+      saving: '已扫描。正在保存并开启 WhatsApp…',
+      linkedTo: who => `已关联 ${who}`,
+      linkedUnknown: '已关联一个 WhatsApp 账号',
+      trySelf: '试一试：打开 WhatsApp，找到与你自己的对话（你的名字旁标有“你”），发一句问候。',
+      tryBot: '试一试：用另一个 WhatsApp 号码给这个号码发一句问候。首次请在本页出现请求时点“允许”。',
+      relink: '关联其他号码',
+      relinkTitle: '关联另一个 WhatsApp 号码？',
+      relinkBody: 'AgentX 将停止使用当前关联的号码并显示新的二维码。请用你想使用的手机扫描。',
+      relinkConnected: '关联其他号码前，请先在第 3 步关闭连接并重启 AgentX。',
+      linkedToast: 'WhatsApp 已关联',
+      linkedToastBody: 'AgentX 正在重启以开始接收消息。',
+      linkedToastRestart: '点“重启 AgentX”以开始接收消息。',
+      linkFailed: '无法保存 WhatsApp 设置',
+      errors: {
+        notPaired: 'WhatsApp 已开启，但尚未关联手机。请在第 1 步显示二维码并用手机扫描。',
+        bridgeExited:
+          'WhatsApp 连接已中断。如果你在手机上移除了此设备，请在第 1 步点“关联其他号码”重新扫描；否则请点“重启 AgentX”。',
+        expired: '二维码已过期。请生成新二维码后重新扫描。',
+        noNode: '这台电脑缺少 WhatsApp 所需的 Node.js。请重新安装 AgentX Workmate 后再试。',
+        install: '无法下载 WhatsApp 组件。请检查网络连接后重试。',
+        loggedOut: 'WhatsApp 拒绝了关联。请生成新二维码后重新扫描。',
+        generic: 'WhatsApp 尚未关联。请尝试新的二维码。'
+      }
     }
   },
 

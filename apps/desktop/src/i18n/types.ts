@@ -1915,6 +1915,57 @@ export interface Translations {
     waitingSince: (minutes: number) => string
     fieldCopy: Record<string, { label?: string; help?: string; placeholder?: string }>
     platformIntro: Record<string, string>
+    /** Real, masked screenshots shown in the setup coach (see guide-figures.tsx). */
+    figures: {
+      previous: string
+      next: string
+      position: (current: number, total: number) => string
+      enlarge: string
+      showVisual: string
+      items: Record<string, { alt: string; caption: string }>
+    }
+    /** In-app QR linking (replaces the terminal-only `agentx whatsapp` step). */
+    whatsapp: {
+      step1Title: string
+      step2Title: string
+      step2Body: string
+      step2BodySelf: string
+      modeLabel: string
+      modeSelf: string
+      modeSelfHint: string
+      modeBot: string
+      modeBotHint: string
+      showQr: string
+      retry: string
+      preparing: string
+      preparingHint: string
+      scanTitle: string
+      scanSteps: string[]
+      qrRefresh: string
+      qrAlt: string
+      saving: string
+      linkedTo: (who: string) => string
+      linkedUnknown: string
+      trySelf: string
+      tryBot: string
+      relink: string
+      relinkTitle: string
+      relinkBody: string
+      relinkConnected: string
+      linkedToast: string
+      linkedToastBody: string
+      linkedToastRestart: string
+      linkFailed: string
+      errors: {
+        notPaired: string
+        bridgeExited: string
+        expired: string
+        noNode: string
+        install: string
+        loggedOut: string
+        generic: string
+      }
+    }
   }
 
   webhooks: {
