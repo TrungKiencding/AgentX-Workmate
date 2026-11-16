@@ -6614,6 +6614,37 @@ class _RuntimeFallbackResolution(NamedTuple):
     used_fallback: bool
 
 
+def _granted_replacement_model(exc: BaseException, rejected: str) -> str | None:
+    """A model the account is granted now, when *exc* refused *rejected* as ungranted.
+
+    The configured default when it is granted (the app keeps it on a granted
+    model), else the first model of the grant. None for any other failure, or
+    when the account has no grant on record.
+    """
+    try:
+        from hermes_cli.account_inference import AccountModelNotAllowed, account_models
+
+        if not isinstance(exc, AccountModelNotAllowed):
+            return None
+        granted = account_models()
+    except Exception:
+        return None
+    if not granted:
+        return None
+    default = ""
+    try:
+        from hermes_cli.config import load_config
+
+        configured = (load_config() or {}).get("model")
+        default = str(configured.get("default") or "") if isinstance(configured, dict) else str(configured or "")
+    except Exception:
+        pass
+    for candidate in (default, *granted):
+        if candidate and candidate != rejected and candidate in granted:
+            return candidate
+    return None
+
+
 def _resolve_runtime_with_fallback(
     resolve_kwargs: dict | None = None,
 ) -> _RuntimeFallbackResolution:
@@ -6777,7 +6808,24 @@ def _make_agent(
                 resolve_kwargs["explicit_base_url"] = override_base_url
         resolve_kwargs["requested"] = requested_provider
         resolve_kwargs["target_model"] = model or None
-        resolution = _resolve_runtime_with_fallback(resolve_kwargs)
+        try:
+            resolution = _resolve_runtime_with_fallback(resolve_kwargs)
+        except Exception as exc:
+            replacement = _granted_replacement_model(exc, model)
+            if replacement is None:
+                raise
+            # The chat was saved on a model the account's administrator has
+            # since taken away. Failing here left a reopened chat with no
+            # agent at all, so the desktop could not even switch its model:
+            # every turn answered "not assigned to your account". Open it on
+            # a model the account has now; the picker shows which.
+            logger.info(
+                "session %s: stored model %s is no longer granted; opening on %s",
+                sid, model, replacement,
+            )
+            model = replacement
+            resolve_kwargs["target_model"] = model
+            resolution = _resolve_runtime_with_fallback(resolve_kwargs)
         runtime = resolution.runtime
         if resolution.used_fallback:
             if not resolution.selected_model:
