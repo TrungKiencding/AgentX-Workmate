@@ -433,6 +433,85 @@ export function messageCreatedFiles(metadata: SessionMessage['display_metadata']
   return createdFilesFromPayload(parseDisplayMetadata(metadata)?.files_created)
 }
 
+interface StoredEditDiff {
+  inline_diff: string
+  inline_diff_stats?: { added?: number; removed?: number }
+}
+
+/**
+ * The file-edit diffs a turn pinned to its reply (`display_metadata.edit_diffs`,
+ * keyed by tool call id — tui_gateway `_persist_turn_edit_diffs`). A stored
+ * tool row holds only the tool's own result, so without these a reopened chat
+ * lost every "+N" edit row and the files-changed card.
+ */
+function storedEditDiffs(messages: SessionMessage[]): Map<string, StoredEditDiff> {
+  const diffs = new Map<string, StoredEditDiff>()
+
+  for (const message of messages) {
+    if (message.role !== 'assistant') {
+      continue
+    }
+
+    const raw = parseDisplayMetadata(message.display_metadata)?.edit_diffs
+
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      continue
+    }
+
+    for (const [toolCallId, value] of Object.entries(raw as Record<string, unknown>)) {
+      const entry = value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+
+      if (!entry || typeof entry.inline_diff !== 'string' || !entry.inline_diff.trim()) {
+        continue
+      }
+
+      const stats = entry.inline_diff_stats
+
+      diffs.set(toolCallId, {
+        inline_diff: entry.inline_diff,
+        ...(stats && typeof stats === 'object' ? { inline_diff_stats: stats as StoredEditDiff['inline_diff_stats'] } : {})
+      })
+    }
+  }
+
+  return diffs
+}
+
+/** Puts each stored diff back on its tool row's result, where the live row had it. */
+function withStoredEditDiffs(messages: ChatMessage[], diffs: Map<string, StoredEditDiff>): ChatMessage[] {
+  if (!diffs.size) {
+    return messages
+  }
+
+  return messages.map(message => {
+    if (message.role !== 'assistant') {
+      return message
+    }
+
+    let changed = false
+
+    const parts = message.parts.map(part => {
+      const diff = part.type === 'tool-call' && part.toolCallId ? diffs.get(part.toolCallId) : undefined
+
+      if (!diff || part.type !== 'tool-call') {
+        return part
+      }
+
+      const result = part.result && typeof part.result === 'object' && !Array.isArray(part.result) ? part.result : {}
+
+      if (typeof (result as Record<string, unknown>).inline_diff === 'string') {
+        return part
+      }
+
+      changed = true
+
+      return { ...part, result: { ...(result as Record<string, unknown>), ...diff } }
+    })
+
+    return changed ? { ...message, parts } : message
+  })
+}
+
 function timelineDisplayContent(message: SessionMessage, content: string): string {
   if (message.display_kind === 'model_switch') {
     return 'model changed'
@@ -1315,8 +1394,11 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
   })
   flushPendingTools(messages.length)
 
-  const withoutGeneratedImageEchoes = result.map(message =>
-    message.role === 'assistant' ? { ...message, parts: dedupeGeneratedImageEchoesInParts(message.parts) } : message
+  const withoutGeneratedImageEchoes = withStoredEditDiffs(
+    result.map(message =>
+      message.role === 'assistant' ? { ...message, parts: dedupeGeneratedImageEchoesInParts(message.parts) } : message
+    ),
+    storedEditDiffs(messages)
   )
 
   return withUniqueToolCallIds(

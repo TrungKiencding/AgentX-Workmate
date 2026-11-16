@@ -5690,6 +5690,10 @@ def _on_tool_start(sid: str, tool_call_id: str, name: str, args: dict):
         _emit("tool.start", sid, payload)
 
 
+# Edit diffs one turn pins to its reply row (see _on_tool_complete).
+_TURN_EDIT_DIFFS_MAX = 200
+
+
 def _on_tool_complete(sid: str, tool_call_id: str, name: str, args: dict, result: str):
     payload = {"tool_id": tool_call_id, "name": name, "args": args}
     session = _sessions.get(sid)
@@ -5737,6 +5741,16 @@ def _on_tool_complete(sid: str, tool_call_id: str, name: str, args: dict, result
             # change rides beside it so a client never counts the preview.
             if diff_stats:
                 payload["inline_diff_stats"] = diff_stats
+            # Kept for the end of the turn, which pins them to the reply row:
+            # the stored tool row holds only the tool's own result, so a
+            # reopened chat lost every edit's diff row and the files-changed
+            # card. Bounded: the preview is capped, and so is the count.
+            if session is not None and tool_call_id:
+                diffs = session.setdefault("turn_edit_diffs", {})
+                if len(diffs) < _TURN_EDIT_DIFFS_MAX:
+                    diffs[tool_call_id] = {
+                        key: payload[key] for key in ("inline_diff", "inline_diff_stats") if key in payload
+                    }
     except Exception:
         pass
     if _tool_progress_enabled(sid) or payload.get("inline_diff") or _tool_lifecycle_required_for_ui(name):
@@ -10110,22 +10124,22 @@ def _turn_reply_message(result: Any) -> dict | None:
     return None
 
 
-def _persist_turn_files_created(agent, session: dict, files: list[dict], result: Any = None) -> None:
-    """Pin ``files_created`` to the turn's reply (best effort, presentation only).
+def _pin_turn_display_metadata(agent, session: dict, patch: dict, result: Any = None) -> None:
+    """Merge *patch* into the turn's reply ``display_metadata`` (best effort, presentation only).
 
     Twice: on the stored row, which a cold reload reads, and on the reply in
     the live history, which every transcript rebuilt from memory reads
     (``/compress`` — even one that removes nothing — undo, retry). Pinned only
-    to the row, a still-open conversation lost its file cards the moment it
+    to the row, a still-open conversation lost what it pinned the moment it
     was rebuilt. ``display_metadata`` never reaches the provider: the request
     builder strips it from every outgoing message.
     """
-    if not files:
+    if not patch:
         return
     reply = _turn_reply_message(result)
     if reply is not None:
         metadata = reply.get("display_metadata")
-        reply["display_metadata"] = {**(metadata if isinstance(metadata, dict) else {}), "files_created": files}
+        reply["display_metadata"] = {**(metadata if isinstance(metadata, dict) else {}), **patch}
     db = getattr(agent, "_session_db", None)
     if db is None:
         return
@@ -10133,9 +10147,27 @@ def _persist_turn_files_created(agent, session: dict, files: list[dict], result:
     try:
         row_id = db.latest_message_row_id(session_id, role="assistant", require_text=False)
         if row_id is not None:
-            db.merge_message_display_metadata(session_id, row_id, {"files_created": files})
+            db.merge_message_display_metadata(session_id, row_id, patch)
     except Exception:
-        logger.debug("failed to persist turn deliverables", exc_info=True)
+        logger.debug("failed to pin turn display metadata", exc_info=True)
+
+
+def _persist_turn_files_created(agent, session: dict, files: list[dict], result: Any = None) -> None:
+    """Pin ``files_created`` to the turn's reply (see _pin_turn_display_metadata)."""
+    if files:
+        _pin_turn_display_metadata(agent, session, {"files_created": files}, result)
+
+
+def _persist_turn_edit_diffs(agent, session: dict, result: Any = None) -> None:
+    """Pin the turn's file-edit diffs to its reply, keyed by tool call id.
+
+    A reopened chat rebuilds edit rows from stored tool rows, which hold only
+    the tool's own result: without this, every \"+N\" diff row and the
+    files-changed card disappeared on reload.
+    """
+    diffs = session.pop("turn_edit_diffs", None)
+    if isinstance(diffs, dict) and diffs:
+        _pin_turn_display_metadata(agent, session, {"edit_diffs": diffs}, result)
 
 
 def _run_prompt_submit(
@@ -10184,6 +10216,8 @@ def _run_prompt_submit(
     # Wall clock, for the deliverables scan: a file counts as this turn's
     # output when its mtime is at or after this instant.
     _turn_started_wall = time.time()
+    # Diffs of this turn's file edits, pinned to its reply when it ends.
+    session["turn_edit_diffs"] = {}
     logger.info(
         "tui prompt accepted: ui_session=%s session_key=%s agent_session_id=%s "
         "kind=%s chars=%s images=%d",
@@ -10673,6 +10707,7 @@ def _run_prompt_submit(
             if files_created:
                 payload["files_created"] = files_created
                 _persist_turn_files_created(agent, session, files_created, result)
+            _persist_turn_edit_diffs(agent, session, result)
             if result.get("response_previewed"):
                 payload["response_previewed"] = True
             # Forward the structured billing-wall descriptor (provider,

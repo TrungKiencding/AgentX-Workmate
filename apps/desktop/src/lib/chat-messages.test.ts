@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
+import { deriveChangedFiles } from '@/components/assistant-ui/thread/changed-files'
 import type { SessionMessage } from '@/types/hermes'
 
 import type { ChatMessage, ChatMessagePart } from './chat-messages'
@@ -1473,5 +1474,49 @@ describe('carryOutputsAcrossCompaction', () => {
     const second = carryOutputsAcrossCompaction(first, [{ ...divider, id: 'c2' }])
 
     expect(second[0].createdFiles?.map(file => file.name)).toEqual(['notes.md', 'deck.pptx', 'still.pdf'])
+  })
+})
+
+describe('file-edit diffs on a reopened chat', () => {
+  // A stored tool row holds only the tool's own result: a reopened chat lost
+  // every "+N" edit row and the files-changed card. The turn pins its diffs to
+  // the reply (display_metadata.edit_diffs, by tool call id).
+  const turn = (metadata: unknown) => [
+    { role: 'user' as const, content: 'ghi báo cáo', timestamp: 1 },
+    {
+      role: 'assistant' as const,
+      content: '',
+      timestamp: 2,
+      tool_calls: [
+        {
+          id: 'call-write',
+          function: { name: 'write_file', arguments: JSON.stringify({ path: '/w/bao cao.md', content: 'a\nb\nc\n' }) }
+        }
+      ]
+    },
+    { role: 'tool' as const, tool_call_id: 'call-write', tool_name: 'write_file', content: '{"bytes_written": 6}', timestamp: 3 },
+    { role: 'assistant' as const, content: 'Đã ghi.', timestamp: 4, display_metadata: metadata }
+  ]
+
+  const diff = '--- a/bao cao.md\n+++ b/bao cao.md\n@@ -0,0 +1,3 @@\n+a\n+b\n+c'
+
+  it('puts the stored diff back on its edit row, so the files-changed card returns', () => {
+    const messages = toChatMessages(
+      turn(JSON.stringify({ edit_diffs: { 'call-write': { inline_diff: diff, inline_diff_stats: { added: 3, removed: 0 } } } }))
+    )
+
+    const reply = messages.find(message => message.role === 'assistant')!
+    const edit = reply.parts.find(part => part.type === 'tool-call' && part.toolCallId === 'call-write')
+
+    expect(edit && edit.type === 'tool-call' && (edit.result as Record<string, unknown>).inline_diff).toBe(diff)
+    expect(deriveChangedFiles(reply.parts)).toEqual([{ added: 3, name: 'bao cao.md', path: '/w/bao cao.md', removed: 0 }])
+  })
+
+  it('leaves edit rows alone when no diffs were pinned or the metadata is malformed', () => {
+    for (const metadata of [undefined, { edit_diffs: 'x' }, { edit_diffs: { 'call-write': { inline_diff: 42 } } }]) {
+      const reply = toChatMessages(turn(metadata)).find(message => message.role === 'assistant')!
+
+      expect(deriveChangedFiles(reply.parts)).toEqual([])
+    }
   })
 })

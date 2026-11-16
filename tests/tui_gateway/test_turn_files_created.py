@@ -318,3 +318,57 @@ def test_a_branch_seed_keeps_only_real_files_on_assistant_turns(tmp_path):
 
     assert "display_metadata" not in history[0]
     assert [f["name"] for f in history[1]["display_metadata"]["files_created"]] == ["report.docx"]
+
+
+def test_a_turns_edit_diffs_are_pinned_to_its_reply(turn_env, tmp_path, monkeypatch):
+    """A reopened chat rebuilt each edit row from the stored tool row, which
+    holds only the tool's own result: every "+N" row and the files-changed
+    card were gone. The turn's diffs now ride the reply's display_metadata,
+    keyed by tool call id, in the stored row and the live history alike."""
+    db = _FakeDb()
+    target = tmp_path / "bao cao.md"
+    args = {"path": str(target), "content": "# Báo cáo\n- một\n- hai\n"}
+    reply = {"role": "assistant", "content": "Đã ghi bao cao.md."}
+
+    def run(message, **kwargs):
+        # The agent loop fires the tool callbacks while the turn runs.
+        server._on_tool_start("ui-sid", "call-write", "write_file", args)
+        target.write_text(args["content"], encoding="utf-8")
+        server._on_tool_complete("ui-sid", "call-write", "write_file", args, '{"bytes_written": 22}')
+        return {
+            "final_response": reply["content"],
+            "messages": [
+                {"role": "user", "content": "ghi báo cáo"},
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{"id": "call-write", "function": {"name": "write_file", "arguments": json.dumps(args)}}],
+                },
+                {"role": "tool", "name": "write_file", "tool_call_id": "call-write", "content": '{"bytes_written": 22}'},
+                reply,
+            ],
+        }
+
+    session = _session(_agent(run, db))
+    monkeypatch.setitem(server._sessions, "ui-sid", session)
+    server._run_prompt_submit("rid", "ui-sid", session, "ghi báo cáo")
+
+    pinned = [patch for _sid, _row, patch in db.merged if "edit_diffs" in patch]
+    assert len(pinned) == 1
+    diff = pinned[0]["edit_diffs"]["call-write"]
+    assert "Báo cáo" in diff["inline_diff"]
+    assert diff["inline_diff_stats"] == {"added": 3, "removed": 0}
+    assert reply["display_metadata"]["edit_diffs"] == pinned[0]["edit_diffs"]
+    # Consumed by the turn that made them: the next turn starts empty.
+    assert "turn_edit_diffs" not in session
+
+
+def test_a_turn_without_edits_pins_no_diffs(turn_env):
+    db = _FakeDb()
+
+    def run(message, **kwargs):
+        return {"final_response": "391", "messages": [{"role": "user", "content": "17*23"}, {"role": "assistant", "content": "391"}]}
+
+    server._run_prompt_submit("rid", "ui-sid", _session(_agent(run, db)), "17*23")
+
+    assert not [patch for _sid, _row, patch in db.merged if "edit_diffs" in patch]
