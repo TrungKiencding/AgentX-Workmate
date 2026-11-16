@@ -4273,6 +4273,8 @@ export const ja = defineLocale({
         delegate: { past: '委任済み', present: '委任中', noun: _count => '件のタスク' },
         edit: { past: '編集済み', present: '編集中', noun: _count => '件のファイル' },
         explore: { past: '確認済み', present: '確認中', noun: _count => '件のファイル' },
+        search: { past: '検索済み', present: '検索中', noun: _count => '回' },
+        browse: { past: '閲覧済み', present: '閲覧中', noun: _count => '件のページ' },
         other: { past: '使用済み', present: '使用中', noun: _count => '件のツール' },
         run: { past: '実行済み', present: '実行中', noun: _count => '件のコマンド' }
       },

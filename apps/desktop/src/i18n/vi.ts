@@ -4327,6 +4327,8 @@ export const vi: Translations = {
         delegate: { past: 'Đã giao', present: 'Đang giao', noun: _count => 'việc' },
         edit: { past: 'Đã sửa', present: 'Đang sửa', noun: _count => 'tệp' },
         explore: { past: 'Đã xem', present: 'Đang xem', noun: _count => 'tệp' },
+        search: { past: 'Đã tìm', present: 'Đang tìm', noun: _count => 'lần' },
+        browse: { past: 'Đã mở', present: 'Đang mở', noun: _count => 'trang' },
         other: { past: 'Đã dùng', present: 'Đang dùng', noun: _count => 'công cụ' },
         run: { past: 'Đã chạy', present: 'Đang chạy', noun: _count => 'lệnh' }
       },

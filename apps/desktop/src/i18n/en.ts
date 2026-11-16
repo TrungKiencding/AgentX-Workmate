@@ -4091,6 +4091,8 @@ export const en: Translations = {
         delegate: { past: 'Delegated', present: 'Delegating', noun: count => (count === 1 ? 'task' : 'tasks') },
         edit: { past: 'Edited', present: 'Editing', noun: count => (count === 1 ? 'file' : 'files') },
         explore: { past: 'Explored', present: 'Exploring', noun: count => (count === 1 ? 'file' : 'files') },
+        search: { past: 'Searched', present: 'Searching', noun: count => (count === 1 ? 'time' : 'times') },
+        browse: { past: 'Visited', present: 'Visiting', noun: count => (count === 1 ? 'page' : 'pages') },
         other: { past: 'Used', present: 'Using', noun: count => (count === 1 ? 'tool' : 'tools') },
         run: { past: 'Ran', present: 'Running', noun: count => (count === 1 ? 'command' : 'commands') }
       },

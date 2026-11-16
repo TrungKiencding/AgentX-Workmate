@@ -4083,6 +4083,8 @@ export const zhHant = defineLocale({
         delegate: { past: '已委派', present: '正在委派', noun: _count => '個任務' },
         edit: { past: '已編輯', present: '正在編輯', noun: _count => '個檔案' },
         explore: { past: '已查看', present: '正在查看', noun: _count => '個檔案' },
+        search: { past: '已搜尋', present: '正在搜尋', noun: _count => '次' },
+        browse: { past: '已瀏覽', present: '正在瀏覽', noun: _count => '個網頁' },
         other: { past: '已使用', present: '正在使用', noun: _count => '個工具' },
         run: { past: '已執行', present: '正在執行', noun: _count => '個命令' }
       },

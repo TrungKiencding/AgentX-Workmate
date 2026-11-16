@@ -4761,6 +4761,16 @@ export const ar = defineLocale({
           present: 'جار الاستكشاف',
           noun: count => (count === 1 ? 'ملف' : 'ملفات')
         },
+        search: {
+          past: 'بُحث',
+          present: 'جار البحث',
+          noun: count => (count === 1 ? 'مرة' : 'مرات')
+        },
+        browse: {
+          past: 'تُصفّح',
+          present: 'جار التصفح',
+          noun: count => (count === 1 ? 'صفحة' : 'صفحات')
+        },
         other: {
           past: 'استُخدم',
           present: 'جار الاستخدام',

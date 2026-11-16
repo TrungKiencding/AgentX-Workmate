@@ -3443,7 +3443,7 @@ export interface Translations {
      *  starts (tool/run-summary.ts): "Edited 2 files, running 1 command". */
     toolRun: {
       categories: Record<
-        'delegate' | 'edit' | 'explore' | 'other' | 'run',
+        'browse' | 'delegate' | 'edit' | 'explore' | 'other' | 'run' | 'search',
         { past: string; present: string; noun: (count: number) => string }
       >
       compacting: string

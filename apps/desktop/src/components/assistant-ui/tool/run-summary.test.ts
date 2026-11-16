@@ -26,6 +26,24 @@ describe('summarizeToolRun', () => {
     expect(settled([searched('toolRuns'), read('a.ts'), read('b.ts'), read('c.ts')])).toBe('Explored 4 files')
   })
 
+  // Two web searches read "Explored 2 files" (vi "Đã xem 2 tệp") although no
+  // file was involved: searches and web pages are counted as what they are.
+  it('counts web searches as searches and fetched pages as pages, not files', () => {
+    const web = (query: string) => tool('web_search', { query }, { results: [] })
+    const page = (url: string) => tool('web_extract', { urls: [url] }, { results: [] })
+
+    expect(settled([web('giá vàng'), web('giá vàng SJC')])).toBe('Searched 2 times')
+    expect(summarizeToolRun([web('giá vàng'), web('giá vàng SJC')], false, vi)).toBe('Đã tìm 2 lần')
+    expect(settled([web('gold price')])).toBe('Searched gold price')
+    expect(settled([page('https://a.example'), page('https://b.example')])).toBe('Visited 2 pages')
+    expect(settled([tool('browser_navigate', { url: 'https://a.example' }, {}), tool('browser_click', {}, {})])).toBe(
+      'Visited 2 pages'
+    )
+    expect(settled([read('a.ts'), web('x'), web('y'), ran('ls')])).toBe('Explored a.ts, searched 2 times, ran 1 command')
+    expect(summarizeToolRun([web('x')], true, vi)).toBe('Đang tìm x')
+    expect(toolPresentVerb('web_search', vi)).toBe('Đang tìm')
+  })
+
   it('orders clauses explore then run regardless of call order', () => {
     expect(settled([ran('ls'), read('a.ts'), read('b.ts'), ran('pwd'), ran('id')])).toBe(
       'Explored 2 files, ran 3 commands'
@@ -65,9 +83,10 @@ describe('summarizeToolRun', () => {
 
   // The tool is `session_search`; listing it as `session_search_recall` left
   // it narrated as "Using 1 tool".
-  it('reads a search through earlier chats as exploring', () => {
-    expect(toolPresentVerb('session_search', en)).toBe('Exploring')
-    expect(settled([tool('session_search', { query: 'auth refactor' }, { count: 2 })])).toBe('Explored auth refactor')
+  // A search, like a web search — not a file read.
+  it('reads a search through earlier chats as searching', () => {
+    expect(toolPresentVerb('session_search', en)).toBe('Searching')
+    expect(settled([tool('session_search', { query: 'auth refactor' }, { count: 2 })])).toBe('Searched auth refactor')
   })
 
   // Reading a skill or listing them is a lookup, as read_file and list_files
