@@ -8,6 +8,7 @@ import { RowButton } from '@/components/ui/row-button'
 import { SearchField } from '@/components/ui/search-field'
 import { Tip } from '@/components/ui/tooltip'
 import { translateNow } from '@/i18n'
+import { capitalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 
 import { OverlayPageHeader } from './overlay-split-layout'
@@ -367,15 +368,23 @@ const PILL_TONE: Record<PanelPillTone, string> = {
   warn: 'bg-(--ui-yellow)/12 text-(--ui-yellow)'
 }
 
-export function PanelPill({ children, tone = 'muted' }: { children: ReactNode; tone?: PanelPillTone }) {
+/**
+ * A short status label. Text starts with a capital — sentence case, never
+ * title case: CSS `capitalize` turned the Vietnamese "đã xong" into "Đã Xong".
+ * `verbatim` shows an identifier (an event or skill name) exactly as written.
+ */
+export function PanelPill({
+  children,
+  tone = 'muted',
+  verbatim = false
+}: {
+  children: ReactNode
+  tone?: PanelPillTone
+  verbatim?: boolean
+}) {
   return (
-    <span
-      className={cn(
-        'inline-flex items-center rounded-full px-1.5 py-0.5 text-2xs font-medium capitalize',
-        PILL_TONE[tone]
-      )}
-    >
-      {children}
+    <span className={cn('inline-flex items-center rounded-full px-1.5 py-0.5 text-2xs font-medium', PILL_TONE[tone])}>
+      {typeof children === 'string' && !verbatim ? capitalize(children) : children}
     </span>
   )
 }

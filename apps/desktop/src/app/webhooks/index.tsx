@@ -566,7 +566,9 @@ function WebhookDetail({ sub }: { sub: WebhookRoute }) {
                 ) : (
                   <span className="flex flex-wrap gap-1">
                     {sub.events.map(evt => (
-                      <PanelPill key={evt}>{evt}</PanelPill>
+                      <PanelPill key={evt} verbatim>
+                        {evt}
+                      </PanelPill>
                     ))}
                   </span>
                 )
@@ -578,7 +580,9 @@ function WebhookDetail({ sub }: { sub: WebhookRoute }) {
                     value: (
                       <span className="flex flex-wrap gap-1">
                         {sub.skills.map(skill => (
-                          <PanelPill key={skill}>{skill}</PanelPill>
+                          <PanelPill key={skill} verbatim>
+                            {skill}
+                          </PanelPill>
                         ))}
                       </span>
                     )
