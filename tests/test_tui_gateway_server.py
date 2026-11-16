@@ -8244,7 +8244,7 @@ def test_prompt_submit_sets_approval_session_key(monkeypatch):
             }
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):
@@ -8284,7 +8284,7 @@ def test_prompt_submit_expands_context_refs(monkeypatch):
             }
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):
@@ -9439,7 +9439,7 @@ def test_prompt_submit_history_version_mismatch_surfaces_warning(monkeypatch):
             }
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):
@@ -9532,7 +9532,7 @@ def test_prompt_submit_merges_on_model_switch_marker(monkeypatch):
         return _is_model_switch_marker(entry)
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):
@@ -9653,7 +9653,7 @@ def test_prompt_submit_history_version_match_persists_normally(monkeypatch):
             }
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):
@@ -12231,6 +12231,93 @@ def test_session_branch_writes_to_parent_profile_db(monkeypatch, tmp_path):
         # not just the row. Otherwise its own flushes (and a later compression
         # rotation) land on the launch db, splitting the lineage again.
         assert isinstance(seen.get("agent_session_db"), ProfileDB)
+    finally:
+        for k in list(server._sessions):
+            server._sessions.pop(k, None)
+
+
+@pytest.mark.parametrize(
+    "params, kept",
+    [
+        # Branch at A2 in a live chat whose first turn streamed an interim
+        # bubble: the desktop's count (5) used to pull in U3.
+        ({"user_ordinal": 1, "include_reply": True, "count": 5}, ["U1", "A1 interim", "", "A1 final", "U2", "A2"]),
+        ({"user_ordinal": 1, "include_reply": False, "count": 4}, ["U1", "A1 interim", "", "A1 final", "U2"]),
+        # An older client: the count path still works.
+        ({"count": 2}, ["U1", "A1 interim", "", "A1 final"]),
+        # An out-of-range ordinal falls back to the count.
+        ({"user_ordinal": 9, "include_reply": True, "count": 1}, ["U1"]),
+    ],
+)
+def test_session_branch_cuts_at_the_user_turn_the_client_addressed(monkeypatch, tmp_path, params, kept):
+    seen: dict = {"msgs": []}
+
+    class DB:
+        def get_session_title(self, _key):
+            return "parent"
+
+        def get_next_title_in_lineage(self, current):
+            return f"{current} (branch)"
+
+        def create_session(self, new_key, **kwargs):
+            seen["created"] = new_key
+
+        def append_messages_batch(self, session_id, messages, **kwargs):
+            seen["msgs"].extend(messages)
+            return list(range(1, len(messages) + 1))
+
+        def set_session_title(self, key, title):
+            return True
+
+        def get_session(self, key):
+            return {"id": key, "cwd": str(tmp_path)}
+
+        def update_session_cwd(self, *a, **k):
+            return None
+
+    class FakeAgent:
+        def __init__(self):
+            self.model = "test-model"
+            self.session_id = None
+
+    history = [
+        {"role": "user", "content": "U1"},
+        {"role": "assistant", "content": "A1 interim", "tool_calls": [{"id": "t"}]},
+        {"role": "tool", "content": ""},
+        {"role": "assistant", "content": "A1 final"},
+        {"role": "user", "content": "U2"},
+        {"role": "assistant", "content": "A2"},
+        {"role": "user", "content": "[model switched]", "display_kind": "model_switch"},
+        {"role": "user", "content": "U3"},
+        {"role": "assistant", "content": "A3"},
+    ]
+    server._sessions["parent"] = {
+        "session_key": "parent-key",
+        "history": history,
+        "history_lock": __import__("threading").Lock(),
+        "running": False,
+        "cols": 80,
+        "source": "tui",
+        "agent": FakeAgent(),
+        "created_at": 1.0,
+        "last_active": 1.0,
+        "cwd": str(tmp_path),
+    }
+    monkeypatch.setattr(server, "_get_db", lambda: DB())
+    monkeypatch.setattr(server, "_claim_active_session_slot", lambda *a, **k: (None, None))
+    monkeypatch.setattr(server, "_make_agent", lambda *a, **k: FakeAgent())
+    monkeypatch.setattr(server, "_set_session_context", lambda *a, **k: {})
+    monkeypatch.setattr(server, "_clear_session_context", lambda *a, **k: None)
+    monkeypatch.setattr(server, "_resolve_model", lambda: "test-model")
+    monkeypatch.setattr(server, "_session_cwd", lambda s: str(tmp_path))
+    monkeypatch.setattr(server, "_register_session_cwd", lambda *a, **k: None)
+    monkeypatch.setattr(server, "_attach_worker", lambda *a, **k: None)
+    try:
+        resp = server.handle_request(
+            {"id": "1", "method": "session.branch", "params": {"session_id": "parent", **params}}
+        )
+        assert "result" in resp, resp
+        assert [m["content"] for m in seen["msgs"]] == kept
     finally:
         for k in list(server._sessions):
             server._sessions.pop(k, None)
@@ -16802,7 +16889,7 @@ def test_prompt_submit_passes_persist_user_message_to_agent(monkeypatch):
             }
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):

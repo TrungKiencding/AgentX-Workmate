@@ -55,8 +55,11 @@ DELIVERABLE_EXTENSIONS: frozenset[str] = frozenset(
 # scripts ("export it as JSON", "save the script so I can reuse it"). They are
 # not deliverable *kinds* (no card kind, no preview rail of their own), and a
 # coding turn touches dozens of them, so they are held to a stricter bar: the
-# turn must name the path, and a file tool must not have written it (the
-# transcript already shows that edit as a diff).
+# turn must name the path, a file tool must not have written it (the
+# transcript already shows that edit as a diff), and the file must be NEW to
+# the turn — a formatter, ``sed -i``, ``npm install`` or a ``git status``
+# listing names pre-existing project files the turn merely changed (see
+# :func:`collect_turn_deliverables`).
 # Never picked up by the workspace walk.
 SECONDARY_OUTPUT_EXTENSIONS: frozenset[str] = frozenset(
     {
@@ -92,6 +95,40 @@ EXCLUDED_DIR_NAMES: frozenset[str] = frozenset(
         "coverage",
     }
 )
+
+# Build and tool output folders. A project chat that runs ``npm run build``
+# fills ``dist/`` with an index.html, icons and images, none of which the
+# person asked to be handed. The workspace walk never enters them, and a file
+# inside one (relative to the session's folder) that the turn only named in a
+# command or its output counts only once the reply names it — "build it and
+# give me the zip in dist/" still gets the zip. ``out/`` is deliberately not
+# here: it is where scripts are told to put what they make (``python make.py
+# -o out/report.xlsx``, ``-d out``), so it holds exactly the files a person
+# asked for — Next.js' static export there is the price.
+BUILD_OUTPUT_DIR_NAMES: frozenset[str] = frozenset(
+    {
+        "dist",
+        "build",
+        "target",
+        "_build",
+        "storybook-static",
+        ".svelte-kit",
+        ".nuxt",
+        ".output",
+        ".parcel-cache",
+        ".gradle",
+        "Pods",
+        "DerivedData",
+    }
+)
+
+WALK_EXCLUDED_DIR_NAMES: frozenset[str] = EXCLUDED_DIR_NAMES | BUILD_OUTPUT_DIR_NAMES
+
+# Whether a named script/data file was already in the project before the turn
+# is asked of git (tracked files pre-existed): one bounded ``git ls-files``
+# per folder holding such a candidate, which most turns never have.
+GIT_PROBE_MAX_DIRS = 8
+GIT_PROBE_BUDGET_SECONDS = 1.5
 
 # Files modified this long before the turn started still count as the turn's
 # own: clocks on network volumes and buffered writes are not exact.
@@ -200,6 +237,78 @@ def changed_time(path: str, stat: os.stat_result) -> float:
     return float(stat.st_ctime)
 
 
+def created_time(path: str, stat: os.stat_result) -> Optional[float]:
+    """When the file at *path* was created, where the platform records it.
+
+    macOS / BSD and Windows (``st_birthtime`` from Python 3.12, ``st_ctime``
+    before) keep a creation time; Linux exposes none through ``os.stat`` —
+    ``None`` there. ``path`` is for tests, as in :func:`changed_time`.
+    """
+    born = getattr(stat, "st_birthtime", None)
+    if born:
+        return float(born)
+    if os.name == "nt":
+        return float(stat.st_ctime)
+    return None
+
+
+def _born_during(path: str, stat: os.stat_result, cutoff: float) -> Optional[bool]:
+    """Whether the file was created at or after *cutoff*; ``None`` when unknowable.
+
+    A pre-existing file a formatter rewrote in place keeps its creation time,
+    which is what tells it apart from a file the turn made. Careful on macOS:
+    setting an mtime older than the birth time pulls the birth time back with
+    it (``unzip``, ``cp -p``, ``tar x`` all do), so a file just placed with
+    its archived dates has birth == mtime, both old, while its change time is
+    new. That reads as "unknown", never as "pre-existing".
+    """
+    born = created_time(path, stat)
+    if born is None:
+        return None
+    if born >= cutoff:
+        return True
+    if os.name != "nt" and stat.st_mtime < cutoff and abs(born - stat.st_mtime) < 1.0:
+        return None
+    return False
+
+
+def git_tracked_paths(paths: Iterable[str]) -> set[str]:
+    """The *paths* git tracks (so they existed before the turn), best effort.
+
+    One ``git ls-files`` per containing folder, bounded in folders and time,
+    through the shared hardened probe (repository config cannot run code, a
+    killed git cannot hang the turn). No git, no repository, a timeout or any
+    error: nothing is tracked.
+    """
+    by_dir: dict[str, list[str]] = {}
+    for path in paths:
+        by_dir.setdefault(os.path.dirname(path), []).append(path)
+    if not by_dir:
+        return set()
+    try:
+        from hermes_cli._subprocess_compat import bounded_git_probe
+    except Exception:
+        return set()
+    deadline = time.monotonic() + GIT_PROBE_BUDGET_SECONDS
+    tracked: set[str] = set()
+    for directory, members in list(by_dir.items())[:GIT_PROBE_MAX_DIRS]:
+        left = deadline - time.monotonic()
+        if left <= 0.05 or not os.path.isdir(directory):
+            continue
+        names = sorted({os.path.basename(member) for member in members})
+        try:
+            out = bounded_git_probe(
+                ["git", "--literal-pathspecs", "-C", directory, "ls-files", "-z", "--", *names],
+                timeout=left,
+            )
+        except Exception:
+            continue
+        for name in out.split("\0"):
+            if name:
+                tracked.add(os.path.normpath(os.path.join(directory, name)))
+    return tracked
+
+
 def _arrived_during(path: str, stat: os.stat_result, cutoff: float, parent_mtime: Optional[float] = None) -> bool:
     """Whether the file was written, or newly placed, at or after *cutoff*.
 
@@ -254,6 +363,25 @@ def _has_excluded_segment(path: str) -> bool:
     # may start with a dot only if it has a deliverable extension anyway.
     for part in parts[:-1]:
         if part.startswith(".") and part not in (".", ".."):
+            return True
+    return False
+
+
+def _in_build_output(path: str, roots: Iterable[str]) -> bool:
+    """Whether *path* sits in a build output folder below one of *roots*.
+
+    Only the part below the session's folder is looked at: a project that
+    itself lives under ``~/build/…`` is not build output, and a path the turn
+    named outside the session's folder was put there on purpose.
+    """
+    for root in roots:
+        if not root:
+            continue
+        try:
+            relative = Path(path).relative_to(Path(root))
+        except ValueError:
+            continue
+        if any(part in BUILD_OUTPUT_DIR_NAMES for part in relative.parts[:-1]):
             return True
     return False
 
@@ -433,22 +561,31 @@ def spaced_paths_in_text(text: str, cwd: str, budget: Optional[_ProbeBudget] = N
 
 
 def candidate_paths_from_messages(
-    messages: Iterable[dict], cwd: str, budget: Optional[_ProbeBudget] = None
+    messages: Iterable[dict],
+    cwd: str,
+    budget: Optional[_ProbeBudget] = None,
+    from_args: Optional[set[str]] = None,
 ) -> list[str]:
-    """Paths the turn mentioned anywhere: tool arguments, tool results, the reply."""
+    """Paths the turn mentioned anywhere: tool arguments, tool results, the reply.
+
+    ``from_args``, when given, collects the ones a tool call's arguments named
+    (``-o out/report.docx``) as opposed to ones only printed by a tool.
+    """
     budget = budget or _ProbeBudget()
     found: list[str] = []
     seen: set[str] = set()
     for message in messages:
         if not isinstance(message, dict):
             continue
-        fragments: list[str] = []
+        fragments: list[tuple[str, bool]] = []
         for _name, args in _tool_call_records(message):
-            fragments.extend(_iter_text_fragments(args))
+            fragments.extend((fragment, True) for fragment in _iter_text_fragments(args))
         for key in ("content", "text", "context"):
-            fragments.extend(_iter_text_fragments(message.get(key)))
-        for fragment in fragments:
+            fragments.extend((fragment, False) for fragment in _iter_text_fragments(message.get(key)))
+        for fragment, is_args in fragments:
             for path in [*paths_in_text(fragment, cwd), *spaced_paths_in_text(fragment, cwd, budget)]:
+                if is_args and from_args is not None:
+                    from_args.add(path)
                 if path not in seen:
                     seen.add(path)
                     found.append(path)
@@ -542,7 +679,7 @@ def scan_workspace(
                     name = entry.name
                     try:
                         if entry.is_dir(follow_symlinks=False):
-                            if depth < max_depth and not name.startswith(".") and name not in EXCLUDED_DIR_NAMES:
+                            if depth < max_depth and not name.startswith(".") and name not in WALK_EXCLUDED_DIR_NAMES:
                                 queue.append((entry.path, depth + 1))
                             continue
                         if not entry.is_file(follow_symlinks=False):
@@ -568,6 +705,8 @@ def scan_workspace(
 # Downloads), and a deeper look would pick up whatever else lives there.
 NAMED_DIR_LIMIT = 12
 NAMED_DIR_MAX_ENTRIES = 400
+# Distinct candidate words stat'ed per turn while looking for named folders.
+NAMED_DIR_MAX_PROBES = 256
 
 _ABSOLUTE_TOKEN_RE = re.compile(r"(?<![\w:/\\.-])((?:~|/|[A-Za-z]:[\\/])[^\s\"'`<>|*?\[\]{}]+)")
 
@@ -581,28 +720,44 @@ def named_directories(messages: Iterable[dict], cwd: str, final_text: str = "") 
     "named" — the workspace walk owns the first, and the others are too big
     to stand for anything.
     """
-    texts: list[str] = [final_text] if final_text else []
-    words: list[str] = []
+    def absolute_tokens(texts: Iterable[str]) -> list[str]:
+        return [m.group(1) for text in texts for m in _ABSOLUTE_TOKEN_RE.finditer(text)]
+
+    # Most telling first, since the probe budget can run out: what the reply
+    # handed over, then what commands were told, then what tools printed.
+    reply_tokens = absolute_tokens([final_text] if final_text else [])
+    command_tokens: list[str] = []
+    command_words: list[str] = []
+    printed: list[str] = []
     for message in messages:
         if not isinstance(message, dict):
             continue
-        for _name, args in _tool_call_records(message):
+        for name, args in _tool_call_records(message):
+            # A file tool's arguments are a file body or a patch, not a
+            # command: thousands of words, none of them a folder it named.
+            if name in FILE_EDIT_TOOLS:
+                continue
             for fragment in _iter_text_fragments(args):
-                texts.append(fragment)
-                words.extend(fragment.split())
+                command_tokens.extend(absolute_tokens([fragment]))
+                command_words.extend(w for w in fragment.split() if not w.startswith("-") and len(w) < 200)
         for key in ("content", "text"):
-            texts.extend(_iter_text_fragments(message.get(key)))
-    tokens = [m.group(1) for text in texts for m in _ABSOLUTE_TOKEN_RE.finditer(text)]
-    tokens += [w for w in words if w and not w.startswith("-") and len(w) < 200]
+            printed.extend(absolute_tokens(_iter_text_fragments(message.get(key))))
+    tokens = [*reply_tokens, *command_tokens, *command_words, *printed]
 
     home = os.path.realpath(os.path.expanduser("~"))
     base = os.path.realpath(cwd) if cwd else ""
     found: list[str] = []
+    probed: set[str] = set()
     for token in tokens:
-        if len(found) >= NAMED_DIR_LIMIT:
+        if len(found) >= NAMED_DIR_LIMIT or len(probed) >= NAMED_DIR_MAX_PROBES:
             break
         resolved = _resolve_candidate(token.rstrip(".,;:)]}"), cwd)
-        if not resolved or resolved in found or not os.path.isdir(resolved):
+        # Every distinct candidate costs one stat (a round trip on a network
+        # drive); a command output listing thousands of paths must not.
+        if not resolved or resolved in probed:
+            continue
+        probed.add(resolved)
+        if not os.path.isdir(resolved):
             continue
         real = os.path.realpath(resolved)
         if real in (home, os.path.realpath(os.sep), base) or (base and _under_any(base, [real])):
@@ -662,8 +817,15 @@ def collect_turn_deliverables(
       found, or that arrived directly inside a folder the turn named,
       written or placed there during the turn;
     * a data / config / script file (``SECONDARY_OUTPUT_EXTENSIONS``) only
-      when the turn named it and no file tool wrote it (that edit already
-      shows as a diff);
+      when the turn named it, no file tool wrote it (that edit already shows
+      as a diff), and it is new to the turn: not tracked by git, and created
+      during the turn where the platform keeps a creation time. Where it does
+      not (Linux, or a macOS file placed with its archived dates), the reply
+      must name it — a ``git status`` listing or a formatter's output naming
+      a pre-existing ``src/a.py`` is not a hand-over;
+    * nothing inside a build output folder of the session's folder
+      (``dist/``, ``build/`` …) that only a tool printed: the reply has to
+      name it or its folder, or a command has to have named the file itself;
     * nothing in the temp folder (outside the session's own folder) unless
       the reply names it — that is where models keep their scratch renders
       and checks;
@@ -673,7 +835,8 @@ def collect_turn_deliverables(
     """
     messages = [m for m in new_messages if isinstance(m, dict)]
     budget = _ProbeBudget()
-    named = candidate_paths_from_messages(messages, cwd, budget)
+    named_in_args: set[str] = set()
+    named = candidate_paths_from_messages(messages, cwd, budget, named_in_args)
     final_paths: list[str] = []
     if final_text:
         final_paths = [*paths_in_text(final_text, cwd), *spaced_paths_in_text(final_text, cwd, budget)]
@@ -710,6 +873,8 @@ def collect_turn_deliverables(
     cutoff = started_at - MODIFIED_SLACK_SECONDS
 
     records: list[tuple[float, dict[str, Any]]] = []
+    # Script / data files waiting on the git check: (produced, record, path).
+    secondary_records: list[tuple[float, dict[str, Any], str]] = []
     seen_real: set[str] = set()
     for path in [*named, *walked]:
         was_named = path in named_set
@@ -746,8 +911,23 @@ def collect_turn_deliverables(
                 _under_any(path, workspace) or _under_any(real, workspace)
             ):
                 continue
+            if path not in named_in_args and (
+                _in_build_output(path, workspace) or _in_build_output(real, workspace)
+            ):
+                continue
+        if secondary:
+            born = _born_during(path, stat, cutoff)
+            if born is False or (born is None and not in_reply):
+                continue
+            seen_real.add(real)
+            secondary_records.append((produced, record, path))
+            continue
         seen_real.add(real)
         records.append((produced, record))
+
+    if secondary_records:
+        tracked = git_tracked_paths(path for _produced, _record, path in secondary_records)
+        records.extend((produced, record) for produced, record, path in secondary_records if path not in tracked)
 
     records.sort(key=lambda item: item[0], reverse=True)
     return [record for _produced, record in records[:limit]]
@@ -804,6 +984,46 @@ def branch_cut_index(history: list[dict], count: int) -> int:
         else:
             index += 1
     return len(history)
+
+
+def branch_cut_at_user_turn(history: list[dict], user_ordinal: int, include_reply: bool) -> Optional[int]:
+    """Where to cut *history* to branch at a message the client addressed by user turn.
+
+    A message count is ambiguous: while a reply streams, the desktop shows a
+    turn that used tools as an interim bubble plus the answer — two messages
+    where the history (and the reloaded transcript) hold one turn — so a
+    count taken from a live chat cut one turn too late. A user turn's ordinal
+    is not: ``user_ordinal`` counts user rows the way ``prompt.submit``'s
+    rewind does (``truncate_before_user_ordinal``: role ``user``, no
+    ``display_kind``), the same turns the desktop numbers, compaction offsets
+    included.
+
+    ``include_reply`` False cuts right after that prompt; True keeps its whole
+    reply, up to the next prompt (``user_ordinal`` -1 then addresses a reply
+    that came before any prompt). ``None`` when the ordinal is out of range.
+    """
+    users = [
+        index
+        for index, message in enumerate(history)
+        if isinstance(message, dict) and message.get("role") == "user" and not message.get("display_kind")
+    ]
+    if not include_reply:
+        if not 0 <= user_ordinal < len(users):
+            return None
+        return users[user_ordinal] + 1
+    if not -1 <= user_ordinal < len(users):
+        return None
+    cut = users[user_ordinal + 1] if user_ordinal + 1 < len(users) else len(history)
+    # Notices that lead into the next prompt (a model switch) are not part of
+    # this reply.
+    floor = users[user_ordinal] + 1 if user_ordinal >= 0 else 0
+    while cut > floor:
+        message = history[cut - 1]
+        if isinstance(message, dict) and message.get("role") == "user" and message.get("display_kind"):
+            cut -= 1
+            continue
+        break
+    return cut
 
 
 def branch_seed_rows(history: Iterable[dict]) -> list[dict]:

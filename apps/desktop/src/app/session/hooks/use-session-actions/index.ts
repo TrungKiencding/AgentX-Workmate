@@ -100,6 +100,8 @@ import {
   applyStoredSessionPreviewRuntimeInfo,
   type BranchMessage,
   branchSeedFiles,
+  type BranchUserTurnAnchor,
+  branchUserTurnAnchor,
   chatMessageArraysEquivalent,
   isSessionGoneError,
   liveTurnStreamId,
@@ -1181,7 +1183,8 @@ export function useSessionActions({
       sourceSessionId: null | string,
       parentStoredId: null | string,
       cwd?: string,
-      profile?: null | string
+      profile?: null | string,
+      anchor?: BranchUserTurnAnchor | null
     ): Promise<boolean> => {
       creatingSessionRef.current = true
 
@@ -1199,7 +1202,9 @@ export function useSessionActions({
         const branched = sourceSessionId
           ? await requestGateway<SessionCreateResponse>('session.branch', {
               session_id: sourceSessionId,
-              count: branchMessages.length
+              // `count` is for gateways that predate the anchor.
+              count: branchMessages.length,
+              ...(anchor ?? {})
             })
           : await requestGateway<SessionCreateResponse>('session.create', {
               cols: 96,
@@ -1303,6 +1308,7 @@ export function useSessionActions({
       const start = 0
       const end = at >= 0 ? at + 1 : messages.length
       const branchMessages = toBranchMessages(messages.slice(start, end))
+      const anchor = at >= 0 ? branchUserTurnAnchor(messages, at) : null
 
       if (!branchMessages.length) {
         notify({ kind: 'warning', title: copy.nothingToBranch, message: copy.branchNoText })
@@ -1322,7 +1328,8 @@ export function useSessionActions({
         activeSessionIdRef.current,
         selectedStoredSessionIdRef.current,
         $currentCwd.get().trim(),
-        profile
+        profile,
+        anchor
       )
     },
     [activeSessionIdRef, busyRef, copy, forkBranch, selectedStoredSessionIdRef]

@@ -46,6 +46,7 @@ import type {
 
 import type { ClientSessionState } from '../../../types'
 import { finalizeInterruptedMessages } from '../use-prompt-actions/rewind'
+import { visibleUserOrdinal } from '../use-prompt-actions/utils'
 
 function withAppendedText(message: ChatMessage, suffix: string): ChatMessage {
   let appended = false
@@ -1027,6 +1028,42 @@ export const toBranchMessages = (messages: ChatMessage[]): BranchMessage[] =>
   messages
     .map(message => ({ content: chatMessageText(message), role: message.role, source: message }))
     .filter(({ content, role }) => content.trim() && (role === 'assistant' || role === 'user'))
+
+/** Where a branch of the open chat ends, as `session.branch` takes it. */
+export interface BranchUserTurnAnchor {
+  /** Keep the addressed turn's whole reply (true) or stop after its prompt. */
+  include_reply: boolean
+  /** The user turn, numbered like rewind's `truncate_before_user_ordinal`;
+   *  -1 addresses a reply that came before any prompt. */
+  user_ordinal: number
+}
+
+/**
+ * The message at `at`, addressed by its user turn instead of by a message
+ * count. While a reply streams, a turn that used tools shows as an interim
+ * bubble plus the answer — two messages where the gateway's history holds
+ * one turn — so a count taken from a live chat branched one turn too far.
+ * Prompts are one-to-one on both sides (compaction offsets included, see
+ * lib/compaction-ordinal). Null when the message sits above the latest
+ * compaction divider: the gateway no longer holds that turn as such.
+ */
+export function branchUserTurnAnchor(messages: readonly ChatMessage[], at: number): BranchUserTurnAnchor | null {
+  const target = messages[at]
+
+  if (!target) {
+    return null
+  }
+
+  const before = visibleUserOrdinal(messages, at)
+
+  if (before === null) {
+    return null
+  }
+
+  return target.role === 'user' && !target.hidden
+    ? { include_reply: false, user_ordinal: before }
+    : { include_reply: true, user_ordinal: before - 1 }
+}
 
 /**
  * The files a copied assistant turn produced, for the branch seed: the ones

@@ -2830,9 +2830,20 @@ def _(rid, params: dict) -> dict:
             history = [dict(msg) for msg in session.get("history", [])]
         if not history:
             return _err(rid, 4008, "nothing to branch — send a message first")
+        # The desktop addresses the message to branch at by its user turn
+        # (unambiguous: see branch_cut_at_user_turn); ``count`` is the older
+        # shape, kept for clients that do not send one.
+        user_ordinal = params.get("user_ordinal")
+        cut = None
+        if isinstance(user_ordinal, int) and not isinstance(user_ordinal, bool):
+            cut = branch_cut_at_user_turn(history, user_ordinal, bool(params.get("include_reply")))
         count = params.get("count")
-        if isinstance(count, int) and count > 0:
-            history = history[: branch_cut_index(history, count)]
+        if cut is None and isinstance(count, int) and not isinstance(count, bool) and count > 0:
+            cut = branch_cut_index(history, count)
+        if cut is not None:
+            history = history[:cut]
+            if not history:
+                return _err(rid, 4008, "nothing to branch — send a message first")
         new_key = _new_session_key()
         new_sid = uuid.uuid4().hex[:8]
         source = _session_source(session)

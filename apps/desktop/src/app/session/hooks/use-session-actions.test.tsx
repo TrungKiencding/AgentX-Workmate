@@ -1228,9 +1228,64 @@ describe('branchStoredSession desktop source tagging', () => {
 
     expect(requestGateway).toHaveBeenCalledWith('session.branch', {
       session_id: 'live-parent',
-      count: 2
+      count: 2,
+      user_ordinal: 0,
+      include_reply: true
     })
-    expect(branchParams).toEqual({ session_id: 'live-parent', count: 2 })
+    expect(branchParams).toEqual({ session_id: 'live-parent', count: 2, user_ordinal: 0, include_reply: true })
+  })
+
+  it('addresses the branch point by user turn, not by a live bubble count', async () => {
+    const calls: Array<Record<string, unknown> | undefined> = []
+
+    const requestGateway = vi.fn(async (method: string, params?: Record<string, unknown>) => {
+      if (method === 'session.branch') {
+        calls.push(params)
+
+        return {
+          session_id: `branch-runtime-${calls.length}`,
+          stored_session_id: `branch-stored-${calls.length}`,
+          title: 'Branch',
+          message_count: 0,
+          messages: [],
+          info: {}
+        } as never
+      }
+
+      return {} as never
+    })
+
+    // Turn one used a tool: while live it shows an interim bubble AND its
+    // answer, where the gateway's history holds one turn. A count of 5 for
+    // "a2" used to carry U3 into the branch.
+    setMessages([
+      { id: 'q1', role: 'user', parts: [{ type: 'text', text: 'U1' }] },
+      { id: 'a1i', role: 'assistant', interim: true, parts: [{ type: 'text', text: 'Let me look…' }] },
+      { id: 'a1', role: 'assistant', parts: [{ type: 'text', text: 'A1' }] },
+      { id: 'q2', role: 'user', parts: [{ type: 'text', text: 'U2' }] },
+      { id: 'a2', role: 'assistant', parts: [{ type: 'text', text: 'A2' }] },
+      { id: 'q3', role: 'user', parts: [{ type: 'text', text: 'U3' }] },
+      { id: 'a3', role: 'assistant', parts: [{ type: 'text', text: 'A3' }] }
+    ])
+
+    let branchCurrentSession: ((messageId?: string) => Promise<boolean>) | null = null
+    render(
+      <BranchHarness
+        activeSessionId="live-parent"
+        onCurrentReady={branch => (branchCurrentSession = branch)}
+        onReady={() => undefined}
+        requestGateway={requestGateway}
+      />
+    )
+    await waitFor(() => expect(branchCurrentSession).not.toBeNull())
+
+    await expect(branchCurrentSession!('a2')).resolves.toBe(true)
+    await waitFor(() => expect(calls).toHaveLength(1))
+    expect(calls[0]).toMatchObject({ session_id: 'live-parent', user_ordinal: 1, include_reply: true })
+
+    await expect(branchCurrentSession!('q2')).resolves.toBe(true)
+    await waitFor(() => expect(calls).toHaveLength(2))
+    expect(calls[1]).toMatchObject({ session_id: 'live-parent', user_ordinal: 1, include_reply: false })
   })
 
   // #67603: right-clicking a session outside the paginated sidebar window is a

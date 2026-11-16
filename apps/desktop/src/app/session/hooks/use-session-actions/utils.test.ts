@@ -13,6 +13,7 @@ import {
   appendLiveSessionProjection,
   applyRuntimeInfo,
   branchSeedFiles,
+  branchUserTurnAnchor,
   chatMessageArraysEquivalent,
   chatMessagesEquivalent,
   chatPartsEquivalent,
@@ -161,6 +162,59 @@ describe('toBranchMessages', () => {
 
     expect(out.map(b => b.source.id)).toEqual(['u', 'a'])
     expect(out[0]).toMatchObject({ content: 'hi', role: 'user' })
+  })
+})
+
+describe('branchUserTurnAnchor', () => {
+  // A live chat: turn one used a tool, so it streamed an interim bubble before
+  // its answer. The gateway holds that turn as ONE reply.
+  const live = [
+    msg('u1', 'user', 'U1'),
+    msg('a1i', 'assistant', 'Let me look…', { interim: true }),
+    msg('a1', 'assistant', 'A1'),
+    msg('u2', 'user', 'U2'),
+    msg('a2', 'assistant', 'A2'),
+    msg('u3', 'user', 'U3'),
+    msg('a3', 'assistant', 'A3')
+  ]
+
+  it('addresses a reply by the user turn it answers, however many bubbles came before', () => {
+    expect(branchUserTurnAnchor(live, 4)).toEqual({ include_reply: true, user_ordinal: 1 })
+    expect(branchUserTurnAnchor(live, 2)).toEqual({ include_reply: true, user_ordinal: 0 })
+    expect(branchUserTurnAnchor(live, 1)).toEqual({ include_reply: true, user_ordinal: 0 })
+    expect(branchUserTurnAnchor(live, 6)).toEqual({ include_reply: true, user_ordinal: 2 })
+  })
+
+  it('addresses a prompt by its own ordinal and stops after it', () => {
+    expect(branchUserTurnAnchor(live, 3)).toEqual({ include_reply: false, user_ordinal: 1 })
+    expect(branchUserTurnAnchor(live, 0)).toEqual({ include_reply: false, user_ordinal: 0 })
+  })
+
+  it('numbers a reply before any prompt -1 and skips hidden prompts', () => {
+    const messages = [
+      msg('greet', 'assistant', 'Xin chào'),
+      msg('hidden', 'user', 'goal follow-up', { hidden: true }),
+      msg('u1', 'user', 'U1'),
+      msg('a1', 'assistant', 'A1')
+    ]
+
+    expect(branchUserTurnAnchor(messages, 0)).toEqual({ include_reply: true, user_ordinal: -1 })
+    expect(branchUserTurnAnchor(messages, 3)).toEqual({ include_reply: true, user_ordinal: 0 })
+  })
+
+  it('counts from the latest compaction divider, and gives up above it', () => {
+    const messages = [
+      msg('old-u', 'user', 'archived'),
+      msg('old-a', 'assistant', 'archived reply'),
+      msg('divider', 'system', 'summary', { compaction: { summary: 'summary', userTurnsBefore: 2 } }),
+      msg('u', 'user', 'U'),
+      msg('a', 'assistant', 'A')
+    ]
+
+    expect(branchUserTurnAnchor(messages, 4)).toEqual({ include_reply: true, user_ordinal: 2 })
+    expect(branchUserTurnAnchor(messages, 3)).toEqual({ include_reply: false, user_ordinal: 2 })
+    expect(branchUserTurnAnchor(messages, 1)).toBeNull()
+    expect(branchUserTurnAnchor(messages, 99)).toBeNull()
   })
 })
 

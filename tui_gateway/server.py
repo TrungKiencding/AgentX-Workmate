@@ -43,7 +43,7 @@ from agent.replay_cleanup import sanitize_replay_history
 from agent.skill_commands import describe_skill_invocation
 from agent.conversation_loop import INTERRUPT_WAITING_FOR_MODEL_PREFIX
 from tui_gateway import git_probe
-from tui_gateway.deliverables import branch_cut_index, branch_seed_rows
+from tui_gateway.deliverables import branch_cut_at_user_turn, branch_cut_index, branch_seed_rows
 from tui_gateway.usage_outcome import FALLBACK_CODE as FALLBACK_FAILURE_CODE
 from tui_gateway.usage_outcome import exception_failure_code, turn_failure_code
 from tui_gateway.turn_marker import (
