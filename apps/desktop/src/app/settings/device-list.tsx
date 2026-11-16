@@ -121,7 +121,7 @@ export function DeviceList() {
     <section aria-label={copy.devicesTitle} className="min-w-0">
       <SectionHeading
         aside={
-          <div className="flex items-center gap-1">
+          <div className="flex flex-wrap items-center justify-end gap-1">
             {others.length > 0 ? (
               <Button
                 disabled={busy}
