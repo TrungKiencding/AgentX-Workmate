@@ -79,13 +79,13 @@ test('Schedules remains accessible with the statusbar hidden and saves an explic
   await page.locator('[data-sidebar-surface]').getByRole('button', { name: schedules, exact: true }).click()
   await expect(page).toHaveURL(/#\/cron$/)
   await expect(page.getByRole('heading', { name: /^(Lịch tự động|Scheduled jobs)$/i })).toBeVisible()
-  await page.getByRole('button', { name: /^(Cron mới|New cron)$/i }).click()
+  await page.getByRole('button', { name: /^(Lịch mới|New cron)$/i }).click()
   await expect(page.locator('#cron-model')).toBeVisible()
   await page.locator('#cron-name').fill('Healthy routine')
   await page.locator('#cron-prompt').fill('Remind me to take a break')
   await page.locator('#cron-model').click()
   await page.getByRole('option', { name: 'mock-model', exact: true }).click()
-  await page.getByRole('button', { name: /^(Tạo cron|Create cron)$/i, exact: true }).click()
+  await page.getByRole('button', { name: /^(Tạo lịch|Create cron)$/i, exact: true }).click()
   await expect(page.locator('#cron-model')).not.toBeVisible()
 
   // Exercise the real UI → gateway → isolated job store path. A named model
@@ -98,7 +98,7 @@ test('Schedules remains accessible with the statusbar hidden and saves an explic
 
   await expect.poll(savedPin).toEqual({ model: 'mock-model', provider: 'custom:agentx-ai-gateway' })
   await page.getByRole('button', { name: /^(Quản lý|Manage)$/ }).click()
-  await page.getByRole('menuitem', { name: /^(Sửa cron|Edit cron)$/i }).click()
+  await page.getByRole('menuitem', { name: /^(Sửa lịch|Edit cron)$/i }).click()
   await expect(page.locator('#cron-model')).toContainText('mock-model')
   await page.getByRole('button', { name: /^(Lưu thay đổi|Save changes)$/i }).click()
   await expect(page.locator('#cron-model')).not.toBeVisible()

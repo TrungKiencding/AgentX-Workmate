@@ -24,7 +24,7 @@
  *    MutationObserver burst), but `$messages` was still set twice.
  *
  * The test passes when bursts === 1 AND reconciles === 0.
- * The sidebar "+" keeps the session warm in another tab. Its reactivation
+ * A new tab (⌘T) keeps the session warm beside it. Its reactivation
  * follows the same contract: one additive paint and zero reconciles.
  *
  * Prerequisite: `npm run build` must have been run so dist/ exists.
@@ -34,6 +34,7 @@ import { expect, test } from './test'
 
 import {
   type MockBackendFixture,
+  revealSidebarSession,
   waitForAppReady,
   createSandbox,
   writeMockProviderConfig,
@@ -288,9 +289,13 @@ async function openFreshDraft(page: import('@playwright/test').Page, priorText: 
   await waitForActiveTranscriptWithoutText(page, priorText)
 }
 
-/** Stack an empty tab while leaving the current transcript mounted and warm. */
+/**
+ * Stack an empty tab while leaving the current transcript mounted and warm.
+ * New tab (⌘T / Ctrl+T) does that; the sidebar's "New chat" row replaces the
+ * main chat with a draft instead, the way ⌘N does.
+ */
 async function openNewSessionTab(page: import('@playwright/test').Page, priorText: string): Promise<void> {
-  await page.locator('[data-slot="sidebar"] button[aria-label="New chat"]').first().click()
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+T' : 'Control+T')
   await waitForActiveTranscriptWithoutText(page, priorText)
 }
 
@@ -356,11 +361,7 @@ test('tab reactivation preserves the mounted transcript without repainting', asy
   const page = fixture!.page
 
   // Wait for the sidebar to populate with our seeded session.
-  const sessionRow = page
-    .locator('[data-slot="sidebar"] button')
-    .filter({ hasText: SESSION_TITLE })
-    .first()
-  await sessionRow.waitFor({ state: 'visible', timeout: 60_000 })
+  const sessionRow = await revealSidebarSession(page, SESSION_TITLE, 60_000)
 
   // Step 1: Cold resume — click the session row to load it.
   // This populates the warm cache (runtimeIdByStoredSessionId + sessionStateByRuntimeId).
@@ -403,11 +404,7 @@ test('warm-route resume after background inference completes (no jitter)', async
   const { mock } = fixture!
 
   // Wait for the sidebar to populate with our seeded session.
-  const sessionRow = page
-    .locator('[data-slot="sidebar"] button')
-    .filter({ hasText: SESSION_TITLE })
-    .first()
-  await sessionRow.waitFor({ state: 'visible', timeout: 60_000 })
+  const sessionRow = await revealSidebarSession(page, SESSION_TITLE, 60_000)
 
   // Step 1: Cold resume — populate the warm cache.
   await sessionRow.click()

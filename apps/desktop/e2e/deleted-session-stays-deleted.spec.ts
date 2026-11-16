@@ -104,6 +104,9 @@ test('a chat deleted while its title is generating stays deleted after a relaunc
       .getByRole('button', { name: /Chat actions/i })
       .click()
     await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
+    // Delete is permanent, so the menu item only opens a confirmation; the
+    // chat goes once that is confirmed.
+    await page.getByRole('dialog').getByRole('button', { name: 'Delete chat', exact: true }).click()
     await expect(row).toHaveCount(0)
 
     mock.releaseHeldStream()

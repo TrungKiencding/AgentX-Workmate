@@ -85,7 +85,7 @@ test.describe('session compression in progress', () => {
     fixture = await setupMockBackend({
       modelContextLength: 64_000,
       extraConfig: `compression:
-  threshold_tokens: 22000
+  threshold_tokens: 30000
   protect_first_n: 0
   protect_last_n: 1
 auxiliary:
@@ -110,16 +110,25 @@ auxiliary:
     // A normal message crosses the tiny configured context budget. The mock
     // blocks only the resulting summary request, so these assertions run
     // during automatic compaction rather than a slash-command path.
-    // The payload must cross threshold_tokens (22k) on its OWN weight
-    // (~12k tokens) on top of the system prompt. Do not shrink it: at
-    // repeat(500) the trigger only worked because the ambient system prompt
-    // (skills index + tool schemas) happened to carry it over the line, and
-    // a 160-token skills-index cleanup on main broke the test for a day.
+    // The threshold has to sit ABOVE the ambient request (system prompt +
+    // tool schemas) and the payload has to cross it on its OWN weight. The
+    // ambient request is now ~22k tokens by the agent's rough estimate (it
+    // was ~10k when this test used a 22k threshold): at 22k the two short
+    // history turns already tripped a preflight with nothing to summarize,
+    // and the trigger turn's compaction was refused as would-grow without
+    // ever reaching the summary model. Measured 2026-11: ~22.3k after the
+    // second turn, ~35k with repeat(1500); repeat(2000) adds ~4k of margin.
+    // Do not shrink either side without re-measuring (agent log line
+    // "Preflight compression: ~N tokens >= T threshold").
     await pasteAndSend(page, 'E2E_COMPACTION_HISTORY_ONE '.repeat(5))
     await waitForTranscript(page, MOCK_REPLY)
     await pasteAndSend(page, 'E2E_COMPACTION_HISTORY_TWO '.repeat(5))
-    await waitForTranscript(page, MOCK_REPLY)
-    await pasteAndSend(page, 'E2E_TRIGGER_AUTOMATIC_COMPACTION '.repeat(1500))
+    // The reply text is already on screen from the first turn; wait for the
+    // second one so the trigger is a fresh turn, not a queued draft.
+    await expect(page.locator('[data-slot="aui_thread-viewport"]').getByText(MOCK_REPLY, { exact: true })).toHaveCount(2, {
+      timeout: 60_000
+    })
+    await pasteAndSend(page, 'E2E_TRIGGER_AUTOMATIC_COMPACTION '.repeat(2000))
     await fixture.mock.waitForHeldCompletion()
     await expect(page.getByRole('status', { name: 'Summarizing thread' }).last()).toBeVisible()
 
