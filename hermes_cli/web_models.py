@@ -84,6 +84,9 @@ class WhatsAppOnboardingStart(BaseModel):
     mode: Optional[str] = "bot"
     allowed_users: Optional[str] = ""
     profile: Optional[str] = None
+    # Discard the saved device session and pair a new QR — the way back when
+    # the phone removed the linked device (or the owner wants another number).
+    relink: bool = False
 
 
 class WhatsAppOnboardingApply(BaseModel):

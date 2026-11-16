@@ -506,6 +506,26 @@ class WhatsAppAdapter(WhatsAppBehaviorMixin, BasePlatformAdapter):
             return float(default)
         return parsed
 
+    def public_destination(self) -> Optional[Dict[str, str]]:
+        """The linked WhatsApp number, as a wa.me link the desktop can open.
+
+        Read from the device session (``creds.json`` ``me.id``, e.g.
+        ``84901234567:12@s.whatsapp.net``). In bot mode it is the number
+        people message; in self-chat mode wa.me opens the chat with yourself.
+        """
+        try:
+            import json as _json
+
+            creds = _json.loads((self._session_path / "creds.json").read_text(encoding="utf-8"))
+        except Exception:
+            return None
+        me = creds.get("me") if isinstance(creds, dict) else None
+        raw = str((me or {}).get("id") or "") if isinstance(me, dict) else ""
+        phone = re.sub(r"\D+", "", raw.split("@", 1)[0].split(":", 1)[0])
+        if not phone:
+            return None
+        return {"kind": "account", "label": f"+{phone}", "url": f"https://wa.me/{phone}"}
+
     async def connect(self, *, is_reconnect: bool = False) -> bool:
         """
         Start the WhatsApp bridge.
