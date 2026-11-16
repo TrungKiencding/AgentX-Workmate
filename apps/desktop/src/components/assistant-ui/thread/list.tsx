@@ -15,6 +15,7 @@ import {
 } from 'react'
 import { type GetTargetScrollTop, useStickToBottom } from 'use-stick-to-bottom'
 
+import { useScrollbarReveal } from '@/hooks/use-scrollbar-reveal'
 import { useI18n } from '@/i18n'
 import { messageRenderWeight } from '@/lib/render-weight'
 import { cn } from '@/lib/utils'
@@ -248,6 +249,9 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
     resize: 'instant',
     targetScrollTop: resolveThreadScrollTarget
   })
+
+  // The transcript's thumb shows while the person scrolls, not while it sits.
+  useScrollbarReveal(scrollRef)
 
   const { olderAvailable, expandWindow } = useTranscriptWindow()
 

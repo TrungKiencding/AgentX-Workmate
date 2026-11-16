@@ -1170,10 +1170,16 @@ chat and sets `data-layout`; the stylesheet lays out from that attribute alone
   asked for, per conversation. Opening a file from it keeps it in reach for
   the next file; touching the conversation it covers puts it away. Opening a
   file from the docked card therefore *hides* the card when the viewer takes
-  its column — the reply stays readable.
+  its column — the reply stays readable. Closed, its launcher carries the
+  number of outputs (a small primary-colored count, described to assistive
+  tech, gone once the card is open): the default window is narrower than the
+  dock threshold, so without it nothing at the edge said a file was made.
 
 The transcript reserves symmetric scrollbar gutters so overflowing history
-stays centered with the composer. The composer stays mounted and its floating
+stays centered with the composer. Its thumb is hidden at rest and shows while the
+person scrolls (wheel, trackpad, keys, dragging the bar) or reaches for the
+bar's edge (`hooks/use-scrollbar-reveal.ts`); the app's own scrolling — a
+streaming reply followed to the bottom — does not show it. The composer stays mounted and its floating
 mode retains viewport positioning.
 
 **Every row needs evidence** (`model.ts` — the rules are its header). An output
@@ -1185,8 +1191,14 @@ path that is only *mentioned* — in prose, in inline code, in a command's
 output, in a file-search listing — is neither; a failed or still-running call
 proves nothing; an arbitrary tool's relative path is not resolved against the
 session folder. A file that was read and then edited is listed once, as an
-output. Newest first. Two files of one name show their folder. Do not add
-pattern-matching for paths here: widen the backend's verified list instead.
+output. Newest turn first; within a turn, what the model handed over
+(`deliver_file`, `MEDIA:`, a link or image in the reply, an artifact) leads,
+then the backend's verified files, then whatever a tool wrote on the way — a
+deck is not buried under the check renders that preceded it. A compaction
+that summarizes turns away moves their files onto its divider, so the list
+does not lose them while the conversation stays open. Two files of one name
+show their folder. Do not add pattern-matching for paths here: widen the
+backend's verified list instead.
 
 Only Changes, Outputs, Sources, the actual items, and their add actions are
 visible. No explanatory subtitles, counters, search field, or pinning step.
@@ -1195,8 +1207,10 @@ the cwd-scoped review. An output's type tag is its extension — short, and the
 same in every language. "Create an output" writes a whole, sendable request
 into the scoped composer, once; a surface without a composer (a read-only
 messaging conversation) does not offer it. Source addition uses the existing
-file picker. A row whose file is gone says so in the row instead of opening a
-viewer on a read error. Long inventories scroll without an item cap; full
+file picker. A file deleted or moved away since leaves the list
+(`presence.ts`: checked when the list changes, when the window comes back,
+and every 15s while shown; a file restored from the trash returns; no answer
+from the stat is not "gone") — the transcript's own cards keep the record. Long inventories scroll without an item cap; full
 targets remain available through tooltips.
 
 Reading the history never blocks a frame: the collector reads newest messages
@@ -1475,7 +1489,16 @@ selection and working-tree status.
   menu — so prose keeps its flow. The files a turn produced without handing
   over (a script's stdout named them) close the turn as `CreatedFilesCard`,
   the changed-files card's sibling: one row per file, open on click, save on
-  the hover control, and it stays with its turn. All three share one action
+  the hover control, and it stays with its turn. What the backend counts
+  (`tui_gateway/deliverables.py`): paths with spaces are tried against the
+  disk; a file extracted, downloaded or copied with its old dates counts by
+  its inode change time; data and script files (`.json`, `.py` …) only when
+  the turn named them and no file tool wrote them; nothing in the temp
+  folder unless the reply names it; after a `deliver_file` hand-over, only
+  the other files the reply names; and no workspace walk while another
+  conversation works in the same folder. The list is pinned to the reply both
+  in the database and in the live history, so a transcript rebuilt from
+  memory (`/compress`, `/undo`) and a branch keep it. All three share one action
   home, `store/deliverables.ts`; none of them opens the rail on arrival.
 - **The rail shows documents, not bytes.** A file target's `previewKind`
   now routes `pdf` to Chromium's own viewer in the preview webview, `document`

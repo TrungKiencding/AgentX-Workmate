@@ -591,7 +591,6 @@
     --ui-focus-ring-width: 2px;
     --ui-focus-ring-offset: 2px;
 
-
     /* Control heights — one ramp shared by Button, Input, Select and friends,
        so controls on the same row always line up. */
     /* One step above the spec's 28/32/40 (review: legibility on older
@@ -1703,6 +1702,19 @@ code {
   }
 }
 
+/* The transcript's thumb appears while the person scrolls it (wheel,
+   trackpad, keys, a press on the bar — see hooks/use-scrollbar-reveal.ts) and
+   when the pointer finds it; at rest the reading column has no bar beside it.
+   Unlayered, so it outranks the themed `.scrollbar-dt` thumb above. */
+[data-slot='aui_thread-viewport']:not([data-scrolling])::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+[data-slot='aui_thread-viewport']::-webkit-scrollbar-thumb:hover {
+  background: var(--ui-scrollbar-thumb-hover);
+  background-clip: padding-box;
+}
+
 /* Bottom clearance lives on [data-slot='aui_composer-clearance'] —
    virtualized items unmount, so :nth-last-child can't fire reliably. */
 
@@ -2196,6 +2208,15 @@ code {
 [data-slot='composer-dock'] {
   width: calc(min(var(--composer-width), calc(100% - 2rem)) + 10px);
   padding-bottom: var(--composer-shell-pad-block-end);
+}
+
+/* The transcript scrolls on behind the docked composer. The edge fade above
+   the dock only dissolves it on the way in; below that line the dock must be
+   paper, or a scrolled-up image shows through the underside row (folder,
+   permissions, model) and the gaps around the composer. Not on the empty chat:
+   there the glyph field is the backdrop, and the dock floats over it. */
+[data-chat-surface]:not(:has(.glyph-field[data-state='on'])) [data-slot='composer-dock']:not([data-popped-out]) {
+  background: var(--ui-chat-surface-background);
 }
 
 [data-slot='composer-root'] {
