@@ -108,12 +108,17 @@ export function GuideFigures({ ids }: { ids: GuideImageId[] }) {
       <Dialog onOpenChange={setEnlarged} open={enlarged}>
         <DialogContent className="p-3 pt-12" fitContent>
           <DialogTitle className="sr-only">{text.alt}</DialogTitle>
+          {/* The shot sets the dialog's width and leaves room under it for
+              the caption inside the dialog's 85vh cap (pt-12 + p-3 + up to
+              three caption lines), so the caption never scrolls out of view. */}
           <img
             alt={text.alt}
-            className="max-h-[78vh] max-w-full rounded-(--radius-card) bg-white object-contain"
+            className="max-h-[min(78vh,calc(85vh-9rem))] max-w-full rounded-(--radius-card) bg-white object-contain"
             src={GUIDE_IMAGES[id]}
           />
-          <p className="max-w-[min(50rem,88vw)] px-1 pt-2 text-sm text-(--ui-text-secondary)">{text.caption}</p>
+          {/* w-0 + min-w-full: the caption wraps to the shot's width instead
+              of widening the fit-content dialog past it. */}
+          <p className="w-0 min-w-full px-1 pt-2 text-sm text-(--ui-text-secondary)">{text.caption}</p>
         </DialogContent>
       </Dialog>
       <figcaption className="flex flex-wrap items-start justify-between gap-2">
