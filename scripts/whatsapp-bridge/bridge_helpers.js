@@ -604,6 +604,42 @@ export function createReconnectScheduler(startFn, {
 }
 
 /**
+ * Which WhatsApp Web version to announce. WhatsApp refuses to link a new
+ * device that reports a stale client version: the phone just says "Check
+ * your connection and try again" and the bridge never hears of the scan.
+ * fetchLatestBaileysVersion() reads a list Baileys publishes, which lags the
+ * real client by weeks (2026-11: 2.3000.1043857760 vs 1054726448 live, and
+ * linking failed until the live one was used). Ask web.whatsapp.com first
+ * and keep the Baileys list only as the fallback.
+ *
+ * fetchLatestWaWebVersion() reports failure as `{ isLatest: false }` rather
+ * than throwing, and has no timeout of its own, so both are handled here.
+ */
+export function createCurrentVersionFetcher(fetchWaWebFn, fetchBaileysFn, {
+  webTimeoutMs = 8000,
+  log = console.log,
+} = {}) {
+  return async function fetchCurrentVersion() {
+    let timer = null;
+    try {
+      const result = await Promise.race([
+        fetchWaWebFn({}),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error('timed out')), webTimeoutMs);
+        }),
+      ]);
+      if (result?.isLatest && Array.isArray(result.version)) return result;
+      log(`⚠️  WhatsApp Web version lookup failed (${result?.error?.message || 'no version'}); using the Baileys list.`);
+    } catch (err) {
+      log(`⚠️  WhatsApp Web version lookup failed (${err?.message || err}); using the Baileys list.`);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+    return fetchBaileysFn();
+  };
+}
+
+/**
  * Version resolution guard. fetchLatestBaileysVersion() is a plain fetch to
  * raw.githubusercontent.com with no AbortSignal; a stalled connection can
  * pend forever and wedge the reconnect path (the scheduler above cannot
@@ -631,5 +667,51 @@ export function createVersionResolver(fetchVersionFn, {
       if (timer) clearTimeout(timer);
     }
     return cachedVersion;
+  };
+}
+
+/**
+ * Keep a `--pair-only` run from outliving the setup that asked for it.
+ *
+ * The dashboard spawns the pairing bridge in its own session so a terminal
+ * Ctrl+C cannot reach it; the flip side is that nothing kills it when that
+ * dashboard dies (a desktop quit, a crash, SIGKILL). Baileys then keeps
+ * rotating QR codes forever. Exit once the parent is gone (re-parented to
+ * another pid, typically 1/launchd/init) or the setup window has passed.
+ */
+export function createPairOnlyWatchdog({
+  parentPid,
+  getParentPid,
+  maxMs,
+  onExit,
+  now = () => Date.now(),
+  intervalMs = 2000,
+  setIntervalFn = setInterval,
+  clearIntervalFn = clearInterval,
+}) {
+  const startedAt = now();
+  let timer = null;
+
+  const check = () => {
+    let reason = null;
+    if (getParentPid() !== parentPid) reason = 'parent_exited';
+    else if (now() - startedAt >= maxMs) reason = 'expired';
+    if (reason) {
+      clearIntervalFn(timer);
+      timer = null;
+      onExit(reason);
+    }
+    return reason;
+  };
+
+  timer = setIntervalFn(check, intervalMs);
+  if (timer && typeof timer.unref === 'function') timer.unref();
+
+  return {
+    check,
+    stop: () => {
+      if (timer) clearIntervalFn(timer);
+      timer = null;
+    },
   };
 }

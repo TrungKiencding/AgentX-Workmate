@@ -19,7 +19,7 @@
  *   node bridge.js --port 3000 --session ~/.agentx/whatsapp/session
  */
 
-import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, downloadMediaMessage, getAggregateVotesInPollMessage, decryptPollVote, getKeyAuthor, jidNormalizedUser } from '@whiskeysockets/baileys';
+import { makeWASocket, useMultiFileAuthState, DisconnectReason, fetchLatestBaileysVersion, fetchLatestWaWebVersion, downloadMediaMessage, getAggregateVotesInPollMessage, decryptPollVote, getKeyAuthor, jidNormalizedUser } from '@whiskeysockets/baileys';
 import express from 'express';
 import { Boom } from '@hapi/boom';
 import pino from 'pino';
@@ -40,6 +40,8 @@ import {
   buildLocationPayload,
   buildTextSendPayload,
   createBoundedMessageStore,
+  createCurrentVersionFetcher,
+  createPairOnlyWatchdog,
   extractBridgeEvent,
   inboundReadReceiptKeys,
   inferMediaType,
@@ -392,7 +394,9 @@ function emitPairEvent(event) {
 }
 
 const scheduleReconnect = createReconnectScheduler(() => startSocket());
-const getWAVersion = createVersionResolver(fetchLatestBaileysVersion);
+const getWAVersion = createVersionResolver(
+  createCurrentVersionFetcher(fetchLatestWaWebVersion, fetchLatestBaileysVersion),
+);
 
 async function startSocket() {
   const { state, saveCreds } = await useMultiFileAuthState(SESSION_DIR);
@@ -1113,6 +1117,17 @@ app.get('/health', (req, res) => {
 // Start
 if (PAIR_ONLY) {
   // Pair-only mode: just connect, show QR, save creds, exit. No HTTP server.
+  // The dashboard runs this in its own session, so its death does not reach
+  // us; leave on our own once it is gone or the 10-minute setup window ends.
+  createPairOnlyWatchdog({
+    parentPid: process.ppid,
+    getParentPid: () => process.ppid,
+    maxMs: Number(process.env.WHATSAPP_PAIR_MAX_MS) || 10 * 60 * 1000,
+    onExit: reason => {
+      emitPairEvent({ event: 'error', error: reason === 'expired' ? 'expired' : 'parent_exited' });
+      process.exit(reason === 'expired' ? 2 : 0);
+    },
+  });
   if (PAIR_JSON) {
     emitPairEvent({ event: 'started', session: SESSION_DIR });
   } else {
