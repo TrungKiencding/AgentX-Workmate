@@ -281,6 +281,112 @@ describe('WhatsApp in-app QR linking', () => {
     expect(getWhatsAppLink).toHaveBeenCalledTimes(2)
   })
 
+  it('a late 410 for a cancelled run does not end the run that replaced it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    getMessagingPlatforms.mockResolvedValue({ platforms: [whatsapp()] })
+    startWhatsAppLink
+      .mockResolvedValueOnce(session({ pairing_id: 'pair-1', qr_payload: 'qr-1', status: 'waiting' }))
+      .mockResolvedValueOnce(session({ pairing_id: 'pair-2', qr_payload: 'qr-2', status: 'waiting' }))
+
+    let rejectOld: (error: Error) => void = () => undefined
+    getWhatsAppLink.mockImplementation((id: string) =>
+      id === 'pair-1'
+        ? new Promise((_resolve, reject) => {
+            rejectOld = reject
+          })
+        : Promise.resolve(session({ pairing_id: 'pair-2', qr_payload: 'qr-2', status: 'waiting' }))
+    )
+
+    await renderMessaging()
+
+    fireEvent.click(await screen.findByRole('button', { name: copy.showQr }))
+    expect(await screen.findByAltText(copy.qrAlt)).toBeTruthy()
+    // The poll for pair-1 is now in flight.
+    await tick(2000)
+    expect(getWhatsAppLink).toHaveBeenCalledWith('pair-1')
+
+    fireEvent.click(screen.getByRole('button', { name: en.common.cancel }))
+    fireEvent.click(await screen.findByRole('button', { name: copy.showQr }))
+    await waitFor(() => expect(screen.getByAltText(copy.qrAlt).getAttribute('src')).toContain(btoa('qr-2')))
+
+    // The old run's request finally answers: the backend no longer knows it.
+    await act(async () => {
+      rejectOld(new Error('Error invoking remote method \'agentx:api\': Error: 410: {"detail":"x"}'))
+    })
+
+    expect(screen.queryByText(copy.errors.expired)).toBeNull()
+    expect(screen.getByAltText(copy.qrAlt).getAttribute('src')).toContain(btoa('qr-2'))
+    expect(cancelWhatsAppLink).not.toHaveBeenCalledWith('pair-2')
+  })
+
+  it('a late successful answer for a cancelled run does not replace the new QR', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+    getMessagingPlatforms.mockResolvedValue({ platforms: [whatsapp()] })
+    startWhatsAppLink
+      .mockResolvedValueOnce(session({ pairing_id: 'pair-1', qr_payload: 'qr-1', status: 'waiting' }))
+      .mockResolvedValueOnce(session({ pairing_id: 'pair-2', qr_payload: 'qr-2', status: 'waiting' }))
+
+    let resolveOld: (value: WhatsAppOnboardingSession) => void = () => undefined
+    getWhatsAppLink.mockImplementation((id: string) =>
+      id === 'pair-1'
+        ? new Promise(resolve => {
+            resolveOld = resolve
+          })
+        : Promise.resolve(session({ pairing_id: 'pair-2', qr_payload: 'qr-2', status: 'waiting' }))
+    )
+
+    await renderMessaging()
+
+    fireEvent.click(await screen.findByRole('button', { name: copy.showQr }))
+    expect(await screen.findByAltText(copy.qrAlt)).toBeTruthy()
+    await tick(2000)
+    expect(getWhatsAppLink).toHaveBeenCalledWith('pair-1')
+
+    fireEvent.click(screen.getByRole('button', { name: en.common.cancel }))
+    fireEvent.click(await screen.findByRole('button', { name: copy.showQr }))
+    await waitFor(() => expect(screen.getByAltText(copy.qrAlt).getAttribute('src')).toContain(btoa('qr-2')))
+
+    // The old run's poll answers late with the OLD QR.
+    await act(async () => {
+      resolveOld(session({ pairing_id: 'pair-1', qr_payload: 'qr-1-rotated', status: 'waiting' }))
+    })
+    await tick(100)
+
+    expect(screen.getByAltText(copy.qrAlt).getAttribute('src')).toContain(btoa('qr-2'))
+    expect(screen.getByAltText(copy.qrAlt).getAttribute('src')).not.toContain(btoa('qr-1-rotated'))
+  })
+
+  it('a start that answers after Cancel does not take over the screen', async () => {
+    getMessagingPlatforms.mockResolvedValue({ platforms: [whatsapp()] })
+
+    let resolveFirst: (value: WhatsAppOnboardingSession) => void = () => undefined
+    startWhatsAppLink
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            resolveFirst = resolve
+          })
+      )
+      .mockResolvedValueOnce(session({ pairing_id: 'pair-2', qr_payload: 'qr-2', status: 'waiting' }))
+    getWhatsAppLink.mockResolvedValue(session({ pairing_id: 'pair-2', qr_payload: 'qr-2', status: 'waiting' }))
+
+    await renderMessaging()
+
+    fireEvent.click(await screen.findByRole('button', { name: copy.showQr }))
+    fireEvent.click(await screen.findByRole('button', { name: en.common.cancel }))
+    fireEvent.click(await screen.findByRole('button', { name: copy.showQr }))
+    await waitFor(() => expect(screen.getByAltText(copy.qrAlt).getAttribute('src')).toContain(btoa('qr-2')))
+
+    await act(async () => {
+      resolveFirst(session({ pairing_id: 'pair-1', qr_payload: 'qr-1', status: 'waiting' }))
+    })
+
+    // The stale run is ended on the backend; the new one stays on screen.
+    await waitFor(() => expect(cancelWhatsAppLink).toHaveBeenCalledWith('pair-1'))
+    expect(screen.getByAltText(copy.qrAlt).getAttribute('src')).toContain(btoa('qr-2'))
+    expect(cancelWhatsAppLink).not.toHaveBeenCalledWith('pair-2')
+  })
+
   it('turns a bridge failure into an action a non-technical owner can take', async () => {
     getMessagingPlatforms.mockResolvedValue({ platforms: [whatsapp()] })
     startWhatsAppLink.mockResolvedValue(

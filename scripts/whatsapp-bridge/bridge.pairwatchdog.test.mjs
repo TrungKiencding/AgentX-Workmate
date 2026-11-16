@@ -5,14 +5,16 @@
  */
 
 import { strict as assert } from 'node:assert';
+import { spawnSync } from 'node:child_process';
 
-import { createPairOnlyWatchdog } from './bridge_helpers.js';
+import { createPairOnlyWatchdog, isPidAlive } from './bridge_helpers.js';
 
 function harness({ parentPid = 4242, maxMs = 600000 } = {}) {
-  const state = { ppid: parentPid, clock: 0, exits: [], timers: [], cleared: [] };
+  const state = { ppid: parentPid, parentAlive: true, clock: 0, exits: [], timers: [], cleared: [] };
   const watchdog = createPairOnlyWatchdog({
     parentPid,
     getParentPid: () => state.ppid,
+    isParentAlive: () => state.parentAlive,
     maxMs,
     onExit: reason => state.exits.push(reason),
     now: () => state.clock,
@@ -43,6 +45,49 @@ function harness({ parentPid = 4242, maxMs = 600000 } = {}) {
   assert.equal(watchdog.check(), 'parent_exited');
   assert.deepEqual(state.exits, ['parent_exited']);
   assert.equal(state.cleared.length, 1);
+}
+
+// Windows: ppid keeps naming the dead parent, so only probing the original
+// parent pid notices it is gone.
+{
+  const { state, watchdog } = harness();
+  state.parentAlive = false;
+  assert.equal(watchdog.check(), 'parent_exited');
+  assert.deepEqual(state.exits, ['parent_exited']);
+  assert.equal(state.cleared.length, 1);
+}
+
+// Default probe: with no isParentAlive given, the watchdog probes the real
+// parent pid, so a dead parent ends the run even when ppid never changes.
+{
+  const dead = spawnSync(process.execPath, ['-e', '']).pid;
+  const exits = [];
+  const watchdog = createPairOnlyWatchdog({
+    parentPid: dead,
+    getParentPid: () => dead,
+    maxMs: 600000,
+    onExit: reason => exits.push(reason),
+    setIntervalFn: () => null,
+    clearIntervalFn: () => {},
+  });
+  assert.equal(watchdog.check(), 'parent_exited');
+  assert.deepEqual(exits, ['parent_exited']);
+}
+
+// isPidAlive: ESRCH is dead, EPERM is alive (someone else's process).
+{
+  const err = code => () => {
+    const e = new Error(code);
+    e.code = code;
+    throw e;
+  };
+  assert.equal(isPidAlive(1234, () => true), true);
+  assert.equal(isPidAlive(1234, err('ESRCH')), false);
+  assert.equal(isPidAlive(1234, err('EPERM')), true);
+  assert.equal(isPidAlive(0, () => true), false);
+  assert.equal(isPidAlive(undefined, () => true), false);
+  assert.equal(isPidAlive(process.pid), true);
+  assert.equal(isPidAlive(spawnSync(process.execPath, ['-e', '']).pid), false);
 }
 
 // The setup window running out ends the run, matching the backend's TTL.

@@ -99,6 +99,9 @@ export function useWhatsAppLink(platform: MessagingPlatformInfo, onChanged: () =
   const pollRef = useRef<number | null>(null)
   const appliedRef = useRef(false)
   const aliveRef = useRef(true)
+  // Bumped whenever the current run is released, so a start request that
+  // resolves after Cancel (or after a newer start) knows it is stale.
+  const startSeqRef = useRef(0)
 
   const stopPolling = () => {
     if (pollRef.current !== null) {
@@ -109,6 +112,7 @@ export function useWhatsAppLink(platform: MessagingPlatformInfo, onChanged: () =
 
   const releasePairing = useCallback(() => {
     stopPolling()
+    startSeqRef.current += 1
     const id = pairingIdRef.current
     pairingIdRef.current = null
 
@@ -204,26 +208,42 @@ export function useWhatsAppLink(platform: MessagingPlatformInfo, onChanged: () =
 
       setPhase({ kind: 'pairing', session })
 
-      pollRef.current = window.setTimeout(async () => {
-        const id = pairingIdRef.current
+      // Every continuation of this poll belongs to `id`: Cancel → Show QR can
+      // start a new run while a request for this one is still in flight, and
+      // its late answer must not touch (or release) the new run.
+      const id = session.pairing_id
+      const stillCurrent = () => aliveRef.current && pairingIdRef.current === id
 
-        if (!id) {
+      pollRef.current = window.setTimeout(async () => {
+        if (!stillCurrent()) {
           return
         }
 
+        let next: WhatsAppOnboardingSession
+
         try {
-          track(await getWhatsAppLink(id))
+          next = await getWhatsAppLink(id)
         } catch (error) {
+          if (!stillCurrent()) {
+            return
+          }
+
           const status = httpStatusOf(error)
 
           // 404/410: the run timed out or the backend restarted under it.
           if (status === 404 || status === 410) {
             fail('expired')
-          } else if (aliveRef.current && pairingIdRef.current === id) {
+          } else {
             // A transient hiccup must not throw away a QR the phone is
             // about to scan; keep polling.
             track(session)
           }
+
+          return
+        }
+
+        if (stillCurrent()) {
+          track(next)
         }
       }, POLL_MS)
     },
@@ -233,22 +253,30 @@ export function useWhatsAppLink(platform: MessagingPlatformInfo, onChanged: () =
   const start = useCallback(
     async (relink = false) => {
       releasePairing()
+      const seq = startSeqRef.current
+      const superseded = () => !aliveRef.current || startSeqRef.current !== seq
       appliedRef.current = false
       setQrImage(null)
       setPhase({ kind: 'starting' })
 
       try {
         const session = await startWhatsAppLink({ mode, relink })
-        pairingIdRef.current = session.pairing_id
 
-        if (!aliveRef.current) {
-          releasePairing()
+        if (superseded()) {
+          // Cancelled, unmounted or replaced while starting: end this run
+          // without touching whichever one is current now.
+          void cancelWhatsAppLink(session.pairing_id).catch(() => undefined)
 
           return
         }
 
+        pairingIdRef.current = session.pairing_id
         track(session)
       } catch (error) {
+        if (superseded()) {
+          return
+        }
+
         if (httpStatusOf(error) === 409) {
           setPhase({ kind: 'failed', message: copy.relinkConnected })
         } else {

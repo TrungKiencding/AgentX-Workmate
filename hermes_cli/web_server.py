@@ -9515,21 +9515,134 @@ def _restart_gateway_after_whatsapp_onboarding(profile: Optional[str] = None) ->
     }
 
 
-def _whatsapp_runtime_connected(profile: Optional[str]) -> bool:
-    """True when this home's gateway reports WhatsApp as live right now."""
+# Adapter states in which the gateway's own bridge process is still alive and
+# keeps (re)opening the session directory: "connecting"/"retrying"/"paused"
+# reconnect with the same useMultiFileAuthState path, so they are as unsafe to
+# re-pair under as "connected".
+_WHATSAPP_LIVE_ADAPTER_STATES = frozenset({"connected", "connecting", "retrying", "paused"})
+
+
+def _whatsapp_runtime_state(profile: Optional[str]) -> Optional[str]:
+    """WhatsApp adapter state as reported by this home's LIVE gateway, or None.
+
+    ``gateway_state.json`` outlives the process that wrote it: a gateway
+    restarted without the WhatsApp adapter never rewrites the ``whatsapp``
+    key, so its last "connected" stays on disk.  Trust the entry only when it
+    was stamped by the profile's current live gateway process — the same
+    writer-identity ownership filter the /api/status aggregation uses.
+    """
     try:
         requested = (profile or "").strip()
         if requested and requested.lower() != "current":
-            runtime = read_runtime_status(
-                path=_resolve_profile_dir(requested) / "gateway_state.json"
-            )
+            home: Optional[Path] = _resolve_profile_dir(requested)
+            runtime = read_runtime_status(path=home / "gateway_state.json")
         else:
+            home = None
             runtime = read_runtime_status()
     except Exception:
-        return False
+        return None
     platforms = runtime.get("platforms") if isinstance(runtime, dict) else None
-    whatsapp = platforms.get("whatsapp") if isinstance(platforms, dict) else None
-    return isinstance(whatsapp, dict) and whatsapp.get("state") == "connected"
+    if not isinstance(platforms, dict) or not platforms:
+        return None
+    owned = _owned_profile_platforms(
+        _profile_gateway_writer_identity(home, runtime), platforms
+    )
+    whatsapp = owned.get("whatsapp")
+    state = whatsapp.get("state") if isinstance(whatsapp, dict) else None
+    return state if isinstance(state, str) else None
+
+
+def _whatsapp_bridge_owns_session(session_path: Path) -> bool:
+    """True when a live bridge process recorded in ``bridge.pid`` uses this session.
+
+    The gateway's adapter writes ``<session>/bridge.pid`` (pid + kernel start
+    time) when it spawns the bridge and removes it on a clean disconnect.  A
+    bridge that outlived its gateway (crash, or reused across a restart)
+    keeps writing key updates into the directory, so it blocks re-pairing
+    just like a connected adapter.  Identity is re-validated (start time, or
+    the command line for legacy one-line files) so a recycled PID never
+    counts.
+    """
+    pid_file = session_path / "bridge.pid"
+    try:
+        lines = pid_file.read_text(encoding="utf-8").split("\n")
+        pid = int(lines[0].strip())
+        recorded_start = (
+            int(lines[1].strip()) if len(lines) > 1 and lines[1].strip() else None
+        )
+    except (OSError, ValueError, TypeError, IndexError):
+        return False
+    try:
+        from plugins.platforms.whatsapp.adapter import _bridge_pid_is_ours
+
+        return bool(_bridge_pid_is_ours(pid, session_path, recorded_start))
+    except Exception:
+        _log.debug("WhatsApp bridge.pid ownership check failed", exc_info=True)
+        return False
+
+
+def _any_gateway_process_running() -> bool:
+    """Whether any messaging gateway runs on this machine (any home or profile).
+
+    Errs on "yes": the caller only acts — stops a bridge — when this is False.
+    """
+    try:
+        from hermes_cli.gateway import find_gateway_pids
+
+        return bool(find_gateway_pids(all_profiles=True))
+    except Exception:
+        return True
+
+
+async def _reap_orphan_whatsapp_bridge(profile: Optional[str], session_path: Path) -> None:
+    """Stop a bridge that outlived every gateway, so re-pairing is not blocked forever.
+
+    A gateway that crashed (or was killed during an app update) can leave its
+    bridge running; with WhatsApp then turned off nothing ever stops it, and
+    every relink answered 409 "still running in the background" with no way
+    out in the app. When no gateway process runs at all — not this home's,
+    not a multiplexing one whose state this home cannot see — the bridge on
+    this session has no owner left: stop it (the adapter's own pidfile kill,
+    which re-validates the PID's identity first) and give it a moment to exit.
+    """
+    if _whatsapp_runtime_state(profile) is not None or not _whatsapp_bridge_owns_session(session_path):
+        return
+    if _any_gateway_process_running():
+        return
+    try:
+        from plugins.platforms.whatsapp.adapter import _kill_stale_bridge_by_pidfile
+
+        _kill_stale_bridge_by_pidfile(session_path)
+    except Exception:
+        _log.debug("Could not stop the orphaned WhatsApp bridge", exc_info=True)
+        return
+    for _ in range(30):
+        if not _whatsapp_bridge_owns_session(session_path):
+            return
+        await asyncio.sleep(0.1)
+
+
+def _whatsapp_relink_blocker(profile: Optional[str], session_path: Path) -> Optional[str]:
+    """Why re-pairing under ``session_path`` is unsafe right now, or None.
+
+    Re-pairing renames the session directory aside and starts a fresh
+    ``--pair-only`` bridge on the same path; any other live bridge on that
+    path would write its creds.json over the new login.
+    """
+    state = _whatsapp_runtime_state(profile)
+    if state == "connected":
+        return "WhatsApp is connected. Turn the connection off before linking again."
+    if state in _WHATSAPP_LIVE_ADAPTER_STATES:
+        return (
+            "WhatsApp is still trying to reconnect. Turn the connection off "
+            "before linking again."
+        )
+    if _whatsapp_bridge_owns_session(session_path):
+        return (
+            "WhatsApp is still running in the background. Turn the connection "
+            "off and wait a moment before linking again."
+        )
+    return None
 
 
 def _retire_whatsapp_session(session_path: Path) -> None:
@@ -9558,11 +9671,10 @@ async def start_whatsapp_onboarding(body: WhatsAppOnboardingStart):
         if body.relink and (session_path / "creds.json").exists():
             # A live bridge still writes key updates into this directory;
             # re-pairing under it would let the old login overwrite the new.
-            if _whatsapp_runtime_connected(effective_profile):
-                raise HTTPException(
-                    status_code=409,
-                    detail="WhatsApp is connected. Turn the connection off before linking again.",
-                )
+            await _reap_orphan_whatsapp_bridge(effective_profile, session_path)
+            blocker = _whatsapp_relink_blocker(effective_profile, session_path)
+            if blocker:
+                raise HTTPException(status_code=409, detail=blocker)
             with _whatsapp_onboarding_lock:
                 _supersede_whatsapp_onboarding_sessions(session_path)
             try:

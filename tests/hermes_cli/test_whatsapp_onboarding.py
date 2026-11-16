@@ -139,7 +139,7 @@ def test_start_whatsapp_onboarding_relink_sets_old_session_aside(monkeypatch, tm
 
     started = []
     monkeypatch.setattr(ws, "_whatsapp_session_path", lambda: session_dir)
-    monkeypatch.setattr(ws, "_whatsapp_runtime_connected", lambda profile: False)
+    monkeypatch.setattr(ws, "_whatsapp_relink_blocker", lambda profile, path: None)
     monkeypatch.setattr(ws, "_run_whatsapp_pairing", lambda *args: started.append(args))
     monkeypatch.setattr(ws.secrets, "token_urlsafe", lambda size: "relink")
     ws._whatsapp_onboarding_sessions.clear()
@@ -169,7 +169,11 @@ def test_start_whatsapp_onboarding_relink_refuses_while_connected(monkeypatch, t
 
     session_dir = _linked_session(tmp_path)
     monkeypatch.setattr(ws, "_whatsapp_session_path", lambda: session_dir)
-    monkeypatch.setattr(ws, "_whatsapp_runtime_connected", lambda profile: True)
+    monkeypatch.setattr(
+        ws,
+        "_whatsapp_relink_blocker",
+        lambda profile, path: "WhatsApp is connected. Turn the connection off before linking again.",
+    )
     ws._whatsapp_onboarding_sessions.clear()
 
     with pytest.raises(HTTPException) as excinfo:
@@ -182,21 +186,141 @@ def test_start_whatsapp_onboarding_relink_refuses_while_connected(monkeypatch, t
     assert ws._whatsapp_onboarding_sessions == {}
 
 
-def test_whatsapp_runtime_connected_reads_platform_state(monkeypatch):
+def _dead_pid():
+    import subprocess
+    import sys
+
+    proc = subprocess.Popen([sys.executable, "-c", "pass"])
+    proc.wait()
+    return proc.pid
+
+
+def _runtime_with_whatsapp(state, writer_pid, writer_start=123):
+    return {
+        "pid": writer_pid,
+        "gateway_state": "running",
+        "platforms": {
+            "whatsapp": {
+                "state": state,
+                "writer_pid": writer_pid,
+                "writer_start_time": writer_start,
+            }
+        },
+    }
+
+
+def test_whatsapp_runtime_state_trusts_only_the_live_writer(monkeypatch):
     from hermes_cli import web_server as ws
 
     monkeypatch.setattr(
-        ws, "read_runtime_status", lambda path=None: {"platforms": {"whatsapp": {"state": "connected"}}}
+        ws, "read_runtime_status", lambda path=None: _runtime_with_whatsapp("connected", 4242)
     )
-    assert ws._whatsapp_runtime_connected(None) is True
+    monkeypatch.setattr(ws, "_profile_gateway_writer_identity", lambda home, runtime: (4242, 123))
+    assert ws._whatsapp_runtime_state(None) == "connected"
 
-    monkeypatch.setattr(
-        ws, "read_runtime_status", lambda path=None: {"platforms": {"whatsapp": {"state": "fatal"}}}
-    )
-    assert ws._whatsapp_runtime_connected(None) is False
+    # A different live gateway (restarted without the WhatsApp adapter) does
+    # not own the entry the old process left behind.
+    monkeypatch.setattr(ws, "_profile_gateway_writer_identity", lambda home, runtime: (5151, 999))
+    assert ws._whatsapp_runtime_state(None) is None
+
+    monkeypatch.setattr(ws, "_profile_gateway_writer_identity", lambda home, runtime: None)
+    assert ws._whatsapp_runtime_state(None) is None
 
     monkeypatch.setattr(ws, "read_runtime_status", lambda path=None: None)
-    assert ws._whatsapp_runtime_connected(None) is False
+    assert ws._whatsapp_runtime_state(None) is None
+
+
+def test_relink_is_not_stuck_on_a_connected_state_left_by_a_dead_gateway(monkeypatch, tmp_path):
+    """Regression: WhatsApp turned off, gateway restarted without the adapter,
+    gateway_state.json still says "connected" from the dead process."""
+    from hermes_cli import web_server as ws
+
+    session_dir = _linked_session(tmp_path)
+    dead = _dead_pid()
+    monkeypatch.setattr(
+        ws, "read_runtime_status", lambda path=None: _runtime_with_whatsapp("connected", dead)
+    )
+    monkeypatch.setattr(ws, "_whatsapp_session_path", lambda: session_dir)
+    monkeypatch.setattr(ws, "_run_whatsapp_pairing", lambda *args: None)
+    ws._whatsapp_onboarding_sessions.clear()
+
+    result = asyncio.run(
+        ws.start_whatsapp_onboarding(ws.WhatsAppOnboardingStart(mode="bot", relink=True))
+    )
+
+    assert result["status"] == "starting"
+    assert not session_dir.exists()
+    assert (tmp_path / "session.previous" / "creds.json").exists()
+    ws._whatsapp_onboarding_sessions.clear()
+
+
+def test_relink_refuses_while_the_live_adapter_is_reconnecting(monkeypatch, tmp_path):
+    import pytest
+    from fastapi import HTTPException
+
+    from hermes_cli import web_server as ws
+
+    session_dir = _linked_session(tmp_path)
+    monkeypatch.setattr(ws, "_whatsapp_session_path", lambda: session_dir)
+    monkeypatch.setattr(ws, "_profile_gateway_writer_identity", lambda home, runtime: (4242, 123))
+    ws._whatsapp_onboarding_sessions.clear()
+
+    for state in ("retrying", "paused", "connecting", "connected"):
+        monkeypatch.setattr(
+            ws, "read_runtime_status", lambda path=None, state=state: _runtime_with_whatsapp(state, 4242)
+        )
+        with pytest.raises(HTTPException) as excinfo:
+            asyncio.run(
+                ws.start_whatsapp_onboarding(ws.WhatsAppOnboardingStart(mode="bot", relink=True))
+            )
+        assert excinfo.value.status_code == 409, state
+        assert "Turn the connection off" in excinfo.value.detail
+        assert (session_dir / "creds.json").exists()
+        assert ws._whatsapp_onboarding_sessions == {}
+
+
+def test_relink_refuses_while_a_live_bridge_owns_the_session(monkeypatch, tmp_path):
+    import os
+
+    import pytest
+    from fastapi import HTTPException
+
+    from gateway.status import get_process_start_time
+    from hermes_cli import web_server as ws
+
+    session_dir = _linked_session(tmp_path)
+    monkeypatch.setattr(ws, "read_runtime_status", lambda path=None: None)
+    monkeypatch.setattr(ws, "_whatsapp_session_path", lambda: session_dir)
+    monkeypatch.setattr(ws, "_run_whatsapp_pairing", lambda *args: None)
+    # A gateway still runs somewhere (its bridge could be in use): the bridge
+    # must not be stopped, only refused. The stand-in "bridge" is this test.
+    monkeypatch.setattr(ws, "_any_gateway_process_running", lambda: True)
+    ws._whatsapp_onboarding_sessions.clear()
+
+    # The pidfile format the adapter writes: pid, then kernel start time.
+    live_pid = os.getpid()
+    start = get_process_start_time(live_pid)
+    (session_dir / "bridge.pid").write_text(
+        str(live_pid) if start is None else f"{live_pid}\n{start}", encoding="utf-8"
+    )
+    if start is None:
+        pytest.skip("process start time unavailable on this platform")
+
+    with pytest.raises(HTTPException) as excinfo:
+        asyncio.run(
+            ws.start_whatsapp_onboarding(ws.WhatsAppOnboardingStart(mode="bot", relink=True))
+        )
+    assert excinfo.value.status_code == 409
+    assert (session_dir / "creds.json").exists()
+
+    # A pidfile left by a bridge that has since died does not block.
+    (session_dir / "bridge.pid").write_text(f"{_dead_pid()}\n{start}", encoding="utf-8")
+    result = asyncio.run(
+        ws.start_whatsapp_onboarding(ws.WhatsAppOnboardingStart(mode="bot", relink=True))
+    )
+    assert result["status"] == "starting"
+    assert not session_dir.exists()
+    ws._whatsapp_onboarding_sessions.clear()
 
 
 def test_backend_shutdown_ends_live_pairing_runs():
@@ -243,3 +367,95 @@ def test_switching_whatsapp_off_also_clears_the_env_override(monkeypatch):
     saved.clear()
     ws._write_platform_enabled("telegram", False)
     assert saved == {}
+
+
+def test_relink_stops_a_bridge_that_outlived_every_gateway(monkeypatch, tmp_path):
+    """A bridge left running by a crashed gateway used to block relink forever.
+
+    WhatsApp is off, no gateway runs anywhere, yet the old bridge still owns
+    the session: nothing would ever stop it and every relink answered 409.
+    The backend now stops that orphan (identity-checked) and re-pairs.
+    """
+    import os
+    import subprocess
+    import sys
+
+    import pytest
+
+    from gateway.status import get_process_start_time
+    from hermes_cli import web_server as ws
+
+    session_dir = _linked_session(tmp_path)
+    monkeypatch.setattr(ws, "read_runtime_status", lambda path=None: None)
+    monkeypatch.setattr(ws, "_whatsapp_session_path", lambda: session_dir)
+    monkeypatch.setattr(ws, "_run_whatsapp_pairing", lambda *args: None)
+    monkeypatch.setattr(ws, "_any_gateway_process_running", lambda: False)
+    ws._whatsapp_onboarding_sessions.clear()
+
+    orphan = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+    try:
+        start = None
+        for _ in range(50):
+            start = get_process_start_time(orphan.pid)
+            if start is not None:
+                break
+            time.sleep(0.05)
+        if start is None:
+            pytest.skip("process start time unavailable on this platform")
+        (session_dir / "bridge.pid").write_text(f"{orphan.pid}\n{start}", encoding="utf-8")
+
+        result = asyncio.run(
+            ws.start_whatsapp_onboarding(ws.WhatsAppOnboardingStart(mode="bot", relink=True))
+        )
+
+        assert result["status"] == "starting"
+        assert orphan.wait(timeout=10) is not None
+    finally:
+        if orphan.poll() is None:
+            orphan.kill()
+            orphan.wait(timeout=10)
+        ws._whatsapp_onboarding_sessions.clear()
+
+
+def test_relink_never_stops_a_bridge_while_any_gateway_runs(monkeypatch, tmp_path):
+    """A multiplexing gateway's per-profile state is not visible from this home;
+    with any gateway running, the bridge is refused, never stopped."""
+    import subprocess
+    import sys
+
+    import pytest
+    from fastapi import HTTPException
+
+    from gateway.status import get_process_start_time
+    from hermes_cli import web_server as ws
+
+    session_dir = _linked_session(tmp_path)
+    monkeypatch.setattr(ws, "read_runtime_status", lambda path=None: None)
+    monkeypatch.setattr(ws, "_whatsapp_session_path", lambda: session_dir)
+    monkeypatch.setattr(ws, "_run_whatsapp_pairing", lambda *args: None)
+    monkeypatch.setattr(ws, "_any_gateway_process_running", lambda: True)
+    ws._whatsapp_onboarding_sessions.clear()
+
+    bridge = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(120)"])
+    try:
+        start = None
+        for _ in range(50):
+            start = get_process_start_time(bridge.pid)
+            if start is not None:
+                break
+            time.sleep(0.05)
+        if start is None:
+            pytest.skip("process start time unavailable on this platform")
+        (session_dir / "bridge.pid").write_text(f"{bridge.pid}\n{start}", encoding="utf-8")
+
+        with pytest.raises(HTTPException) as excinfo:
+            asyncio.run(
+                ws.start_whatsapp_onboarding(ws.WhatsAppOnboardingStart(mode="bot", relink=True))
+            )
+        assert excinfo.value.status_code == 409
+        assert bridge.poll() is None
+        assert (session_dir / "creds.json").exists()
+    finally:
+        bridge.kill()
+        bridge.wait(timeout=10)
+        ws._whatsapp_onboarding_sessions.clear()

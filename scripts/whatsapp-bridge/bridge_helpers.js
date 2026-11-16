@@ -671,17 +671,39 @@ export function createVersionResolver(fetchVersionFn, {
 }
 
 /**
+ * True while `pid` names a live process. Signal 0 only probes: ESRCH means
+ * the process is gone, EPERM means it exists but belongs to someone else
+ * (still alive). Works the same on POSIX and Windows, unlike `process.ppid`,
+ * which Windows never updates after the parent dies.
+ */
+export function isPidAlive(pid, killFn = (target, signal) => process.kill(target, signal)) {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    killFn(pid, 0);
+    return true;
+  } catch (err) {
+    return err?.code === 'EPERM';
+  }
+}
+
+/**
  * Keep a `--pair-only` run from outliving the setup that asked for it.
  *
  * The dashboard spawns the pairing bridge in its own session so a terminal
  * Ctrl+C cannot reach it; the flip side is that nothing kills it when that
  * dashboard dies (a desktop quit, a crash, SIGKILL). Baileys then keeps
- * rotating QR codes forever. Exit once the parent is gone (re-parented to
- * another pid, typically 1/launchd/init) or the setup window has passed.
+ * rotating QR codes forever. Exit once the original parent is gone or the
+ * setup window has passed.
+ *
+ * "Gone" is decided by probing the parent pid captured at startup
+ * (`isParentAlive`), which works on every platform. On POSIX a re-parented
+ * child (ppid now 1/launchd/init or a subreaper) is also caught through
+ * `getParentPid`, which matters if the dead parent's pid was reused.
  */
 export function createPairOnlyWatchdog({
   parentPid,
-  getParentPid,
+  getParentPid = () => parentPid,
+  isParentAlive = () => isPidAlive(parentPid),
   maxMs,
   onExit,
   now = () => Date.now(),
@@ -694,7 +716,7 @@ export function createPairOnlyWatchdog({
 
   const check = () => {
     let reason = null;
-    if (getParentPid() !== parentPid) reason = 'parent_exited';
+    if (getParentPid() !== parentPid || !isParentAlive()) reason = 'parent_exited';
     else if (now() - startedAt >= maxMs) reason = 'expired';
     if (reason) {
       clearIntervalFn(timer);

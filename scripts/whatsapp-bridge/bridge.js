@@ -45,6 +45,7 @@ import {
   extractBridgeEvent,
   inboundReadReceiptKeys,
   inferMediaType,
+  isPidAlive,
   mediaPayloadForFile,
   normalizeWhatsAppId,
   pollCreationMessageFromPayload,
@@ -1119,9 +1120,13 @@ if (PAIR_ONLY) {
   // Pair-only mode: just connect, show QR, save creds, exit. No HTTP server.
   // The dashboard runs this in its own session, so its death does not reach
   // us; leave on our own once it is gone or the 10-minute setup window ends.
+  // process.ppid alone is not enough: Windows keeps reporting the dead
+  // parent's pid, so the watchdog also probes that pid for liveness.
+  const pairParentPid = process.ppid;
   createPairOnlyWatchdog({
-    parentPid: process.ppid,
+    parentPid: pairParentPid,
     getParentPid: () => process.ppid,
+    isParentAlive: () => isPidAlive(pairParentPid),
     maxMs: Number(process.env.WHATSAPP_PAIR_MAX_MS) || 10 * 60 * 1000,
     onExit: reason => {
       emitPairEvent({ event: 'error', error: reason === 'expired' ? 'expired' : 'parent_exited' });
