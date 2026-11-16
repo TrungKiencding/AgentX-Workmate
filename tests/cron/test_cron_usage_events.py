@@ -162,6 +162,31 @@ class TestRecordFire:
             newest.name,
         ])
 
+    def test_a_file_that_cannot_be_pruned_does_not_cost_this_runs_event(self, tmp_path, monkeypatch):
+        # On Windows an antivirus scan or the desktop's own read can hold an old
+        # event file open; deleting it raises PermissionError. The run being
+        # recorded now must still get its event.
+        monkeypatch.setattr(usage_outbox, "MAX_PENDING", 1)
+        directory = usage_outbox.outbox_dir(tmp_path)
+        directory.mkdir(parents=True)
+        held = directory / f"{uuid.uuid4()}.json"
+        held.write_text("{}", encoding="utf-8")
+        real_unlink = Path.unlink
+
+        def unlink(self, *args, **kwargs):
+            if self == held:
+                raise PermissionError(13, "The process cannot access the file")
+            return real_unlink(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "unlink", unlink)
+
+        newest = usage_outbox.record_fire(
+            tmp_path, uuid.uuid4().hex, success=True, duration_ms=1
+        )
+
+        assert newest is not None and newest.exists()
+        assert held.exists()
+
     def test_it_never_raises(self, tmp_path, caplog):
         blocked = tmp_path / "home-is-a-file"
         blocked.write_text("", encoding="utf-8")

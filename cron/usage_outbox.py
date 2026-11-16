@@ -104,7 +104,13 @@ def record_fire(
 
 
 def _prune(directory: Path, now: datetime) -> None:
-    """Drop what the console would refuse, and make room for one more."""
+    """Drop what the console would refuse, and make room for one more.
+
+    Best effort, file by file: a file this cannot stat or delete (the desktop
+    just sent it, or on Windows an antivirus scan or the desktop's own read
+    holds it open) is left for the next run. Housekeeping on some other file
+    must never cost the event of the run being recorded now.
+    """
     oldest_kept = (now - MAX_AGE).timestamp()
     waiting: list[tuple[float, Path]] = []
     for entry in directory.iterdir():
@@ -115,12 +121,19 @@ def _prune(directory: Path, now: datetime) -> None:
             continue
         try:
             modified = entry.stat().st_mtime
-        except FileNotFoundError:  # the desktop just sent it
+        except OSError:
             continue
         if modified < oldest_kept:
-            entry.unlink(missing_ok=True)
+            _unlink_quietly(entry)
         elif name.endswith(".json"):
             waiting.append((modified, entry))
     waiting.sort()
     for _, entry in waiting[: max(0, len(waiting) - (MAX_PENDING - 1))]:
+        _unlink_quietly(entry)
+
+
+def _unlink_quietly(entry: Path) -> None:
+    try:
         entry.unlink(missing_ok=True)
+    except OSError:
+        pass
