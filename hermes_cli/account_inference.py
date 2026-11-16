@@ -90,7 +90,10 @@ def account_models(*, include_auxiliary: bool = False, refresh: bool = False) ->
                 identity, get_user_root().name, bearer=credentials.bearer,
                 device_id=credentials.device_id, device_name=credentials.device_name, home=home,
             )
-            if not result.ok:
+            # "offline" is provisioning's transient answer: the person keeps
+            # the key they hold, so they keep the grant that came with it. A
+            # definitive refusal (revoked, license inactive, ...) still surfaces.
+            if not result.ok and result.status != "offline":
                 raise AccountGatewayError(result.detail or "Could not refresh AgentX model access.")
     state = read_state(home) or read_state(get_user_root())
     models = state.get("models") or []
