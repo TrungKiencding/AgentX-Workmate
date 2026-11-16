@@ -81,6 +81,48 @@ class TestProfileScopedMessagingReads:
         assert telegram["configured"] is False
 
 
+    def test_whatsapp_linked_account_is_read_from_the_profile_session(
+        self, client, isolated_profiles
+    ):
+        worker_session = (
+            isolated_profiles["worker_alpha"] / "platforms" / "whatsapp" / "session"
+        )
+        worker_session.mkdir(parents=True)
+        (worker_session / "creds.json").write_text(
+            '{"me":{"id":"84901234567:2@s.whatsapp.net","name":"Shop"}}',
+            encoding="utf-8",
+        )
+
+        worker = client.get(
+            "/api/messaging/platforms", params={"profile": "worker_alpha"}
+        ).json()
+        root = client.get("/api/messaging/platforms").json()
+
+        def setup(payload):
+            whatsapp = next(p for p in payload["platforms"] if p["id"] == "whatsapp")
+            return whatsapp["whatsapp_setup"]
+
+        assert setup(worker)["linked"] is True
+        assert setup(worker)["account_phone"] == "84901234567"
+        assert setup(worker)["account_name"] == "Shop"
+        # The default home has no device session of its own.
+        assert setup(root)["linked"] is False
+        assert setup(root)["account_phone"] is None
+
+    def test_setup_links_are_for_people_not_repositories(self, client, isolated_profiles):
+        """Every link the Messaging page can open (a platform's setup guide or
+        a field's help link) goes to the vendor's docs or the illustrated
+        guide — never a source repository a non-technical owner cannot use."""
+        payload = client.get("/api/messaging/platforms").json()
+        assert len(payload["platforms"]) > 20
+
+        offenders = []
+        for platform in payload["platforms"]:
+            links = [platform.get("docs_url") or ""]
+            links += [field.get("url") or "" for field in platform["env_vars"]]
+            offenders += [(platform["id"], link) for link in links if "github.com" in link]
+        assert offenders == []
+
     def test_unknown_profile_returns_404(self, client, isolated_profiles):
         resp = client.get(
             "/api/messaging/platforms", params={"profile": "no_such_profile"}

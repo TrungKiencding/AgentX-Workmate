@@ -56,6 +56,9 @@ import {
   MCP_CATALOG_KEY,
   MCP_GATEWAY_KEY,
   type McpGatewayEndpoint,
+  mcpReloadInFlight,
+  mcpReloadsLanded,
+  mcpReloadsStarted,
   type McpServers,
   type McpServerView,
   mergeServers,
@@ -68,6 +71,7 @@ import {
   serverEnabled,
   serverFingerprint,
   shippedCopy,
+  trackMcpReload,
   withEnabled,
   withStarterEntry,
   wrapDoc
@@ -81,6 +85,9 @@ const NO_ENDPOINTS: McpGatewayEndpoint[] = []
 
 /** How long the card a link pointed at stays marked. */
 export const HUB_SPOTLIGHT_MS = 4000
+
+/** How many times one probe is asked when reloads keep cutting it short, before its answer stands. */
+const MAX_PROBE_ATTEMPTS = 3
 
 /**
  * Kho tiện ích → MCP: every connection this machine has, and every one it
@@ -438,21 +445,48 @@ export function McpStore({
     const stillCurrent = () =>
       profileEpoch.current === epoch && serverFingerprint(currentServers()[serverName] ?? {}) === fingerprint
 
-    try {
-      const result = await testMcpServer(serverName)
+    let result: McpTestResult
 
-      probeCache.set(key, { at: Date.now(), result })
+    // A probe and a reload take turns (see `trackMcpReload`): every write here
+    // fires both, and a probe the reload cut short reads as a failed server.
+    for (let attempt = 1; ; attempt++) {
+      if (mcpReloadInFlight()) {
+        // The card stays on "Đang kiểm tra" until the reload has landed.
+        await mcpReloadsLanded()
 
-      if (stillCurrent()) {
-        setProbes(current => ({ ...current, [serverName]: result }))
+        // What was waited through may have moved on: another profile, or a
+        // newer config for this server, whose own probe owns the card.
+        if (!stillCurrent()) {
+          return
+        }
+
+        // Switched off meanwhile: an off server has no probe; switching it on asks again.
+        if (!serverEnabled(currentServers()[serverName] ?? {})) {
+          setProbes(current => Object.fromEntries(Object.entries(current).filter(([name]) => name !== serverName)))
+
+          return
+        }
       }
-    } catch (err) {
-      const result = { ok: false, error: err instanceof Error ? err.message : String(err), tools: [] }
-      probeCache.set(key, { at: Date.now(), result })
 
-      if (stillCurrent()) {
-        setProbes(current => ({ ...current, [serverName]: result }))
+      const reloadsBefore = mcpReloadsStarted()
+
+      try {
+        result = await testMcpServer(serverName)
+      } catch (err) {
+        result = { ok: false, error: err instanceof Error ? err.message : String(err), tools: [] }
       }
+
+      // A failure with a reload begun under it is the reload's doing, not the
+      // server's: ask again once that reload lands. One left alone is the answer.
+      if (result.ok || mcpReloadsStarted() === reloadsBefore || attempt >= MAX_PROBE_ATTEMPTS) {
+        break
+      }
+    }
+
+    probeCache.set(key, { at: Date.now(), result })
+
+    if (stillCurrent()) {
+      setProbes(current => ({ ...current, [serverName]: result }))
     }
   }
 
@@ -463,7 +497,9 @@ export function McpStore({
     }
 
     try {
-      await gateway.request('reload.mcp', { confirm: true, session_id: activeSessionId ?? undefined })
+      await trackMcpReload(
+        (async () => gateway.request('reload.mcp', { confirm: true, session_id: activeSessionId ?? undefined }))()
+      )
     } catch (err) {
       notifyError(err, m.reloadFailed)
     }

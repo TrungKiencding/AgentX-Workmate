@@ -24,7 +24,8 @@ _DEFAULT_COOLDOWN_SECONDS = 60.0
 _DEFAULT_LOG_EVERY_N = 1
 _DEFAULT_INFO_LOG_MIN_DELTA_MB = 0.0
 _trim_lock = threading.Lock()
-_last_trim_monotonic = 0.0
+_last_trim_monotonic = 0.0  # last trim that ran a full gc.collect()
+_last_alloc_trim_monotonic = 0.0  # last trim of any kind (collect=False stamps only this)
 _probe_done = False
 _malloc_trim: Callable[[int], int] | None = None
 _trim_call_count = 0
@@ -171,12 +172,23 @@ def trim_memory(
     force: bool = False,
     reason: str = "",
     cooldown_seconds: float | None = None,
+    collect: bool = True,
 ) -> bool:
     """Collect cycles and ask glibc to release free heap pages.
 
     Returns ``True`` only when ``malloc_trim(0)`` ran and reported success.
     Unsupported allocators, the config kill switch, cooldown suppression, and all
     runtime errors return ``False`` without affecting the caller.
+
+    ``collect=False`` drops the forced full ``gc.collect()`` and only asks the
+    allocator to return already-free pages. Call sites on a busy path of a
+    long-lived process pass it (gateway housekeeping tick, agent close, TUI turn
+    completion, post-compression): a full collection walks the whole shared heap
+    with the GIL held, hundreds of ms on a large process, freezing every other
+    session's thread and stream while it runs. What those paths free goes by
+    reference counting; cycles are left to CPython's generational collector. Off
+    glibc (macOS, Windows) there is no page release at all, so such a call does
+    nothing. An allocator-only trim never delays a collecting one.
     """
     (
         enabled,
@@ -187,16 +199,19 @@ def trim_memory(
     if not enabled:
         return False
 
-    global _last_trim_monotonic, _trim_call_count
+    global _last_trim_monotonic, _last_alloc_trim_monotonic, _trim_call_count
     with _trim_lock:
         trim = _probe_glibc_malloc_trim()
+        if not collect and trim is None:
+            return False
         now = time.monotonic()
+        last = _last_trim_monotonic if collect else max(_last_trim_monotonic, _last_alloc_trim_monotonic)
         cooldown = (
             configured_cooldown
             if cooldown_seconds is None
             else _cooldown_seconds(cooldown_seconds)
         )
-        if not force and _last_trim_monotonic and now - _last_trim_monotonic < cooldown:
+        if not force and last and now - last < cooldown:
             return False
         # Even forced trims honor a short floor: AIAgent.close() forces a trim,
         # and delegate batches close N child subagents back-to-back in the SAME
@@ -204,19 +219,18 @@ def trim_memory(
         # passes (50-500ms each in a large gateway process). 5s coalesces the
         # burst while keeping the parent's final close-trim effective.
         _FORCE_FLOOR_SECONDS = 5.0
-        if (
-            force
-            and _last_trim_monotonic
-            and now - _last_trim_monotonic < _FORCE_FLOOR_SECONDS
-        ):
+        if force and last and now - last < _FORCE_FLOOR_SECONDS:
             return False
         # Record the attempt before calling into libc so repeated failures do not
         # turn every turn boundary into an expensive full collection.
-        _last_trim_monotonic = now
+        _last_alloc_trim_monotonic = now
+        if collect:
+            _last_trim_monotonic = now
         try:
             before = collect_memory_snapshot()
             started = time.perf_counter()
-            gc.collect()
+            if collect:
+                gc.collect()
             # Cycle collection is allocator-independent; only the page release needs glibc.
             trim_result = trim(0) if trim is not None else 0
             released = bool(trim_result)
@@ -232,10 +246,11 @@ def trim_memory(
                 info_log_min_delta_mb=info_log_min_delta_mb,
             ):
                 logger.info(
-                    "memory trim: reason=%s malloc_trim=%s rss_kib=%s->%s "
+                    "memory trim: reason=%s malloc_trim=%s collected=%s rss_kib=%s->%s "
                     "rss_anon_kib=%s->%s threads=%s duration_ms=%.1f",
                     reason or "cleanup",
                     trim_result,
+                    collect,
                     before.get("rss_kib"),
                     after.get("rss_kib"),
                     before.get("rss_anon_kib"),

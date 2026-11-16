@@ -24,6 +24,7 @@ import {
   attemptDashboardTokenReloadOnce,
   clearDashboardTokenReloadAttempt,
 } from "@/lib/dashboard-auth-reload";
+import { sameOriginRequestUrl } from "./api-same-origin";
 
 // Ephemeral session token for protected endpoints.
 // Injected into index.html by the server — never fetched via API.
@@ -111,7 +112,8 @@ export async function fetchJSON<T>(
   if (token) {
     setSessionHeader(headers, token);
   }
-  const res = await fetch(`${BASE}${url}`, {
+  const target = sameOriginRequestUrl(BASE, url);
+  const res = await fetch(target, {
     ...init,
     headers,
     // ``credentials: 'include'`` so the cookie-auth path (gated mode) works
@@ -119,6 +121,10 @@ export async function fetchJSON<T>(
     // server doesn't read cookies and the legacy session-token header is
     // already attached above.
     credentials: init?.credentials ?? "include",
+    // After ``...init`` so a caller cannot widen it: the browser then refuses a
+    // cross-origin redirect and any ``<base href>`` resolution off this origin,
+    // which the up-front URL check cannot see.
+    mode: "same-origin",
   });
   if (res.status === 401) {
     // Phase 6: the gated middleware emits a structured envelope so the
@@ -250,10 +256,12 @@ export async function authedFetch(
   if (token) {
     setSessionHeader(headers, token);
   }
-  return fetch(`${BASE}${url}`, {
+  const target = sameOriginRequestUrl(BASE, url);
+  return fetch(target, {
     ...init,
     headers,
     credentials: init?.credentials ?? "include",
+    mode: "same-origin",
   });
 }
 

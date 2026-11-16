@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
-import { PanelRowMenu } from './panel'
+import { PanelPill, PanelRowMenu } from './panel'
 
 beforeAll(() => {
   Element.prototype.hasPointerCapture ??= () => false
@@ -28,5 +28,26 @@ describe('PanelRowMenu', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: 'Rename' }))
 
     expect(onSelect).toHaveBeenCalledOnce()
+  })
+})
+
+describe('PanelPill', () => {
+  afterEach(() => {
+    cleanup()
+  })
+
+  // CSS `capitalize` title-cased every word: the Vietnamese schedule state
+  // "đã xong" read "Đã Xong", "đã hẹn giờ" read "Đã Hẹn Giờ".
+  it('starts a label with a capital and leaves the other words alone', () => {
+    render(<PanelPill>đã hẹn giờ</PanelPill>)
+
+    const pill = screen.getByText('Đã hẹn giờ')
+    expect(pill.className).not.toMatch(/\bcapitalize\b/)
+  })
+
+  it('shows an identifier exactly as written', () => {
+    render(<PanelPill verbatim>pull_request</PanelPill>)
+
+    expect(screen.getByText('pull_request')).toBeTruthy()
   })
 })

@@ -29,4 +29,6 @@ def test_gateway_housekeeping_calls_periodic_memory_trim(monkeypatch):
 
     gateway_run._start_gateway_housekeeping(_OneTickStopEvent(), interval=0)
 
-    assert calls == [{"reason": "messaging gateway housekeeping"}]
+    # The once-a-minute tick must not force a full gc.collect(): with the GIL held it
+    # freezes every adapter and stream in the process.
+    assert calls == [{"reason": "messaging gateway housekeeping", "collect": False}]

@@ -1,0 +1,54 @@
+name: Windows launcher regressions
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - 'codex/windows-launcher-*'
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 26
+          cache: npm
+      - uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c
+        with:
+          python-version: '3.11'
+      - run: npm install --global npm@12
+      - uses: ./.github/actions/retry
+        with:
+          command: npm ci --ignore-scripts
+      - name: Verify PowerShell installer metadata
+        shell: powershell
+        run: ./scripts/tests/test-install-ps1-stage-protocol.ps1
+      - name: Verify launchers and upgrade behavior on native Windows
+        working-directory: apps/desktop
+        run: >-
+          npx vitest run --project electron
+          scripts/windows-launcher.test.mjs
+          scripts/sandbox-env.test.mjs
+          scripts/dev-fresh.test.mjs
+          electron/install-update-regression.test.ts
+          electron/checkout-pin.test.ts
+          electron/bootstrap-runner.test.ts
+          electron/active-runtime-state.test.ts
+          electron/stale-checkout.test.ts
+          electron/app-update/
+          electron/windows-hermes-path.test.ts
+          electron/windows-user-env.test.ts
+          electron/windows-child-options.test.ts
+          electron/backend-command.test.ts
+          --reporter=default --reporter=json --outputFile=windows-launcher-results.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: windows-launcher-results
+          path: apps/desktop/windows-launcher-results.json

@@ -42,7 +42,7 @@ from typing import Any, List, Optional
 # the module) fail with ModuleNotFoundError for hermes_time et al.
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from hermes_constants import get_hermes_home
+from hermes_constants import CRON_HINT_PREFIX, get_hermes_home
 from hermes_cli._subprocess_compat import windows_hide_flags
 from hermes_cli.config import (
     _expand_env_vars,
@@ -115,123 +115,229 @@ def _set_cron_session_title(session_db, session_id, base_title):
         return deduped
 
 
-def _fallback_chain_phrase() -> str:
-    """Wording for the fallback-chain clause of a provider-failure message.
+# The run-time stamp that keeps a cron session's title unique. Numeric on
+# purpose: the title is stored data shown in every UI language, and the month
+# abbreviation it used to carry ("Nov 10 21:00") was English in all of them.
+CRON_SESSION_TITLE_STAMP = "%Y-%m-%d %H:%M"
 
-    "Fallback chain was exhausted or unavailable." used to fire
-    unconditionally on every provider failure, which implies a fallback was
-    attempted and failed. Most installs have fallback_providers: [] (no
-    chain configured at all), so that wording was actively misleading: it
-    sent the operator looking for why a fallback "failed" when none was
-    ever attempted. Distinguish the two cases explicitly.
 
-    Fails open to the original ambiguous-but-safe wording if config can't be
-    read (e.g. mid-shutdown, permissions) -- never let a lookup error crash
-    failure-message generation itself.
+# Stable keys for why a run failed. The run's raw error stays in its output
+# file, history and logs; a surface that wants to *tell the user* reads the key
+# and says it in its own words and language (the desktop's Trợ lý page), or
+# takes the English sentence below (chat delivery).
+CRON_FAILURE_KINDS = (
+    "drift_skip",
+    "blocked_config",
+    "interrupted",
+    "stalled",
+    "busy",
+    "usage_limit",
+    "rate_limit",
+    "timeout",
+    "auth",
+    "model_not_found",
+    "unreachable",
+    "too_long",
+    "content_filtered",
+    "request_rejected",
+    "service_unavailable",
+    "unknown",
+)
+
+_CRON_FAILURE_REASONS = {
+    "drift_skip": (
+        "was skipped because the AI settings changed. No AI usage was charged. "
+        "Ask me to update the model for this task before it can run again."
+    ),
+    "blocked_config": (
+        "could not start because its settings need updating. No AI usage was charged. "
+        "Ask me to review the settings for this task."
+    ),
+    "interrupted": "was interrupted before it finished. Ask me to run it again.",
+    "stalled": "stalled and was stopped. Ask me to retry this task.",
+    "busy": "could not start because another task was still running. Please try again later.",
+    "usage_limit": "could not finish because the AI service reached its usage limit. Try another model or contact support.",
+    "rate_limit": "could not finish because the AI service is busy. Please try again later.",
+    "timeout": "took too long to finish. Ask me to retry this task.",
+    "auth": "could not connect to the AI service. Please check the connection settings or contact support.",
+    "model_not_found": "could not use its selected model. Ask me to choose another model for this task.",
+    "unreachable": "could not reach the AI service. Check the network connection (or that a local model is running), then ask me to retry.",
+    "too_long": "has more content than the selected model can read at once. Ask me to shorten this task or choose a model with a larger context.",
+    "content_filtered": "was refused by the AI service's content filter. Ask me to reword this task.",
+    "request_rejected": "could not be processed by the selected model. Ask me to choose another model for this task.",
+    "service_unavailable": "could not use the AI service. Try another model or try again later.",
+    "unknown": "could not finish. Please try again later or contact support.",
+}
+
+# The agent's classified ``failure_reason`` (agent.error_classifier
+# REPORTED_FAILURE_REASONS, plus the turn finalizer's own) → failure kind.
+# A reason not listed falls to "unknown" rather than to a wrong guess.
+_FAILURE_REASON_TO_KIND = {
+    "billing": "usage_limit",
+    "budget_exceeded": "usage_limit",
+    "billing_unverified": "service_unavailable",
+    "rate_limit": "rate_limit",
+    "upstream_rate_limit": "rate_limit",
+    "timeout": "timeout",
+    "auth": "auth",
+    "auth_permanent": "auth",
+    "model_not_allowed": "model_not_found",
+    "model_not_found": "model_not_found",
+    "provider_policy_blocked": "model_not_found",
+    "connection_failed": "unreachable",
+    "ssl_cert_verification": "unreachable",
+    "context_overflow": "too_long",
+    "payload_too_large": "too_long",
+    "long_context_tier": "too_long",
+    "content_policy_blocked": "content_filtered",
+    "format_error": "request_rejected",
+    "image_too_large": "request_rejected",
+    "invalid_encrypted_content": "request_rejected",
+    "multimodal_tool_content_unsupported": "request_rejected",
+    "thinking_signature": "request_rejected",
+    "oauth_long_context_beta_forbidden": "request_rejected",
+    "llama_cpp_grammar_pattern": "request_rejected",
+    "overloaded": "service_unavailable",
+    "server_error": "service_unavailable",
+    "stream_interrupted": "service_unavailable",
+    "response_truncated": "service_unavailable",
+    "interpreter_shutdown": "interrupted",
+}
+
+# A failed agent run's error carries the reason the agent classified it under
+# (``[failure_reason:<reason>] <error>``), so the kind is read from what the
+# agent knew — status code, exception type, error body — not re-guessed from
+# the one-line summary, which keeps none of that.
+FAILURE_REASON_MARKER_RE = re.compile(r"\[failure_reason:([a-z0-9_:]+)\]")
+
+# The scheduler's own words for a run cut short by a shutdown (see
+# mark_running_jobs_interrupted and run_one_job), and Python's when the
+# executor is already gone. A provider's "stream interrupted" or a 503 body
+# mentioning "shutdown" is not one.
+_INTERRUPTED_RUN_RE = re.compile(
+    r"\b(?:gateway|interpreter) shutdown\b"
+    r"|interrupted by (?:the )?(?:gateway|app)\b"
+    r"|cannot schedule new futures after (?:interpreter )?shutdown"
+)
+
+
+def _cron_failure_marker(result: dict) -> str:
+    """The ``[failure_reason:…]`` prefix for a failed agent result, or ''."""
+    reason = str(result.get("failure_reason") or "")
+    if reason == "billing" and result.get("billing_unverified"):
+        reason = "billing_unverified"
+    if not FAILURE_REASON_MARKER_RE.fullmatch(f"[failure_reason:{reason}]"):
+        return ""
+    return f"[failure_reason:{reason}] "
+
+
+def classify_cron_failure(error: str | None, *, agent_run: bool = True) -> str:
+    """One of ``CRON_FAILURE_KINDS`` for a run's error text. Never raises.
+
+    ``agent_run`` is False for a ``no_agent`` (script-only) job: its error is
+    the script's own output, which no AI service produced — reading an
+    "HTTP 400" the script printed as a model refusal would send the person to
+    pick another model for a job that uses none.
+    """
+    text = str(error or "")
+    lower = text.lower()
+    if "[drift_skip" in lower:
+        return "drift_skip"
+    if "[blocked_config" in lower:
+        return "blocked_config"
+    marker = FAILURE_REASON_MARKER_RE.search(lower)
+    if marker:
+        reason = marker.group(1)
+        if reason.startswith("session_persistence_failed"):
+            return "unknown"
+        return _FAILURE_REASON_TO_KIND.get(reason, "unknown")
+    if _INTERRUPTED_RUN_RE.search(lower):
+        return "interrupted"
+    if re.search(r"idle for \d+s\s*\(limit \d+s\)", lower):
+        return "stalled"
+    if "terminal_cwd" in lower and ("lock" in lower or "timed out" in lower):
+        return "busy"
+    if re.search(r"\bscript timed out after \d+s\b", lower):
+        return "timeout"  # _run_job_script's own words
+    if not agent_run:
+        return "unknown"
+    # No marker: an error the scheduler raised itself, or one recorded before
+    # the marker existed. Read the text the way the agent would have.
+    try:
+        from agent.error_classifier import classify_api_error
+
+        api_error = RuntimeError(text)
+        status = re.search(r"\bHTTP\s+(\d{3})\b", text, re.IGNORECASE)
+        if status:
+            api_error.status_code = int(status.group(1))
+        classified = classify_api_error(api_error)
+    except Exception:  # noqa: BLE001 - a label for the UI must not break listing
+        return "unknown"
+    if classified.billing_unverified:
+        return "service_unavailable"
+    return _FAILURE_REASON_TO_KIND.get(classified.failure_reason, "unknown")
+
+
+# A failed run's kind in the SSO usage metrics' shared words (AgentX-sso
+# docs/dashboard.md, "Mã lỗi"), for the ``cron.run`` event (cron/usage_outbox.py).
+_KIND_USAGE_CODES = {
+    "drift_skip": "config_drift",
+    "blocked_config": "invalid_config",
+    "interrupted": "app_shutdown",
+    "stalled": "timeout",
+    "busy": "busy",
+    "usage_limit": "quota_exceeded",
+    "rate_limit": "rate_limited",
+    "timeout": "timeout",
+    "auth": "auth_failed",
+    "model_not_found": "model_unavailable",
+    "unreachable": "network_error",
+    "too_long": "context_too_long",
+    "content_filtered": "content_filtered",
+    "request_rejected": "bad_request",
+    "service_unavailable": "upstream_error",
+    "unknown": "operation_failed",
+}
+
+
+def cron_usage_failure_code(error: str | None, *, agent_run: bool = True) -> str:
+    """The ``error_code`` of a failed run's ``cron.run`` event. Never raises.
+
+    The reason the agent classified the failure under (its ``[failure_reason:…]``
+    marker) is read the way a chat turn's is (tui_gateway/usage_outcome.py), so a
+    rate limit is ``rate_limited`` whether a person or a schedule hit it. Without
+    one, the run's kind (``classify_cron_failure``) says it; a script-only job
+    whose script failed is ``script_failed``.
     """
     try:
-        cfg = load_config() or {}
-        chain = get_fallback_chain(cfg)
-    except Exception:
-        return "Fallback chain was exhausted or unavailable."
-    if chain:
-        return "Fallback chain was exhausted or unavailable."
-    return (
-        "No fallback chain configured — add one with `agentx fallback add`, "
-        "or set a cron fleet default via `cron.model` + `cron.model_provider` "
-        "in config.yaml."
-    )
+        text = str(error or "")
+        kind = classify_cron_failure(text, agent_run=agent_run)
+        marker = FAILURE_REASON_MARKER_RE.search(text.lower())
+        if marker and kind not in ("drift_skip", "blocked_config"):
+            from tui_gateway.usage_outcome import reason_failure_code
+
+            reason = marker.group(1)
+            if reason == "billing_unverified":  # _cron_failure_marker's own name for it
+                return reason_failure_code("billing", billing_unverified=True)
+            return reason_failure_code(reason)
+        if kind == "unknown" and not agent_run:
+            return "script_failed"
+        return _KIND_USAGE_CODES.get(kind, "operation_failed")
+    except Exception:  # noqa: BLE001 - a metric's label must not break the run
+        return "operation_failed"
 
 
 def _summarize_cron_failure_for_delivery(job: dict, error: str | None) -> str:
-    """Return a compact one-line failure message for chat delivery.
+    """Describe the impact and recovery without copying diagnostic text to chat.
 
-    Full details stay in the cron output directory and the logs. Chat should
-    show the operator what broke without dumping provider JSON, retry noise, or
-    stack traces into the delivery channel.
+    The original error remains in run output, execution history and logs.
+    Even unknown errors use a fixed message: truncation is not sanitization.
     """
-    job_name = job.get("name") or job.get("id") or "cron job"
-    text = (error or "unknown error").strip()
-    lower = text.lower()
-
-    # Provider/API failures are the common noisy path. Keep these short.
-    if "429" in text or "rate limit" in lower or "usage limit" in lower:
-        reason = "rate limit"
-        if "weekly usage limit" in lower:
-            reason = "weekly usage limit"
-        elif "quota" in lower:
-            reason = "quota limit"
-        return (
-            f"⚠️ Cron '{job_name}' failed: provider {reason}. "
-            f"{_fallback_chain_phrase()} "
-            "Full details saved in cron output."
-        )
-
-    # The scheduler's own inactivity watchdog (see the TimeoutError raised
-    # above at "Cron job '{job_name}' idle for {secs}s (limit {limit}s) —
-    # last activity: {desc}") produces a message that contains the substring
-    # "timed out"/"timeout" nowhere, but DOES contain "idle for ... (limit
-    # ...)" — however older/other call sites can still phrase an inactivity
-    # abort using "timed out" wording, so match on the "idle for Ns (limit"
-    # shape specifically (case-insensitive) BEFORE the generic provider-
-    # timeout branch below. Without this, an inactivity timeout — the job's
-    # OWN tool call/turn going quiet, no provider or fallback chain ever
-    # involved — gets rewritten into a misleading "provider timeout /
-    # fallback chain exhausted" message, sending the operator to debug the
-    # wrong system entirely (field-reported: a stuck `terminal` tool call
-    # tripped the 600s inactivity limit and was reported as a
-    # provider/fallback failure). Mirrors the same reordering fix
-    # upstream issue #59549 applied for script timeouts vs provider timeouts
-    # — check the more specific, deterministic signature first.
-    if re.search(r"idle for \d+s\s*\(limit \d+s\)", lower):
-        return (
-            f"⚠️ Cron '{job_name}' failed: the job itself stalled — no tool/API "
-            "activity for the configured inactivity window. Not a provider or "
-            "fallback-chain issue; check what the job was doing when it went "
-            "quiet. Full details saved in cron output."
-        )
-
-    # Sibling scheduler-side timeout (#79768): the TERMINAL_CWD lock-wait
-    # abort also phrases itself with "Timed out ..." and would fall through
-    # to the generic provider-timeout branch below. Like the inactivity
-    # watchdog above, it is entirely scheduler-internal — no provider or
-    # fallback chain involved — so classify it before the generic match.
-    if "terminal_cwd" in lower and ("lock" in lower or "timed out" in lower):
-        return (
-            f"⚠️ Cron '{job_name}' failed: could not acquire the scheduler's "
-            "working-directory lock — another cron job (a workdir writer or "
-            "long-running readers) held it too long. Not a provider or "
-            "fallback-chain issue; stagger the holder's schedule or remove "
-            "its workdir. Full details saved in cron output."
-        )
-
-    if "readtimeout" in lower or "timed out" in lower or "timeout" in lower:
-        return (
-            f"⚠️ Cron '{job_name}' failed: provider timeout. "
-            f"{_fallback_chain_phrase()} "
-            "Full details saved in cron output."
-        )
-
-    # Match authentication/authorization wording at a word boundary and the
-    # 401/403 status codes as whole tokens, so "oauth", "4015" and similar do
-    # not trip a misleading auth message.
-    if re.search(r"authenticat|authoriz", lower) or re.search(r"\b(401|403)\b", text):
-        return (
-            f"⚠️ Cron '{job_name}' failed: provider authentication error. "
-            "Full details saved in cron output."
-        )
-
-    # Strip common exception wrappers and collapse provider payloads. Bound
-    # the input first so a multi-KB provider blob cannot slow the
-    # substitutions.
-    cleaned = re.sub(
-        r"^(RuntimeError|Exception|ValueError|HTTPStatusError):\s*",
-        "", text[:2000],
-    )
-    cleaned = re.sub(r"\s+", " ", cleaned).strip()
-    if len(cleaned) > 180:
-        cleaned = cleaned[:177].rstrip() + "..."
-    return f"⚠️ Cron '{job_name}' failed: {cleaned}"
+    job_name = job.get("name") or "Scheduled task"
+    reason = _CRON_FAILURE_REASONS[
+        classify_cron_failure(error, agent_run=not job.get("no_agent"))
+    ]
+    return f"⚠️ {job_name}: {reason}"
 
 
 class CronPromptInjectionBlocked(Exception):
@@ -392,6 +498,7 @@ _LEGACY_HOME_TARGET_ENV_VARS = {
 
 from cron.jobs import get_due_jobs, mark_job_run, save_job_output, advance_next_runs, claim_dispatch, heartbeat_run_claim
 from cron.executions import create_execution, finish_execution, mark_execution_running
+from cron.usage_outbox import record_fire as _record_cron_usage
 
 # Sentinel: when a cron agent has nothing new to report, it can start its
 # response with this marker to suppress delivery.  Output is still saved
@@ -425,6 +532,79 @@ def _is_cron_silence_response(text: str) -> bool:
     from gateway.response_filters import is_autonomous_silence_response
 
     return is_autonomous_silence_response(text)
+
+
+# Markdown → plain text for a one-line excerpt. Deliberately narrower than
+# gateway.platforms.helpers.strip_markdown, whose emphasis rules pair up any
+# two asterisks: here "2*3*4", "snake_case" and a redaction mask ("***") must
+# come through untouched, because the excerpt may be the whole message.
+_PREVIEW_RULE_LINE_RE = re.compile(r"^[ \t]*(?:[-=*_|:][ \t]*){3,}$", re.MULTILINE)
+_PREVIEW_FENCE_RE = re.compile(r"```[a-zA-Z0-9_+-]*")
+_PREVIEW_HEADING_RE = re.compile(r"^[ \t]{0,3}#{1,6}[ \t]+", re.MULTILINE)
+_PREVIEW_BULLET_RE = re.compile(r"^[ \t]*[-*+][ \t]+", re.MULTILINE)
+_PREVIEW_QUOTE_RE = re.compile(r"^[ \t]*>[ \t]?", re.MULTILINE)
+_PREVIEW_LINK_RE = re.compile(r"!?\[([^\]\n]+)\]\([^)\n]+\)")
+_PREVIEW_CODE_RE = re.compile(r"`([^`\n]+)`")
+_PREVIEW_EMPHASIS_RE = re.compile(
+    r"(?<![\w*_])(\*{1,3}|_{1,3})(?=[^\s*_])([^*_\n]+?)(?<=\S)\1(?![\w*_])"
+)
+
+
+def _preview_plain_text(text: str) -> str:
+    text = _PREVIEW_RULE_LINE_RE.sub("", text)
+    text = _PREVIEW_FENCE_RE.sub("", text)
+    text = _PREVIEW_HEADING_RE.sub("", text)
+    text = _PREVIEW_BULLET_RE.sub("• ", text)
+    text = _PREVIEW_QUOTE_RE.sub("", text)
+    text = _PREVIEW_LINK_RE.sub(r"\1", text)
+    text = _PREVIEW_CODE_RE.sub(r"\1", text)
+    # Twice: "**bold with _nested_ inside**" unwraps from the inside out.
+    for _ in range(2):
+        text = _PREVIEW_EMPHASIS_RE.sub(r"\2", text)
+    return " ".join(text.split())
+
+
+def _cron_output_preview(text: Any) -> Optional[str]:
+    """A notification-sized, plain-text excerpt of a run's final response.
+
+    Stored on the job record (``last_output_preview``) so a surface with no
+    chat channel can show what the run said: a reminder created in the desktop
+    app has no origin to deliver to, and its run used to be announced only as
+    "the schedule just ran" with the reminder itself one click away.
+
+    The excerpt leaves this process in a polled payload and an OS
+    notification, so it is redacted first and unconditionally. Fail closed:
+    if redaction cannot run there is no preview, and the announcement falls
+    back to its generic wording.
+    """
+    if not isinstance(text, str) or not text.strip():
+        return None
+    try:
+        from agent.redact import redact_sensitive_text
+
+        cleaned = redact_sensitive_text(text, force=True)
+    except Exception:
+        return None
+    # Attachments are named by MEDIA: tags; a path is not part of the message.
+    try:
+        from gateway.platforms.base import BasePlatformAdapter
+
+        _media, cleaned = BasePlatformAdapter.extract_media(cleaned)
+    except Exception:
+        pass
+    cleaned = _preview_plain_text(str(cleaned or ""))
+    if not cleaned:
+        return None
+    from cron.jobs import OUTPUT_PREVIEW_MAX_CHARS
+
+    if len(cleaned) > OUTPUT_PREVIEW_MAX_CHARS:
+        cut = cleaned[: OUTPUT_PREVIEW_MAX_CHARS - 1]
+        # Prefer a word boundary, unless that would throw away most of it.
+        head, sep, _tail = cut.rpartition(" ")
+        if sep and len(head) >= OUTPUT_PREVIEW_MAX_CHARS // 2:
+            cut = head
+        cleaned = cut.rstrip() + "…"
+    return cleaned
 
 # ---------------------------------------------------------------------------
 # Persistent thread pool for parallel cron jobs.
@@ -2881,7 +3061,7 @@ def _build_job_prompt(job: dict, prerun_script: Optional[tuple] = None) -> str:
     # Always prepend cron execution guidance so the agent knows how
     # delivery works and can suppress delivery when appropriate.
     cron_hint = (
-        "[IMPORTANT: You are running as a scheduled cron job. "
+        f"{CRON_HINT_PREFIX}"
         "DELIVERY: Your final response will be automatically delivered "
         "to the user — do NOT use send_message or try to deliver "
         "the output yourself. Just produce your report/output as your "
@@ -4609,7 +4789,10 @@ def run_job(
                 or final_response_text
                 or "agent reported failure"
             )
-            raise RuntimeError(_err_text)
+            # Keep the agent's classification with the error (see
+            # FAILURE_REASON_MARKER_RE): the summary text alone has lost the
+            # status code and exception type it was classified from.
+            raise RuntimeError(_cron_failure_marker(result) + str(_err_text))
         if max_iteration_summary:
             logger.warning(
                 "Job '%s' reached the iteration limit but produced a final fallback response; "
@@ -4799,7 +4982,7 @@ def run_job(
             # except-fallback below guarantees a non-blank title (#50535).
             try:
                 _title_base = " ".join(job_name.split())[:60].strip() or f"cron {job_id}"
-                _cron_title = f"{_title_base} · {_hermes_now().strftime('%b %d %H:%M')}"
+                _cron_title = f"{_title_base} · {_hermes_now().strftime(CRON_SESSION_TITLE_STAMP)}"
                 if not _set_cron_session_title(
                     _session_db, _final_cron_session_id, _cron_title
                 ):
@@ -4902,6 +5085,9 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
     execution_id = job.get("execution_id")
     if not execution_id:
         execution_id = create_execution(job["id"], source="direct")["id"]
+    # Set once the run starts: a fire that never ran (its claim refused) is no
+    # run in the usage metrics.
+    usage_started: float | None = None
     try:
         # Pre-run dispatch claim (issue #38758): atomically commit a finite
         # one-shot's dispatch BEFORE its side effect runs, so a tick that dies
@@ -4925,6 +5111,7 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
         # The attempt is claimed durably before executor/provider dispatch and
         # becomes running only immediately before the actual run.
         mark_execution_running(execution_id)
+        usage_started = time.monotonic()
 
         # Run the job under the profile's secret scope. get_secret() fails
         # closed outside a scope once profile isolation is in play (multiple
@@ -5014,38 +5201,19 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
             drift_skip_silent = (
                 bool(error) and DRIFT_SKIP_SILENT_MARKER in str(error)
             )
-            drift_skip = drift_skip_silent or (
-                bool(error) and DRIFT_SKIP_MARKER in str(error)
-            )
-            if blocked_config and not success:
-                # Blocked-config alert: bypass the generic failure summarizer
-                # (whose auth/timeout heuristics would mislabel this as a
-                # provider runtime failure) — say plainly that config
-                # validation blocked the run and nothing was spent.
-                _pf_text = re.sub(
-                    r"\[blocked_config[^\]]*\]\s*", "", str(error)
-                ).strip()
-                deliver_content = (
-                    f"⛔ Cron '{job.get('name') or job['id']}' blocked by "
-                    f"configuration validation (no LLM call was made): "
-                    f"{_pf_text} "
-                    "This alert is sent once; the job stays blocked until "
-                    "the configuration is fixed."
+            if not success and not (blocked_config_silent or drift_skip_silent):
+                # Keep diagnostics out of user delivery; warning/error logs and
+                # persisted execution output retain the original failure.
+                from agent.redact import redact_sensitive_text
+
+                logger.warning(
+                    "Scheduled task %s failed: %s", job["id"],
+                    redact_sensitive_text(str(error or "unknown error"), force=True),
                 )
-            else:
-                deliver_content = final_response if success else _summarize_cron_failure_for_delivery(job, error)
-                if drift_skip and not success:
-                    # Drift-skip alert: bypass the generic summarizer's
-                    # 180-char truncation (it would eat the remediation
-                    # command) and strip the internal marker — deliver the
-                    # guard's own actionable message intact.
-                    _drift_text = re.sub(
-                        r"\[drift_skip[^\]]*\]\s*", "", str(error)
-                    ).strip()
-                    deliver_content = (
-                        f"⚠️ Cron '{job.get('name') or job['id']}' skipped: "
-                        f"{_drift_text}"
-                    )
+            deliver_content = (
+                final_response if success
+                else _summarize_cron_failure_for_delivery(job, error)
+            )
             # Treat whitespace-only final responses the same as empty
             # responses: do not deliver a blank message, and let the
             # empty-response guard below mark the run as a soft failure.
@@ -5083,7 +5251,8 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
         # Treat empty final_response as a soft failure so last_status
         # is not "ok" — the agent ran but produced nothing useful.
         # (issue #8585)
-        if success and not final_response.strip():
+        empty_response = success and not final_response.strip()
+        if empty_response:
             success = False
             error = "Agent completed but produced empty response (model error, timeout, or misconfiguration)"
 
@@ -5094,7 +5263,17 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
                     status="blocked_config",
                 )
             else:
-                mark_job_run(job["id"], success, error, delivery_error=delivery_error)
+                # What the run said, for surfaces that announce a run off the
+                # job record instead of receiving a delivery (the desktop app:
+                # deliver=origin with no origin delivers nowhere). Only a run
+                # that would have been delivered has one — not a [SILENT] run,
+                # not a failure, whose diagnostic stays out of notifications.
+                _mark_kwargs = {"delivery_error": delivery_error}
+                if success and should_deliver:
+                    _preview = _cron_output_preview(final_response)
+                    if _preview:
+                        _mark_kwargs["output_preview"] = _preview
+                mark_job_run(job["id"], success, error, **_mark_kwargs)
         normalized_deliver = _normalize_deliver_value(job.get("deliver", "local"))
         if delivery_error:
             delivery_outcome = "failed"
@@ -5109,6 +5288,10 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
             success=success,
             error=error,
             delivery_outcome=delivery_outcome,
+        )
+        _queue_cron_usage_event(
+            execution_id, job, success=success, error=error, started=usage_started,
+            error_code="empty_response" if empty_response else None,
         )
         return True
 
@@ -5140,9 +5323,42 @@ def run_one_job(job: dict, *, adapters=None, loop=None, verbose: bool = False) -
                 "Failed to finish execution record for job %s: %s",
                 job["id"], record_err,
             )
+        _queue_cron_usage_event(
+            execution_id, job, success=False, error=_err_text, started=usage_started,
+            # Cancelled, interrupted or exiting: the process went down under the run.
+            error_code=None if isinstance(e, Exception) else "app_shutdown",
+        )
         if not isinstance(e, Exception):
             raise
         return False
+
+
+def _queue_cron_usage_event(
+    execution_id: str,
+    job: dict,
+    *,
+    success: bool,
+    error: str | None,
+    started: float | None,
+    error_code: str | None = None,
+) -> None:
+    """One ``cron.run`` event for a run that started, for the desktop to send to the
+    SSO usage metrics (cron/usage_outbox.py). Never raises."""
+    if started is None:
+        return
+    try:
+        code = None
+        if not success:
+            code = error_code or cron_usage_failure_code(error, agent_run=not job.get("no_agent"))
+        _record_cron_usage(
+            _get_hermes_home(),
+            execution_id,
+            success=success,
+            duration_ms=(time.monotonic() - started) * 1000,
+            error_code=code,
+        )
+    except Exception as record_err:  # noqa: BLE001 - metrics never change the run
+        logger.warning("Job %s: usage event not queued: %s", job.get("id"), type(record_err).__name__)
 
 
 def _notify_provider_jobs_changed() -> None:

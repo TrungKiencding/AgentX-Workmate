@@ -12,6 +12,17 @@ import type { Translations } from './types'
 // Everything a non-engineer reads is plain Vietnamese, and Vietnamese has no
 // plural inflection, so `n === 1` branches collapse to one form.
 export const vi: Translations = {
+  sessionResources: {
+    title: 'Kết quả và nguồn',
+    createOutput: 'Tạo kết quả',
+    createOutputPrompt: 'Tổng hợp kết quả của cuộc trò chuyện này thành một tệp tài liệu.',
+    addSource: 'Thêm nguồn',
+    changes: 'Thay đổi',
+    changesHint: 'Thay đổi chưa commit trong thư mục này',
+    outputs: 'Kết quả',
+    sources: 'Nguồn',
+    openFailed: 'Không thể mở mục này. Chọn lại để thử.'
+  },
   common: {
     unknownError: 'Lỗi không xác định',
     apply: 'Áp dụng',
@@ -269,6 +280,15 @@ export const vi: Translations = {
       backgroundFailedTitle: 'Tác vụ nền thất bại',
       creditsTitle: 'Credit'
     }
+  },
+
+  quitGuard: {
+    messageOne: 'Workmate đang làm dở 1 cuộc trò chuyện.',
+    messageMany: 'Workmate đang làm dở {count} cuộc trò chuyện.',
+    more: 'và {count} cuộc trò chuyện khác',
+    detail: 'Thoát bây giờ sẽ dừng công việc giữa chừng. Phần chưa ghi xong sẽ mất.',
+    stay: 'Tiếp tục chạy',
+    quit: 'Vẫn thoát'
   },
 
   remoteDisplayBanner: {
@@ -534,13 +554,9 @@ export const vi: Translations = {
       keyRotating: 'Đang cấp…',
       keyRotateFailed: detail => `Không cấp được key mới: ${detail}`,
       keyModels: n => `Có ${n} model khả dụng`,
-      deviceOtherTitle: n => `Thiết bị khác còn quyền truy cập (${n})`,
       deviceHistoryTitle: n => `Lịch sử thu hồi (${n})`,
       deviceHistoryHint:
         'Các bản cài đặt này đã bị chặn truy cập tài khoản. Nếu chưa cấp khóa model mới, khóa đã lưu trên máy vẫn có thể dùng được.',
-      deviceDuplicateHint:
-        'Một số bản cài đặt có cùng tên máy. Kiểm tra mã nhận diện và ngày đăng ký trong Chi tiết trước khi thu hồi.',
-      deviceDetails: 'Chi tiết',
       deviceHostname: 'Tên máy',
       deviceApp: 'Ứng dụng',
       deviceVersion: 'Phiên bản',
@@ -549,8 +565,6 @@ export const vi: Translations = {
       deviceIdentity: 'Mã bản cài đặt',
       deviceAccountAccess: 'Truy cập tài khoản',
       deviceUnknown: 'Chưa rõ',
-      deviceRecordId: n => `Bản cài đặt ${n}`,
-      deviceRegisteredAt: n => `Đăng ký ${n}`,
       deviceRevokedAt: n => `Đã thu hồi ${n}`,
       deviceRename: 'Đổi tên',
       deviceRenameHint: 'Để trống để dùng tên máy. Tên này được lưu trên tài khoản của bạn.',
@@ -566,6 +580,18 @@ export const vi: Translations = {
         'Đã thu hồi truy cập tài khoản nhưng cấp khóa model mới thất bại. Máy vẫn có thể dùng khóa đã lưu. Hãy thử cấp lại.',
       deviceRotationUnsupported:
         'Đã thu hồi truy cập tài khoản. Dịch vụ này chưa hỗ trợ cấp khóa model mới; hãy liên hệ người quản lý để cắt quyền dùng khóa cũ.',
+      deviceColDevice: 'Thiết bị',
+      deviceColRevoked: 'Thu hồi lúc',
+      deviceColActions: 'Thao tác',
+      deviceInstalls: n => `${n} bản cài đặt`,
+      deviceInstallsTitle: 'Các bản cài đặt',
+      devicePageRange: (from, to, total) => `Hiển thị ${from}–${to} trên ${total}`,
+      devicePage: (page, pages) => `Trang ${page}/${pages}`,
+      deviceRevokeOthers: 'Thu hồi mọi thiết bị khác',
+      deviceRevokeOthersConfirmTitle: 'Thu hồi mọi thiết bị khác?',
+      deviceRevokeOthersConfirmDesc: n =>
+        `${n} bản cài đặt trên các thiết bị khác sẽ bị chặn truy cập tài khoản. Máy này vẫn giữ đăng nhập.`,
+      deviceRevokeGroupNote: n => `Thiết bị này có ${n} bản cài đặt, tất cả sẽ bị thu hồi cùng lúc.`,
       devicesTitle: 'Thiết bị của bạn',
       devicesEmpty: 'Chưa ghi nhận thiết bị nào',
       devicesEmptyDesc: 'Máy này sẽ xuất hiện ở đây trong lần khởi động AgentX Workmate kế tiếp.',
@@ -574,7 +600,8 @@ export const vi: Translations = {
       deviceRevoked: 'Đã thu hồi',
       deviceRevoke: 'Thu hồi thiết bị',
       deviceRevokeConfirmTitle: 'Thu hồi thiết bị này?',
-      deviceRevokeConfirmDesc: name => `${name} sẽ bị chặn truy cập tài khoản. Bản cài đặt này sẽ được chuyển vào lịch sử thu hồi.`,
+      deviceRevokeConfirmDesc: name =>
+        `${name} sẽ bị chặn truy cập tài khoản. Bản cài đặt này sẽ được chuyển vào lịch sử thu hồi.`,
       deviceRotateKey: 'Cấp luôn key model mới',
       deviceRotateKeyDesc:
         'Các thiết bị của bạn dùng chung một key model, nên chỉ thu hồi thôi thì thiết bị đó vẫn còn quyền dùng model. Những thiết bị còn lại sẽ tự nhận key mới.',
@@ -760,6 +787,17 @@ export const vi: Translations = {
       themeTitle: 'Theme',
       themeDesc: 'Chỉ gồm các bảng màu của desktop. Chế độ màu đã chọn được áp lên trên.',
       themeProfileNote: profile => `Đã lưu cho hồ sơ ${profile} — mỗi hồ sơ giữ theme riêng.`,
+      themeDescriptions: {
+        quiet: 'Xám trung tính ấm — màu chỉ dùng làm tín hiệu',
+        nous: 'Nền trung tính trong như kính, điểm xanh Nous',
+        'night-owl': 'Xanh navy đậm, điểm tím nhạt và xanh lơ',
+        'nous-classic': 'Bản tối xanh hoàng gia nguyên gốc, kèm bảng màu sáng của Nous',
+        midnight: 'Xanh tím đậm với điểm nhấn lạnh',
+        ember: 'Đỏ thẫm và đồng ấm — không khí lò rèn',
+        mono: 'Thang xám gọn gàng — tối giản, tập trung',
+        cyberpunk: 'Xanh neon trên nền đen — kiểu terminal Matrix',
+        slate: 'Xanh đá phiến mát — dành cho lập trình viên'
+      },
       installTitle: 'Cài từ VS Code',
       installDesc:
         'Dán id của extension trên Marketplace (ví dụ dracula-theme.theme-dracula) để chuyển color theme của nó thành một bảng màu desktop.',
@@ -785,7 +823,10 @@ export const vi: Translations = {
         chooseTitle: 'Chọn một thú cưng',
         chooseDesc: 'Chọn một con sẽ cài nó (nếu cần) và đặt làm con đang dùng.',
         searchPlaceholder: 'Tìm thú cưng…',
-        unreachable: 'Không kết nối được tới thư viện petdex. Hãy kiểm tra mạng và mở lại trang này.',
+        unreachable: 'Chưa tải được thư viện thú cưng. Hãy kiểm tra kết nối mạng rồi thử lại.',
+        retry: 'Thử lại',
+        catalogLoading: 'Đang tải thư viện thú cưng…',
+        catalogOffline: 'Chưa tải được thư viện, đang hiện các thú cưng bạn đã có.',
         noMatch: query => `Không có thú cưng nào khớp với "${query}".`,
         installedTag: 'đã cài',
         generatedTag: 'Tự sinh',
@@ -1350,11 +1391,13 @@ export const vi: Translations = {
       hubOpen: 'Mở trên AgentHub',
       hubRemoved: name => `Đã gỡ ${name}. AgentX AgentHub được báo ở lần đồng bộ tới.`,
       hubReplace: 'Thay bằng bản AgentHub…',
-      hubReplaceConfirm: name => `Thay ${name} bằng bản của AgentX AgentHub? Những gì bạn sửa ở lệnh chạy của nó sẽ mất.`,
+      hubReplaceConfirm: name =>
+        `Thay ${name} bằng bản của AgentX AgentHub? Những gì bạn sửa ở lệnh chạy của nó sẽ mất.`,
       hubModified: 'Đã sửa trên máy này: AgentHub không ghi đè.',
       hubNameTaken: 'Một server khác đang dùng tên này trên máy.',
       hubNotRegistered: 'AgentX AgentHub sẽ được báo ngay khi liên lạc được.',
-      hubUnsupported: count => `${count} server của AgentHub chưa chạy được trong Workmate như hiện có — mở trên AgentHub.`,
+      hubUnsupported: count =>
+        `${count} server của AgentHub chưa chạy được trong Workmate như hiện có — mở trên AgentHub.`,
       viaHub: 'Qua AgentX AgentHub',
       signInHere: 'Đăng nhập trên máy',
       hubAdd: 'Thêm',
@@ -1374,7 +1417,8 @@ export const vi: Translations = {
       hubConnectOpened: name => `Kết nối ${name} trên AgentX AgentHub`,
       hubConnectOpenedBody: 'Trang kết nối đã mở trong trình duyệt. Kết nối xong, Workmate tự thêm MCP này.',
       hubAdded: name => `Đã thêm ${name} — agent dùng được ngay.`,
-      toolsetsHint: 'Bộ công cụ bạn gom trên AgentX AgentHub: nhiều MCP sau một địa chỉ, dùng tài khoản AgentX của bạn.',
+      toolsetsHint:
+        'Bộ công cụ bạn gom trên AgentX AgentHub: nhiều MCP sau một địa chỉ, dùng tài khoản AgentX của bạn.',
       gatewaySignIn:
         'Token Gateway của máy này đã hết hạn — đăng nhập lại AgentX để các kết nối qua Gateway chạy tiếp.',
       gatewayTokenDays: days => `Token Gateway của máy này còn ${days} ngày; nó tự gia hạn.`,
@@ -1494,7 +1538,7 @@ export const vi: Translations = {
       model: 'Model',
       applying: 'Đang áp dụng...',
       defaultsLabel: 'Mặc định',
-      reasoning: 'Suy luận',
+      reasoning: 'Mức suy nghĩ',
       reasoningOff: 'Tắt',
       defaultsFailed: 'Lưu thiết lập model mặc định thất bại',
       auxiliaryTitle: 'Model phụ trợ',
@@ -1851,7 +1895,8 @@ export const vi: Translations = {
       otherProfile:
         'AgentX AgentHub chỉ làm việc với hồ sơ mặc định: chuyển sang hồ sơ đó để thêm kỹ năng và MCP từ AgentHub và nhận những gì AgentHub gửi.',
       lastSync: when => `Đồng bộ lần cuối ${when}`,
-      noInstalls: 'Chưa có kỹ năng nào được yêu cầu cài từ AgentHub cho máy này. Bấm “Thêm” trên AgentHub là kỹ năng về đây.',
+      noInstalls:
+        'Chưa có kỹ năng nào được yêu cầu cài từ AgentHub cho máy này. Bấm “Thêm” trên AgentHub là kỹ năng về đây.',
       desired: { installed: 'Cần cài', removed: 'Cần gỡ', disabled: 'Cần tắt' },
       reported: { pending: 'Đang chờ', installed: 'Đã cài', removed: 'Đã gỡ', failed: 'Lỗi', disabled: 'Đã tắt' },
       localDisabled: 'đang tắt trên máy này',
@@ -1906,7 +1951,8 @@ export const vi: Translations = {
       propose: 'Chia sẻ vào workspace',
       title: name => `Tải “${name}” lên AgentX AgentHub`,
       proposeTitle: name => `Chia sẻ “${name}” vào workspace`,
-      description: 'Skill được tải lên thành một phiên bản mới, quét bảo mật rồi xuất bản theo chính sách của AgentHub.',
+      description:
+        'Skill được tải lên thành một phiên bản mới, quét bảo mật rồi xuất bản theo chính sách của AgentHub.',
       proposeDescription:
         'Skill được tải lên với phạm vi “Workspace”: chỉ thành viên workspace thấy, và quản trị AgentHub duyệt trước khi xuất bản.',
       visibility: 'Hiển thị',
@@ -2217,6 +2263,48 @@ export const vi: Translations = {
   },
 
   messaging: {
+    guide: {
+      title: 'Hướng dẫn kết nối',
+      replay: 'Xem hướng dẫn từng bước',
+      skip: 'Bỏ qua',
+      finish: 'Xong hướng dẫn',
+      docs: 'Hướng dẫn có hình ảnh',
+      source: 'Mở trang thiết lập',
+      secret: 'Đây là mã riêng của bạn. Dán trực tiếp vào ô; không gửi mã cho người khác.',
+      connectBody:
+        'Lưu thay đổi ở cuối màn hình trước, rồi bật công tắc bên dưới. Nếu hiện “Cần khởi động lại”, bấm “Khởi động lại AgentX” để áp dụng.',
+      testTitle: 'Gửi thử một tin nhắn',
+      testBody:
+        'Chờ trạng thái “Đã kết nối”, rồi mở ứng dụng nhắn tin và gửi một lời chào cho bot hoặc tài khoản đã thiết lập. Với Telegram, bấm Start trước khi gửi.',
+      testNote:
+        'Nếu bot yêu cầu quyền truy cập, quay lại đây và bấm “Cho phép” ở yêu cầu của chính bạn. Xong hướng dẫn không đồng nghĩa kết nối đã thành công; hãy kiểm tra bot có trả lời.',
+      fieldFallback:
+        'Lấy giá trị từ trang quản lý của nền tảng. Mở hướng dẫn có hình ảnh để xem cách tìm và định dạng cần điền.',
+      progress: (current, total) => `Hướng dẫn · ${current}/${total}`,
+      fieldHelp: label => `Hướng dẫn điền ${label}`
+    },
+    fieldGuide: {
+      TELEGRAM_BOT_TOKEN:
+        'Trong Telegram, mở @BotFather → gửi /newbot → chọn tên và username kết thúc bằng bot. Sao chép toàn bộ mã sau dòng “HTTP API”. Đây không phải đường dẫn t.me hay tên @bot.',
+      TELEGRAM_ALLOWED_USERS:
+        'Mở @userinfobot trong Telegram → bấm Start → sao chép số ở dòng Id. Điền ID của bạn; nhiều ID ngăn bằng dấu phẩy. Có thể bỏ trống và duyệt yêu cầu nhắn riêng tại Workmate; bỏ trống không tự cho mọi người quyền truy cập.',
+      DISCORD_BOT_TOKEN:
+        'Discord Developer Portal → Applications → ứng dụng của bạn → Bot → Reset Token. Sao chép token vừa tạo. Bật Message Content Intent trong cùng trang để bot đọc nội dung tin nhắn.',
+      DISCORD_ALLOWED_USERS:
+        'Discord → User Settings → Advanced → bật Developer Mode. Nhấp phải vào hồ sơ của bạn → Copy User ID. Dán số ID, không dùng tên hiển thị.',
+      SLACK_BOT_TOKEN:
+        'Trang quản lý Slack app → OAuth & Permissions → Install to Workspace. Sau khi cấp quyền, sao chép Bot User OAuth Token bắt đầu bằng xoxb-. Không dùng token xapp- cho ô này.',
+      SLACK_APP_TOKEN:
+        'Slack app → Basic Information → App-Level Tokens → Generate Token and Scopes → thêm connections:write. Sao chép mã xapp-, rồi bật Socket Mode trong mục cùng tên.',
+      SLACK_ALLOWED_USERS:
+        'Trong Slack, mở hồ sơ người dùng → dấu ba chấm → Copy member ID. Dán ID bắt đầu bằng U hoặc W; nhiều ID ngăn bằng dấu phẩy.',
+      EMAIL_PASSWORD:
+        'Với Gmail: Tài khoản Google → Bảo mật → bật Xác minh 2 bước → Mật khẩu ứng dụng. Tạo mật khẩu cho AgentX và dán mã 16 ký tự. Không dùng mật khẩu đăng nhập Gmail. Nếu không có mục này, hỏi quản trị viên email.',
+      TWILIO_ACCOUNT_SID:
+        'Twilio Console → Account Dashboard → Account Info → Account SID. Sao chép toàn bộ giá trị bắt đầu bằng AC. Đây là định danh tài khoản, không phải số điện thoại.',
+      TWILIO_AUTH_TOKEN:
+        'Twilio Console → Account Dashboard → Account Info → Auth Token → Show. Sao chép mã vào đây. Bạn vẫn cần số Twilio và webhook nhận SMS; xem hướng dẫn có hình ảnh trước khi bật.'
+    },
     pageTitle: 'Kênh tin nhắn',
     pageDescription: 'Nhắn cho AgentX từ ứng dụng bạn đang dùng.',
     search: 'Tìm trong phần tin nhắn...',
@@ -2272,7 +2360,7 @@ export const vi: Translations = {
     credentialsSet: 'Đã đặt thông tin đăng nhập',
     needsSetup: 'Cần thiết lập',
     gatewayStopped: 'AgentX đang tắt kết nối tin nhắn',
-    openSetupGuide: 'Mở hướng dẫn thiết lập',
+    openSetupGuide: 'Xem hướng dẫn đầy đủ trên web',
     destinationTitle: 'Địa chỉ trò chuyện',
     destinationUnavailable: 'Đã kết nối, nhưng nền tảng chưa cung cấp địa chỉ công khai.',
     openDestination: 'Mở trong ứng dụng',
@@ -2315,9 +2403,36 @@ export const vi: Translations = {
     revokedUser: name => `Đã thu hồi ${name}`,
     failedApprove: name => `Duyệt ${name} thất bại`,
     failedRevoke: name => `Thu hồi ${name} thất bại`,
+    pairingExpired:
+      'Yêu cầu này đã hết hạn. Hãy nhờ người đó nhắn lại cho bot để có yêu cầu mới, rồi bấm Cho phép ở đây.',
     pairingLockedOut: 'Quá nhiều lần duyệt thất bại — nền tảng này đang bị khoá. Hãy thử lại sau.',
     waitingSince: minutes => (minutes < 1 ? 'vừa xong' : `${minutes} phút trước`),
     fieldCopy: {
+      EMAIL_ADDRESS: {
+        label: 'Địa chỉ email của AgentX',
+        help: 'Dùng một hộp thư riêng cho AgentX. Điền địa chỉ đầy đủ, ví dụ agentx@example.com.'
+      },
+      EMAIL_PASSWORD: {
+        label: 'Mật khẩu ứng dụng',
+        help: 'Lấy từ phần Mật khẩu ứng dụng của nhà cung cấp email. Với Gmail, cần bật Xác minh 2 bước.'
+      },
+      EMAIL_IMAP_HOST: {
+        label: 'Máy chủ nhận thư (IMAP)',
+        help: 'Với Gmail: imap.gmail.com. Với email công ty, hỏi quản trị viên địa chỉ IMAP; không thêm https:// hay số cổng.'
+      },
+      EMAIL_SMTP_HOST: {
+        label: 'Máy chủ gửi thư (SMTP)',
+        help: 'Với Gmail: smtp.gmail.com. Với email công ty, hỏi quản trị viên địa chỉ SMTP; không thêm https:// hay số cổng.'
+      },
+      TWILIO_ACCOUNT_SID: {
+        label: 'ID tài khoản Twilio',
+        help: 'Lấy trong Twilio Console → Account Dashboard → Account Info. Giá trị bắt đầu bằng AC.'
+      },
+      TWILIO_AUTH_TOKEN: {
+        label: 'Mã xác thực Twilio',
+        help: 'Lấy ở cùng mục Account Info → Auth Token. Bấm Show để xem rồi sao chép.'
+      },
+
       TELEGRAM_BOT_TOKEN: {
         label: 'Mã bot',
         help: 'Tạo một bot với @BotFather rồi dán mã nó đưa cho bạn vào đây.',
@@ -2325,7 +2440,7 @@ export const vi: Translations = {
       },
       TELEGRAM_ALLOWED_USERS: {
         label: 'Ai được phép nhắn cho bot',
-        help: 'Nên đặt. Các số ID cách nhau bằng dấu phẩy, lấy từ @userinfobot. Bỏ trống thì ai cũng nhắn riêng được cho bot của bạn.',
+        help: 'Mở @userinfobot trong Telegram → bấm Start → sao chép số ở dòng Id. Điền ID của bạn; nhiều ID ngăn bằng dấu phẩy. Có thể bỏ trống và duyệt yêu cầu nhắn riêng tại Workmate; bỏ trống không tự cho mọi người quyền truy cập.',
         placeholder: 'Ví dụ: 12345678, 87654321'
       },
       TELEGRAM_PROXY: { label: 'Địa chỉ proxy', help: 'Chỉ cần khi mạng của bạn chặn Telegram.' },
@@ -2419,7 +2534,8 @@ export const vi: Translations = {
       matrix: 'Đăng nhập homeserver bằng tài khoản bot, rồi sao chép mã truy cập, ID tài khoản và địa chỉ homeserver.',
       signal:
         'Chạy một cầu nối signal-cli REST ở nơi truy cập được, rồi cho AgentX biết địa chỉ đó và số điện thoại đã đăng ký.',
-      whatsapp: 'Khởi động cầu nối WhatsApp đi kèm AgentX, quét mã QR ở lần chạy đầu, rồi bật kết nối này.',
+      whatsapp:
+        'Quét một mã QR bằng WhatsApp trên điện thoại, giống khi dùng WhatsApp trên máy tính. Không cần dán mã hay mở cửa sổ lệnh.',
       bluebubbles:
         'Chạy BlueBubbles Server trên một máy Mac có iMessage, mở API của nó, rồi dán địa chỉ cùng mật khẩu máy chủ vào đây.',
       homeassistant:
@@ -2442,6 +2558,121 @@ export const vi: Translations = {
         'Mở AgentX thành một API tương thích OpenAI. Đặt một khoá xác thực, rồi trỏ Open WebUI / LobeChat… tới địa chỉ host:port.',
       webhook:
         'Chạy một máy chủ HTTP để các công cụ khác (GitHub, GitLab, ứng dụng của bạn) gửi sự kiện tới. Dùng khoá bí mật để xác minh chữ ký.'
+    },
+    figures: {
+      previous: 'Ảnh trước',
+      next: 'Ảnh sau',
+      position: (current, total) => `Ảnh ${current}/${total}`,
+      enlarge: 'Phóng to ảnh',
+      showVisual: 'Xem từng bước có ảnh',
+      items: {
+        'telegram-botfather-search': {
+          alt: 'Kết quả tìm BotFather trong Telegram, tài khoản chính chủ có dấu tick xanh được khoanh lại',
+          caption: 'Tìm @BotFather và chọn đúng tài khoản có dấu tick xanh. Các tài khoản cùng tên khác là giả mạo.'
+        },
+        'telegram-botfather-token': {
+          alt: 'Tin nhắn của BotFather sau khi tạo bot, dòng mã dưới “HTTP API” được khoanh lại',
+          caption:
+            'Gửi /newbot, đặt tên, rồi đặt username kết thúc bằng “bot”. Sao chép cả dòng mã dưới “HTTP API” (trong ảnh đã che).'
+        },
+        'telegram-userinfobot-id': {
+          alt: 'Tin nhắn của userinfobot với dòng Id được khoanh lại',
+          caption: 'Mở @userinfobot và bấm Start. Số ở dòng Id là ID của bạn (ảnh dùng số mẫu).'
+        },
+        'discord-new-application': {
+          alt: 'Hộp thoại Tạo một ứng dụng mới trong Discord Developer Portal với ô Tên, ô đồng ý và nút Tạo được đánh số',
+          caption:
+            'Developer Portal → Ứng dụng mới: đặt tên, tick ô đồng ý rồi bấm Tạo. Discord có thể hỏi bạn có phải người thật không.'
+        },
+        'discord-reset-token': {
+          alt: 'Mục Token trên trang Bot với nút Đặt lại Token được khoanh lại',
+          caption: 'Mục Bot → Đặt lại Token. Token chỉ hiện một lần — sao chép ngay rồi dán vào Workmate.'
+        },
+        'discord-reset-token-confirm': {
+          alt: 'Hộp thoại xác nhận đặt lại token với nút đỏ được khoanh lại',
+          caption: 'Bấm nút đỏ để xác nhận. Discord sẽ hỏi lại mật khẩu tài khoản của bạn.'
+        },
+        'discord-message-content-intent': {
+          alt: 'Công tắc Intent Nội Dung Tin Nhắn đã bật và nút Lưu thay đổi được đánh số',
+          caption:
+            'Cùng trang Bot: bật Intent Nội Dung Tin Nhắn rồi bấm Lưu thay đổi. Thiếu bước này bot không đọc được tin nhắn.'
+        },
+        'telegram-pairing-code': {
+          alt: 'Tin nhắn của bot với mã ghép nối được khoanh lại',
+          caption: 'Lần đầu nhắn, bot gửi một mã ghép nối. Đây là bình thường: bot chờ bạn cho phép trong Workmate.'
+        },
+        'workmate-allow-request': {
+          alt: 'Yêu cầu nhắn tin trong Workmate với nút Cho phép được khoanh lại',
+          caption:
+            'Trở lại Workmate, kiểm tra đúng tên của bạn rồi bấm Cho phép. Sau đó nhắn lại cho bot (ảnh dùng tên mẫu).'
+        },
+        'discord-bot-permissions': {
+          alt: 'Bảng Quyền hạn Bot với các quyền cần chọn được khoanh lại',
+          caption:
+            'OAuth2 → Công cụ tạo URL: tick bot và applications.commands, rồi chọn Xem Các Kênh, Gửi Tin Nhắn, Nhúng Liên Kết, Đính Kèm Tập Tin, Xem Lịch Sử Tin Nhắn.'
+        },
+        'discord-invite-url': {
+          alt: 'Ô URL được tạo ở cuối trang OAuth2 được khoanh lại',
+          caption: 'Sao chép URL được tạo, mở trong trình duyệt và chọn máy chủ bạn quản lý để mời bot vào.'
+        },
+        'discord-developer-mode': {
+          alt: 'Mục Nhà phát triển trong cài đặt Discord với công tắc Chế Độ Nhà Phát Triển được khoanh lại',
+          caption:
+            'Discord → Cài đặt người dùng → Nhà phát triển → bật Chế Độ Nhà Phát Triển. Sau đó nhấp phải vào tên bạn → Sao chép ID người dùng.'
+        }
+      }
+    },
+    whatsapp: {
+      step1Title: 'Liên kết điện thoại',
+      step2Title: 'Ai được nhắn cho AgentX',
+      step2Body:
+        'Không cần dán mã. Mặc định, người lạ nhắn tới sẽ nhận một mã ghép nối và chỉ trò chuyện được sau khi bạn bấm “Cho phép” ở đây. Muốn cho sẵn vài số, mở “Nên có”.',
+      step2BodySelf:
+        'Bạn đang dùng chế độ nhắn cho chính mình: chỉ bạn trò chuyện được với AgentX, Workmate đã tự giới hạn theo số của bạn. Không cần làm gì thêm.',
+      modeLabel: 'Bạn sẽ nhắn cho AgentX bằng cách nào?',
+      modeSelf: 'Bằng chính số WhatsApp của tôi',
+      modeSelfHint:
+        'Bạn nhắn vào cuộc trò chuyện với chính mình trong WhatsApp, AgentX trả lời ở đó. Bạn bè nhắn cho bạn vẫn như bình thường.',
+      modeBot: 'Bằng một số riêng cho AgentX',
+      modeBotHint:
+        'Dùng một số phụ (ví dụ WhatsApp Business trên máy khác). Ai nhắn vào số đó sẽ trò chuyện với AgentX sau khi bạn cho phép.',
+      showQr: 'Hiện mã QR',
+      retry: 'Tạo mã mới',
+      preparing: 'Đang chuẩn bị mã QR…',
+      preparingHint: 'Lần đầu có thể mất khoảng một phút vì AgentX tải thành phần WhatsApp.',
+      scanTitle: 'Quét mã bằng WhatsApp trên điện thoại',
+      scanSteps: [
+        'Mở WhatsApp trên điện thoại sẽ dùng.',
+        'iPhone: chạm Cài đặt (Settings). Android: chạm ⋮ ở góc trên bên phải.',
+        'Chạm Thiết bị đã liên kết (Linked devices) → Liên kết thiết bị (Link a device).',
+        'Hướng camera vào mã bên cạnh. Quét trong WhatsApp, không dùng ứng dụng Camera.'
+      ],
+      qrRefresh: 'Mã tự đổi sau vài giây — cứ để màn hình này mở cho tới khi quét xong.',
+      qrAlt: 'Mã QR để liên kết WhatsApp với AgentX',
+      saving: 'Đã quét. Đang lưu và bật WhatsApp…',
+      linkedTo: who => `Đã liên kết với ${who}`,
+      linkedUnknown: 'Đã liên kết một tài khoản WhatsApp',
+      trySelf: 'Để thử: mở WhatsApp, tìm cuộc trò chuyện với chính bạn (tên bạn kèm chữ “Bạn”) và gửi một lời chào.',
+      tryBot:
+        'Để thử: từ một số WhatsApp khác, gửi lời chào tới số này. Lần đầu, bấm “Cho phép” khi yêu cầu hiện ở trang này.',
+      relink: 'Liên kết số khác',
+      relinkTitle: 'Liên kết một số WhatsApp khác?',
+      relinkBody: 'AgentX sẽ ngừng dùng số đang liên kết và hiện mã QR mới. Quét mã bằng điện thoại bạn muốn dùng.',
+      relinkConnected: 'Tắt kết nối ở bước 3 và khởi động lại AgentX trước khi liên kết số khác.',
+      linkedToast: 'Đã liên kết WhatsApp',
+      linkedToastBody: 'AgentX đang khởi động lại để bắt đầu nhận tin.',
+      linkedToastRestart: 'Bấm “Khởi động lại AgentX” để bắt đầu nhận tin.',
+      linkFailed: 'Chưa lưu được thiết lập WhatsApp',
+      errors: {
+        notPaired: 'WhatsApp đang bật nhưng chưa liên kết điện thoại. Hiện mã QR ở bước 1 và quét bằng điện thoại.',
+        bridgeExited:
+          'Kết nối WhatsApp bị ngắt. Nếu bạn đã gỡ thiết bị trên điện thoại, bấm “Liên kết số khác” ở bước 1 để quét lại; nếu không, bấm “Khởi động lại AgentX”.',
+        expired: 'Mã QR đã hết hạn. Tạo mã mới rồi quét lại.',
+        noNode: 'Máy này thiếu Node.js — thành phần WhatsApp cần để chạy. Hãy cài lại AgentX Workmate rồi thử lại.',
+        install: 'Chưa tải được thành phần WhatsApp. Kiểm tra kết nối Internet rồi thử lại.',
+        loggedOut: 'WhatsApp đã từ chối liên kết. Tạo mã mới và quét lại.',
+        generic: 'Chưa liên kết được WhatsApp. Thử tạo mã mới.'
+      }
     }
   },
 
@@ -2596,9 +2827,9 @@ export const vi: Translations = {
   },
 
   cron: {
-    close: 'Đóng cron',
-    title: 'Tác vụ hẹn giờ',
-    count: count => `${count} tác vụ`,
+    close: 'Đóng lịch tự động',
+    title: 'Lịch tự động',
+    count: count => `${count} lịch`,
     modelImpact: {
       title: 'Có tác vụ hẹn giờ cần xem lại',
       message: count => `${count} tác vụ hẹn giờ sẽ bị bỏ qua cho tới khi bạn xem lại thiết lập model của chúng.`,
@@ -2606,8 +2837,8 @@ export const vi: Translations = {
       review: 'Xem lại các tác vụ hẹn giờ',
       saveFailed: 'AgentX chưa lưu được thay đổi model đó.'
     },
-    search: 'Tìm tác vụ cron...',
-    loading: 'Đang tải tác vụ cron...',
+    search: 'Tìm lịch...',
+    loading: 'Đang tải lịch tự động...',
     states: {
       enabled: 'đang bật',
       scheduled: 'đã hẹn giờ',
@@ -2626,21 +2857,12 @@ export const vi: Translations = {
     },
     scheduleLabels: {
       daily: 'Hằng ngày',
-      weekdays: 'Ngày trong tuần',
+      weekdays: 'Thứ Hai đến Thứ Sáu',
       weekly: 'Hằng tuần',
       monthly: 'Hằng tháng',
       hourly: 'Hằng giờ',
       'every-15-minutes': 'Mỗi 15 phút',
       custom: 'Tuỳ chỉnh'
-    },
-    scheduleHints: {
-      daily: 'Mỗi ngày lúc 9:00 sáng',
-      weekdays: 'Thứ Hai đến thứ Sáu lúc 9:00 sáng',
-      weekly: 'Mỗi thứ Hai lúc 9:00 sáng',
-      monthly: 'Ngày đầu mỗi tháng lúc 9:00 sáng',
-      hourly: 'Vào đầu mỗi giờ',
-      'every-15-minutes': 'Mỗi 15 phút',
-      custom: 'Cú pháp cron hoặc mô tả bằng lời'
     },
     days: {
       '0': 'Chủ nhật',
@@ -2654,16 +2876,31 @@ export const vi: Translations = {
     },
     dayFallback: value => `ngày ${value}`,
     everyDayAt: time => `Mỗi ngày lúc ${time}`,
-    weekdaysAt: time => `Các ngày trong tuần lúc ${time}`,
+    weekdaysAt: time => `Thứ Hai đến Thứ Sáu lúc ${time}`,
     everyDayOfWeekAt: (day, time) => `Mỗi ${day} lúc ${time}`,
     monthlyOnDayAt: (dayOfMonth, time) => `Hằng tháng vào ngày ${dayOfMonth} lúc ${time}`,
     topOfHour: 'Vào đầu mỗi giờ',
-    everyHourAt: minute => `Mỗi giờ vào phút :${minute}`,
-    newCron: 'Cron mới',
-    emptyDescNew:
-      'Hẹn giờ để một prompt tự chạy theo biểu thức cron. AgentX sẽ chạy nó và gửi kết quả tới đích bạn chọn.',
+    everyHourAt: minute => `Mỗi giờ, vào phút ${minute}`,
+    everyMinutes: count => `Mỗi ${count} phút`,
+    everyHours: count => (count === 1 ? 'Mỗi giờ' : `Mỗi ${count} giờ`),
+    everyDays: count => (count === 1 ? 'Mỗi ngày' : `Mỗi ${count} ngày`),
+    timeLabel: 'Giờ chạy',
+    weekdayLabel: 'Vào thứ',
+    monthdayLabel: 'Vào ngày',
+    monthdayOption: day => `Ngày ${day}`,
+    monthdayShortMonthHint: 'Tháng nào không có ngày này thì lịch bỏ qua tháng đó.',
+    minuteLabel: 'Vào phút',
+    minuteOption: minute => `Phút ${minute}`,
+    runDoneTitle: name => `Lịch “${name}” vừa chạy xong`,
+    runDoneBody: 'Kết quả đã sẵn sàng.',
+    runFailedTitle: name => `Lịch “${name}” chạy chưa xong`,
+    runFailedBody: 'Mở lịch để xem lý do.',
+    runUntitled: 'Lịch tự động',
+    viewRun: 'Xem',
+    newCron: 'Lịch mới',
+    emptyDescNew: 'Hẹn giờ để AgentX tự làm một việc theo lịch, rồi gửi kết quả tới nơi bạn chọn.',
     emptyDescSearch: 'Hãy thử từ khoá rộng hơn.',
-    emptyTitleNew: 'Chưa có tác vụ hẹn giờ nào',
+    emptyTitleNew: 'Chưa có lịch tự động nào',
     emptyTitleSearch: 'Không có kết quả nào',
     last: 'Gần nhất:',
     next: 'Kế tiếp:',
@@ -2672,51 +2909,51 @@ export const vi: Translations = {
     showRuns: 'Xem các lần chạy',
     hideRuns: 'Ẩn các lần chạy',
     runHistory: 'Lịch sử chạy',
-    actionsTitle: 'Thao tác với tác vụ cron',
-    resume: 'Tiếp tục cron',
-    pause: 'Tạm dừng cron',
+    actionsTitle: 'Thao tác với lịch này',
+    resume: 'Tiếp tục lịch',
+    pause: 'Tạm dừng lịch',
     resumeTitle: 'Tiếp tục',
     pauseTitle: 'Tạm dừng',
     triggerNow: 'Chạy ngay',
-    edit: 'Sửa cron',
-    deleteTitle: 'Xoá tác vụ cron?',
+    edit: 'Sửa lịch',
+    deleteTitle: 'Xoá lịch này?',
     deleteDescPrefix: 'Thao tác này sẽ gỡ vĩnh viễn ',
     deleteDescSuffix: '. Nó sẽ ngừng chạy ngay lập tức.',
     deleting: 'Đang xoá...',
-    resumed: 'Đã tiếp tục cron',
-    paused: 'Đã tạm dừng cron',
-    triggered: 'Đã kích hoạt cron',
-    deleted: 'Đã xoá cron',
-    created: 'Đã tạo cron',
-    updated: 'Đã cập nhật cron',
-    failedLoad: 'Tải các tác vụ cron thất bại',
-    failedUpdate: 'Cập nhật tác vụ cron thất bại',
-    failedTrigger: 'Kích hoạt tác vụ cron thất bại',
-    failedDelete: 'Xoá tác vụ cron thất bại',
-    failedSave: 'Lưu tác vụ cron thất bại',
-    editTitle: 'Sửa tác vụ cron',
-    createTitle: 'Tác vụ cron mới',
-    editDesc: 'Cập nhật lịch chạy, prompt hoặc nơi nhận kết quả. Thay đổi có hiệu lực từ lần chạy kế tiếp.',
-    createDesc: 'Hẹn giờ để một prompt tự chạy. Dùng cú pháp cron hoặc viết tự nhiên như "every 15 minutes".',
+    resumed: 'Đã tiếp tục lịch',
+    paused: 'Đã tạm dừng lịch',
+    triggered: 'Đã cho lịch chạy ngay',
+    deleted: 'Đã xoá lịch',
+    created: 'Đã tạo lịch',
+    updated: 'Đã cập nhật lịch',
+    failedLoad: 'Chưa tải được lịch tự động',
+    failedUpdate: 'Chưa cập nhật được lịch',
+    failedTrigger: 'Chưa cho lịch chạy được',
+    failedDelete: 'Chưa xoá được lịch',
+    failedSave: 'Chưa lưu được lịch',
+    editTitle: 'Sửa lịch tự động',
+    createTitle: 'Lịch tự động mới',
+    editDesc: 'Đổi giờ chạy, việc cần làm hoặc nơi nhận kết quả. Thay đổi có hiệu lực từ lần chạy kế tiếp.',
+    createDesc: 'Chọn việc AgentX sẽ tự làm và giờ chạy. Kết quả được gửi tới nơi bạn chọn.',
     nameLabel: 'Tên',
     namePlaceholder: 'Bản tin buổi sáng',
-    promptLabel: 'Prompt',
-    promptPlaceholder: 'Tóm tắt các thread Slack chưa đọc và email cho tôi 5 mục quan trọng nhất...',
+    promptLabel: 'Việc cần làm',
+    promptPlaceholder: 'Tóm tắt email chưa đọc và nêu 5 việc quan trọng nhất...',
     frequencyLabel: 'Tần suất',
     deliverLabel: 'Gửi tới',
     deliverNeedsHomeChannel: 'hãy đặt kênh chính trước',
     modelLabel: 'Model',
-    modelDefault: 'Mặc định (model toàn cục)',
+    modelDefault: 'Theo model chung',
     customScheduleLabel: 'Lịch tuỳ chỉnh',
-    customPlaceholder: '0 9 * * * hoặc weekdays at 9am',
-    customHint: 'Biểu thức cron, hoặc mô tả như "every hour" hay "weekdays at 9am".',
+    customPlaceholder: '0 9 * * 1-5 hoặc every 2h',
+    customHint: 'Biểu thức cron (phút giờ ngày tháng thứ), hoặc khoảng lặp như "every 30m", "every 2h".',
     optional: 'Không bắt buộc',
-    promptRequired: 'Cần nhập prompt.',
-    promptScheduleRequired: 'Cần nhập cả prompt và lịch chạy.',
-    scheduleRequired: 'Cần nhập lịch chạy.',
-    scriptOnlyEditHint: 'Tác vụ chỉ chạy script (không có prompt AI). Id tác vụ:',
+    promptRequired: 'Hãy nhập việc cần làm.',
+    promptScheduleRequired: 'Hãy nhập việc cần làm và lịch chạy.',
+    scheduleRequired: 'Hãy nhập lịch chạy.',
+    scriptOnlyEditHint: 'Lịch này chỉ chạy một script, không dùng AI. Mã lịch:',
     saveChanges: 'Lưu thay đổi',
-    createAction: 'Tạo cron',
+    createAction: 'Tạo lịch',
     tabs: {
       jobs: 'Tác vụ',
       blueprints: 'Mẫu dựng sẵn'
@@ -2733,7 +2970,7 @@ export const vi: Translations = {
       loading: 'Đang tải các mẫu dựng sẵn...',
       failedLoad: 'Tải các mẫu dựng sẵn thất bại',
       emptyTitle: 'Không có mẫu dựng sẵn nào',
-      emptyDesc: 'Backend này không có mẫu tự động hoá nào.'
+      emptyDesc: 'Hiện chưa có mẫu dựng sẵn nào.'
     }
   },
 
@@ -2819,13 +3056,15 @@ export const vi: Translations = {
       'new-session': 'Trò chuyện mới',
       skills: 'Tiện ích',
       messaging: 'Kênh tin nhắn',
-      artifacts: 'Artifact'
+      artifacts: 'Artifact',
+      cron: 'Lịch tự động'
     },
     account: {
       menuLabel: 'Menu tài khoản',
       accountSettings: 'Tài khoản',
       settings: 'Cài đặt',
-      shortcuts: 'Phím tắt'
+      shortcuts: 'Phím tắt',
+      signOut: 'Đăng xuất'
     },
     searchAria: 'Tìm trong các cuộc trò chuyện',
     searchPlaceholder: 'Tìm cuộc trò chuyện…',
@@ -2836,12 +3075,6 @@ export const vi: Translations = {
     sessions: 'Gần đây',
     connectedChannels: 'Kênh đã kết nối',
     cronJobs: 'Tác vụ cron',
-    groupAriaGrouped: 'Hiện các cuộc trò chuyện thành một danh sách duy nhất',
-    groupAriaUngrouped: 'Nhóm các cuộc trò chuyện theo dự án',
-    showProjects: 'Hiện dự án',
-    showSessions: 'Hiện cuộc trò chuyện',
-    groupTitleGrouped: 'Bỏ nhóm các cuộc trò chuyện',
-    groupTitleUngrouped: 'Nhóm theo dự án',
     allPinned: 'Mọi mục ở đây đều đã ghim. Bỏ ghim một cuộc trò chuyện để nó hiện trong phần gần đây.',
     shiftClickHint: 'Ghim những cuộc trò chuyện bạn hay quay lại.',
     noWorkspace: 'Không thuộc dự án nào',
@@ -2849,32 +3082,12 @@ export const vi: Translations = {
     noSessions: 'Chưa có cuộc trò chuyện nào',
     projects: {
       sectionLabel: 'Dự án',
-      home: 'Trang chính',
-      newButton: 'Dự án mới',
-      createTitle: 'Dự án mới',
-      createDesc: 'Đặt tên cho dự án và thêm một hoặc nhiều thư mục.',
       renameTitle: 'Đổi tên dự án',
-      addFolderTitle: 'Thêm thư mục',
-      namePlaceholder: 'ví dụ Skunkworks',
-      nameFromFolder: 'Lấy theo tên thư mục, sửa nếu bạn muốn.',
-      nameRequiredMulti: 'Có nhiều thư mục, hãy đặt tên cho dự án.',
-      foldersLabel: 'Thư mục',
-      ideaLabel: 'Ý tưởng',
-      ideaPlaceholder: 'Dự án này về cái gì? (được lưu vào IDEA.md)',
-      ideaGenerate: 'Tạo ý tưởng',
-      ideaGenerating: 'Đang tạo…',
-      ideaShuffle: 'Đổi mẫu khác',
-      noFolders: 'Chưa thêm thư mục nào.',
-      addFolder: 'Thêm thư mục',
-      primaryBadge: 'chính',
-      removeFolder: 'Gỡ',
-      create: 'Tạo',
       menu: 'Thao tác',
       menuRename: 'Đổi tên',
       menuAppearance: 'Giao diện',
       noColor: 'Không màu',
       menuAddFolder: 'Thêm thư mục',
-      menuSetActive: 'Đặt làm dự án hiện tại',
       menuDelete: 'Xoá',
       moveToProject: 'Chuyển sang dự án',
       movedTo: name => `Đã chuyển sang ${name}`,
@@ -2884,7 +3097,6 @@ export const vi: Translations = {
       reveal: 'Hiện trong thư mục',
       copyPath: 'Sao chép đường dẫn',
       removeFromSidebar: 'Ẩn khỏi thanh bên',
-      createFailed: 'Không tạo được dự án',
       staleBackend:
         'Hãy cập nhật backend AgentX để tạo được dự án — backend của bạn cũ hơn ứng dụng desktop này (Cài đặt → Cập nhật → Backend).',
       deleteConfirm: 'Thao tác này gỡ dự án đã lưu khỏi AgentX. Tệp, thư mục mã nguồn và worktree vẫn giữ nguyên.',
@@ -2913,10 +3125,17 @@ export const vi: Translations = {
       removeWorktreeDirty:
         'Worktree này còn thay đổi chưa commit. Gỡ cưỡng bức (bỏ luôn các thay đổi đó), hoặc chỉ ẩn khỏi thanh bên và giữ lại trên đĩa.',
       forceRemove: 'Gỡ cưỡng bức',
-      enter: label => `Mở ${label}`,
       reorder: label => `Sắp xếp lại ${label}`,
       toggle: (label, open) => `${open ? 'Hiện' : 'Ẩn'} các cuộc trò chuyện của ${label}`,
-      back: 'Tất cả dự án'
+      back: 'Tất cả dự án',
+      addButton: 'Thêm dự án',
+      emptyHint: 'Thêm thư mục làm việc',
+      showAll: count => `Xem tất cả ${count} cuộc trò chuyện`,
+      menuNewChat: 'Trò chuyện mới',
+      menuShowAll: 'Xem tất cả cuộc trò chuyện',
+      renameFailed: 'Không đổi tên được dự án',
+      addFolderFailed: 'Không thêm được thư mục',
+      folderAdded: (folder, project) => `Đã thêm ${folder} vào ${project}`
     },
     newSessionIn: label => `Trò chuyện mới trong ${label}`,
     showMoreIn: (count, label) => `Xem thêm ${count} mục trong ${label}`,
@@ -2935,7 +3154,8 @@ export const vi: Translations = {
       hideTabBar: 'Ẩn thanh tab',
       openInNewTab: 'Mở trong tab mới',
       deleteConfirmTitle: title => `Xoá “${title}”?`,
-      deleteConfirmBody: 'Cuộc trò chuyện và mọi tin nhắn trong đó sẽ bị xoá vĩnh viễn, không thể hoàn tác. Nếu có thể cần lại, hãy lưu trữ thay vì xoá.',
+      deleteConfirmBody:
+        'Cuộc trò chuyện và mọi tin nhắn trong đó sẽ bị xoá vĩnh viễn, không thể hoàn tác. Nếu có thể cần lại, hãy lưu trữ thay vì xoá.',
       deleteConfirmAction: 'Xoá cuộc trò chuyện',
       openInSplit: 'Mở ở khung chia đôi',
       copyIdFailed: 'Không sao chép được ID cuộc trò chuyện',
@@ -2953,6 +3173,7 @@ export const vi: Translations = {
       renameTitle: 'Đổi tên cuộc trò chuyện',
       renameDesc: 'Để trống để xoá tên.',
       untitledPlaceholder: 'Cuộc trò chuyện chưa đặt tên',
+      mainConversation: 'Cuộc trò chuyện chính',
       untitledChat: id => `Trò chuyện ${id}`,
       ageNow: 'vừa xong',
       ageDay: 'ngày',
@@ -2969,17 +3190,35 @@ export const vi: Translations = {
       thisWeek: 'Tuần này',
       lastWeek: 'Tuần trước',
       thisMonth: 'Tháng này'
-    }
+    },
+    chats: 'Trò chuyện'
   },
 
   composer: {
+    quota: {
+      stale: 'Số liệu gần nhất',
+      title: 'Hạn mức sử dụng',
+      remaining: 'Còn lại',
+      used: 'Đã dùng',
+      unlimited: 'Không giới hạn',
+      resets: 'Đặt lại lúc',
+      noReset: 'Không tự động đặt lại',
+      unknownReset: 'Chưa có thời gian đặt lại',
+      pendingReset: 'Đang chờ xác nhận đặt lại',
+      offline: 'Tạm thời chưa tải được usage. Hãy thử làm mới.',
+      unsupported: 'Máy chủ chưa cho phép xem usage. Hãy liên hệ quản trị viên.',
+      warning: 'Sắp hết hạn mức',
+      exhausted: 'Đã hết hạn mức',
+      view: 'Xem hạn mức',
+      loading: 'Đang tải hạn mức…'
+    },
     message: 'Tin nhắn',
     wakingProfile: profile => `Đang đánh thức ${profile}…`,
     placeholderStarting: 'Đang khởi động AgentX...',
     placeholderReconnecting: 'Đang kết nối lại AgentX…',
     placeholderReadOnly: 'Chế độ chỉ xem — không gửi được yêu cầu tới AI',
     placeholderFollowUp: 'Gửi tiếp',
-    newSessionPlaceholders: ['Bạn cần làm gì hôm nay?'],
+    newSessionPlaceholders: ['Làm việc cùng AgentX'],
     newSessionPlaceholdersRepo: ['Hỏi về mã nguồn hoặc giao việc…'],
     followUpPlaceholders: [
       'Gửi tiếp một tin',
@@ -3103,6 +3342,22 @@ export const vi: Translations = {
         description: 'Giải thích đoạn code đang chọn hoạt động thế nào và chỉ ra các tệp quan trọng.',
         text: 'Hãy giải thích phần này hoạt động thế nào và chỉ cho tôi các tệp quan trọng.'
       }
+    },
+    workspace: {
+      pickerLabel: 'Chọn thư mục làm việc',
+      none: 'Chọn thư mục',
+      chooseHint: 'Chọn một thư mục để AgentX đọc và lưu tệp ở đó',
+      chosen: path => `Làm việc trong ${path}`,
+      settled: path => `Cuộc trò chuyện này làm việc trong ${path}`,
+      menuLabel: label => `Thư mục: ${label}`,
+      search: 'Tìm dự án…',
+      noMatch: 'Không có dự án nào khớp',
+      projects: 'Dự án',
+      discovered: 'Tìm thấy trên máy',
+      chooseOther: 'Mở thư mục khác…',
+      noFolder: 'Không dùng thư mục',
+      newChatHere: 'Trò chuyện mới trong thư mục này',
+      pickFailed: 'Không mở được bộ chọn thư mục'
     }
   },
 
@@ -3289,7 +3544,8 @@ export const vi: Translations = {
     statusAvailable: version => `Đã có AgentX Workmate ${version}`,
     statusDownloading: percent => `Đang tải bản cập nhật · ${percent}%`,
     statusReady: version => `Bản ${version} đã sẵn sàng — khởi động lại để cập nhật`,
-    statusInstalling: 'Đang cài bản cập nhật…'
+    statusInstalling: 'Đang cài bản cập nhật…',
+    sidebarAvailable: version => `Cập nhật lên ${version}`
   },
 
   install: {
@@ -3731,25 +3987,46 @@ export const vi: Translations = {
     modelMenu: {
       search: 'Tìm model',
       noModels: 'Không tìm thấy model nào',
-      editModels: 'Sửa danh sách model…',
-      refreshModels: 'Làm mới danh sách model',
-      fast: 'Nhanh'
+      editModels: 'Quản lý danh sách model'
     },
     modelOptions: {
-      noOptions: 'Model này không có tuỳ chọn nào',
-      options: 'Tuỳ chọn',
-      thinking: 'Suy nghĩ',
-      fast: 'Nhanh',
-      effort: 'Mức đầu tư',
-      minimal: 'Tối thiểu',
-      low: 'Thấp',
-      medium: 'Trung bình',
-      high: 'Cao',
-      xhigh: 'Rất cao',
-      max: 'Tối đa',
+      thinkingLevel: 'Suy nghĩ',
+      none: 'Off',
+      minimal: 'Minimal',
+      low: 'Low',
+      medium: 'Medium',
+      high: 'High',
+      xhigh: 'Extra high',
+      max: 'Max',
       ultra: 'Ultra',
+      effortShort: {
+        none: 'No thinking',
+        minimal: 'Minimal',
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        xhigh: 'Extra high',
+        max: 'Max',
+        ultra: 'Ultra'
+      },
+      effortHint: {
+        none: 'Không nghĩ trước, nhanh nhất',
+        minimal: 'Nghĩ thoáng qua rồi trả lời',
+        low: 'Cho việc đơn giản',
+        medium: 'Hợp với hầu hết công việc',
+        high: 'Cho việc phức tạp, trả lời chậm hơn',
+        xhigh: 'Cho bài toán khó, tốn hơn',
+        max: 'Nghĩ hết sức, chậm và tốn nhất',
+        ultra: 'Mức cao nhất của AgentX, theo trần của model'
+      },
+      defaultMark: 'Mặc định',
+      scaleStart: 'Nhanh',
+      scaleEnd: 'Sâu',
+      fast: 'Ưu tiên tốc độ',
+      fastMode: 'Ưu tiên tốc độ',
+      fastHint: 'Trả lời nhanh hơn, giá cao hơn',
       updateFailed: 'Cập nhật tuỳ chọn model thất bại',
-      fastFailed: 'Cập nhật chế độ nhanh thất bại'
+      fastFailed: 'Không bật/tắt được ưu tiên tốc độ'
     },
     gatewayMenu: {
       gateway: 'Gateway',
@@ -3767,14 +4044,19 @@ export const vi: Translations = {
       messagingPlatforms: 'Nền tảng nhắn tin'
     },
     approvalMode: {
-      title: 'Chế độ phê duyệt',
-      ariaLabel: mode => `Chế độ phê duyệt: ${mode}`,
-      manual: 'Thủ công',
-      manualDescription: 'Hỏi trước khi thực hiện những hành động cần phê duyệt',
-      smart: 'Thông minh',
-      smartDescription: 'Tự đánh giá hành động và chỉ hỏi khi cần',
-      off: 'Tắt',
-      offDescription: 'Chạy mà không hỏi phê duyệt'
+      title: 'Phê duyệt tác vụ',
+      ariaLabel: mode => `Phê duyệt tác vụ: ${mode}`,
+      manual: 'Hỏi mỗi lần',
+      manualDescription: 'Hỏi bạn trước mọi việc cần phê duyệt',
+      smart: 'Tự động khi an toàn',
+      smartDescription: 'Tự chạy việc an toàn, chỉ hỏi khi có rủi ro',
+      off: 'Tự động tất cả',
+      offDescription: 'Không hỏi lại. Lệnh trong danh sách chặn vẫn bị chặn.',
+      changeFailed: 'Chưa đổi được chế độ phê duyệt',
+      confirmOffTitle: 'Cho AgentX tự chạy mọi việc mà không hỏi?',
+      confirmOffBody:
+        'AgentX sẽ không hỏi lại trước khi chạy lệnh, sửa hoặc xoá tệp. Chỉ nên bật cho công việc bạn tin tưởng, khi bạn không ngồi trước máy. Các lệnh trong danh sách chặn vẫn bị chặn.',
+      confirmOffAction: 'Bật tự động tất cả'
     },
     statusbar: {
       restart: 'khởi động lại',
@@ -4045,6 +4327,8 @@ export const vi: Translations = {
         delegate: { past: 'Đã giao', present: 'Đang giao', noun: _count => 'việc' },
         edit: { past: 'Đã sửa', present: 'Đang sửa', noun: _count => 'tệp' },
         explore: { past: 'Đã xem', present: 'Đang xem', noun: _count => 'tệp' },
+        search: { past: 'Đã tìm', present: 'Đang tìm', noun: _count => 'lần' },
+        browse: { past: 'Đã mở', present: 'Đang mở', noun: _count => 'trang' },
         other: { past: 'Đã dùng', present: 'Đang dùng', noun: _count => 'công cụ' },
         run: { past: 'Đã chạy', present: 'Đang chạy', noun: _count => 'lệnh' }
       },
@@ -4055,39 +4339,7 @@ export const vi: Translations = {
       greetingMorning: name => (name ? `Chào buổi sáng, ${name}` : 'Chào buổi sáng'),
       greetingAfternoon: name => (name ? `Chào buổi chiều, ${name}` : 'Chào buổi chiều'),
       greetingEvening: name => (name ? `Chào buổi tối, ${name}` : 'Chào buổi tối'),
-      bodyVariants: [
-        'Hỏi một câu, dán một lỗi hoặc chỉ một thư mục. AgentX đọc tài liệu lẫn code, chạy công cụ và cùng bạn đưa việc về đích.',
-        'Mô tả việc cần làm theo cách của bạn: tóm tắt tài liệu, soạn email, sửa một đoạn code. AgentX chọn đúng công cụ và hỏi lại trước những bước rủi ro.',
-        'Thả vào một tệp, một bảng số liệu hay một ý tưởng còn thô. AgentX tìm hiểu, gợi ý bước tiếp theo và giữ mọi thứ có thể hoàn tác.',
-        'Tìm trong thư mục mã nguồn, sửa tệp, chạy kiểm thử. Bạn nêu mục tiêu, phần việc máy móc để AgentX lo.',
-        'Từ báo cáo tuần tới kế hoạch dự án: gõ một việc hay một câu hỏi. AgentX nhớ cuộc trò chuyện, dẫn nguồn rõ ràng và dừng lại hỏi khi chưa chắc.'
-      ],
-      quickStart: 'Bắt đầu nhanh',
-      resume: title => `Tiếp tục “${title}”`,
-      starterExplainLabel: 'Giải thích thư mục mã nguồn này',
-      starterExplainPrompt: 'Giải thích thư mục mã nguồn này làm gì và mã được tổ chức ra sao.',
-      starterPlanLabel: 'Lên kế hoạch cho một thay đổi',
-      starterPlanPrompt:
-        'Tôi muốn thực hiện một thay đổi. Hãy hỏi tôi những gì bạn cần biết, rồi đề xuất kế hoạch trước khi viết code.',
-      starterExplainFolderLabel: 'Giải thích thư mục này',
-      starterExplainFolderPrompt: 'Giải thích thư mục làm việc hiện tại chứa gì và được tổ chức ra sao.',
-      starterSummarizeLabel: 'Tóm tắt một tài liệu',
-      starterSummarizePrompt:
-        'Tôi muốn tóm tắt một tài liệu. Hãy hỏi tôi tệp hoặc nội dung, rồi nêu các ý chính và những việc tôi cần làm.',
-      starterDraftLabel: 'Soạn một email',
-      starterDraftPrompt:
-        'Giúp tôi soạn một email. Hãy hỏi tôi người nhận, nội dung cần nói và giọng điệu, rồi viết bản tôi có thể gửi ngay.',
-      starterPlanWeekLabel: 'Lập kế hoạch tuần',
-      starterPlanWeekPrompt:
-        'Giúp tôi lập kế hoạch cho tuần này. Hãy hỏi tôi những việc đang có và thời hạn, rồi xếp thành lịch theo ngày, việc quan trọng nhất lên trước.',
-      starterExplainDesc: 'Mã ở đây làm gì và sắp xếp ra sao',
-      starterExplainFolderDesc: 'Trong thư mục này có gì',
-      starterPlanDesc: 'Hỏi rõ trước, rồi mới đề xuất cách làm',
-      starterPlanWeekDesc: 'Xếp việc trong tuần theo từng ngày',
-      starterSummarizeDesc: 'Rút ý chính từ một tệp hay đoạn văn',
-      starterDraftDesc: 'Từ vài ý thành bản gửi được ngay',
-      resumeDesc: 'Mở lại cuộc trò chuyện gần nhất của bạn',
-      projectDesc: 'Bắt đầu trong thư mục của dự án này'
+      headlines: ['Hôm nay bạn muốn làm gì?', 'Bạn muốn bắt đầu từ đâu?', 'Mình giúp gì được cho bạn?']
     },
     thread: {
       loadingSession: 'Đang tải cuộc trò chuyện',
@@ -4110,6 +4362,7 @@ export const vi: Translations = {
       dismissError: 'Bỏ qua lỗi',
       filesChanged: count => `${count} tệp thay đổi`,
       reviewChanges: 'Xem lại',
+      stopped: 'Đã dừng',
       createdFiles: count => `${count} tệp đã tạo trong lượt này`,
       readAloudFailed: 'Đọc to thất bại',
       preparingAudio: 'Đang chuẩn bị âm thanh...',
@@ -4124,6 +4377,9 @@ export const vi: Translations = {
       restorePrevious: 'Khôi phục checkpoint trước đó',
       restoreCheckpoint: 'Khôi phục checkpoint',
       restoreFromHere: 'Khôi phục checkpoint — chạy lại từ prompt này',
+      compactionLabel: 'Đã tóm tắt ngữ cảnh',
+      compactionNote:
+        'Trợ lý làm tiếp dựa trên bản tóm tắt này để tiết kiệm ngữ cảnh. Các tin nhắn phía trên vẫn được lưu đầy đủ, nhưng không sửa hay khôi phục được nữa.',
       restoreTitle: 'Khôi phục về checkpoint này?',
       restoreBody: 'Mọi thứ sau prompt này sẽ bị gỡ khỏi cuộc trò chuyện, và prompt đó sẽ chạy lại từ đây.',
       restoreConfirm: 'Khôi phục & chạy lại',
@@ -4479,10 +4735,6 @@ export const vi: Translations = {
     undo: 'Hoàn tác',
     unarchiveFailed: 'Không khôi phục được cuộc trò chuyện. Bạn có thể mở lại ở Cài đặt → Trò chuyện đã lưu trữ.',
     archiveFailed: 'Lưu trữ thất bại',
-    cwdChangeFailed: 'Đổi thư mục làm việc thất bại',
-    cwdStagedTitle: 'Đã ghi nhận thư mục làm việc',
-    cwdStagedMessage:
-      'Hãy khởi động lại backend desktop để áp dụng thư mục làm việc mới cho cuộc trò chuyện đang mở này.',
     modelSwitchFailed: 'Đổi model thất bại',
     sessionExported: 'Đã xuất cuộc trò chuyện',
     sessionExportFailed: 'Không xuất được cuộc trò chuyện',
@@ -4510,6 +4762,95 @@ export const vi: Translations = {
       failed: error => `Chuyển tiếp thất bại: ${error}`,
       timedOut: 'Hết thời gian chờ dịch vụ nền AgentX. Lệnh `agentx gateway` có đang chạy không?'
     }
+  },
+
+  turnError: {
+    kinds: {
+      offline: {
+        title: 'Bạn đang ngoại tuyến',
+        hint: 'Kiểm tra Wi-Fi hoặc kết nối mạng, rồi thử lại.'
+      },
+      network_error: {
+        title: 'Không kết nối được tới AgentX',
+        hint: 'Mạng có thể đang chập chờn, hoặc máy chủ AgentX tạm thời không truy cập được. Thử lại sau ít phút; nếu vẫn lỗi, hãy báo quản trị viên.'
+      },
+      timeout: {
+        title: 'Model phản hồi quá lâu',
+        hint: 'Yêu cầu đã chờ quá thời gian cho phép. Thử lại; nếu yêu cầu dài hoặc kèm nhiều tệp, hãy chia nhỏ.'
+      },
+      rate_limited: {
+        title: 'Đang có quá nhiều yêu cầu',
+        hint: 'Yêu cầu đang được gửi nhanh hơn mức cho phép. Đợi một lát rồi thử lại.'
+      },
+      quota_exceeded: {
+        title: 'Bạn đã dùng hết hạn mức AI',
+        hint: 'Hạn mức chi tiêu của tài khoản đã hết cho kỳ này. Liên hệ quản trị viên để được cấp thêm, hoặc chờ sang kỳ mới.'
+      },
+      auth_failed: {
+        title: 'Quyền dùng AI của bạn không còn hợp lệ',
+        hint: 'Khoá AI của tài khoản đã hết hạn hoặc bị thu hồi. Đăng xuất rồi đăng nhập lại; nếu vẫn lỗi, liên hệ quản trị viên.'
+      },
+      model_unavailable: {
+        title: 'Model này hiện không dùng được',
+        hint: 'Model có thể đã bị gỡ hoặc đang tạm ngừng. Chọn model khác rồi thử lại.'
+      },
+      model_not_allowed: {
+        title: 'Tài khoản của bạn chưa được dùng model này',
+        hint: 'Chọn model khác, hoặc nhờ quản trị viên cấp quyền.'
+      },
+      context_too_long: {
+        title: 'Cuộc trò chuyện đã quá dài',
+        hint: 'Nội dung vượt quá lượng model đọc được trong một lần. Bắt đầu cuộc trò chuyện mới, rút gọn tin nhắn hoặc bớt tệp đính kèm.'
+      },
+      content_filtered: {
+        title: 'Yêu cầu bị bộ lọc nội dung chặn',
+        hint: 'Nhà cung cấp model từ chối xử lý nội dung này. Hãy diễn đạt lại rồi gửi lại.'
+      },
+      bad_request: {
+        title: 'Model không xử lý được yêu cầu này',
+        hint: 'Có thể do tệp đính kèm hoặc tuỳ chọn mà model không hỗ trợ. Thử lại với nội dung khác, hoặc chọn model khác.'
+      },
+      overloaded: {
+        title: 'Model đang quá tải',
+        hint: 'Nhiều người đang dùng cùng lúc. Lỗi ở phía nhà cung cấp, không phải do bạn — thử lại sau ít phút.'
+      },
+      upstream_error: {
+        title: 'Dịch vụ AI đang gặp sự cố',
+        hint: 'Lỗi ở phía nhà cung cấp model, không phải do bạn. Thử lại sau ít phút; nếu vẫn lỗi, hãy báo quản trị viên.'
+      },
+      stream_interrupted: {
+        title: 'Câu trả lời bị ngắt giữa chừng',
+        hint: 'Kết nối bị gián đoạn khi model đang trả lời. Thử lại để tạo câu trả lời mới.'
+      },
+      no_response: {
+        title: 'Model không trả lời',
+        hint: 'Model kết thúc mà không đưa ra nội dung nào. Thử lại, hoặc chọn model khác.'
+      },
+      max_steps: {
+        title: 'Tác vụ cần nhiều bước hơn giới hạn',
+        hint: 'Đã dừng sau số bước tối đa cho một lượt. Gửi "tiếp tục" để làm tiếp, hoặc chia nhỏ yêu cầu.'
+      },
+      local_error: {
+        title: 'Workmate gặp lỗi trên máy',
+        hint: 'Thử lại. Nếu lỗi lặp lại, khởi động lại Workmate hoặc gửi chi tiết bên dưới cho quản trị viên.'
+      },
+      operation_failed: {
+        title: 'Đã có lỗi xảy ra',
+        hint: 'Thử lại. Nếu lỗi lặp lại, gửi chi tiết bên dưới cho quản trị viên.'
+      }
+    },
+    licenseTitle: 'Giấy phép AgentX không cho phép dùng AI lúc này',
+    waitCauses: {
+      overloaded: 'Nhiều người đang dùng cùng lúc. Lỗi ở phía nhà cung cấp, không phải do bạn.',
+      rate_limited: 'Yêu cầu đang được gửi nhanh hơn mức cho phép.'
+    },
+    waitSeconds: seconds => `Thử lại sau khoảng ${seconds} giây.`,
+    waitMinutes: minutes => `Thử lại sau khoảng ${minutes} phút.`,
+    retry: 'Thử lại',
+    details: 'Chi tiết lỗi',
+    code: code => `Mã lỗi: ${code}`,
+    copyDetails: 'Sao chép chi tiết lỗi',
+    copyDetailsFailed: 'Không sao chép được chi tiết lỗi'
   },
 
   errors: {

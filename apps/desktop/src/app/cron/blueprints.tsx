@@ -44,6 +44,13 @@ export function blueprintSlotHelp(field: AutomationBlueprintField): string | und
   return field.help && field.type !== 'text' && !isDeliverField(field) ? field.help : undefined
 }
 
+// What to show for an option. The value ("sunday", "vegan") is the identifier
+// the backend validates and builds the schedule from; a translated catalog
+// sends the words for it in `optionLabels`.
+export function blueprintOptionLabel(field: AutomationBlueprintField, option: string): string {
+  return field.optionLabels?.[option] ?? option
+}
+
 // Renders one blueprint slot's control (enum/weekdays → Select, time → time
 // input, else text). The deliver slot is handled separately by the dialog's
 // shared DeliverSelect, so it's not rendered here.
@@ -67,7 +74,7 @@ export function BlueprintSlotControl({
         <SelectContent>
           {field.options.map(option => (
             <SelectItem key={option} value={option}>
-              {option}
+              {blueprintOptionLabel(field, option)}
             </SelectItem>
           ))}
         </SelectContent>

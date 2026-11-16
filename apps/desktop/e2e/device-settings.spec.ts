@@ -107,25 +107,45 @@ test('device list is compact, identifiable, keyboard safe, and recovers partial 
   })
   const panel = page.getByRole('region', { name: /Your devices|Thiết bị của bạn/ })
   await expect(panel).toBeVisible()
-  const current = panel.getByRole('article', { name: /000000000001$/ })
-  const other = panel.getByRole('article', { name: /000000000002$/ })
-  await expect(current.getByText(/This device|Thiết bị này/, { exact: true })).toBeVisible()
+  // One table row per machine; the current install never shares a row, so the
+  // second install of the same hostname stays its own, revocable row.
+  const table = panel.getByRole('table', { name: /Your devices|Thiết bị của bạn/ })
+  const rows = table.getByRole('row').filter({ has: page.getByRole('button', { name: 'Kianm1pro.local' }) })
+  const currentLabel = /^(This device|Thiết bị này)$/
+  const current = rows.filter({ has: page.getByText(currentLabel, { exact: true }) })
+  const other = rows.filter({ hasNot: page.getByText(currentLabel, { exact: true }) })
+  await expect(rows).toHaveCount(2)
+  await expect(current.getByText(currentLabel, { exact: true })).toBeVisible()
   await expect(current.getByRole('button', { name: /Revoke device|Thu hồi thiết bị/ })).toHaveCount(0)
-  await expect(panel.getByRole('article', { name: /Old installation/ })).toBeHidden()
-  await expect(other.getByText(/^(Install|Bản cài đặt) 00000002/)).toBeVisible()
-  await other.locator('summary').click()
-  await other.getByRole('button', { name: /Rename|Đổi tên/, exact: true }).click()
-  await other.getByRole('textbox').fill('MacBook làm việc')
-  await other.getByRole('button', { name: /Save|Lưu/, exact: true }).click()
-  await expect(other.getByText('MacBook làm việc', { exact: true })).toBeVisible()
-  await other.locator('summary').click()
+  // Revoked installs live in the collapsed revocation history, not the list.
+  await expect(panel.getByText('Old installation', { exact: true })).toBeHidden()
+
+  // Two rows with the same hostname are told apart in their details: the
+  // install id and the version are right there.
+  const details = page.getByRole('dialog')
+  await other.getByRole('button', { name: 'Kianm1pro.local' }).click()
+  await expect(details.getByText('11111111-1111-4111-8111-000000000002', { exact: true })).toBeVisible()
+  await expect(details.getByText(/1\.0\.5/).first()).toBeVisible()
+  await details.getByRole('button', { name: /^(Rename|Đổi tên)$/ }).click()
+  await details.getByRole('textbox').fill('MacBook làm việc')
+  await details.getByRole('button', { name: /^(Save|Lưu)$/ }).click()
+  await expect(details.getByRole('heading', { name: 'MacBook làm việc' })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(details).toBeHidden()
+  const renamed = table.getByRole('row').filter({ has: page.getByRole('button', { name: 'MacBook làm việc' }) })
+  await expect(renamed).toHaveCount(1)
+  await expect(rows).toHaveCount(1)
 
   // Test the actual available panel width, independently of Electron's minimum window size.
   for (const width of [320, 375, 414, 768]) {
     await panel.evaluate((element, size) => {
       ;(element as HTMLElement).style.width = `${size}px`
     }, width)
-    expect(await panel.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    // Soft, so a layout failure is reported without hiding whether the
+    // revocation flow below still works.
+    expect
+      .soft(await panel.evaluate(element => element.scrollWidth <= element.clientWidth), `no horizontal overflow at ${width}px`)
+      .toBe(true)
   }
 
   await panel.evaluate(element => {
@@ -133,7 +153,7 @@ test('device list is compact, identifiable, keyboard safe, and recovers partial 
   })
   await panel.screenshot({ path: 'test-results/device-settings-before.png' })
 
-  await other.getByRole('button', { name: /Revoke device|Thu hồi thiết bị/, exact: true }).click()
+  await renamed.getByRole('button', { name: /Revoke device|Thu hồi thiết bị/, exact: true }).click()
   const dialog = page.getByRole('dialog')
   const checkbox = dialog.getByRole('checkbox')
   await checkbox.focus()
@@ -145,7 +165,7 @@ test('device list is compact, identifiable, keyboard safe, and recovers partial 
   await dialog.getByRole('button', { name: /Revoke device|Thu hồi thiết bị/, exact: true }).click()
   await expect(dialog).toBeHidden()
   await expect(panel.getByRole('status')).toContainText(/issuing a new model key failed|cấp khóa model mới thất bại/)
-  await expect(other).toBeHidden()
+  await expect(renamed).toBeHidden()
   await panel
     .getByRole('status')
     .getByRole('button', { name: /Issue a new model key|Cấp khóa model mới/ })
@@ -154,7 +174,9 @@ test('device list is compact, identifiable, keyboard safe, and recovers partial 
   await expect(dialog).toBeHidden()
   await expect(panel.getByRole('status')).toContainText(/A new model key was issued|Đã cấp khóa model mới/)
   await panel.locator(':scope > div > details > summary').click()
-  await expect(panel.getByRole('article', { name: /000000000002$/ })).toBeVisible()
+  const history = panel.getByRole('table', { name: /Revocation history|Lịch sử thu hồi/ })
+  await expect(history.getByRole('button', { name: 'MacBook làm việc' })).toBeVisible()
+  await expect(history.getByRole('button', { name: 'Old installation' })).toBeVisible()
   await panel.screenshot({ path: 'test-results/device-settings-after.png' })
 })
 

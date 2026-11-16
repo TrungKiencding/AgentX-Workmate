@@ -1,6 +1,7 @@
 import { isGatewayReauthRequired, resolveGatewayWsUrl } from '@agentx/shared'
 import { useEffect, useRef } from 'react'
 
+import { isKeycloakSignInFailure } from '@/components/boot-failure-reauth'
 import type { HermesConnection } from '@/global'
 import { HermesGateway } from '@/hermes'
 import { translateNow } from '@/i18n'
@@ -26,7 +27,7 @@ import {
   touchSecondaryGateways
 } from '@/store/gateway'
 import { $gatewaySwitching, wipeSessionListsForGatewaySwitch } from '@/store/gateway-switch'
-import { notify, notifyError } from '@/store/notifications'
+import { dismissNotification, notify, notifyError } from '@/store/notifications'
 import { $activeGatewayProfile, normalizeProfileKey, touchActiveGatewayBackend } from '@/store/profile'
 import {
   $activeSessionId,
@@ -133,6 +134,41 @@ export function useGatewayBoot({
     // dead-end CONNECTING screen. Reset on a clean open or a manual/
     // wake-driven reconnect.
     let escalated = false
+    // The "boot failed" toast of this document, while its failure stands.
+    let bootFailureNotice: string | null = null
+
+    // A failed boot is owned by a full-screen surface (the recovery overlay,
+    // or the sign-in screen), and the toast raised with it sits underneath.
+    // Two rules keep that toast from ever showing over a working window:
+    //  - "sign-in required" is not a failure at all — the sign-in screen is
+    //    the whole answer, so nothing is toasted for it;
+    //  - once a boot gets through (a soft gateway switch recovers in place,
+    //    without the reload that would wipe it), the toast goes with the
+    //    failure it reported.
+    const reportBootFailure = (err: unknown) => {
+      const message = err instanceof Error ? err.message : String(err)
+
+      failDesktopBoot(message)
+
+      if (bootFailureNotice !== null) {
+        dismissNotification(bootFailureNotice)
+        bootFailureNotice = null
+      }
+
+      if (!isKeycloakSignInFailure(message)) {
+        bootFailureNotice = notifyError(err, translateNow('boot.errors.desktopBootFailed'))
+      }
+    }
+
+    const finishBoot = () => {
+      completeDesktopBoot()
+      bootCompleted = true
+
+      if (bootFailureNotice !== null) {
+        dismissNotification(bootFailureNotice)
+        bootFailureNotice = null
+      }
+    }
 
     // Wrap the live getter in a call so TS control-flow analysis doesn't narrow
     // `connectionState` to a constant across the early-return guards (the state
@@ -320,13 +356,10 @@ export function useGatewayBoot({
           callbacksRef.current.refreshHermesConfig().catch(() => undefined),
           callbacksRef.current.refreshSessions().catch(() => undefined)
         ])
-        completeDesktopBoot()
-        bootCompleted = true
+        finishBoot()
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : String(err)
-          failDesktopBoot(message)
-          notifyError(err, translateNow('boot.errors.desktopBootFailed'))
+          reportBootFailure(err)
           setSessionsLoading(false)
         }
       } finally {
@@ -406,9 +439,10 @@ export function useGatewayBoot({
         // cached remote was found dead, which re-drives the boot-progress overlay.
         // Unlike the initial boot, nothing calls completeDesktopBoot() afterwards,
         // so dismiss it here once we're open again — otherwise the overlay sticks
-        // at ~94%. A no-op on a normal (non-rebuild) reconnect.
+        // at ~94%. A no-op on a normal (non-rebuild) reconnect. Also withdraws
+        // the toast of a failed soft switch that this reconnect has recovered.
         if (bootCompleted) {
-          completeDesktopBoot()
+          finishBoot()
         }
       } else if (bootCompleted && !$gatewaySwitching.get() && (st === 'closed' || st === 'error')) {
         // The socket dropped after a healthy boot (typically sleep/wake). Try
@@ -551,13 +585,10 @@ export function useGatewayBoot({
           return
         }
 
-        completeDesktopBoot()
-        bootCompleted = true
+        finishBoot()
       } catch (err) {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : String(err)
-          failDesktopBoot(message)
-          notifyError(err, translateNow('boot.errors.desktopBootFailed'))
+          reportBootFailure(err)
           setSessionsLoading(false)
         }
       }

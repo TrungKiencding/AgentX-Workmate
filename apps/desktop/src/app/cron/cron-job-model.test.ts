@@ -1,6 +1,22 @@
 import { describe, expect, it } from 'vitest'
 
-import { cronEditorUpdates, jobIsScriptOnly, validateCronEditor } from './cron-job-model'
+import { cronEditorUpdates, cronModelSelectionKey, jobIsScriptOnly, validateCronEditor } from './cron-job-model'
+
+describe('cronModelSelectionKey', () => {
+  it('distinguishes provider delimiters from model delimiters', () => {
+    const custom = { provider: 'custom:gateway', model: 'anthropic/sonnet:beta' }
+    const other = { provider: 'custom', model: 'gateway:anthropic/sonnet:beta' }
+
+    expect(cronModelSelectionKey(custom)).not.toBe(cronModelSelectionKey(other))
+
+    const updates = cronEditorUpdates(
+      { ...custom, deliver: 'local', name: 'Daily', prompt: 'go', schedule: '0 9 * * *' },
+      { scriptOnlyJob: false }
+    )
+
+    expect(updates).toMatchObject(custom)
+  })
+})
 
 describe('jobIsScriptOnly', () => {
   it('is true when no_agent is set and a script is present', () => {

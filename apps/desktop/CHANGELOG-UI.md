@@ -674,3 +674,103 @@ in the app — popper, dialog and toast entrances — did nothing.
 - Dark input borders clear 3:1: `--border-input` is gray-500 in dark as in
   light (5.0:1 on the page, 4.2:1 on a dialog; gray-600 was 2.9:1), and the
   contrast gate now checks Quiet's `input` against the page and the popover.
+
+## 2026-11 — a failed reply in plain words
+
+**Before.** A failed turn printed the provider's own text as a red line under
+the prompt — "API call failed after 3 retries: HTTP 429: {…}", "Error code:
+429 - {'error': …}", "Connection error." — and a bare `error` event added a
+toast titled "AgentX error" with the same text. Nobody could tell what had
+happened, what to do, or whom to ask. The words "AgentX reported an error" and
+"AgentX error" were hard-coded English.
+
+**After.**
+- The transcript's error block (`TurnErrorBlock`) says it the way ChatGPT and
+  Claude do, in the UI language: a short title, one or two sentences of cause
+  and next step that name the administrator when the person can't fix it, the
+  wait the provider asked for ("Thử lại sau khoảng 20 giây"), **Thử lại** only
+  where resending can help — on the latest turn, through the thread's own
+  regenerate — and **Chi tiết lỗi** folding away "Mã lỗi: <code>" and the raw
+  text with a copy button. The dismiss control stays.
+- One catalog, shared word for word with AgentX Chat and WebMate (Workmate
+  keeps "model" in English), in all six languages (`t.turnError`). The code is
+  the gateway's `failure_code` (`lib/turn-error.ts`), refined to `overloaded`
+  when the provider said capacity and to `offline` when the device had no
+  network; the text is read only for older frames, bare `error` events and a
+  rejected submit. A license refusal keeps the license's own sentence under its
+  title.
+- The code lives on the message (`ChatMessage.errorCode`) beside the raw text,
+  and survives re-hydration, the in-flight journal and `session.resume`
+  (the retained turn now carries `failure_code` and `failure_reason`).
+- The bare-`error` toast and the OS notification of any failed turn say the
+  title (and the toast the hint, with the raw text under its details). A
+  rejected submit no longer toasts what its bubble already says; a full disk
+  still does. A failure frame with no text at all still gets its bubble.
+- The toast's details panel is now `DetailPanel`, shared with the error block.
+- The backend names three failures it used to file under broad buckets, so
+  both this block and the SSO usage metrics get them right: an AI Gateway
+  spend cap (LiteLLM "Budget has been exceeded", a 400) is `budget_exceeded` →
+  `quota_exceeded`, not a malformed request; LiteLLM's, Azure's and OpenAI's
+  content refusals are `content_policy_blocked` → `content_filtered`; a refused
+  or broken connection reports `connection_failed` → `network_error` while it
+  still retries as a transport timeout. A reply still cut off after the
+  continuation attempts reports `response_truncated` → `stream_interrupted`.
+
+## 2026-11 — folders, chosen where you type
+
+**Before.** Where a chat ran was decided out of sight. A new chat inherited the
+folder of whatever chat was focused, or of the project drilled into in the
+sidebar, and nothing on screen said which. Choosing a folder meant switching
+the sidebar into a separate "Projects" mode (a 12px toggle), drilling into a
+project, then starting a chat; adding one meant a dialog with name, folders,
+an IDEA.md textarea and eighteen English idea pills, and "Add folder" opened a
+second dialog holding a single button. Every repo the disk scan found joined
+the project list, and chats without a folder sat under a "Home" bucket.
+
+**After.**
+- **A context bar under the composer** names the folder the chat works in. On
+  a new chat it is a picker — search, projects by recent activity, repos found
+  on the machine, "Open another folder…", "No folder"; once the chat starts it
+  shows the folder and offers a new chat there. The composer itself is
+  unchanged in size.
+- **One sidebar.** "Projects" above "Chats", no flat/grouped toggle. A project
+  row opens in place with its recent chats and "Show all N chats"; opening a
+  chat opens its project. A plain folder's drilled-in list no longer repeats
+  its own name under a git-branch glyph.
+- **Adding is one step.** The Projects "+", ⌘O, the palette and the composer's
+  "Open another folder…" all go straight to the OS folder picker and land on a
+  chat in it. "Add folder…" on a project does the same and confirms with a
+  toast. Rename is the only dialog left, and it works on auto projects too
+  (renaming adopts the folder as a real project).
+- Repos nobody has chatted in stay out of the sidebar (they are offered in
+  the picker); ⌘K lists projects as "New chat in …".
+
+## 2026-11 — the home surface is a greeting and a folder list
+
+**Before.** An empty chat opened on a serif greeting, a two-line paragraph
+explaining what the app does, and up to four task cards ("Resume …",
+"Summarise a document", "Draft an email" …) — the eye went down the page past
+four choices before reaching the one thing to do. In a git folder a long
+working-directory path widened the composer's grid past its own edge, so
+wrapped text, the diff count and the send button were cut off on the right.
+
+**After.**
+- **A greeting, one plain question, and where to work.** The time of day
+  beside the greeting (sun, sunset, moon in their own colours), one serif
+  headline a person would actually say ("Hôm nay bạn muốn làm gì?"), and on a
+  new chat an inset grouped list of the three most recent folders, "no folder"
+  and "Open another folder…", checked where the chat will run. The cards, the
+  paragraph and `Button variant="card"` are gone; the composer stays docked.
+- **No greeting flash under the first send.** Re-homing a fresh draft onto the
+  session its send created left that session's slice empty for ~60ms, which
+  read as "empty chat" and flashed the greeting back up; that route now
+  carries `STARTED_BY_SEND_ROUTE_STATE`.
+- The composer's grid has one `minmax(0,1fr)` column, so the coding strip's
+  path truncates instead of widening it.
+- **Your message shows the moment you send it.** The model-catalog check
+  before an idle send (ec22a902e7) ran ahead of the submit pipeline, so the
+  composer emptied and nothing appeared for the length of a catalog read —
+  3.0s in the mock sandbox. It now rides the pipeline as a `beforeSend` gate
+  after the optimistic message: the message is up in ~0.1s, nothing leaves
+  for the gateway until the check passes, and a refusal or a Stop during it
+  gives the words back to the composer.

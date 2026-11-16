@@ -1,14 +1,17 @@
 import { describe, expect, it } from 'vitest'
 
+import { deriveChangedFiles } from '@/components/assistant-ui/thread/changed-files'
 import type { SessionMessage } from '@/types/hermes'
 
 import type { ChatMessage, ChatMessagePart } from './chat-messages'
 import {
   appendAssistantTextPart,
   appendReasoningPart,
+  carryOutputsAcrossCompaction,
   chatMessageText,
   collectUnspokenTurnSpeech,
   mergeFinalAssistantText,
+  messageOutputFiles,
   preserveLocalAssistantErrors,
   reasoningPart,
   renderMediaTags,
@@ -360,6 +363,39 @@ describe('toChatMessages', () => {
     ])
   })
 
+  it('turns a compaction row into a divider carrying the summary and ordinal offset', () => {
+    const messages = toChatMessages([
+      { role: 'user', content: 'make the deck', timestamp: 1 },
+      { role: 'assistant', content: 'done', timestamp: 2 },
+      {
+        role: 'user',
+        content: undefined,
+        text: '## Goal\nBuild the deck',
+        display_kind: 'compaction',
+        display_metadata: { compaction: { user_turns_before: 2 } } as never,
+        timestamp: 3
+      },
+      { role: 'user', content: 'next', timestamp: 4 }
+    ])
+
+    expect(messages.map(message => message.role)).toEqual(['user', 'assistant', 'system', 'user'])
+    expect(messages[2].compaction).toEqual({ summary: '## Goal\nBuild the deck', userTurnsBefore: 2 })
+  })
+
+  it('keeps an empty compaction divider and tolerates JSON-text metadata', () => {
+    const [divider] = toChatMessages([
+      {
+        role: 'assistant',
+        content: '',
+        display_kind: 'compaction',
+        display_metadata: '{"compaction": {"user_turns_before": "x"}}',
+        timestamp: 3
+      }
+    ])
+
+    expect(divider.compaction).toEqual({ summary: '' })
+  })
+
   // A backend older than this app serves display_metadata as unparsed JSON
   // text. Indexing into that string used to throw and fail the whole resume.
   it.each([
@@ -524,6 +560,19 @@ describe('interleaved reasoning/text coalescing', () => {
 })
 
 describe('preserveLocalAssistantErrors', () => {
+  it('re-grafts a local error onto the hydrated row with the code that explains it', () => {
+    const nextMessages: ChatMessage[] = [{ id: 'a-1', parts: [], role: 'assistant' }]
+
+    const currentMessages: ChatMessage[] = [
+      { error: 'HTTP 429', errorCode: 'rate_limited', id: 'a-1', parts: [], role: 'assistant' }
+    ]
+
+    expect(preserveLocalAssistantErrors(nextMessages, currentMessages)[0]).toMatchObject({
+      error: 'HTTP 429',
+      errorCode: 'rate_limited'
+    })
+  })
+
   it('preserves a local user+error pair when hydration omits the failed turn', () => {
     const nextMessages: ChatMessage[] = [
       {
@@ -1369,5 +1418,105 @@ describe('collectUnspokenTurnSpeech', () => {
     expect(collectUnspokenTurnSpeech([], null)).toBeNull()
     expect(collectUnspokenTurnSpeech([assistant('a1', 'Done.')], 'a1')).toBeNull()
     expect(collectUnspokenTurnSpeech([user('u1', 'hello'), assistant('a1', '')], null)).toBeNull()
+  })
+})
+
+describe('carryOutputsAcrossCompaction', () => {
+  const delivered: ChatMessage = {
+    id: 'a1',
+    role: 'assistant',
+    createdFiles: [{ name: 'notes.md', path: '/out/notes.md' }],
+    parts: [
+      {
+        type: 'tool-call',
+        toolCallId: 't',
+        toolName: 'deliver_file',
+        args: {},
+        argsText: '',
+        result: JSON.stringify({ success: true, path: '/out/deck.pptx', name: 'deck.pptx', size_bytes: 9 })
+      },
+      { type: 'text', text: 'Here it is.' }
+    ]
+  }
+
+  const kept: ChatMessage = {
+    id: 'a2',
+    role: 'assistant',
+    createdFiles: [{ name: 'still.pdf', path: '/out/still.pdf' }],
+    parts: [{ type: 'text', text: 'later' }]
+  }
+
+  const divider: ChatMessage = { id: 'c', role: 'system', compaction: { summary: 's' }, parts: [] }
+
+  it('reads what a turn produced, handed over or listed', () => {
+    expect(messageOutputFiles(delivered).map(file => file.name)).toEqual(['notes.md', 'deck.pptx'])
+    expect(messageOutputFiles({ ...delivered, role: 'user' })).toEqual([])
+  })
+
+  it('moves the files of summarized turns onto the newest divider', () => {
+    const next = carryOutputsAcrossCompaction([delivered, kept], [divider, kept])
+
+    expect(next[0].createdFiles?.map(file => file.path)).toEqual(['/out/notes.md', '/out/deck.pptx'])
+    expect(next[1]).toBe(kept)
+  })
+
+  it('leaves a transcript alone when nothing was summarized away', () => {
+    const same = [delivered, kept]
+
+    expect(carryOutputsAcrossCompaction(same, same)).toBe(same)
+    // A refused compaction returns no divider at all.
+    const refused = [kept]
+    expect(carryOutputsAcrossCompaction([delivered, kept], refused)).toBe(refused)
+  })
+
+  it('keeps what an earlier divider carried through the next compaction', () => {
+    const first = carryOutputsAcrossCompaction([delivered, kept], [divider, kept])
+    const second = carryOutputsAcrossCompaction(first, [{ ...divider, id: 'c2' }])
+
+    expect(second[0].createdFiles?.map(file => file.name)).toEqual(['notes.md', 'deck.pptx', 'still.pdf'])
+  })
+})
+
+describe('file-edit diffs on a reopened chat', () => {
+  // A stored tool row holds only the tool's own result: a reopened chat lost
+  // every "+N" edit row and the files-changed card. The turn pins its diffs to
+  // the reply (display_metadata.edit_diffs, by tool call id).
+  const turn = (metadata: SessionMessage['display_metadata']): SessionMessage[] => [
+    { role: 'user' as const, content: 'ghi báo cáo', timestamp: 1 },
+    {
+      role: 'assistant' as const,
+      content: '',
+      timestamp: 2,
+      tool_calls: [
+        {
+          id: 'call-write',
+          function: { name: 'write_file', arguments: JSON.stringify({ path: '/w/bao cao.md', content: 'a\nb\nc\n' }) }
+        }
+      ]
+    },
+    { role: 'tool' as const, tool_call_id: 'call-write', tool_name: 'write_file', content: '{"bytes_written": 6}', timestamp: 3 },
+    { role: 'assistant' as const, content: 'Đã ghi.', timestamp: 4, display_metadata: metadata }
+  ]
+
+  const diff = '--- a/bao cao.md\n+++ b/bao cao.md\n@@ -0,0 +1,3 @@\n+a\n+b\n+c'
+
+  it('puts the stored diff back on its edit row, so the files-changed card returns', () => {
+    const messages = toChatMessages(
+      turn(JSON.stringify({ edit_diffs: { 'call-write': { inline_diff: diff, inline_diff_stats: { added: 3, removed: 0 } } } }))
+    )
+
+    const reply = messages.find(message => message.role === 'assistant')!
+    const edit = reply.parts.find(part => part.type === 'tool-call' && part.toolCallId === 'call-write')
+
+    expect(edit && edit.type === 'tool-call' && (edit.result as Record<string, unknown>).inline_diff).toBe(diff)
+    expect(deriveChangedFiles(reply.parts)).toEqual([{ added: 3, name: 'bao cao.md', path: '/w/bao cao.md', removed: 0 }])
+  })
+
+  it('leaves edit rows alone when no diffs were pinned or the metadata is malformed', () => {
+    for (const metadata of [undefined, { edit_diffs: 'x' }, { edit_diffs: { 'call-write': { inline_diff: 42 } } }]) {
+      const reply = toChatMessages(turn(metadata as SessionMessage['display_metadata'])).find(message => message.role === 'assistant')!
+
+      expect(deriveChangedFiles(reply.parts)).toEqual([])
+    }
   })
 })

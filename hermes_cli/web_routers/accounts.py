@@ -161,6 +161,15 @@ def get_account(request: Request):
     }
 
 
+@router.get("/api/account/quota")
+async def get_quota(request: Request):
+    """The verified person's model allowance, without exposing their key."""
+    session = _require_session(request)
+    from hermes_cli.account_quota import fetch_account_quota
+
+    return await run_in_threadpool(fetch_account_quota, session.user_id)
+
+
 @router.get("/api/account/license")
 async def get_license(request: Request, refresh: bool = False):
     """This person's AgentX license, as it stands now.

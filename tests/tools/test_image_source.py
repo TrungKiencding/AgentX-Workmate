@@ -381,3 +381,90 @@ class TestLazySandboxBringUp:
 
         with pytest.raises(isrc.SourceNotFound):
             await isrc.resolve_image_source(str(secret), isrc.ResolveContext(task_id="t1"))
+
+
+class TestBoundedHostRead:
+    """Host reads stay within the ingest cap DURING the read, not after buffering the file."""
+
+    @pytest.mark.asyncio
+    async def test_oversized_file_rejected_without_opening_it(self, tmp_path, monkeypatch):
+        isrc = _reload(monkeypatch, tmp_path / "agentx")
+        monkeypatch.setenv("TERMINAL_ENV", "local")
+        big = tmp_path / "big.png"
+        with big.open("wb") as fh:  # sparse: stat says cap+1, no disk used
+            fh.write(PNG)
+            fh.truncate(isrc._MAX_INGEST_BYTES + 1)
+        opened = []
+        real_open = Path.open
+        monkeypatch.setattr(Path, "open", lambda self, *a, **k: opened.append(self.name) or real_open(self, *a, **k))
+        with pytest.raises(isrc.SourceTooLarge):
+            await isrc.resolve_image_source(str(big), isrc.ResolveContext())
+        assert "big.png" not in opened
+
+    @pytest.mark.asyncio
+    async def test_read_is_capped_when_stat_under_reports(self, tmp_path, monkeypatch):
+        isrc = _reload(monkeypatch, tmp_path / "agentx")
+        monkeypatch.setenv("TERMINAL_ENV", "local")
+        img = tmp_path / "pic.png"
+        img.write_bytes(PNG)
+        real_stat, real_open, reads = Path.stat, Path.open, []
+
+        def zero_size_stat(self, **kw):  # procfs-style: size 0, content streams
+            st = real_stat(self, **kw)
+            if self.name != "pic.png":
+                return st
+            return SimpleNamespace(**{**{a: getattr(st, a) for a in dir(st) if a.startswith("st_")}, "st_size": 0})
+
+        class _Recording:
+            def __init__(self, fh):
+                self._fh = fh
+
+            def read(self, n=-1):
+                reads.append(n)
+                return self._fh.read(n)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                self._fh.close()
+
+        def recording_open(self, *a, **kw):
+            fh = real_open(self, *a, **kw)
+            return _Recording(fh) if self.name == "pic.png" else fh
+
+        monkeypatch.setattr(Path, "stat", zero_size_stat)
+        monkeypatch.setattr(Path, "open", recording_open)
+        res = await isrc.resolve_image_source(str(img), isrc.ResolveContext())
+        assert res.data == PNG
+        assert reads and all(0 <= n <= isrc._MAX_INGEST_BYTES + 1 for n in reads)
+
+    @pytest.mark.asyncio
+    async def test_small_file_read_never_reserves_the_cap(self, tmp_path, monkeypatch):
+        # BufferedReader.read(n) allocates n bytes up front, so read(cap+1) reserved 250 MiB of
+        # address space per screenshot and raised MemoryError under RLIMIT_AS / strict overcommit.
+        isrc = _reload(monkeypatch, tmp_path / "agentx")
+        monkeypatch.setenv("TERMINAL_ENV", "local")
+        img = tmp_path / "pic.png"
+        img.write_bytes(PNG)
+        real_open, reads = Path.open, []
+
+        class _Recording:
+            def __init__(self, fh):
+                self._fh = fh
+
+            def read(self, n=-1):
+                reads.append(n)
+                return self._fh.read(n)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                self._fh.close()
+
+        monkeypatch.setattr(Path, "open", lambda self, *a, **kw: (
+            _Recording(real_open(self, *a, **kw)) if self.name == "pic.png" else real_open(self, *a, **kw)))
+        res = await isrc.resolve_image_source(str(img), isrc.ResolveContext())
+        assert res.data == PNG
+        assert reads and all(0 <= n <= len(PNG) + 1 for n in reads)

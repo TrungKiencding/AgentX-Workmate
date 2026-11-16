@@ -183,7 +183,9 @@ describe('isKeycloakSignInFailure', () => {
   // local Retry/Repair actions, which cannot fix a sign-in gate.
   it('matches the marker main.ts raises', () => {
     expect(
-      isKeycloakSignInFailure('AgentX sign-in required. Sign in with your AgentX account to start using AgentX Workmate.')
+      isKeycloakSignInFailure(
+        'AgentX sign-in required. Sign in with your AgentX account to start using AgentX Workmate.'
+      )
     ).toBe(true)
   })
 

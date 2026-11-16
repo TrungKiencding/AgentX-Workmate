@@ -107,8 +107,14 @@ describe('useMessageStream agent-init error surfacing (#63078)', () => {
     expect(state.busy).toBe(false)
     expect(state.awaitingResponse).toBe(false)
 
-    // A global toast also fired (turn-ending errors are easy to miss inline).
-    expect($notifications.get().some(n => n.kind === 'error' && n.message?.includes('was not sent'))).toBe(true)
+    expect(errorRows[0]!.errorCode).toBe('local_error')
+
+    // A global toast also fired (turn-ending errors are easy to miss inline):
+    // plain words up front, the raw text folded under its details.
+    const toast = $notifications.get().find(n => n.kind === 'error')
+    expect(toast?.title).toBe('Workmate hit a problem on this computer')
+    expect(toast?.message).not.toContain('was not sent')
+    expect(toast?.detail).toContain('was not sent')
   })
 
   it('renders the pre-ready cancel error event (#65567 server emit) visibly', async () => {

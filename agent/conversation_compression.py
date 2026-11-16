@@ -149,6 +149,12 @@ COMPRESSION_RETRY_TOKENS_STATUS_TEMPLATE = (
 COMPRESSION_RETRY_CONTEXT_REDUCED_STATUS_TEMPLATE = (
     "🗜️ Context reduced to {new_ctx:,} tokens (was {old_ctx:,}), retrying..."
 )
+# No-op refusal (nothing dropped): chat surfaces suppress it; manual /compress
+# feedback words it differently and stays visible.
+COMPRESSION_REFUSED_WOULD_GROW_WARNING = (
+    "⚠️ Compression refused: the generated summary would have GROWN the conversation "
+    "instead of shrinking it. No messages were dropped — conversation continues unchanged."
+)
 
 # FAILURE-CLASS notice — a deliberate carve-out from routine-compression
 # silence (#16775 class): the context is over the compression threshold but
@@ -3383,12 +3389,7 @@ def compress_context(
                     except Exception:
                         pass
                     try:
-                        agent._emit_warning(
-                            "⚠️ Compression refused: the generated summary "
-                            "would have GROWN the conversation instead of "
-                            "shrinking it. No messages were dropped — "
-                            "conversation continues unchanged."
-                        )
+                        agent._emit_warning(COMPRESSION_REFUSED_WOULD_GROW_WARNING)
                     except Exception:
                         pass
                     _existing_sp = getattr(agent, "_cached_system_prompt", None)

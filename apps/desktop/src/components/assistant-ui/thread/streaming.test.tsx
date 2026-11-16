@@ -444,7 +444,7 @@ function GroupedReasoningHarness() {
   )
 }
 
-function IntroHarness() {
+function EmptyThreadHarness() {
   const runtime = useExternalStoreRuntime<ThreadMessage>({
     messages: [],
     isRunning: false,
@@ -453,7 +453,7 @@ function IntroHarness() {
 
   return (
     <AssistantRuntimeProvider runtime={runtime}>
-      <Thread intro={{ personality: 'default', seed: 1 }} />
+      <Thread clampToComposer />
     </AssistantRuntimeProvider>
   )
 }
@@ -509,8 +509,8 @@ describe('assistant-ui streaming renderer', () => {
     })
   })
 
-  it('does not render composer clearance for intro-only threads', () => {
-    const { container } = render(<IntroHarness />)
+  it('does not render composer clearance for an empty thread', () => {
+    const { container } = render(<EmptyThreadHarness />)
 
     expect(container.querySelector('[data-slot="aui_composer-clearance"]')).toBeNull()
   })
@@ -543,10 +543,17 @@ describe('assistant-ui streaming renderer', () => {
     expect(finalRoot?.querySelector('[data-slot="aui_msg-actions"]')).toBeTruthy()
   })
 
-  it('renders assistant provider errors inline', () => {
+  it('renders assistant provider errors inline, in plain words with the raw text folded', () => {
     render(<MessageHarness message={assistantErrorMessage('OpenRouter rejected the request (403).')} />)
 
-    expect(screen.getByRole('alert').textContent).toContain('OpenRouter rejected the request (403).')
+    const alert = screen.getByRole('alert')
+    expect(alert.textContent).toContain('Your AI access is no longer valid')
+    expect(alert.textContent).not.toContain('OpenRouter rejected the request (403).')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Error details' }))
+
+    expect(alert.textContent).toContain('Error code: auth_failed')
+    expect(alert.textContent).toContain('OpenRouter rejected the request (403).')
   })
 
   it('omits the dismiss control when no onDismissError handler is supplied', () => {

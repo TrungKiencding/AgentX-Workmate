@@ -25,6 +25,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { spawn, spawnSync } from 'node:child_process'
+import { sandboxShellEnv } from './sandbox-env.mjs'
 
 const DESKTOP_ROOT = path.resolve(import.meta.dirname, '..')
 const REPO_ROOT = path.resolve(DESKTOP_ROOT, '..', '..')
@@ -210,6 +211,7 @@ async function main() {
 
   const env = {
     ...process.env,
+    ...sandboxShellEnv(sandbox.root),
     AGENTX_HOME: sandbox.hermesHome,
     AGENTX_DESKTOP_USER_DATA_DIR: sandbox.userDataDir,
     AGENTX_DESKTOP_IGNORE_EXISTING: '1',

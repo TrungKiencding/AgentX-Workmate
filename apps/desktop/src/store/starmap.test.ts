@@ -13,8 +13,7 @@ vi.mock('@/hermes', () => ({
     })
 }))
 
-const { $starmapError, $starmapGraph, $starmapLoading, loadStarmapGraph, resetStarmapGraph } =
-  await import('./starmap')
+const { $starmapError, $starmapGraph, $starmapLoading, loadStarmapGraph, resetStarmapGraph } = await import('./starmap')
 
 const graph = (id: string): StarmapGraph => ({ edges: [], nodes: [{ id }] }) as unknown as StarmapGraph
 

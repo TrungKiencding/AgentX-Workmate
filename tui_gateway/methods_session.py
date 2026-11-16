@@ -41,6 +41,63 @@ def _(rid, params: dict) -> dict:
     # and each turn re-bind AGENTX_HOME. None/own profile → launch (unchanged).
     profile = (params.get("profile") or "").strip() or None
     profile_home = _profile_home(profile)
+    # ``strict_profile``: the caller (Bot Mode) names an assistant that must
+    # exist. Without it a deleted/unknown profile silently falls back to the
+    # launch profile — a group room would then let the main assistant answer
+    # as the deleted one.
+    if (
+        profile
+        and is_truthy_value(params.get("strict_profile", False))
+        and profile_home is None
+        and profile != _current_profile_name()
+    ):
+        return _err(rid, 4044, f"profile '{profile}' not found")
+
+    # ``persist_only``: write the (titled, empty) DB row and return its stored
+    # id — no runtime session, no agent build. Bot Mode creates an assistant's
+    # main conversation ("Bot Chat") this way so it exists, and is found by
+    # title, before anyone types into it — instead of sending a fake first
+    # message the user never wrote. The client then opens it like any chat.
+    if is_truthy_value(params.get("persist_only", False)):
+        row = {
+            "session_key": key,
+            "profile_home": str(profile_home) if profile_home is not None else None,
+            "source": source,
+            "explicit_cwd": False,
+            "cwd": None,
+        }
+        try:
+            _ensure_session_db_row(row)
+            with _session_db(row) as db:
+                if db is None or not db.get_session(key):
+                    return _err(rid, 5000, "could not persist the session")
+                if title:
+                    try:
+                        db.set_session_title(key, title)
+                    except ValueError:
+                        # Never leave the untitled row behind: each failed
+                        # attempt used to add one empty conversation.
+                        existing = db.get_session_by_title(title)
+                        db.delete_session(key)
+                        if not existing or existing.get("id") == key:
+                            raise  # an invalid title, not a taken one
+                        # The conversation this call exists to guarantee is
+                        # already there — listed past the caller's window, or
+                        # made by a concurrent click. Hand that one back.
+                        return _ok(
+                            rid,
+                            {
+                                "stored_session_id": existing["id"],
+                                "persisted": True,
+                                "title": title,
+                                "existing": True,
+                            },
+                        )
+        except ValueError as exc:  # invalid title
+            return _err(rid, 4090, str(exc))
+        except Exception as exc:
+            return _err(rid, 5000, f"could not persist the session: {exc}")
+        return _ok(rid, {"stored_session_id": key, "persisted": True, "title": title})
 
     # The desktop composer owns its model/effort/fast as plain UI state and ships
     # it on every session.create. Honor each as a PER-SESSION override (built into
@@ -161,6 +218,17 @@ def _(rid, params: dict) -> dict:
 
 @method("session.list")
 def _(rid, params: dict) -> dict:
+    # ``strict_profile``: an unknown profile is an error, not the launch
+    # profile's list (Bot Mode would show the main assistant's chats under a
+    # deleted assistant).
+    _named = (params.get("profile") or "").strip()
+    if (
+        _named
+        and is_truthy_value(params.get("strict_profile", False))
+        and _profile_home(_named) is None
+        and _named != _current_profile_name()
+    ):
+        return _err(rid, 4044, f"profile '{_named}' not found")
     with _profile_db(params) as db:
         if db is None:
             return _db_unavailable_error(rid, code=5006)
@@ -174,7 +242,14 @@ def _(rid, params: dict) -> dict:
             # workers) rather than allow-listing a fixed set of platform names
             # that goes stale whenever a new platform is added or a user names
             # their own source.
-            deny = frozenset({"kanban", "tool"})
+            deny = NON_CONVERSATION_SOURCES
+            # ``exclude_sources``: sources the caller does not want in ITS
+            # window. Bot Mode finds an assistant's main conversation in this
+            # list; a routine that runs every hour would otherwise fill the
+            # window with ``cron`` runs and push that conversation out of it.
+            extra = params.get("exclude_sources")
+            if isinstance(extra, (list, tuple)):
+                deny = deny | {str(item).strip().lower() for item in extra if str(item).strip()}
 
             limit = int(params.get("limit", 200) or 200)
             # Over-fetch modestly so per-source filtering doesn't leave us
@@ -200,6 +275,7 @@ def _(rid, params: dict) -> dict:
                             "title": s.get("title") or "",
                             "preview": s.get("preview") or "",
                             "started_at": s.get("started_at") or 0,
+                            "last_active": s.get("last_active") or s.get("started_at") or 0,
                             "message_count": s.get("message_count") or 0,
                             "source": s.get("source") or "",
                         }
@@ -233,7 +309,7 @@ def _(rid, params: dict) -> dict:
         if db is None:
             return _ok(rid, {"session_id": None})
         try:
-            deny = frozenset({"kanban", "tool"})
+            deny = NON_CONVERSATION_SOURCES
             # Over-fetch by a generous bounded amount so heavy sub-agent
             # users (lots of recent ``tool`` rows) don't get a false
             # "no eligible session" answer.  ``session.list`` uses a
@@ -324,9 +400,10 @@ def _(rid, params: dict) -> dict:
     # In a profile scope, the agent OWNS a long-lived db handle bound to that
     # profile (do NOT auto-close it here). Otherwise reuse the shared launch db.
     if profile_home is not None:
-        from hermes_state import SessionDB
-
-        db = SessionDB(db_path=profile_home / "state.db")
+        try:
+            db = _open_profile_session_db(profile_home)
+        except Exception:
+            db = None
     else:
         db = _get_db()
     if db is None:
@@ -450,7 +527,10 @@ def _(rid, params: dict) -> dict:
         # feeds live replay. Fall back to it if the display read fails.
         try:
             display_history = db.get_messages_as_conversation(
-                target, repair_alternation=False, include_row_ids=True
+                target,
+                repair_alternation=False,
+                include_row_ids=True,
+                include_compacted=True,
             )
         except Exception:
             logger.debug("child-watch display projection read failed", exc_info=True)
@@ -506,7 +586,9 @@ def _(rid, params: dict) -> dict:
                 )
                 display_history = []
             else:
-                raw_history, display_history = db.get_resume_conversations(target)
+                raw_history, display_history = db.get_resume_conversations(
+                    target, include_compacted=True
+                )
         except Exception as e:
             if lease is not None:
                 lease.release()
@@ -592,7 +674,9 @@ def _(rid, params: dict) -> dict:
             )
             display_history = []
         else:
-            raw_history, display_history = db.get_resume_conversations(target)
+            raw_history, display_history = db.get_resume_conversations(
+                target, include_compacted=True
+            )
         # The display transcript keeps every row so the user still sees their
         # full history.  The model-fed history is sanitized: a session whose
         # last turn died mid-tool-loop persists a dangling assistant(tool_calls)
@@ -1509,6 +1593,9 @@ def _(rid, params: dict) -> dict:
     Param ``localOnly`` (bool): skip the remote petdex manifest fetch and return
     only locally-installed pets. The desktop loads this first so the user's own
     pets render instantly instead of waiting on the (possibly slow) manifest.
+
+    ``catalog`` in the result says what happened to the petdex catalog:
+    ``"skipped"`` (localOnly), ``"ok"``, or ``"unreachable"``.
     """
     local_only = bool(params.get("localOnly"))
     try:
@@ -1527,6 +1614,10 @@ def _(rid, params: dict) -> dict:
 
         gallery: list[dict] = []
         seen: set[str] = set()
+        # "skipped" (localOnly), "ok", or "unreachable". Without it the picker
+        # cannot tell "petdex is down" from "nothing installed yet": both come
+        # back as an ok response with only local pets.
+        catalog = "skipped" if local_only else "ok"
         try:
             from agent.pet.manifest import fetch_manifest, prefetch
 
@@ -1552,6 +1643,7 @@ def _(rid, params: dict) -> dict:
                 )
         except Exception as exc:  # noqa: BLE001 - offline: fall back to installed
             logger.debug("pet.gallery manifest fetch failed: %s", exc)
+            catalog = "unreachable"
 
         # Always include locally-installed pets even if the gallery is unreachable.
         for slug, pet in installed.items():
@@ -1572,11 +1664,12 @@ def _(rid, params: dict) -> dict:
                 "enabled": is_truthy_value(pet_cfg.get("enabled"), default=False),
                 "active": str(pet_cfg.get("slug", "") or ""),
                 "pets": gallery,
+                "catalog": catalog,
             },
         )
     except Exception as exc:  # noqa: BLE001
         logger.debug("pet.gallery failed: %s", exc)
-        return _ok(rid, {"enabled": False, "active": "", "pets": []})
+        return _ok(rid, {"enabled": False, "active": "", "pets": [], "catalog": "unreachable"})
 
 
 @method("pet.select")
@@ -2403,6 +2496,7 @@ def _(rid, params: dict) -> dict:
                         session["session_key"],
                         include_ancestors=True,
                         include_row_ids=True,
+                        include_compacted=True,
                     )
                 except Exception:
                     pass
@@ -2736,9 +2830,20 @@ def _(rid, params: dict) -> dict:
             history = [dict(msg) for msg in session.get("history", [])]
         if not history:
             return _err(rid, 4008, "nothing to branch — send a message first")
+        # The desktop addresses the message to branch at by its user turn
+        # (unambiguous: see branch_cut_at_user_turn); ``count`` is the older
+        # shape, kept for clients that do not send one.
+        user_ordinal = params.get("user_ordinal")
+        cut = None
+        if isinstance(user_ordinal, int) and not isinstance(user_ordinal, bool):
+            cut = branch_cut_at_user_turn(history, user_ordinal, bool(params.get("include_reply")))
         count = params.get("count")
-        if isinstance(count, int) and count > 0:
-            history = history[:count]
+        if cut is None and isinstance(count, int) and not isinstance(count, bool) and count > 0:
+            cut = branch_cut_index(history, count)
+        if cut is not None:
+            history = history[:cut]
+            if not history:
+                return _err(rid, 4008, "nothing to branch — send a message first")
         new_key = _new_session_key()
         new_sid = uuid.uuid4().hex[:8]
         source = _session_source(session)
@@ -2780,16 +2885,7 @@ def _(rid, params: dict) -> dict:
             # were the write-amplification pattern removed in #23254.
             db.append_messages_batch(
                 new_key,
-                [
-                    {
-                        "role": msg.get("role", "user"),
-                        "content": msg.get("content"),
-                        # Preserve the parent's original message timestamps —
-                        # branch copies are history, not new activity (9d73006ad).
-                        "timestamp": msg.get("timestamp"),
-                    }
-                    for msg in history
-                ],
+                branch_seed_rows(history),
                 chunk_rows=500,
             )
             db.set_session_title(new_key, title)
@@ -2808,9 +2904,7 @@ def _(rid, params: dict) -> dict:
         parent_home = session.get("profile_home")
         branch_db = None
         if parent_home:
-            from hermes_state import SessionDB
-
-            branch_db = SessionDB(db_path=Path(parent_home) / "state.db")
+            branch_db = _open_profile_session_db(parent_home)
         home_token = (
             set_hermes_home_override(parent_home) if parent_home else None
         )

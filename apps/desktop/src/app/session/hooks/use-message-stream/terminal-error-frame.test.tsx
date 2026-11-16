@@ -6,9 +6,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { ClientSessionState } from '@/app/types'
 import { chatMessageText } from '@/lib/chat-messages'
 import { createClientSessionState } from '@/lib/chat-runtime'
+import { dispatchNativeNotification } from '@/store/native-notifications'
+import { $notifications, clearNotifications } from '@/store/notifications'
 import type { RpcEvent } from '@/types/hermes'
 
 import { useMessageStream } from './index'
+
+vi.mock('@/store/native-notifications', () => ({ dispatchNativeNotification: vi.fn() }))
 
 const SID = 'session-1'
 
@@ -67,6 +71,7 @@ function lastAssistant() {
 describe('terminal error message.complete frames', () => {
   beforeEach(() => {
     handleEvent = null
+    vi.mocked(dispatchNativeNotification).mockClear()
   })
 
   afterEach(() => {
@@ -115,5 +120,159 @@ describe('terminal error message.complete frames', () => {
 
     const bubble = lastAssistant()
     expect(bubble?.error).toBe('Error: something broke')
+  })
+
+  it("keeps the gateway's failure code on the bubble, beside the raw text", async () => {
+    await mountStream()
+    await start()
+
+    const raw = 'API call failed after 3 retries: HTTP 429: {"error":{"message":"Rate limit reached"}}'
+    await completeWithError({
+      text: `Error: ${raw}`,
+      error: raw,
+      failure_code: 'rate_limited',
+      failure_reason: 'rate_limit'
+    })
+
+    expect(lastAssistant()).toMatchObject({ error: raw, errorCode: 'rate_limited' })
+  })
+
+  it('tells an overloaded provider apart by the classified reason', async () => {
+    await mountStream()
+    await start()
+
+    await completeWithError({
+      error: 'HTTP 500: upstream',
+      failure_code: 'upstream_error',
+      failure_reason: 'overloaded'
+    })
+
+    expect(lastAssistant()?.errorCode).toBe('overloaded')
+  })
+
+  it('reads the text when the frame carries only the fallback code, or none (an older backend)', async () => {
+    await mountStream()
+    await start()
+    await completeWithError({
+      error: 'Context length exceeded: max compression attempts (3) reached.',
+      failure_code: 'operation_failed'
+    })
+    expect(lastAssistant()?.errorCode).toBe('context_too_long')
+
+    await start()
+    await completeWithError({ error: 'Connection error.' })
+    expect(lastAssistant()?.errorCode).toBe('network_error')
+  })
+
+  it('still fails the bubble when the frame carries no text at all', async () => {
+    await mountStream()
+    await start()
+
+    await completeWithError({ failure_code: 'compute_host_error' })
+
+    expect(lastAssistant()).toMatchObject({ error: 'compute_host_error', errorCode: 'compute_host_error' })
+  })
+
+  it('says offline when the device had no network', async () => {
+    vi.spyOn(navigator, 'onLine', 'get').mockReturnValue(false)
+    await mountStream()
+    await start()
+
+    await completeWithError({ error: 'Connection error.', failure_code: 'network_error' })
+
+    expect(lastAssistant()?.errorCode).toBe('offline')
+  })
+
+  it('notifies a failed turn as one, in plain words', async () => {
+    await mountStream()
+    await start()
+
+    await completeWithError({ error: 'HTTP 429: slow down', failure_code: 'rate_limited' })
+
+    expect(dispatchNativeNotification).toHaveBeenCalledWith({
+      body: 'Too many requests right now',
+      kind: 'turnError',
+      sessionId: SID,
+      title: 'Turn failed'
+    })
+  })
+
+  it('still notifies a healthy turn as done', async () => {
+    await mountStream()
+    await start()
+
+    await act(() =>
+      handleEvent!({ payload: { status: 'complete', text: 'All done.' }, session_id: SID, type: 'message.complete' })
+    )
+
+    expect(dispatchNativeNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ body: 'All done.', kind: 'turnDone' })
+    )
+  })
+})
+
+describe('bare error events', () => {
+  beforeEach(() => {
+    handleEvent = null
+    clearNotifications()
+    vi.mocked(dispatchNativeNotification).mockClear()
+  })
+
+  afterEach(() => {
+    cleanup()
+    clearNotifications()
+    vi.restoreAllMocks()
+  })
+
+  const raise = (message: unknown) =>
+    act(() => handleEvent!({ payload: { message } as never, session_id: SID, type: 'error' }))
+
+  it('fails the bubble, toasts in plain words and keeps the raw text folded', async () => {
+    await mountStream()
+    await start()
+
+    const raw = "Could not switch model: Error code: 404 - {'error': {'message': 'The model `x` does not exist'}}"
+    await raise(raw)
+
+    expect(lastAssistant()).toMatchObject({ error: raw, errorCode: 'model_unavailable' })
+
+    const toasts = $notifications.get()
+    expect(toasts).toHaveLength(1)
+    expect(toasts[0]).toMatchObject({
+      id: `gateway-error:${raw}`,
+      kind: 'error',
+      title: "This model isn't available right now",
+      message: 'It may have been removed or paused. Pick another model and try again.',
+      detail: `Error code: model_unavailable\n${raw}`
+    })
+    expect(dispatchNativeNotification).toHaveBeenCalledWith({
+      body: "This model isn't available right now",
+      kind: 'turnError',
+      sessionId: SID,
+      title: 'Turn failed'
+    })
+  })
+
+  it('collapses the same error from several turns into one toast', async () => {
+    await mountStream()
+    await start()
+    await raise('Connection error.')
+    await start()
+    await raise('Connection error.')
+
+    expect($notifications.get()).toHaveLength(1)
+  })
+
+  it('never shows an English placeholder when the event carries no message', async () => {
+    await mountStream()
+    await start()
+
+    await raise(undefined)
+
+    expect(lastAssistant()).toMatchObject({ error: 'operation_failed', errorCode: 'operation_failed' })
+    expect($notifications.get()[0]).toMatchObject({
+      title: 'Something went wrong',
+      detail: 'Error code: operation_failed'
+    })
   })
 })

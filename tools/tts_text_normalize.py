@@ -221,8 +221,26 @@ _THINK_BLOCK_OPEN_RE = re.compile(r"<think[\s>].*\Z", flags=re.DOTALL | re.IGNOR
 # "warning file mutation verifier, 2 files were NOT modified..." aloud is
 # noise (#40772).  The footer is a ``⚠️ File-mutation verifier:`` header line
 # followed by indented ``•`` bullet lines; strip the whole block.
+#
+# The header label is translated (``file_mutation.label`` in locales/*.yaml),
+# so the pattern is built from every language's label — a Vietnamese footer is
+# no more speakable than an English one.
+def _verifier_footer_labels() -> list[str]:
+    labels = {"File-mutation verifier"}
+    try:
+        from agent.i18n import SUPPORTED_LANGUAGES, t
+
+        for lang in SUPPORTED_LANGUAGES:
+            label = t("file_mutation.label", lang=lang)
+            if label and label != "file_mutation.label":
+                labels.add(label)
+    except Exception:  # noqa: BLE001 - the English label still strips
+        pass
+    return sorted(labels, key=len, reverse=True)
+
+
 _VERIFIER_FOOTER_RE = re.compile(
-    r"^\s*⚠️?\s*File-mutation verifier:.*(?:\n[ \t]+•.*)*",
+    r"^\s*⚠️?\s*(?:" + "|".join(re.escape(label) for label in _verifier_footer_labels()) + r"):.*(?:\n[ \t]+•.*)*",
     flags=re.MULTILINE,
 )
 

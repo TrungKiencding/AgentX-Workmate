@@ -116,9 +116,23 @@ describe('a turn refused by the AgentX license', () => {
       'Your Pilot 2026 plan expired on Dec 31, 2026. Workmate is in read-only mode. ' +
         'Contact it@astralx.com.vn to get a license or renew it.'
     )
+    // Shown under the license title, without a retry (lib/turn-error.ts).
+    expect(lastAssistant()?.errorCode).toBe('license_read_only')
     expect($licenseReadOnly.get()).toBe(true)
     // …and asks the main process, which tells every other window.
     await waitFor(() => expect(get).toHaveBeenCalledTimes(1))
+  })
+
+  it('keeps the precise license code the gateway sent', async () => {
+    await refuse({
+      error: 'Gói Pilot 2026 đã hết hạn ngày 31/12/2026. Workmate đang ở chế độ chỉ xem.',
+      failure_code: 'license_expired',
+      failure_reason: 'license_read_only',
+      license: EXPIRED,
+      text: 'Gói Pilot 2026 đã hết hạn ngày 31/12/2026. Workmate đang ở chế độ chỉ xem.'
+    })
+
+    expect(lastAssistant()?.errorCode).toBe('license_expired')
   })
 
   it('keeps the backend sentence when the license that came with it is unreadable', async () => {

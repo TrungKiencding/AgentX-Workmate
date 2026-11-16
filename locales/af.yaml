@@ -22,6 +22,9 @@ approval:
 gateway:
   approval_expired: "⚠️ Goedkeuring het verval (die agent wag nie meer nie). Vra die agent om weer te probeer."
   draining:         "⏳ Wag vir {count} aktiewe agent(e) voor herbegin..."
+  pairing_unknown_sender: "Hallo! Ek ken jou nog nie, so ek kan nie antwoord nie.\n\nJou koppelkode: `{code}`\n\nVra die eienaar van hierdie bot om AgentX Workmate → Boodskapkanale oop te maak en op “Laat toe” by jou versoek te klik, en stuur dan weer vir my 'n boodskap. (Vanaf 'n terminaal: `{command}`)"
+  pairing_rate_limited: "Te veel koppelversoeke tans. Probeer asseblief oor 'n paar minute weer."
+  home_channel_unset: "📬 Daar is nog geen verstekklets vir {platform} nie. Dit is waarheen AgentX geskeduleerde taakresultate en boodskappe uit ander kanale stuur.\n\nTik {command} om hierdie klets te gebruik, of ignoreer hierdie boodskap."
   goal_cleared:     "✓ Doelwit verwyder."
   no_active_goal:   "Geen aktiewe doelwit nie."
   config_read_failed: "⚠️ Kon nie config.yaml lees nie: {error}"
@@ -446,3 +449,10 @@ license:
   read_only_expired:    "Jou {plan}-plan het op {date} verval. Workmate is in leesalleen-modus."
   read_only_revoked:    "Jou AgentX-lisensie is herroep. Workmate is in leesalleen-modus."
   contact:              "Kontak {contact} om 'n lisensie te kry of te hernu."
+
+file_mutation:
+  label:         "Lêerwysiging-kontrole"
+  summary:       "{count} lêer(s) is NIE in hierdie beurt gewysig nie, ongeag wat die teks hierbo mag voorstel. Gebruik `git status` of `read_file` om te bevestig."
+  summary_plain: "{count} lêer(s) kon nie in hierdie beurt gestoor word nie, ongeag wat die antwoord hierbo sê:"
+  more:          "… en nog {count}"
+  failed:        "het misluk"

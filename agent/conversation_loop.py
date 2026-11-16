@@ -56,6 +56,8 @@ from agent.message_sanitization import (
     _sanitize_structure_surrogates,
     _sanitize_surrogates,
     _sanitize_tools_non_ascii,
+    _looks_like_image_content_rejection,
+    _messages_carry_images,
     _strip_images_from_messages,
     _strip_non_ascii,
 )
@@ -89,6 +91,7 @@ from agent.retry_utils import (
 )
 from agent.repetition_guard import is_repetition_dominated
 from agent.trajectory import has_incomplete_scratchpad
+from agent.think_scrubber import THINK_TAG_ALTERNATION
 # Bound at import time deliberately: a lazy end-of-turn import reads the
 # module fresh from disk, so a mid-session git switch/pull in a source
 # checkout loads a version-skewed finalizer and kills the finished turn.
@@ -228,6 +231,12 @@ _API_CALL_MODULES = frozenset({
 # small. Still scaled down by a tiny explicit ``max_iterations`` so a
 # manually bounded budget keeps governing.
 _MAX_OUTER_LOOP_ERRORS = 8
+
+#: Seconds waited before each resend of a request the AgentX AI Gateway
+#: refused with 401. About seven seconds in all: long enough to outlast the
+#: gateway briefly failing to read its key table, short enough that a key that
+#: really is dead still fails the turn promptly.
+GATEWAY_REFUSAL_RETRY_DELAYS = (1.0, 2.0, 4.0)
 
 
 def _is_interpreter_shutdown_error(exc: Exception) -> bool:
@@ -705,7 +714,7 @@ def _billing_failure_result(
         "completed": False,
         "failed": True,
         "error": summary,
-        "failure_reason": classified.reason.value,
+        "failure_reason": classified.failure_reason,
         # The billing verdict may rest on an ambiguous body (#82154) — carry
         # that through the structured result, not just the prose.
         "billing_unverified": unverified,
@@ -1263,6 +1272,7 @@ def _content_policy_blocked_result(
         "completed": False,
         "failed": True,
         "error": f"content_policy_blocked: {error_detail}",
+        "failure_reason": FailoverReason.content_policy_blocked.value,
     }
 
 
@@ -3554,7 +3564,7 @@ def run_conversation(
                     # thinking-budget exhaustion.
                     _has_think_tags = bool(
                         _trunc_content and re.search(
-                            r'<(?:think|thinking|reasoning|REASONING_SCRATCHPAD)[^>]*>',
+                            rf'<(?:{THINK_TAG_ALTERNATION})[^>]*>',
                             _trunc_content,
                             re.IGNORECASE,
                         )
@@ -3820,6 +3830,9 @@ def run_conversation(
                                 "completed": False,
                                 "partial": True,
                                 "error": "Response remained truncated after 4 continuation attempts",
+                                # The reply was cut off: what the person is told and the
+                                # usage metrics count (tui_gateway/usage_outcome.py).
+                                "failure_reason": "response_truncated",
                             }
 
                     if agent.api_mode in {"chat_completions", "bedrock_converse", "anthropic_messages"}:
@@ -4455,55 +4468,7 @@ def run_conversation(
                 except Exception:
                     pass
                 _err_status = getattr(api_error, "status_code", None)
-                _IMAGE_REJECTION_PHRASES = (
-                    "only 'text' content type is supported",
-                    "only text content type is supported",
-                    "image_url is not supported",
-                    "image content is not supported",
-                    "multimodal is not supported",
-                    "multimodal content is not supported",
-                    "multimodal input is not supported",
-                    "vision is not supported",
-                    "vision input is not supported",
-                    "does not support images",
-                    "does not support image input",
-                    "does not support multimodal",
-                    "does not support vision",
-                    "model does not support image",
-                    # ChatGPT-account Codex backend
-                    # (https://chatgpt.com/backend-api/codex) rejects
-                    # data:image/...base64 URLs in input_image fields
-                    # with HTTP 400 "Invalid 'input[N].content[K].image_url'.
-                    # Expected a valid URL, but got a value with an
-                    # invalid format." The OpenAI Responses API on the
-                    # public endpoint accepts data URLs, but the
-                    # ChatGPT-account variant does not. Without this
-                    # phrase the agent cascaded into compression /
-                    # context-too-large recovery instead of just
-                    # stripping the images. Match is narrow on
-                    # purpose — keyed on the field-path apostrophe so
-                    # we don't false-trip on other URL validation
-                    # errors. (issue #23570)
-                    "image_url'. expected",
-                    # DeepSeek's OpenAI-compatible API reports text-only
-                    # request-body variants as:
-                    # "unknown variant `image_url`, expected `text`".
-                    "unknown variant `image_url`, expected `text`",
-                    "unknown variant image_url, expected text",
-                    # OpenRouter routes a request to upstream endpoints and,
-                    # when none of the candidate endpoints for the model accept
-                    # image input, returns HTTP 404 "No endpoints found that
-                    # support image input". Without this phrase the agent never
-                    # strips the images, the retry loop re-sends the same
-                    # rejected request until exhaustion, and the gateway leaves
-                    # every subsequent message queued behind the stuck turn —
-                    # the P1 in issue #21160. The 404 passes the 4xx gate below.
-                    "no endpoints found that support image input",
-                )
-                _err_lower = _err_body.lower()
-                _looks_like_image_rejection = any(
-                    p in _err_lower for p in _IMAGE_REJECTION_PHRASES
-                )
+                _looks_like_image_rejection = _looks_like_image_content_rejection(_err_body)
                 # 4xx-only gate: never interpret 5xx/timeout as "server
                 # said no to images" — those are transient and must
                 # route to the normal retry path.
@@ -4512,6 +4477,11 @@ def run_conversation(
                     getattr(agent, "_vision_supported", True)
                     and _looks_like_image_rejection
                     and _status_ok
+                    # A request with no image never flips the session to
+                    # text-only: a 4xx body can echo the user's own text
+                    # ("X is not a multimodal model"), and a wrong flip blinds
+                    # a vision model for the rest of the session.
+                    and _messages_carry_images(api_messages if isinstance(api_messages, list) else messages)
                 ):
                     agent._vision_supported = False
                     _imgs_removed = _strip_images_from_messages(messages)
@@ -4647,6 +4617,60 @@ def run_conversation(
                         )
                         agent._persist_session(messages, conversation_history)
                         return turn_refusal(_read_only, messages, api_calls=api_call_count)
+
+                # ── AgentX AI Gateway: a 401 that may be the gateway blinking ──
+                # LiteLLM answers 401 to a valid key while it cannot read its
+                # key table (a Postgres primary switchover did, for ~2s). The
+                # license above is fine, so wait briefly and send the same
+                # request again — picking up a key provisioning may have just
+                # collected — before the credential pool benches the only key
+                # and the turn fails as "your AI key was revoked". Never after
+                # text from this attempt reached the screen: that reply is not
+                # sent twice.
+                if (
+                    status_code == 401
+                    and _retry.gateway_refusal_retries < len(GATEWAY_REFUSAL_RETRY_DELAYS)
+                    and not (getattr(agent, "_current_streamed_assistant_text", "") or "").strip()
+                ):
+                    from hermes_cli.account_license import is_account_gateway
+
+                    if is_account_gateway(str(getattr(agent, "base_url", "") or "")):
+                        _wait = GATEWAY_REFUSAL_RETRY_DELAYS[_retry.gateway_refusal_retries]
+                        _retry.gateway_refusal_retries += 1
+                        logger.warning(
+                            "%sThe AgentX AI Gateway refused the key (HTTP 401); "
+                            "retrying in %.1fs (%d/%d)",
+                            agent.log_prefix, _wait, _retry.gateway_refusal_retries,
+                            len(GATEWAY_REFUSAL_RETRY_DELAYS),
+                        )
+                        agent._buffer_status(
+                            f"⏳ AgentX AI Gateway refused the key (HTTP 401) — retrying in {_wait:.0f}s..."
+                        )
+                        _sleep_end = time.time() + _wait
+                        while time.time() < _sleep_end:
+                            if agent._interrupt_requested:
+                                if agent.clear_interrupt(preserve_redirect=True):
+                                    _retry.restart_with_redirected_messages = True
+                                    break
+                                _interrupt_text = "Operation interrupted while retrying the AgentX AI Gateway."
+                                close_interrupted_tool_sequence(messages, _interrupt_text)
+                                agent._persist_session(messages, conversation_history)
+                                agent.clear_interrupt()
+                                return {
+                                    "final_response": _interrupt_text,
+                                    "messages": messages,
+                                    "api_calls": api_call_count,
+                                    "completed": False,
+                                    "interrupted": True,
+                                }
+                            time.sleep(min(0.2, max(0.0, _sleep_end - time.time())))
+                        if _retry.restart_with_redirected_messages:
+                            break
+                        try:
+                            agent._try_refresh_env_client_credentials()
+                        except Exception:
+                            logger.debug("env credential refresh after a gateway 401 failed", exc_info=True)
+                        continue
 
                 if (
                     classified.reason == FailoverReason.billing
@@ -5163,6 +5187,7 @@ def run_conversation(
                         "partial": True,
                         "failed": True,
                         "compaction_disabled": True,
+                        "failure_reason": classified.failure_reason,
                     }
 
                 # ── Anthropic Sonnet long-context tier gate ───────────
@@ -5491,6 +5516,7 @@ def run_conversation(
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
+                            "failure_reason": FailoverReason.payload_too_large.value,
                         }
                     agent._buffer_status(f"⚠️  Request payload too large (413) — compression attempt {compression_attempts}/{max_compression_attempts}...")
 
@@ -5563,6 +5589,7 @@ def run_conversation(
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
+                            "failure_reason": FailoverReason.payload_too_large.value,
                         }
 
                 # Check for context-length errors BEFORE generic 4xx handler.
@@ -5641,6 +5668,7 @@ def run_conversation(
                                 "partial": True,
                                 "failed": True,
                                 "compression_exhausted": True,
+                                "failure_reason": FailoverReason.context_overflow.value,
                             }
                         # Also compress the message history so the output-cap
                         # retry does not just spin on max_tokens alone.  The
@@ -5795,6 +5823,7 @@ def run_conversation(
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
+                            "failure_reason": FailoverReason.context_overflow.value,
                         }
                     agent._buffer_status(COMPRESSION_RETRY_TOO_LARGE_STATUS_TEMPLATE.format(tokens=approx_tokens, attempt=compression_attempts, cap=max_compression_attempts))
 
@@ -5858,6 +5887,7 @@ def run_conversation(
                             "partial": True,
                             "failed": True,
                             "compression_exhausted": True,
+                            "failure_reason": FailoverReason.context_overflow.value,
                         }
 
                 # Check for non-retryable client errors.  The classifier
@@ -6167,6 +6197,10 @@ def run_conversation(
                         "completed": False,
                         "failed": True,
                         "error": _nonretryable_summary,
+                        # The classified reason, so callers (the desktop's
+                        # error explanation, the SSO usage metrics) can tell a
+                        # missing model from a malformed request.
+                        "failure_reason": classified.failure_reason,
                     }
 
                 if retry_count >= max_retries:
@@ -6388,7 +6422,7 @@ def run_conversation(
                         # transient throttle from a real failure and choose a
                         # different exit code. ``rate_limit`` / ``billing`` here
                         # mean "quota wall, not a task error".
-                        "failure_reason": classified.reason.value,
+                        "failure_reason": classified.failure_reason,
                         # True when the billing verdict rests on an ambiguous
                         # body (#82154) — may be a content-filter rejection.
                         "billing_unverified": _billing_unverified,
@@ -6658,7 +6692,7 @@ def run_conversation(
                 _think_text = assistant_message.content.strip()
                 # Strip reasoning XML tags that shouldn't leak to parent display
                 _think_text = re.sub(
-                    r'</?(?:REASONING_SCRATCHPAD|think|reasoning)>', '', _think_text
+                    rf'</?(?:{THINK_TAG_ALTERNATION})>', '', _think_text, flags=re.IGNORECASE
                 ).strip()
                 # For subagents: relay first line to parent display (existing behaviour).
                 # For all agents with a structured callback: emit reasoning.available event.

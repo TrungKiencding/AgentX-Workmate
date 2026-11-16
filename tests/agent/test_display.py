@@ -241,6 +241,55 @@ class TestEditDiffPreview:
         assert not any("a/file7.py" in line for line in rendered)
         assert "additional file" in rendered[-1]
 
+    def test_count_diff_line_stats_counts_every_changed_line(self):
+        from agent.display import count_diff_line_stats
+
+        diff = (
+            "--- a/notes.md\n+++ b/notes.md\n"
+            "@@ -1,3 +1,3 @@\n context\n-old\n+new\n context\n"
+            "@@ -10,0 +11,2 @@\n+a\n+b\n"
+        )
+
+        assert count_diff_line_stats(diff) == {"added": 3, "removed": 1}
+
+    def test_count_diff_line_stats_does_not_mistake_content_for_file_headers(self):
+        from agent.display import count_diff_line_stats
+
+        # A removed "-- old" reads "--- old" and an added "++ new" reads
+        # "+++ new": changed lines inside a hunk, not the next file's header.
+        diff = (
+            "--- a/notes.md\n+++ b/notes.md\n"
+            "@@ -1,2 +1,2 @@\n--- old\n+++ new\n context\n"
+            "--- a/other.md\n+++ b/other.md\n"
+            "@@ -1 +1 @@\n-x\n+y\n"
+        )
+
+        assert count_diff_line_stats(diff) == {"added": 2, "removed": 2}
+
+    def test_render_edit_diff_reports_real_stats_past_the_preview_cap(self, tmp_path):
+        """A new 200-line file previews 80 lines but is still a +200 change."""
+        target = tmp_path / "analysis.py"
+        snapshot = capture_local_edit_snapshot("write_file", {"path": str(target)})
+        target.write_text("".join(f"line {i}\n" for i in range(200)), encoding="utf-8")
+
+        rendered: list[str] = []
+        stats: dict = {}
+        ok = render_edit_diff_with_delta(
+            "write_file",
+            '{"bytes_written": 1}',
+            function_args={"path": str(target)},
+            snapshot=snapshot,
+            print_fn=rendered.append,
+            stats=stats,
+        )
+
+        assert ok is True
+        # The preview itself stays capped ...
+        assert sum(1 for line in rendered if "+line " in line) == 78
+        assert "omitted" in rendered[-1]
+        # ... and the stats describe the whole change, not the preview.
+        assert stats == {"added": 200, "removed": 0}
+
 
 class TestBuildToolLabel:
     """Friendly human-phrased tool labels for built-in tools."""

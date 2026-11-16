@@ -148,6 +148,54 @@ test('a refused AgentX key holds the app at the key gate until it is issued, and
     await gate.getByRole('button', { exact: true, name: RETRY }).click()
     await waitForComposer(page)
 
+    // Real SSO → provisioned account .env → LiteLLM → Electron → composer.
+    const dock = page.locator('[data-slot="composer-dock"]')
+    const allowance = dock.getByRole('button', { name: /(?:View allowance|Xem hạn mức): 75%/ })
+    await expect(allowance).toBeVisible({ timeout: 30_000 })
+    await expect(page.locator('[data-slot="composer-account-quota"]')).toHaveCount(1)
+    await expect(page.getByRole('dialog', { name: /Model allowance|Hạn mức sử dụng/ })).toHaveCount(0)
+    const surfaceBox = await dock.locator('[data-slot="composer-surface"]').boundingBox()
+    const quotaBox = await allowance.boundingBox()
+    const modelBox = await dock.locator('[data-slot="composer-model"]').boundingBox()
+    expect(surfaceBox && quotaBox && modelBox).toBeTruthy()
+    expect(quotaBox!.y).toBeGreaterThanOrEqual(surfaceBox!.y + surfaceBox!.height)
+    expect(quotaBox!.x).toBeGreaterThanOrEqual(modelBox!.x + modelBox!.width)
+    expect(Math.abs(quotaBox!.y + quotaBox!.height / 2 - (modelBox!.y + modelBox!.height / 2))).toBeLessThan(1)
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await allowance.click()
+    const details = page.getByRole('dialog', { name: /Model allowance|Hạn mức sử dụng/ })
+    await expect(details.getByText('75%', { exact: true })).toBeVisible()
+    await expect(details.getByText('25%', { exact: true })).toBeVisible()
+    await expect(details).not.toContainText(
+      /US\$|USD|\$|Cập nhật lúc|Last updated|Dùng chung trên|Shared across devices/
+    )
+    await expect(details.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '25')
+    await expect(details.locator('time').first()).toHaveAttribute('datetime', '2026-12-01T00:00:00+00:00')
+    await page.screenshot({ path: test.info().outputPath('account-quota.png'), animations: 'disabled' })
+    await details.screenshot({ path: test.info().outputPath('account-quota-panel.png'), animations: 'disabled' })
+    const wasDark = await page.evaluate(() => document.documentElement.classList.contains('dark'))
+    await page.evaluate(() => document.documentElement.classList.add('dark'))
+    await details.screenshot({ path: test.info().outputPath('account-quota-dark.png'), animations: 'disabled' })
+    if (!wasDark) await page.evaluate(() => document.documentElement.classList.remove('dark'))
+    // Check the detail panel in narrow available widths as well.
+    for (const width of [320, 375, 414, 768]) {
+      await details.evaluate((element, available) => {
+        element.style.maxWidth = `${available - 16}px`
+      }, width)
+      expect(await details.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+    }
+    await details.evaluate(element => element.style.removeProperty('max-width'))
+    await page.keyboard.press('Escape')
+    await expect(details).toHaveCount(0)
+    const dockClip = await dock.boundingBox()
+    expect(dockClip).toBeTruthy()
+    await page.screenshot({
+      path: test.info().outputPath('composer-quota-placement.png'),
+      clip: dockClip!,
+      animations: 'disabled',
+      caret: 'hide'
+    })
+
     const accountHome = path.join(sandbox.hermesHome, 'accounts', home)
 
     expect(fs.readFileSync(path.join(accountHome, '.env'), 'utf8')).toContain('sk-fake-sso-0123456789abcdef')

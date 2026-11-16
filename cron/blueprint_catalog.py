@@ -27,6 +27,8 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from cron.blueprint_i18n import blueprint_text, slot_text
+
 __all__ = [
     "BlueprintSlot",
     "AutomationBlueprint",
@@ -371,7 +373,7 @@ CATALOG: List[AutomationBlueprint] = [
         prompt_template=(
             "Build the user a meal plan for the coming week: {meals} per day, "
             "suited to a {diet} diet and roughly {effort} cooking effort. "
-            "Include a consolidated grocery list grouped by aisle. Keep blueprints "
+            "Include a consolidated grocery list grouped by aisle. Keep recipes "
             "simple and skimmable."
         ),
         slots=[
@@ -489,27 +491,50 @@ def get_blueprint(key: str) -> Optional[AutomationBlueprint]:
 # Renderers
 # ---------------------------------------------------------------------------
 
-def blueprint_form_schema(blueprint: AutomationBlueprint) -> Dict[str, Any]:
-    """Emit the JSON a form renderer (dashboard / GUI) needs for this blueprint."""
+def _slot_default(blueprint: AutomationBlueprint, slot: BlueprintSlot, locale: Optional[str]) -> Any:
+    """A slot's default as the user of *locale* should see it.
+
+    Only free-text defaults are translated: an enum/time/weekdays default is an
+    option *value* and must stay one.
+    """
+    if slot.type == "text":
+        return slot_text(blueprint.key, slot.name, locale).get("default", slot.default)
+    return slot.default
+
+
+def blueprint_form_schema(blueprint: AutomationBlueprint, locale: Optional[str] = None) -> Dict[str, Any]:
+    """Emit the JSON a form renderer (dashboard / GUI) needs for this blueprint.
+
+    With a *locale* that has a table in ``cron.blueprint_i18n``, the title,
+    description, labels, help and free-text defaults come back translated, and
+    each field carries ``optionLabels`` (option value -> display label). The
+    ``options`` themselves stay the stable values the form must submit.
+    """
+    text = blueprint_text(blueprint.key, locale)
+    fields = []
+    for s in blueprint.slots:
+        slot = slot_text(blueprint.key, s.name, locale)
+        entry = {
+            "name": s.name,
+            "type": s.type,
+            "label": slot.get("label", s.label),
+            "default": _slot_default(blueprint, s, locale),
+            "options": list(s.options),
+            "optional": s.optional,
+            "strict": s.strict,
+            "help": slot.get("help", s.help),
+        }
+        labels = {str(o): slot["options"][str(o)] for o in s.options if str(o) in slot.get("options", {})}
+        if labels:
+            entry["optionLabels"] = labels
+        fields.append(entry)
     return {
         "key": blueprint.key,
-        "title": blueprint.title,
-        "description": blueprint.description,
+        "title": text.get("title", blueprint.title),
+        "description": text.get("description", blueprint.description),
         "category": blueprint.category,
         "tags": list(blueprint.tags),
-        "fields": [
-            {
-                "name": s.name,
-                "type": s.type,
-                "label": s.label,
-                "default": s.default,
-                "options": list(s.options),
-                "optional": s.optional,
-                "strict": s.strict,
-                "help": s.help,
-            }
-            for s in blueprint.slots
-        ],
+        "fields": fields,
     }
 
 
@@ -575,13 +600,16 @@ def _humanize_schedule(blueprint: AutomationBlueprint) -> str:
     return "on a schedule"
 
 
-def blueprint_catalog_entry(blueprint: AutomationBlueprint) -> Dict[str, Any]:
+def blueprint_catalog_entry(blueprint: AutomationBlueprint, locale: Optional[str] = None) -> Dict[str, Any]:
     """Unified serializable shape for a blueprint — used by the docs generator
     and the dashboard API. Combines the form schema, the ready-to-paste slash
     command, the deep-link URL, and a human-readable schedule.
+
+    *locale* translates the form schema only; the slash command, deep-link and
+    ``scheduleHuman`` are identifiers / docs output and stay as written.
     """
     return {
-        **blueprint_form_schema(blueprint),
+        **blueprint_form_schema(blueprint, locale),
         "schedule": blueprint.schedule_template,
         "scheduleHuman": _humanize_schedule(blueprint),
         "command": blueprint_slash_command(blueprint),
@@ -663,8 +691,13 @@ def fill_blueprint(
     values: Dict[str, Any],
     *,
     origin: Optional[Dict[str, Any]] = None,
+    locale: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Validate ``values`` and return ``cron.jobs.create_job`` kwargs.
+
+    With a translated *locale* the job's name and prompt are written in that
+    language (option values interpolated into the prompt become their labels);
+    the schedule is built from the raw values either way.
 
     Missing required (non-optional) slots raise BlueprintFillError naming the
     slot, so a form can show field errors and the agent knows what to ask.
@@ -681,7 +714,7 @@ def fill_blueprint(
         )
     resolved: Dict[str, Any] = {}
     for s in blueprint.slots:
-        raw = values.get(s.name, s.default)
+        raw = values.get(s.name, _slot_default(blueprint, s, locale))
         if raw in (None, ""):
             if s.optional:
                 continue
@@ -694,16 +727,24 @@ def fill_blueprint(
 
     schedule = _resolve_schedule(blueprint, resolved)
 
-    # Render the prompt with whatever slots it references.
+    # Render the prompt with whatever slots it references. A translated prompt
+    # reads option labels, not the English option values.
+    text = blueprint_text(blueprint.key, locale)
+    spoken = dict(resolved)
+    if text.get("prompt"):
+        for s in blueprint.slots:
+            labels = slot_text(blueprint.key, s.name, locale).get("options", {})
+            if s.name in spoken and str(spoken[s.name]) in labels:
+                spoken[s.name] = labels[str(spoken[s.name])]
     try:
-        prompt = blueprint.prompt_template.format(**resolved)
+        prompt = text.get("prompt", blueprint.prompt_template).format(**spoken)
     except KeyError as e:
         raise BlueprintFillError(f"blueprint prompt missing value for {e}") from e
 
     spec: Dict[str, Any] = {
         "prompt": prompt,
         "schedule": schedule,
-        "name": blueprint.title,
+        "name": text.get("title", blueprint.title),
         "deliver": resolved.get("deliver", blueprint.deliver_default),
     }
     if blueprint.skills:

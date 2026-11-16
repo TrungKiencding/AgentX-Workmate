@@ -49,6 +49,10 @@ export function describeGatewayAutostart(answer: unknown): string {
     case 'running':
       return `[messaging] the gateway is already running${typeof body.pid === 'number' ? ` (pid ${body.pid})` : ''}`
 
+    case 'restarted_stale':
+      // It outlived an upgrade: the checkout it was loaded from is gone.
+      return `[messaging] the running gateway${typeof body.pid === 'number' ? ` (pid ${body.pid})` : ''} was started from a checkout that no longer exists; restarting it for ${channelList(body)}`
+
     case 'no_platforms':
       return '[messaging] no channel is turned on; the gateway was not started'
 

@@ -1,0 +1,8 @@
+{
+  "event_id": "8f14e45f-ceea-467a-9c8e-2f6a0b1d3c55",
+  "occurred_at": "2026-11-15T14:08:03.456Z",
+  "feature": "cron.run",
+  "outcome": "failure",
+  "duration_ms": 41250,
+  "error_code": "rate_limited"
+}

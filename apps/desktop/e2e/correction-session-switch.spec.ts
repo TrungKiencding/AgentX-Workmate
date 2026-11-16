@@ -109,13 +109,14 @@ async function transcriptMessageOrder(page: Page): Promise<string[]> {
 }
 
 /**
- * The sidebar "+" opens a NEW TAB beside the current chat rather than
- * replacing it, so the prior session stays mounted in its own surface. Wait
- * for the newly-mounted surface to show an empty transcript instead of waiting
- * for the old text to disappear from the page (it never will).
+ * New tab (⌘T / Ctrl+T) opens beside the current chat rather than replacing it
+ * (the sidebar's "New chat" row replaces it, like ⌘N), so the prior session
+ * stays mounted in its own surface. Wait for the newly-mounted surface to show
+ * an empty transcript instead of waiting for the old text to disappear from the
+ * page (it never will).
  */
 async function openFreshDraft(page: Page, priorSessionText: string): Promise<void> {
-  await page.locator('[data-slot="sidebar"] button[aria-label="New chat"]').first().click()
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+T' : 'Control+T')
   await page.waitForFunction(
     ([priorText, surfaceSelector]: [string, string]) => {
       const surfaces = document.querySelectorAll(surfaceSelector)

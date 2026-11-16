@@ -1636,6 +1636,40 @@ def switch_model(
     )
     from hermes_cli.runtime_provider import resolve_runtime_provider
 
+    from hermes_cli.account_inference import (
+        AccountGatewayError,
+        AccountModelNotAllowed,
+        account_inference,
+        account_models,
+    )
+
+    policy = account_inference()
+    if policy is not None:
+        try:
+            runtime = resolve_runtime_provider(requested=explicit_provider or policy.provider)
+            models = account_models()
+            candidate = raw_input.strip() or current_model
+            matches = [m for m in models if m.lower() == candidate.lower()]
+            if not matches:
+                # Permit an unambiguous short name, but never resolve an alias
+                # against another vendor's catalog or credentials.
+                matches = [m for m in models if m.rsplit("/", 1)[-1].lower() == candidate.lower()]
+            if len(matches) != 1:
+                raise AccountModelNotAllowed()
+            model = matches[0]
+            from hermes_cli.account_provisioning import PROVIDER_DISPLAY_NAME
+
+            return ModelSwitchResult(
+                success=True, new_model=model, target_provider=policy.provider,
+                provider_changed=current_provider != policy.provider,
+                api_key=runtime["api_key"], base_url=runtime["base_url"],
+                api_mode=runtime["api_mode"], provider_label=PROVIDER_DISPLAY_NAME,
+                capabilities=get_model_capabilities(policy.provider, model),
+                model_info=get_model_info(policy.provider, model), is_global=is_global,
+            )
+        except AccountGatewayError as exc:
+            return ModelSwitchResult(success=False, error_message=str(exc), is_global=is_global)
+
     resolved_alias = ""
     new_model = raw_input.strip()
     target_provider = current_provider
@@ -2561,6 +2595,20 @@ def list_authenticated_providers(
     matches the active provider without blocking on every saved/offline custom
     endpoint.
     """
+    from hermes_cli.account_inference import account_inference, account_models
+
+    policy = account_inference()
+    if policy is not None:
+        from hermes_cli.account_provisioning import PROVIDER_DISPLAY_NAME
+
+        models = list(account_models(refresh=refresh))
+        return [{
+            "slug": policy.provider, "name": PROVIDER_DISPLAY_NAME,
+            "is_current": True, "is_user_defined": True,
+            "api_url": policy.base_url, "models": models,
+            "total_models": len(models), "source": "account-grant",
+        }]
+
     import os
     from agent.models_dev import (
         PROVIDER_TO_MODELS_DEV,

@@ -9,7 +9,7 @@ async-delegation path already uses (``_classify_completion_target``):
 
 - terminal (user boundary such as /new)  -> drop with a log
 - retry (transient DB uncertainty)       -> watcher re-polls
-- deliver (live / idle-ended parent)     -> proceed as today
+- deliver (live parent)                 -> proceed as today
 
 Unstamped legacy events keep today's deliver-always behavior.
 """
@@ -200,17 +200,20 @@ def test_completion_from_user_closed_session_is_dropped(
     adapter.handle_message.assert_not_awaited()
 
 
-def test_completion_after_idle_end_still_delivers(
+@pytest.mark.parametrize("end_reason", ["idle", "idle_timeout", "agent_close"])
+def test_completion_does_not_resurrect_an_ended_session(
     monkeypatch, isolated_registry,
+    end_reason,
 ):
-    """Idle/timeout ends are the relay-plane norm — the chat stays routable
-    and the completion must deliver."""
+    """A closed logical session cannot consume a new internal turn. Relay
+    transport dormancy leaves that session live; it does not end it. Match
+    the async-delegation resolver's no-resurrection contract here too."""
     _finished_session(isolated_registry)
     adapter = SimpleNamespace(handle_message=AsyncMock())
     runner = _runner(
         adapter,
         session_db=_SessionDB(
-            {"ended_at": 1786288000.0, "end_reason": "idle_timeout"}
+            {"ended_at": 1786288000.0, "end_reason": end_reason}
         ),
     )
 
@@ -218,7 +221,7 @@ def test_completion_after_idle_end_still_delivers(
         monkeypatch, runner, _watcher("proc_boundary", "sess-idle"),
     )
 
-    adapter.handle_message.assert_awaited_once()
+    adapter.handle_message.assert_not_awaited()
 
 
 def test_completion_from_live_session_delivers(monkeypatch, isolated_registry):

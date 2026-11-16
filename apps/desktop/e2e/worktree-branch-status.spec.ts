@@ -72,6 +72,17 @@ test('creating a branch with the platform shortcut updates the composer git-stat
   const page = fixture!.page
   const codingRow = page.locator('.coding-status-bar')
   const composer = page.locator('[contenteditable="true"]').first()
+  const repo = path.join(fixture!.sandbox.root, 'repo')
+
+  // A new chat starts with "No folder" (the folder is picked where you type),
+  // so `terminal.cwd` alone no longer makes the session repo-backed. Point the
+  // draft at the repo the way a person would — "Open another folder…" and the
+  // native folder dialog, stubbed here to answer with the repo.
+  await fixture!.app.evaluate(({ dialog }, folder) => {
+    dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: [folder] })) as typeof dialog.showOpenDialog
+  }, repo)
+  await page.getByRole('button', { name: 'Open another folder…', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Choose a working folder', exact: true })).toContainText('repo')
 
   await composer.click()
   await composer.type('create a repo-backed e2e session', { delay: 2 })

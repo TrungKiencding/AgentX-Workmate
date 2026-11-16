@@ -23,7 +23,7 @@ import {
 } from '@/store/session-states'
 import { canOpenSessionWindow, openSessionInNewWindow } from '@/store/windows'
 
-import { $workspaceIsPage, sessionRoute } from './routes'
+import { $workspaceIsPage, routePathname, sessionRoute } from './routes'
 
 export type OpenSessionIntent = 'in-place' | 'stack' | 'tab' | 'window'
 
@@ -142,7 +142,14 @@ export function openSession(
   // otherwise load it into main. From a full page (artifacts, skills, …) a
   // `'main'` hit still has to route back: fronting the workspace tab alone
   // leaves the page showing.
-  if (focusedSessionNeedsRoute(focusOpenSession(storedSessionId), $workspaceIsPage.get())) {
-    navigate(sessionRoute(storedSessionId))
+  const focused = focusOpenSession(storedSessionId)
+  const target = sessionRoute(storedSessionId)
+  // The main session store can still describe B after a click has routed to A.
+  // A second click on B must cancel that navigation, even before React commits
+  // A's resume. Stable re-clicks keep their no-op/history-preserving behavior.
+  const mainRouteDiffers = focused === 'main' && routePathname(window.location.hash.slice(1)) !== target
+
+  if (focusedSessionNeedsRoute(focused, $workspaceIsPage.get()) || mainRouteDiffers) {
+    navigate(target)
   }
 }

@@ -71,6 +71,27 @@ export function focusDialogContent(event: Event) {
   ;(event.currentTarget as HTMLElement | null)?.focus({ preventScroll: true })
 }
 
+// How every dialog sits in the middle of the window: pinned to all four edges
+// with auto margins and a fit-content height (the UA style of a native
+// <dialog>), NOT `left-1/2 top-1/2 -translate-x/y-1/2`.
+//
+// The transform is the trap. Popovers opened inside a dialog (Select,
+// Popover, DropdownMenu) portal INTO the dialog's content node (see
+// dialog-portal-context.ts) and position themselves `fixed`. A transformed
+// ancestor becomes the containing block of every fixed descendant, so a
+// translated dialog captures its own dropdowns: the dialog's overflow clips a
+// list that runs past its edge, the list widens the dialog's scrollable area,
+// and Radix's scrollIntoView on the selected item then scrolls the whole
+// dialog sideways — the "dialog slides left when the Model picker opens" bug.
+// With no transform the viewport stays the containing block, so a dropdown
+// floats over the dialog's edge like any other.
+//
+// Nothing on this box may set transform / translate / scale / rotate /
+// filter / backdrop-filter / perspective / contain / will-change for the same
+// reason; the open/close zoom only sets transform while it plays.
+// dialog.test.tsx guards this.
+export const DIALOG_CENTERING = 'fixed inset-0 m-auto h-fit'
+
 function DialogContent({
   className,
   children,
@@ -95,7 +116,7 @@ function DialogContent({
   const { t } = useI18n()
 
   // Spec §5.17 widths: 440 confirm · 560 form (the default) · 720 content.
-  const widthClass = fitContent ? 'w-auto max-w-[92vw]' : 'w-full max-w-[min(35rem,calc(100vw-2rem))]'
+  const widthClass = fitContent ? 'w-fit max-w-[92vw]' : 'w-full max-w-[min(35rem,calc(100vw-2rem))]'
 
   // Publish the dialog's content node so popovers (Select / Popover /
   // DropdownMenu) opened inside it portal INTO the dialog instead of
@@ -135,7 +156,7 @@ function DialogContent({
         <DialogOverlay />
         <DialogPrimitive.Content
           className={cn(
-            'fixed left-1/2 top-1/2 z-(--z-modal) pointer-events-auto flex max-h-[85vh] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-(--radius-dialog) bg-(--bg-raised) text-base text-(--text-primary) shadow-nous duration-(--dur-long) data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-98 data-[state=closed]:duration-(--dur-long-exit) data-[state=closed]:ease-(--ease-in) data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-98 data-[state=open]:ease-(--ease-out)',
+            `${DIALOG_CENTERING} z-(--z-modal) pointer-events-auto flex max-h-[85vh] flex-col overflow-hidden rounded-(--radius-dialog) bg-(--bg-raised) text-base text-(--text-primary) shadow-nous duration-(--dur-long) data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-98 data-[state=closed]:duration-(--dur-long-exit) data-[state=closed]:ease-(--ease-in) data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-98 data-[state=open]:ease-(--ease-out)`,
             widthClass,
             className,
             // Callers often pass `gap-*` for the no-banner grid layout — suppress
@@ -181,7 +202,7 @@ function DialogContent({
           // Cap height at 85vh and let long content scroll inside the dialog
           // instead of overflowing off-screen (long cron titles, tool detail
           // dumps, etc.). Individual dialogs can still override via className.
-          'fixed left-1/2 top-1/2 z-(--z-modal) pointer-events-auto grid max-h-[85vh] -translate-x-1/2 -translate-y-1/2 gap-4 overflow-y-auto overscroll-contain rounded-(--radius-dialog) bg-(--bg-raised) p-6 text-base text-(--text-primary) shadow-nous duration-(--dur-long) data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-98 data-[state=closed]:duration-(--dur-long-exit) data-[state=closed]:ease-(--ease-in) data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-98 data-[state=open]:ease-(--ease-out)',
+          `${DIALOG_CENTERING} z-(--z-modal) pointer-events-auto grid max-h-[85vh] gap-4 overflow-y-auto overscroll-contain rounded-(--radius-dialog) bg-(--bg-raised) p-6 text-base text-(--text-primary) shadow-nous duration-(--dur-long) data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-98 data-[state=closed]:duration-(--dur-long-exit) data-[state=closed]:ease-(--ease-in) data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-98 data-[state=open]:ease-(--ease-out)`,
           widthClass,
           className
         )}

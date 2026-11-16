@@ -181,12 +181,15 @@ async def cron_fire_webhook(request: Request):
 
 
 @router.get("/api/cron/blueprints")
-async def list_cron_blueprints():
+async def list_cron_blueprints(locale: Optional[str] = None):
     """Return the blueprint catalog as form schemas for the dashboard gallery.
 
     The ``deliver`` slot's options are rewritten from the user's actually
     configured gateway platforms (plus the universal origin/local/all), so the
     form never offers a platform that isn't connected.
+
+    ``locale`` is the caller's UI language; titles, labels and option labels
+    come back in it when ``cron.blueprint_i18n`` has a table, English otherwise.
     """
     try:
         from cron.blueprint_catalog import CATALOG, blueprint_catalog_entry
@@ -202,7 +205,7 @@ async def list_cron_blueprints():
 
         entries = []
         for r in CATALOG:
-            entry = blueprint_catalog_entry(r)
+            entry = blueprint_catalog_entry(r, locale)
             if deliver_options:
                 for f in entry.get("fields", []):
                     if f.get("name") == "deliver":
@@ -224,7 +227,7 @@ async def instantiate_blueprint(body: AutomationBlueprintInstantiate, profile: s
         if blueprint is None:
             raise HTTPException(status_code=404, detail=f"Unknown blueprint: {body.blueprint}")
         try:
-            spec = fill_blueprint(blueprint, body.values)
+            spec = fill_blueprint(blueprint, body.values, locale=body.locale)
         except BlueprintFillError as exc:
             # Field-level validation error — 422 so the form can show it inline.
             raise HTTPException(status_code=422, detail=str(exc)) from exc

@@ -751,3 +751,73 @@ export function overlayLivePreviews(
 
   return out
 }
+
+/**
+ * The project tree the sidebar lists: the folders a person works in. Drops the
+ * Home bucket (its chats are the sidebar's own "Chats" list) and auto projects
+ * nobody has chatted in — repos the disk scan found are offered in the folder
+ * picker, not pushed into the sidebar. `liveOwners` are the projects the live
+ * session cache places a chat in: a chat started a moment ago counts before
+ * the backend snapshot does.
+ */
+export function sidebarProjects(
+  projects: SidebarProjectTree[],
+  liveOwners: ReadonlySet<string> = new Set()
+): SidebarProjectTree[] {
+  return projects.filter(
+    project => !project.isNoProject && !(project.isAuto && project.sessionCount <= 0 && !liveOwners.has(project.id))
+  )
+}
+
+/**
+ * The project a chat belongs to. Its folder rule first (explicit project by
+ * longest folder, else its repo root — {@link liveSessionProjectId}) when the
+ * tree knows that project. Otherwise the tree decides, by the project holding
+ * the chat's folder most deeply:
+ * - a chat the rule can't place (a linked worktree outside its repo root)
+ *   searches every project's folders, repos and lanes;
+ * - a chat the rule placed in a project the tree doesn't know (the explicit
+ *   list lags the tree — a project made in another window) searches the named
+ *   projects only, so an auto project that merely contains the folder (one
+ *   rooted at the home directory) never claims it. With no match it keeps the
+ *   rule's answer, an id the next tree refresh will carry.
+ * Deepest wins, so an outer project never takes a chat a nested one owns.
+ * Null for a chat with no folder.
+ */
+export function owningProjectId(
+  session: SessionInfo,
+  allProjects: readonly SidebarProjectTree[],
+  explicitProjects: ProjectInfo[]
+): null | string {
+  const projectId = liveSessionProjectId(session, explicitProjects)
+
+  if (projectId && allProjects.some(project => project.id === projectId)) {
+    return projectId
+  }
+
+  const anchor = (session.cwd || session.git_repo_root || '').trim()
+
+  if (!anchor) {
+    return projectId
+  }
+
+  const pool = projectId ? allProjects.filter(project => !project.isAuto && !project.isNoProject) : allProjects
+  let owner: null | string = null
+  let depth = -1
+
+  for (const project of pool) {
+    const paths = [project.path, ...project.repos.flatMap(repo => [repo.path, ...repo.groups.map(group => group.path)])]
+
+    for (const path of paths) {
+      const root = (path ?? '').trim()
+      const rootDepth = segments(root).length
+
+      if (root && rootDepth > depth && isPathUnder(root, anchor)) {
+        owner = project.id
+        depth = rootDepth
+      }
+    }
+  }
+
+  return owner ?? projectId
+}

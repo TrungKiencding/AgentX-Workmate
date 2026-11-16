@@ -366,7 +366,7 @@ def test_session_resume_returns_hydrated_messages(server, monkeypatch):
         def reopen_session(self, _sid):
             return None
 
-        def get_resume_conversations(self, session_id):
+        def get_resume_conversations(self, session_id, **_kwargs):
             return (
                 self.get_messages_as_conversation(session_id, repair_alternation=True),
                 self.get_messages_as_conversation(session_id, include_ancestors=True),

@@ -25,8 +25,9 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
-import { _electron, type ElectronApplication, type Page } from '@playwright/test'
+import { _electron, type ElectronApplication, type Locator, type Page } from '@playwright/test'
 
+import { sandboxShellEnv } from '../scripts/sandbox-env.mjs'
 import { startMockServer, type MockServerOptions } from './mock-server'
 import { installErrorBannerGuard } from './test'
 
@@ -136,6 +137,10 @@ export function createSandbox(prefix: string): Sandbox {
     hermesHome,
     userDataDir,
     cleanup: () => {
+      // Before the home goes: a gateway still running for it would recreate
+      // the directory and live on after the test.
+      stopSandboxGateways(hermesHome)
+
       try {
         // Retries ride out ENOTEMPTY while a just-stopped backend's last
         // writes land.
@@ -147,89 +152,56 @@ export function createSandbox(prefix: string): Sandbox {
   }
 }
 
-// ─── The developer's own command links ───────────────────────────────────
+function sleepSync(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+}
+
+/** Pids of `gateway run` processes started for this AGENTX_HOME. */
+function sandboxGatewayPids(hermesHome: string): number[] {
+  // `ps eww` prints each process's environment after its command line, which
+  // is the only place the home a detached gateway belongs to shows up.
+  const ps = spawnSync('ps', ['eww', '-ax', '-o', 'pid=,command='], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
+  const marker = `AGENTX_HOME=${hermesHome}`
+
+  return (ps.stdout ?? '')
+    .split('\n')
+    .filter(line => / gateway run\b/.test(line) && line.split(/\s+/).includes(marker))
+    .map(line => Number.parseInt(line.trim(), 10))
+    .filter(pid => Number.isInteger(pid) && pid > 0 && pid !== process.pid)
+}
 
 /**
- * Specs that run the real installer touch more than their sandbox: the `path`
- * stage of install.sh points the `agentx` commands in ~/.local/bin at the
- * sandbox's checkout, which the spec then deletes — leaving the developer's own
- * `agentx` broken until a reinstall. Snapshot the directory's small entries
- * (links and wrapper scripts, never large binaries) and return a function that
- * puts back exactly what was there and removes what the run added.
+ * Stop the messaging gateway a test's backend started for its sandbox.
+ *
+ * With a platform enabled, the backend autostarts `gateway run` detached on
+ * purpose — in the product it outlives the window (hermes_cli/web_routers/
+ * gateway_autostart.py) — so closing the app leaves it running, retrying a
+ * fake bot token forever and recreating the sandbox home. POSIX only: Windows
+ * launches it through `gateway start` instead.
  */
-export function protectUserCommandLinks(dir = path.join(os.homedir(), '.local', 'bin')): () => void {
-  const SMALL = 1_000_000
-  const before = new Map<string, { data?: Buffer; link?: string; mode?: number }>()
-  let names: string[] = []
-
-  try {
-    names = fs.readdirSync(dir)
-  } catch {
-    names = []
+export function stopSandboxGateways(hermesHome: string): void {
+  if (process.platform === 'win32') {
+    return
   }
 
-  for (const name of names) {
-    const full = path.join(dir, name)
-    const stat = fs.lstatSync(full)
+  let pids = sandboxGatewayPids(hermesHome)
 
-    if (stat.isSymbolicLink()) {
-      before.set(name, { link: fs.readlinkSync(full) })
-    } else if (stat.isFile() && stat.size < SMALL) {
-      before.set(name, { data: fs.readFileSync(full), mode: stat.mode })
-    }
-  }
-
-  const restore = (name: string) => {
-    const full = path.join(dir, name)
-    const entry = before.get(name)!
-
-    fs.rmSync(full, { force: true })
-
-    if (entry.link !== undefined) {
-      fs.symlinkSync(entry.link, full)
-    } else {
-      fs.writeFileSync(full, entry.data!)
-      fs.chmodSync(full, entry.mode! & 0o7777)
-    }
-  }
-
-  return () => {
-    let now: string[] = []
-
-    try {
-      now = fs.readdirSync(dir)
-    } catch {
-      now = []
-    }
-
-    for (const name of now) {
-      const full = path.join(dir, name)
-      const entry = before.get(name)
-
-      if (!entry) {
-        if (!names.includes(name)) {
-          fs.rmSync(full, { force: true })
-        }
-
-        continue
-      }
-
-      const stat = fs.lstatSync(full)
-
-      const same =
-        entry.link !== undefined
-          ? stat.isSymbolicLink() && fs.readlinkSync(full) === entry.link
-          : stat.isFile() && fs.readFileSync(full).equals(entry.data!)
-
-      if (!same) {
-        restore(name)
+  for (const signal of ['SIGTERM', 'SIGKILL'] as const) {
+    for (const pid of pids) {
+      try {
+        process.kill(pid, signal)
+      } catch {
+        // already gone
       }
     }
 
-    for (const name of before.keys()) {
-      if (!now.includes(name)) {
-        restore(name)
-      }
+    for (let waited = 0; waited < 5_000 && pids.length > 0; waited += 100) {
+      sleepSync(100)
+      pids = sandboxGatewayPids(hermesHome)
+    }
+
+    if (pids.length === 0) {
+      return
     }
   }
 }
@@ -430,6 +402,7 @@ function writeEmptyConfig(hermesHome: string): void {
  *
  * Key env vars:
  *  - AGENTX_HOME → sandbox agentx-home (isolated config/sessions)
+ *  - PATH → private Bash shim isolates installer HOME/commands/profiles
  *  - AGENTX_DESKTOP_USER_DATA_DIR → sandbox electron-user-data
  *  - AGENTX_DESKTOP_IGNORE_EXISTING=1 → don't pick up `agentx` from PATH
  *    (we want the dev checkout at REPO_ROOT)
@@ -466,6 +439,9 @@ export function buildAppEnv(sandbox: Sandbox, extra: Record<string, string> = {}
     // The dev-server check in main.ts looks for this env var; if it's set,
     // it loads from the vite URL instead of the local file.
     ...extra,
+    // Apply isolation to Bash children only: changing Electron's HOME would
+    // make macOS safeStorage lose access to the login Keychain.
+    ...sandboxShellEnv(sandbox.root, extra.PATH ?? clean.PATH),
   }
 }
 
@@ -967,6 +943,42 @@ export async function waitForAppReady(fixture: MockBackendFixture | NoProviderFi
       await page.waitForTimeout(500)
     }
   }
+}
+
+/**
+ * A chat's row in the sidebar, made clickable.
+ *
+ * Chats that work in a folder are listed under that folder's project row, and
+ * project rows start collapsed (remembered per project). Sessions seeded by
+ * RealSessionBuilder run in the repo root, so they land under a project rather
+ * than in the flat Chats list. Open every collapsed group — never one already
+ * open, so nothing the test arranged is folded away — until the row shows.
+ */
+export async function revealSidebarSession(
+  page: Page,
+  text: string | RegExp,
+  timeoutMs = 30_000
+): Promise<Locator> {
+  const sidebar = page.locator('[data-slot="sidebar"]')
+  const row = sidebar.locator('button').filter({ hasText: text }).first()
+  const collapsed = sidebar.locator('[aria-expanded="false"]:not([aria-haspopup])')
+  const deadline = Date.now() + timeoutMs
+
+  while (Date.now() < deadline) {
+    if (await row.isVisible()) {
+      return row
+    }
+
+    for (const toggle of await collapsed.all()) {
+      await toggle.click({ timeout: 2_000 }).catch(() => undefined)
+    }
+
+    await page.waitForTimeout(250)
+  }
+
+  await row.waitFor({ state: 'visible', timeout: 1_000 })
+
+  return row
 }
 
 /**

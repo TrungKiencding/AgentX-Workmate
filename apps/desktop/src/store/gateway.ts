@@ -140,6 +140,33 @@ export function isActivePrimary(): boolean {
   return g.activeKey === g.primaryProfile
 }
 
+/** The window backend's profile (the one the app launched into). */
+export function primaryGatewayProfile(): string {
+  return g.primaryProfile
+}
+
+/** The window backend's socket, whichever profile is active. Its gateway
+ *  serves every local profile through a `profile` param, so work that must
+ *  not follow the active-profile switch (Bot Mode group rooms) talks here. */
+export function primaryGateway(): HermesGateway | null {
+  return g.primaryGateway
+}
+
+/** Close and forget a profile's background socket for good — before that
+ *  profile is deleted, so its reconnect loop can't respawn the backend (which
+ *  would re-create the folder the delete removed). No-op for the primary. */
+export function retireGatewayForProfile(profile: string): void {
+  const key = normKey(profile)
+  const entry = g.secondaries.get(key)
+
+  if (!entry) {
+    return
+  }
+
+  disposeSecondary(entry)
+  g.secondaries.delete(key)
+}
+
 export function activeGateway(): HermesGateway | null {
   if (g.activeKey === g.primaryProfile) {
     return g.primaryGateway

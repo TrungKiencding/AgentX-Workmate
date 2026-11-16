@@ -3,7 +3,7 @@ import { type MutableRefObject, useCallback, useRef } from 'react'
 
 import { getProfiles } from '@/hermes'
 import type { Translations } from '@/i18n'
-import { type ChatMessage, toChatMessages } from '@/lib/chat-messages'
+import { carryOutputsAcrossCompaction, type ChatMessage, toChatMessages } from '@/lib/chat-messages'
 import { parseCommandDispatch, parseSlashCommand, sessionTitle } from '@/lib/chat-runtime'
 import {
   type CommandsCatalogLike,
@@ -537,7 +537,11 @@ export function useSlashCommand(deps: SlashCommandDeps) {
             if (Array.isArray(result?.messages)) {
               updateSessionState(
                 sessionId,
-                state => ({ ...state, messages: toChatMessages(result.messages!) }),
+                state => ({
+                  ...state,
+                  // The summarized turns' files stay listed (on the divider).
+                  messages: carryOutputsAcrossCompaction(state.messages, toChatMessages(result.messages!))
+                }),
                 storedSessionId
               )
             }
@@ -668,6 +672,7 @@ export function useSlashCommand(deps: SlashCommandDeps) {
               client_capture: true,
               surface: 'gui'
             })
+
             applyWakeStatus(current)
 
             return current

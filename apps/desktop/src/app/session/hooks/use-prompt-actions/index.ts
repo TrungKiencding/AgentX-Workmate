@@ -549,6 +549,11 @@ export function usePromptActions({
       const attachments = options?.attachments ?? $composerAttachments.get()
 
       if (!attachments.length && SLASH_COMMAND_RE.test(visibleText)) {
+        // No optimistic message to show while it runs: gate first, as before.
+        if (options?.beforeSend && !(await options.beforeSend())) {
+          return false
+        }
+
         triggerHaptic('selection')
         // Forward the explicit target (background queue drain, tile) — dropping
         // it ran the command against whatever chat happened to be in front.
@@ -602,14 +607,14 @@ export function usePromptActions({
 
     if (!sessionId) {
       releaseBusy()
-      setMessages(finalizeInterruptedMessages($messages.get()))
+      setMessages(finalizeInterruptedMessages($messages.get(), null, { stopped: true }))
 
       return
     }
 
     updateSessionState(sessionId, state => {
       const streamId = state.streamId
-      const messages = finalizeInterruptedMessages(state.messages, streamId)
+      const messages = finalizeInterruptedMessages(state.messages, streamId, { stopped: true })
 
       return {
         ...state,

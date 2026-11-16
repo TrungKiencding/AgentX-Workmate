@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { displayPath, normalizeDisplayPath, pathLeaf } from './display-path'
+import { displayPath, normalizeDisplayPath, pathLeaf, tailPath } from './display-path'
 
 describe('displayPath', () => {
   it('collapses a macOS home prefix to ~', () => {
@@ -43,5 +43,25 @@ describe('pathLeaf', () => {
     expect(pathLeaf('/Users/me/www/agentx-agent')).toBe('agentx-agent')
     expect(pathLeaf('~/www/agentx-agent')).toBe('agentx-agent')
     expect(pathLeaf('/')).toBe('/')
+  })
+})
+
+describe('tailPath', () => {
+  it('keeps a path that fits', () => {
+    expect(tailPath('/Users/me/work/acme', 40)).toBe('~/work/acme')
+  })
+
+  it('keeps the end — the part that tells long paths apart', () => {
+    expect(tailPath('/srv/shared/clients/2026/quarterly/acme-corp', 24)).toBe('…/quarterly/acme-corp')
+  })
+
+  it('never cuts inside a segment, even when one leaf is longer than the limit', () => {
+    expect(tailPath('/data/an-extremely-long-folder-name-for-reports', 10)).toBe(
+      '…/an-extremely-long-folder-name-for-reports'
+    )
+  })
+
+  it('works with Windows paths', () => {
+    expect(tailPath('D:\\Projects\\Clients\\Acme\\Reports', 16)).toBe('…/Acme/Reports')
   })
 })

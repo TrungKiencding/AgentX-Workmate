@@ -24,6 +24,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
+from agent.think_scrubber import THINK_CLOSE_TAGS, THINK_OPEN_TAGS
 from gateway.platforms.base import BasePlatformAdapter as _BasePlatformAdapter
 from gateway.platforms.base import _custom_unit_to_cp
 from gateway.platforms.base import MEDIA_TAG_CLEANUP_RE
@@ -172,17 +173,10 @@ class GatewayStreamConsumer:
     # progressive edits for the remainder of the stream.
     _MAX_FLOOD_STRIKES = 3
 
-    # Reasoning/thinking tags that models emit inline in content.
-    # Must stay in sync with cli.py _OPEN_TAGS/_CLOSE_TAGS and
-    # run_agent.py _strip_think_blocks() tag variants.
-    _OPEN_THINK_TAGS = (
-        "<REASONING_SCRATCHPAD>", "<think>", "<reasoning>",
-        "<THINKING>", "<thinking>", "<thought>",
-    )
-    _CLOSE_THINK_TAGS = (
-        "</REASONING_SCRATCHPAD>", "</think>", "</reasoning>",
-        "</THINKING>", "</thinking>", "</thought>",
-    )
+    # Reasoning/thinking tags that models emit inline in content, from the one
+    # canonical list (agent/think_scrubber.py). Matching is case-insensitive.
+    _OPEN_THINK_TAGS = THINK_OPEN_TAGS
+    _CLOSE_THINK_TAGS = THINK_CLOSE_TAGS
 
     # Class-wide monotonic counter for native-streaming draft ids.  Telegram
     # animates a draft when the same draft_id is reused across consecutive

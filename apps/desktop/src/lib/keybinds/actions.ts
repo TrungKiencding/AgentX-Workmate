@@ -189,15 +189,20 @@ export interface KeybindContribution {
   category?: KeybindCategory
   /** Default combos (canonical form, e.g. `mod+shift+\\`). Empty = unbound. */
   defaults?: readonly string[]
-  label: string
+  /** Plain text, or a function when it is translated: contributions register
+   *  once at boot, and a string captured then stays in the boot language. */
+  label: (() => string) | string
   run: () => void
 }
 
-export function contributedKeybinds(): KeybindContribution[] {
+/** Contributed keybinds with their labels read in the app's current language. */
+export function contributedKeybinds(): Array<Omit<KeybindContribution, 'label'> & { label: string }> {
   return registry
     .getArea(KEYBINDS_AREA)
     .map(c => c.data as KeybindContribution)
     .filter(k => Boolean(k?.id && k.label) && typeof k?.run === 'function' && !ACTION_BY_ID.has(k.id))
+    .map(k => ({ ...k, label: typeof k.label === 'function' ? k.label() : k.label }))
+    .filter(k => Boolean(k.label))
 }
 
 /** Built-ins + contributed, one metadata list (panel, bindings, conflicts). */

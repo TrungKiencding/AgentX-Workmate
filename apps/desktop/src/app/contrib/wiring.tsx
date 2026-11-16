@@ -48,7 +48,8 @@ import {
   ensureGatewayProfile,
   newSessionInProfile,
   normalizeProfileKey,
-  refreshActiveProfile
+  refreshActiveProfile,
+  takeFreshRequestKeepsRoute
 } from '@/store/profile'
 import { $startWorkSessionRequest, followActiveSessionCwd } from '@/store/projects'
 import {
@@ -276,28 +277,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     refreshSessions
   } = useSessionListActions({ profileScope })
 
-  const updateActiveSessionRuntimeInfo = useCallback(
-    (info: { branch?: string; cwd?: string }) => {
-      const sessionId = activeSessionIdRef.current
-
-      if (!sessionId) {
-        return
-      }
-
-      updateSessionState(sessionId, state => ({
-        ...state,
-        branch: info.branch ?? state.branch,
-        cwd: info.cwd ?? state.cwd
-      }))
-    },
-    [activeSessionIdRef, updateSessionState]
-  )
-
-  const { refreshProjectBranch } = useCwdActions({
-    activeSessionIdRef,
-    onSessionRuntimeInfo: updateActiveSessionRuntimeInfo,
-    requestGateway
-  })
+  const { refreshProjectBranch } = useCwdActions({ activeSessionIdRef, requestGateway })
 
   const { refreshHermesConfig, sttEnabled, voiceMaxRecordingSeconds } = useHermesConfig({ activeSessionIdRef })
 
@@ -534,7 +514,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
     }
 
     lastFreshRef.current = freshSessionRequest
-    startFreshSessionDraft()
+    startFreshSessionDraft({ preserveRoute: takeFreshRequestKeepsRoute() })
   }, [freshSessionRequest, startFreshSessionDraft])
 
   // Swapping the live gateway to another profile must re-pull that profile's
@@ -705,7 +685,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
             return []
           }
 
-          return [{ ...message, error: undefined, pending: false }]
+          return [{ ...message, error: undefined, errorCode: undefined, pending: false }]
         })
 
       // View first: the cache update below triggers a re-sync that reads
@@ -1129,10 +1109,7 @@ export function ContribWiring({ children }: { children: ReactNode }) {
       )}
       <ModelPickerOverlay gateway={gateway || undefined} onSelect={selectModel} profile={activeGatewayProfile} />
       <SessionPickerOverlay onResume={sessionId => openSession(sessionId, navigate)} />
-      <ModelVisibilityOverlay
-        gateway={gateway || undefined}
-        profile={activeGatewayProfile}
-      />
+      <ModelVisibilityOverlay gateway={gateway || undefined} profile={activeGatewayProfile} />
       <UpdatesOverlay />
       <GatewayConnectingOverlay />
       <BootFailureOverlay />

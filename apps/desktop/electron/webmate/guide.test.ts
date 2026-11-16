@@ -236,7 +236,11 @@ describe('openExtensionsPage', () => {
 
 describe('planUrlLaunch', () => {
   test('macOS hands an https page to the profile through `open -na <app> --args`', () => {
-    const plan = planUrlLaunch({ browser: chromeMac, profileDir: 'Profile 2' }, 'https://id.example.test/auth?x=1', 'darwin')
+    const plan = planUrlLaunch(
+      { browser: chromeMac, profileDir: 'Profile 2' },
+      'https://id.example.test/auth?x=1',
+      'darwin'
+    )
 
     assert.deepEqual(plan?.args, [
       '-na',
@@ -259,7 +263,10 @@ describe('planUrlLaunch', () => {
     assert.equal(planUrlLaunch({ browser: chromeMac, profileDir: null }, 'chrome://settings', 'darwin'), null)
     assert.equal(planUrlLaunch({ browser: chromeMac, profileDir: null }, 'file:///etc/passwd', 'darwin'), null)
     assert.equal(planUrlLaunch({ browser: chromeMac, profileDir: null }, 'not a url', 'darwin'), null)
-    assert.equal(planUrlLaunch({ browser: { ...chromeMac, supported: false }, profileDir: null }, 'https://x.test', 'darwin'), null)
+    assert.equal(
+      planUrlLaunch({ browser: { ...chromeMac, supported: false }, profileDir: null }, 'https://x.test', 'darwin'),
+      null
+    )
   })
 })
 
@@ -272,7 +279,9 @@ describe('openUrlInBrowser', () => {
     })
 
     assert.equal(ok.ok, true)
-    assert.deepEqual(ran, [['open', '-na', '/Applications/Google Chrome.app', '--args', '--profile-directory=Default', 'https://x.test/a']])
+    assert.deepEqual(ran, [
+      ['open', '-na', '/Applications/Google Chrome.app', '--args', '--profile-directory=Default', 'https://x.test/a']
+    ])
 
     const refused = await openUrlInBrowser({ browser: chromeMac, profileDir: null }, 'https://x.test/a', 'darwin', {
       run: async () => {

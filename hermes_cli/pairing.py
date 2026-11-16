@@ -28,6 +28,89 @@ def pairing_command(args):
         print("Run 'agentx pairing --help' for details.")
 
 
+def _scoped_stores_with_pending(platform=None):
+    """Find signed-in accounts' pairing stores that hold pending requests.
+
+    Returns ``[(scope_args, count)]`` where ``scope_args`` is the
+    ``"--account <slug> [-p <name>] "`` prefix that opens that store. Empty
+    when this CLI already runs inside an account: then the operator scoped it
+    on purpose and other people's requests are none of its business.
+
+    A signed-in desktop keeps its gateway under ``accounts/<slug>``, so a bare
+    ``agentx pairing approve`` (the install root's store) can never find the
+    request its bot just DM'd — this is how the CLI points at the right one.
+    Read-only: it never creates or migrates anything in those homes.
+    """
+    import json
+    import time
+
+    from hermes_constants import get_active_account, get_hermes_dir
+
+    if get_active_account():
+        return []
+    try:
+        from gateway.pairing import CODE_TTL_SECONDS
+        from hermes_cli.accounts import list_accounts
+
+        accounts = list_accounts()
+    except Exception:
+        return []
+
+    def _pending_count(home):
+        directory = get_hermes_dir("platforms/pairing", "pairing", home=home)
+        if not directory.is_dir():
+            return 0
+        suffix = "-pending.json"
+        now = time.time()
+        count = 0
+        for path in directory.glob(f"*{suffix}"):
+            name = path.name[: -len(suffix)]
+            if name.startswith("_") or (platform and name != platform):
+                continue
+            try:
+                entries = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(entries, dict):
+                continue
+            for entry in entries.values():
+                created = entry.get("created_at") if isinstance(entry, dict) else None
+                if isinstance(created, (int, float)) and now - created <= CODE_TTL_SECONDS:
+                    count += 1
+        return count
+
+    found = []
+    for account in accounts:
+        homes = [(f"--account {account.slug} ", account.home)]
+        try:
+            homes += [
+                (f"--account {account.slug} -p {child.name} ", child)
+                for child in sorted((account.home / "profiles").iterdir())
+                if child.is_dir()
+            ]
+        except OSError:
+            pass
+        for scope, home in homes:
+            count = _pending_count(home)
+            if count:
+                found.append((scope, count))
+    return found
+
+
+def _print_scoped_store_hint(platform=None, code=None):
+    found = _scoped_stores_with_pending(platform)
+    if not found:
+        return
+    print("  Signed-in accounts on this machine keep their own pairing requests:")
+    for scope, count in found:
+        if platform and code:
+            command = f"agentx {scope}pairing approve {platform} {code}"
+        else:
+            command = f"agentx {scope}pairing list"
+        print(f"    {command}    ({count} pending)")
+    print()
+
+
 def _cmd_list(store):
     """List all pending and approved users."""
     pending = store.list_pending()
@@ -35,6 +118,8 @@ def _cmd_list(store):
 
     if not pending and not approved:
         print("No pairing data found. No one has tried to pair yet~")
+        print()
+        _print_scoped_store_hint()
         return
 
     if pending:
@@ -50,6 +135,7 @@ def _cmd_list(store):
         print("  The code the bot DM'd the user also works if they relay it.")
     else:
         print("\n  No pending pairing requests.")
+        _print_scoped_store_hint()
 
     if approved:
         print(f"\n  Approved Users ({len(approved)}):")
@@ -99,6 +185,7 @@ def _cmd_approve(store, platform: str, code: str):
     else:
         print(f"\n  Pairing request or code '{code}' not found or expired for platform '{platform}'.")
         print("  Run 'agentx pairing list' to see pending requests.\n")
+        _print_scoped_store_hint(platform, code)
 
 
 def _cmd_revoke(store, platform: str, user_id: str):

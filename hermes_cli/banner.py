@@ -73,21 +73,9 @@ WORKMATE_LOGO = """[bold #7DF9FF] ███   ████ █████ █  
 [#6366F1]█   █ █   █ █     █  ██   █    █ █        ██ ██ █   █ █  █  █  █  █   █ █   █   █   █    [/]
 [#8B5CF6]█   █  ███  █████ █   █   █   █   █       █   █  ███  █   █ █   █ █   █ █   █   █   █████[/]"""
 
-WORKMATE_MASCOT = """[#7DF9FF]            ██            [/]
-[#7DF9FF]            ██            [/]
-[#38BDF8]         ████████         [/]
-[#38BDF8] ████████████████████████ [/]
-[#38BDF8] ██                    ██ [/]
-[#4F7BF7] ██  ████        ████  ██ [/]
-[#4F7BF7] ██  ████        ████  ██ [/]
-[#4F7BF7] ██                    ██ [/]
-[#4F7BF7] ██     ██████████     ██ [/]
-[#6366F1] ██                    ██ [/]
-[#6366F1] ████████████████████████ [/]
-[#6366F1]  ██████████████████████  [/]
-[#8B5CF6]      ████      ████      [/]
-[#8B5CF6]     ██████    ██████     [/]"""
+from hermes_cli.terminal_brand import MARK_ART
 
+WORKMATE_MASCOT = "\n".join(f"[#FFFFFF]{row}[/]" for row in MARK_ART)
 
 
 # =========================================================================
@@ -642,7 +630,7 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
                          get_toolset_for_tool=None,
                          context_length: int = None,
                          provider: str = None):
-    """Build and print a welcome banner with caduceus on left and info on right.
+    """Build and print a welcome banner with the brand mark on the left and info on right.
 
     Args:
         console: Rich Console instance.
@@ -703,7 +691,7 @@ def build_welcome_banner(console: "Console", model: str, cwd: str,
     text = _skin_color("banner_text", "#FFF8DC")
     session_color = _skin_color("session_border", "#8B8682")
 
-    # Use skin's custom caduceus art if provided
+    # Use the skin's custom brand art if provided
     try:
         from hermes_cli.skin_engine import get_active_skin
         _bskin = get_active_skin()

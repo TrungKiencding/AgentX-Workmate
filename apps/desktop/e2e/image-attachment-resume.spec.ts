@@ -18,6 +18,7 @@ import {
   buildAppEnv,
   createSandbox,
   launchDesktop,
+  revealSidebarSession,
   type Sandbox,
   waitForAppReady,
   writeEnvFile,
@@ -88,10 +89,6 @@ async function setupSeededDesktop(): Promise<SeededFixture> {
   }
 }
 
-function sessionRow(page: Page) {
-  return page.locator('[data-slot="sidebar"] button').filter({ hasText: SESSION_TITLE }).first()
-}
-
 // Inactive tabs stay mounted under a data-pane-hidden ancestor. Match the
 // renderer's keep-alive visibility policy instead of relying on DOM order.
 const SURFACE = '[data-composer-target]:not([data-pane-hidden] [data-composer-target])'
@@ -103,8 +100,7 @@ function activeViewportText(surfaceSelector: string): string {
 }
 
 async function openSeededSession(page: Page): Promise<void> {
-  const row = sessionRow(page)
-  await row.waitFor({ state: 'visible', timeout: 60_000 })
+  const row = await revealSidebarSession(page, SESSION_TITLE, 60_000)
   await row.click()
   await page.waitForFunction(
     ([expected, surfaceSelector]: [string, string]) => {
@@ -119,12 +115,13 @@ async function openSeededSession(page: Page): Promise<void> {
 }
 
 /**
- * The sidebar "+" opens a NEW TAB beside the current chat instead of replacing
- * it, so the seeded session stays mounted in its own surface. Assert the new
- * surface is empty rather than waiting for the old caption to leave the page.
+ * New tab (⌘T / Ctrl+T) opens beside the current chat instead of replacing it
+ * (the sidebar's "New chat" row replaces it, like ⌘N), so the seeded session
+ * stays mounted in its own surface. Assert the new surface is empty rather than
+ * waiting for the old caption to leave the page.
  */
 async function openNewSession(page: Page): Promise<void> {
-  await page.locator('[data-slot="sidebar"] button[aria-label="New chat"]').first().click()
+  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+T' : 'Control+T')
   await page.waitForFunction(
     ([expected, surfaceSelector]: [string, string]) => {
       const surfaces = document.querySelectorAll(surfaceSelector)
@@ -212,8 +209,7 @@ test.describe('attached image resume', () => {
 
     // The explicit session title is authoritative; the caption is checked in
     // the resumed transcript alongside its image below.
-    const row = sessionRow(fixture.page)
-    await row.waitFor({ state: 'visible', timeout: 60_000 })
+    const row = await revealSidebarSession(fixture.page, SESSION_TITLE, 60_000)
 
     const label = (await row.textContent())?.trim() ?? ''
     expect(label, 'sidebar should retain the explicit session title').toContain(SESSION_TITLE)

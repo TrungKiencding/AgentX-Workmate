@@ -40,25 +40,35 @@ def _(rid, params: dict) -> dict:
         empty content are skipped; agent-delivery prefixes are kept
         (callers style them). Same query shape as
         SessionDB.latest_message_row_id.
+
+        Bookkeeping rows (``display_kind`` set — a model switch) are not
+        messages, and a cron run's prompt is shown without the scheduler's
+        delivery hint: the roster read "[System: The active model for th…"
+        and "[IMPORTANT: You are running as…" under assistants' names.
         """
+        from hermes_state_common import strip_internal_preamble
+
         try:
             with db._lock:
-                row = db._conn.execute(
+                rows = db._conn.execute(
                     "SELECT content FROM messages"
                     " WHERE session_id = ? AND role IN ('user', 'assistant')"
                     " AND active = 1"
+                    " AND (display_kind IS NULL OR display_kind = '')"
                     " AND content IS NOT NULL AND TRIM(content) != ''"
-                    " ORDER BY id DESC LIMIT 1",
+                    " ORDER BY id DESC LIMIT 5",
                     (session_id,),
-                ).fetchone()
+                ).fetchall()
         except Exception:
             return ""
-        if not row:
-            return ""
-        text = " ".join(str(row[0] or "").split()).strip()
-        if len(text) > 80:
-            return text[:80] + "..."
-        return text
+        for row in rows:
+            text = " ".join(strip_internal_preamble(row[0]).split()).strip()
+            if not text:
+                continue
+            if len(text) > 80:
+                return text[:80] + "..."
+            return text
+        return ""
 
     def _latest_profile_session_row(profile_path):
         """Most recent human-facing session in a profile's state.db, or None.
@@ -76,13 +86,18 @@ def _(rid, params: dict) -> dict:
                 return None
             from hermes_state import SessionDB
 
-            deny = frozenset({"kanban", "tool"})
+            deny = NON_CONVERSATION_SOURCES
             db = SessionDB(db_path=db_path)
             try:
                 for s in db.list_sessions_rich(
                     source=None, limit=20, order_by_last_active=True, compact_rows=True
                 ):
                     if (s.get("source") or "").strip().lower() in deny:
+                        continue
+                    # Group-room sessions made before they carried their own
+                    # source: the room is the conversation, not this row
+                    # (its preview is a member's "(pass)").
+                    if str(s.get("title") or "").startswith("Group: "):
                         continue
                     row = {
                         "id": s["id"],
@@ -159,7 +174,10 @@ def _(rid, params: dict) -> dict:
             except Exception:
                 row["has_avatar"] = False
             out.append(row)
-        return _ok(rid, {"profiles": out})
+        # bot_mode_protocol: this backend teaches the Bot Mode teammate
+        # protocol through the "Bot Chat" system prompt (tools/bot_mode_protocol.py),
+        # so clients must never append it to SOUL.md.
+        return _ok(rid, {"profiles": out, "bot_mode_protocol": True})
     except Exception as e:
         return _err(rid, 5061, str(e))
 

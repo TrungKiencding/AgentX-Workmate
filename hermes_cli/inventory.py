@@ -204,6 +204,23 @@ def build_models_payload(
         excluded_providers=ctx.excluded_providers or [],
     )
 
+    from hermes_cli.account_inference import account_inference
+
+    policy = account_inference()
+    if policy is not None:
+        # Account grants are authoritative. Do not append unconfigured
+        # vendors, MoA presets, or a stale model from session/config state.
+        if picker_hints:
+            _apply_picker_hints(rows)
+        if pricing:
+            _apply_pricing(rows, force_fresh_nous_tier=force_fresh_nous_tier)
+        if capabilities:
+            _apply_capabilities(rows)
+        if featured:
+            _apply_featured(rows)
+        return {"providers": rows, "model": ctx.current_model,
+                "provider": policy.provider, "inference_provider": policy.provider}
+
     moa_row = _moa_provider_row(ctx.current_provider)
     if moa_row is not None:
         rows = [moa_row] + [r for r in rows if str(r.get("slug", "")).lower() != "moa"]

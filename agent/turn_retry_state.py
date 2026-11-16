@@ -76,6 +76,10 @@ class TurnRetryState:
     # the person's license (hermes_cli.account_license), so retries of the
     # same attempt don't ask the keys service again.
     license_checked: bool = False
+    # How many times a 401 from the AgentX AI Gateway has been waited out and
+    # sent again (``GATEWAY_REFUSAL_RETRY_DELAYS``) — the gateway refuses a
+    # valid key while it cannot read its key table.
+    gateway_refusal_retries: int = 0
 
     # ── Restart signals (read by the outer loop after the attempt) ───────
     restart_with_compressed_messages: bool = False

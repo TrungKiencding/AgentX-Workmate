@@ -191,3 +191,49 @@ def test_broken_probe_never_kills_the_pass(watcher_home, monkeypatch):
 
     # The broken cron probe is skipped; sessions still broadcasts.
     assert ("sessions.changed", {}) in events
+
+
+def test_an_assistants_routine_bookkeeping_broadcasts_routines_changed(watcher_home, monkeypatch):
+    """A routine runs under the assistant's own home, in another process:
+    nothing in this backend's home moves, so ``cron.changed`` stays silent.
+    Pilot feedback 2026-11: the run finished (or failed) and the app said
+    nothing."""
+    home, events = watcher_home
+    assistant = home / "profiles" / "tai-chinh"
+    (assistant / "cron").mkdir(parents=True)
+
+    from cron import bot_profile_sweeper
+
+    monkeypatch.setattr(server, "_assistant_homes_cache", None)
+    monkeypatch.setattr(
+        bot_profile_sweeper, "bot_profile_homes", lambda own=None: [("tai-chinh", assistant)]
+    )
+
+    server._broadcast_watched_changes(now=0.0)
+    assert events == []
+
+    (assistant / "cron" / "jobs.json").write_text('{"jobs": []}')
+    server._broadcast_watched_changes(now=10.0)
+
+    assert ("routines.changed", {}) in events
+    assert ("cron.changed", {}) not in events
+
+
+def test_assistant_homes_are_listed_once_per_ttl(watcher_home, monkeypatch):
+    home, _ = watcher_home
+    calls = []
+
+    from cron import bot_profile_sweeper
+
+    monkeypatch.setattr(server, "_assistant_homes_cache", None)
+    monkeypatch.setattr(
+        bot_profile_sweeper, "bot_profile_homes", lambda own=None: calls.append(own) or []
+    )
+    clock = iter([100.0, 105.0, 100.0 + server._ASSISTANT_HOMES_TTL_S + 1])
+    monkeypatch.setattr(server.time, "monotonic", lambda: next(clock))
+
+    assert server._assistant_routines_sig() == ()
+    server._assistant_routines_sig()
+    assert len(calls) == 1
+    server._assistant_routines_sig()
+    assert len(calls) == 2

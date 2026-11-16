@@ -16,8 +16,8 @@ def build_model_parser(subparsers, *, cmd_model: Callable) -> None:
     # =========================================================================
     model_parser = subparsers.add_parser(
         "model",
-        help="Select default model and provider",
-        description="Interactively select your inference provider and default model",
+        help="Choose a model assigned to your AgentX account",
+        description="Select your default model from your account's AgentX SSO grant",
     )
     model_parser.add_argument(
         "--refresh",

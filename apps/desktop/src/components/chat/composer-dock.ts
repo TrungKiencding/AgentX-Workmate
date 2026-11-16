@@ -64,3 +64,17 @@ export const composerFloatingPill = cn(
  * strips line up with the surface rather than the margin's outer edge.
  */
 export const composerFloatingStrip = 'flex flex-wrap items-center gap-1.5'
+
+/**
+ * An inline control in the underside strip below the composer — the folder on
+ * the left, the model on the right (Claude-style context bar, spec §5.8). No
+ * frame, no chip: chrome-size text in the secondary ink that lifts to primary
+ * on hover or while its menu is open. Both controls wear this one skin so the
+ * row reads as a single line of facts; the call site owns width caps and
+ * whether the control may shrink.
+ */
+export const composerUndersideControl = cn(
+  'h-7 gap-1.5 rounded-md px-2 text-sm font-normal',
+  'text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary)',
+  'data-[state=open]:bg-(--bg-hover) data-[state=open]:text-(--text-primary)'
+)

@@ -13,6 +13,7 @@ Drives ``_run_prompt_submit`` with a fake agent the way
 from __future__ import annotations
 
 import json
+import os
 import threading
 import time
 import types
@@ -123,7 +124,8 @@ def test_produced_file_is_reported_and_pinned(turn_env, tmp_path):
             ],
         }
 
-    server._run_prompt_submit("rid", "ui-sid", _session(_agent(run, db)), "make a report")
+    session = _session(_agent(run, db))
+    server._run_prompt_submit("rid", "ui-sid", session, "make a report")
 
     payload = _complete(turn_env)
     assert [f["name"] for f in payload["files_created"]] == ["report.docx"]
@@ -170,13 +172,14 @@ def test_delivered_files_are_not_repeated(turn_env, tmp_path):
     assert "files_created" not in _complete(turn_env)
 
 
-def test_files_from_before_the_turn_are_ignored(turn_env, tmp_path):
+def test_files_from_before_the_turn_are_ignored(turn_env, tmp_path, monkeypatch):
     old = tmp_path / "old.pdf"
     old.write_bytes(b"%PDF")
     stale = time.time() - 3600
-    import os
-
     os.utime(old, (stale, stale))
+    # Written just now, the file's inode change time is fresh whatever its
+    # mtime says; a file from before the turn has an old one too.
+    monkeypatch.setattr("tui_gateway.deliverables.changed_time", lambda path, stat: stale)
 
     def run(message, **kwargs):
         return {"final_response": f"See {old}", "messages": [{"role": "assistant", "content": f"See {old}"}]}
@@ -200,3 +203,172 @@ def test_collection_failure_never_breaks_the_turn(turn_env, monkeypatch):
     payload = _complete(turn_env)
     assert payload["status"] == "complete"
     assert "files_created" not in payload
+
+
+@pytest.fixture()
+def clean_workspace_turns(monkeypatch):
+    monkeypatch.setattr(server, "_WORKSPACE_TURNS", {})
+    return server._WORKSPACE_TURNS
+
+
+def _walk_only_turn(path):
+    """A turn whose script writes *path* without ever printing it."""
+
+    def run(message, **kwargs):
+        path.write_bytes(b"PK" * 8)
+        return {"final_response": "Done.", "messages": [{"role": "assistant", "content": "Done."}]}
+
+    return run
+
+
+def test_the_workspace_walk_reports_unnamed_files(turn_env, tmp_path, clean_workspace_turns):
+    out = tmp_path / "export.xlsx"
+
+    server._run_prompt_submit("rid", "ui-sid", _session(_agent(_walk_only_turn(out)), explicit_cwd=True), "go")
+
+    assert [f["name"] for f in _complete(turn_env)["files_created"]] == ["export.xlsx"]
+    # The turn is recorded as finished once it ends.
+    assert all(ended is not None for _folder, _began, ended in clean_workspace_turns.values())
+
+
+def test_another_conversation_in_the_same_folder_turns_the_walk_off(turn_env, tmp_path, clean_workspace_turns):
+    """Its files would otherwise land on this turn's card (found in QA: a long
+    turn claimed a spreadsheet another chat saved into the shared folder)."""
+    other = server._workspace_turn_begin(str(tmp_path / "sub"), time.time() - 1)
+    out = tmp_path / "theirs.xlsx"
+
+    server._run_prompt_submit("rid", "ui-sid", _session(_agent(_walk_only_turn(out)), explicit_cwd=True), "go")
+
+    assert "files_created" not in _complete(turn_env)
+    server._workspace_turn_end(other)
+
+
+class TestWorkspaceOverlap:
+    def test_overlap_needs_a_shared_folder_and_time(self, clean_workspace_turns, tmp_path):
+        a, b = tmp_path / "a", tmp_path / "b"
+        a.mkdir()
+        b.mkdir()
+        now = time.time()
+        mine = server._workspace_turn_begin(str(a), now - 10)
+        theirs = server._workspace_turn_begin(str(b), now - 5)
+
+        assert not server._workspace_shared_during(mine, str(a), now - 10, now)
+
+        server._workspace_turn_end(theirs)
+        nested = server._workspace_turn_begin(str(a / "deeper"), now - 5)
+        assert server._workspace_shared_during(mine, str(a), now - 10, now)
+        server._workspace_turn_end(nested)
+
+    def test_a_turn_that_finished_before_this_one_started_does_not_count(self, clean_workspace_turns, tmp_path):
+        now = time.time()
+        clean_workspace_turns[999] = (os.path.realpath(str(tmp_path)), now - 100, now - 50)
+
+        assert not server._workspace_shared_during(None, str(tmp_path), now - 10, now)
+
+    def test_siblings_with_a_common_prefix_do_not_overlap(self):
+        assert not server._folders_overlap("/work/app", "/work/app-2")
+        assert server._folders_overlap("/work/app", "/work/app/src")
+        assert server._folders_overlap("/work", "/work")
+
+
+def test_files_survive_a_transcript_rebuilt_from_the_live_history(turn_env, tmp_path):
+    """/compress (even one that removes nothing), undo and retry rebuild the
+    transcript from the session's in-memory history, not from the database.
+    Pinned only to the stored row, the cards vanished from a conversation
+    that was still open (found in QA after a refused /compress)."""
+    report = tmp_path / "Báo cáo.docx"
+
+    def run(message, **kwargs):
+        report.write_bytes(b"PK" * 4)
+        return {
+            "final_response": f"Đã lưu tại `{report}`.",
+            "messages": [
+                {"role": "user", "content": "make it"},
+                {"role": "assistant", "content": f"Đã lưu tại `{report}`."},
+            ],
+        }
+
+    session = _session(_agent(run, _FakeDb()))
+    server._run_prompt_submit("rid", "ui-sid", session, "make it")
+
+    rebuilt = server._history_to_messages(session["history"])
+    reply = [m for m in rebuilt if m.get("role") == "assistant"][-1]
+    assert [f["name"] for f in reply["display_metadata"]["files_created"]] == ["Báo cáo.docx"]
+    # Only the reply carries it; the provider never sees it (stripped when
+    # the request is built).
+    assert "display_metadata" not in [m for m in rebuilt if m.get("role") == "user"][-1]
+
+
+def test_a_branch_seed_keeps_only_real_files_on_assistant_turns(tmp_path):
+    """session.create seeds a branch from client text; files the client says a
+    turn produced are re-checked on disk and kept on that reply only."""
+    real = tmp_path / "report.docx"
+    real.write_bytes(b"PK")
+
+    history = server._coerce_seed_history(
+        [
+            {"role": "user", "content": "make it", "files_created": [{"path": str(real)}]},
+            {
+                "role": "assistant",
+                "content": "Done.",
+                "files_created": [{"path": str(real)}, {"path": str(tmp_path / "gone.pdf")}, {"path": "rel.pdf"}, "x"],
+            },
+        ]
+    )
+
+    assert "display_metadata" not in history[0]
+    assert [f["name"] for f in history[1]["display_metadata"]["files_created"]] == ["report.docx"]
+
+
+def test_a_turns_edit_diffs_are_pinned_to_its_reply(turn_env, tmp_path, monkeypatch):
+    """A reopened chat rebuilt each edit row from the stored tool row, which
+    holds only the tool's own result: every "+N" row and the files-changed
+    card were gone. The turn's diffs now ride the reply's display_metadata,
+    keyed by tool call id, in the stored row and the live history alike."""
+    db = _FakeDb()
+    target = tmp_path / "bao cao.md"
+    args = {"path": str(target), "content": "# Báo cáo\n- một\n- hai\n"}
+    reply = {"role": "assistant", "content": "Đã ghi bao cao.md."}
+
+    def run(message, **kwargs):
+        # The agent loop fires the tool callbacks while the turn runs.
+        server._on_tool_start("ui-sid", "call-write", "write_file", args)
+        target.write_text(args["content"], encoding="utf-8")
+        server._on_tool_complete("ui-sid", "call-write", "write_file", args, '{"bytes_written": 22}')
+        return {
+            "final_response": reply["content"],
+            "messages": [
+                {"role": "user", "content": "ghi báo cáo"},
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [{"id": "call-write", "function": {"name": "write_file", "arguments": json.dumps(args)}}],
+                },
+                {"role": "tool", "name": "write_file", "tool_call_id": "call-write", "content": '{"bytes_written": 22}'},
+                reply,
+            ],
+        }
+
+    session = _session(_agent(run, db))
+    monkeypatch.setitem(server._sessions, "ui-sid", session)
+    server._run_prompt_submit("rid", "ui-sid", session, "ghi báo cáo")
+
+    pinned = [patch for _sid, _row, patch in db.merged if "edit_diffs" in patch]
+    assert len(pinned) == 1
+    diff = pinned[0]["edit_diffs"]["call-write"]
+    assert "Báo cáo" in diff["inline_diff"]
+    assert diff["inline_diff_stats"] == {"added": 3, "removed": 0}
+    assert reply["display_metadata"]["edit_diffs"] == pinned[0]["edit_diffs"]
+    # Consumed by the turn that made them: the next turn starts empty.
+    assert "turn_edit_diffs" not in session
+
+
+def test_a_turn_without_edits_pins_no_diffs(turn_env):
+    db = _FakeDb()
+
+    def run(message, **kwargs):
+        return {"final_response": "391", "messages": [{"role": "user", "content": "17*23"}, {"role": "assistant", "content": "391"}]}
+
+    server._run_prompt_submit("rid", "ui-sid", _session(_agent(run, db)), "17*23")
+
+    assert not [patch for _sid, _row, patch in db.merged if "edit_diffs" in patch]

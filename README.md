@@ -18,7 +18,7 @@
 
 **The self-improving AI agent built by AstralX Technology.** It's the only agent with a built-in learning loop — it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions. Run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle. It's not tied to your laptop — talk to it from Telegram while it works on a cloud VM.
 
-Use any model you want — [Nous Portal](https://portal.nousresearch.com), OpenRouter, OpenAI, your own endpoint, and [many others](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/integrations/providers.md). Switch with `agentx model` — no code changes, no lock-in.
+Sign in with your AgentX SSO account. Workmate uses your account's AgentX AI Gateway key and assigned models across desktop and CLI. Choose an assigned model with `agentx model` or `/model` inside a conversation.
 
 <table>
 <tr><td><b>A real terminal interface</b></td><td>Full TUI with multiline editing, slash-command autocomplete, conversation history, interrupt-and-redirect, and streaming tool output.</td></tr>
@@ -62,6 +62,7 @@ After installation:
 
 ```bash
 source ~/.bashrc    # reload shell (or: source ~/.zshrc)
+agentx login        # sign in with your AgentX SSO account
 agentx              # start chatting!
 ```
 
@@ -106,7 +107,9 @@ For more context, see the upstream Astral reports: [astral-sh/uv#13553](https://
 
 ```bash
 agentx              # Interactive CLI — start a conversation
-agentx model        # Choose your LLM provider and model
+agentx login        # Sign in with AgentX SSO through your browser
+agentx logout       # Sign out of this CLI; preserve your account data
+agentx model        # Choose a model assigned to your account
 agentx tools        # Configure which tools are enabled
 agentx config set   # Set individual config values
 agentx config get   # Print individual config values
@@ -121,22 +124,19 @@ agentx doctor       # Diagnose any issues
 
 ---
 
-## Skip the API-key collection — Nous Portal
+## Account access in the CLI
 
-AgentX works with whatever provider you want — that's not changing. But if you'd rather not collect five separate API keys for the model, web search, image generation, TTS, and a cloud browser, **[Nous Portal](https://portal.nousresearch.com)** covers all of them under one subscription:
-
-- **300+ models** — pick any of them with `/model <name>`
-- **Tool Gateway** — web search (Firecrawl), image generation (FAL), text-to-speech (OpenAI), cloud browser (Browser Use), all routed through your sub. No extra accounts.
-
-One command from a fresh install:
+Sign in before starting a chat:
 
 ```bash
-agentx setup --portal
+agentx login
+agentx model
+agentx
 ```
 
-That logs you in via OAuth, sets Nous as your provider, and turns on the Tool Gateway. Check what's wired up any time with `agentx portal info`. Full details on the [Tool Gateway docs page](https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/features/tool-gateway.md).
+The browser handles SSO, including your organization's MFA. The CLI remembers its own sign-in and automatically selects the account's isolated home on later launches. `agentx login --no-browser` prints the sign-in URL for manual opening on the same machine. A headless invocation without a valid CLI sign-in exits with login guidance.
 
-You can still bring your own keys per-tool whenever you want — the gateway is per-backend, not all-or-nothing.
+Only models assigned to the account appear in the picker. Provider overrides, unrelated API keys and unassigned model names cannot redirect account inference to another provider. Use `/model --refresh` to refresh assigned models. `agentx setup` still configures the terminal, messaging and tools; its model step uses your account's models. `agentx logout` ends the CLI sign-in without deleting chats or memory.
 
 ---
 

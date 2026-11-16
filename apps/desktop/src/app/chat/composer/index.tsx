@@ -20,11 +20,13 @@ import { POPOUT_WIDTH_REM } from '@/store/composer-popout'
 import { parkQueuedPrompts, removeQueuedPrompt, unparkQueuedPrompts } from '@/store/composer-queue'
 import { $licenseReadOnly } from '@/store/license'
 import { toggleReview } from '@/store/review'
-import { $gatewayState } from '@/store/session'
+import { $gatewayState, $selectedStoredSessionId } from '@/store/session'
 import { $threadScrolledUp } from '@/store/thread-scroll'
 import { $autoSpeakReplies } from '@/store/voice-prefs'
 import { useTheme } from '@/themes'
 
+import { ComposerAccountQuota } from './account-quota'
+import { ApprovalPill } from './approval-pill'
 import { AttachmentList } from './attachments'
 import {
   acceptsTriggerCompletion,
@@ -59,6 +61,7 @@ import { useComposerMicroActions } from './hooks/use-micro-actions'
 import { useSlashCompletions } from './hooks/use-slash-completions'
 import { useSessionStatusPresence } from './hooks/use-status-presence'
 import { ActionBadges } from './micro-actions'
+import { ModelPill } from './model-pill'
 import { chipTypedPathOnSpace, pathifyRefs } from './path-refs'
 import { QueuePanel } from './queue-panel'
 import {
@@ -80,6 +83,7 @@ import { isRedoShortcut, isUndoShortcut } from './undo-history'
 import { UrlDialog } from './url-dialog'
 import { chipTypedUrlOnSpace, linkifyUrls } from './url-refs'
 import { VoiceActivity, VoicePlaybackActivity } from './voice-activity'
+import { WorkspacePicker } from './workspace-picker'
 
 export function ChatBar({
   busy,
@@ -144,6 +148,10 @@ export function ChatBar({
   // Which live composer this instance IS (main | tile) — its attachment set,
   // focus-bus key, and awaiting-input edge. Main scope = the legacy globals.
   const scope = useComposerScope()
+  // The new chat in main, before its first message — the one moment its
+  // folder can still be picked. A tile always carries its own session.
+  const selectedStoredSessionId = useStore($selectedStoredSessionId)
+  const workspaceDraft = scope.target === 'main' && !sessionId && !selectedStoredSessionId
   const attachments = useStore(scope.attachments.$attachments)
   const compacting = useStore(useMemo(() => sessionCompacting(sessionId ?? null), [sessionId]))
   const scrolledUp = useStore($threadScrolledUp)
@@ -298,7 +306,7 @@ export function ChatBar({
     return onCancel()
   }, [activeQueueSessionKeyRef, onCancel])
 
-  const { compactPill, stacked } = useComposerMetrics({
+  const { stacked } = useComposerMetrics({
     composerDockRef,
     composerRef,
     composerSurfaceRef,
@@ -944,8 +952,6 @@ export function ChatBar({
       busy={busy}
       busyAction={busyAction}
       canSubmit={canSubmit}
-      compactModelPill={poppedOut || compactPill}
-      conciseModelPill={!codingContext}
       conversation={{
         active: voiceConversationActive,
         level: conversation.level,
@@ -958,6 +964,7 @@ export function ChatBar({
       }}
       disabled={disabled}
       hasComposerPayload={hasComposerPayload}
+      inlineModelPill={poppedOut}
       onDictate={dictate}
       onQueue={queueDraft}
       onToggleAutoSpeak={handleToggleAutoSpeak}
@@ -1206,7 +1213,7 @@ export function ChatBar({
             <div className="relative w-full rounded-[inherit]">
               <div
                 className={cn(
-                  'group/composer-surface relative z-4 isolate grid grid-rows-[auto_1fr] overflow-hidden rounded-[inherit] border',
+                  'group/composer-surface relative z-4 isolate grid grid-cols-1 grid-rows-[auto_1fr] overflow-hidden rounded-[inherit] border',
                   COMPOSER_DROP_FADE_CLASS,
                   dragActive && COMPOSER_DROP_ACTIVE_CLASS
                 )}
@@ -1297,8 +1304,29 @@ export function ChatBar({
               for the same reason as the micro actions — it must not fall inside
               the pop-out drag region. Same px as the strip above, so the two
               bracket the composer on one vertical line. */}
-          <div className={cn(composerFloatingStrip, 'px-[5px] pt-1.5 empty:hidden')}>
+          {/* One line, never wrapped: the folder and the model each truncate
+              before the model would drop onto a second row in a narrow pane. */}
+          <div className={cn(composerFloatingStrip, 'flex-nowrap px-[5px] pt-1.5 empty:hidden')}>
+            {/* The context bar (spec §5.8), like Claude's: the folder this
+                chat works in on the left, the model and allowance at the right.
+                Not while floating — the compact pop-out keeps to one sentence
+                and carries its model control in the row inside. */}
+            {!poppedOut && <WorkspacePicker cwd={cwd ?? ''} draft={workspaceDraft} />}
             <ContribSlot area={COMPOSER_AREAS.underside} />
+            {!poppedOut && (
+              <div
+                className="ml-auto flex min-w-0 items-center justify-end gap-1"
+                data-slot="composer-context-controls"
+              >
+                <div className="flex min-w-0 justify-end" data-slot="composer-approvals">
+                  <ApprovalPill />
+                </div>
+                <div className="flex min-w-0 justify-end" data-slot="composer-model">
+                  <ModelPill concise={!codingContext} disabled={disabled} model={state.model} />
+                </div>
+                <ComposerAccountQuota />
+              </div>
+            )}
           </div>
         </div>
       </ComposerPrimitive.Unstable_TriggerPopoverRoot>

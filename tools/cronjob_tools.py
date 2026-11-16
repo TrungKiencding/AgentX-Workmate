@@ -338,6 +338,22 @@ def _origin_from_env() -> Optional[Dict[str, str]]:
     return None
 
 
+def _created_from_desktop_chat() -> bool:
+    """True when the session creating the job is a desktop-app chat.
+
+    tui_gateway binds ``AGENTX_SESSION_SOURCE`` for every turn it runs
+    (``_set_session_context`` → ``set_session_vars(source=...)``) and resolves
+    it to ``"desktop"`` for the app's chat panel; the TUI — including one in
+    the app's embedded terminal — stays ``"tui"``.
+    """
+    try:
+        from gateway.session_context import get_session_env
+
+        return str(get_session_env("AGENTX_SESSION_SOURCE") or "").strip().lower() == "desktop"
+    except Exception:
+        return False
+
+
 def _local_delivery_notice(job: Dict[str, Any], user_deliver: Optional[str]) -> Optional[str]:
     """Return an informational notice when a created job won't deliver anywhere.
 
@@ -366,6 +382,23 @@ def _local_delivery_notice(job: Dict[str, Any], user_deliver: Optional[str]) -> 
         # If resolution can't be evaluated, fall back to the origin signal.
         if job.get("origin"):
             return None
+    if _created_from_desktop_chat():
+        # The desktop app is neither a messaging origin nor a bare terminal:
+        # it cannot post a run's result into the chat, but it does announce
+        # every run (a toast plus an OS notification carrying the result, and
+        # the job's page). The CLI/TUI wording below both undersells that and
+        # points at messaging platforms the user may not have — and an agent
+        # left to guess promised "straight into this chat", which never
+        # happens. Say what will happen, and what will not.
+        return (
+            "Where the result shows: when this job runs, its result appears as "
+            "a notification on this computer (in the app, and as a system "
+            "notification when the app is in the background) and on the app's "
+            "Scheduled jobs page (\"Lịch tự động\"). The desktop app has to be "
+            "open at that time. It will NOT be posted into this chat — do not "
+            "tell the user it will appear in this conversation; tell them it "
+            "arrives as a notification on this computer."
+        )
     return (
         "This is a local-only cron job: its output is saved (view it with "
         "cronjob(action='list')) but will NOT be delivered back into this "
@@ -581,6 +614,15 @@ def _format_job(job: Dict[str, Any]) -> Dict[str, Any]:
         "paused_at": job.get("paused_at"),
         "paused_reason": job.get("paused_reason"),
     }
+    # Why the last run failed, as a stable key — never the raw error, which
+    # stays in the run's output and logs. Lets a UI say "the AI service was
+    # busy" in the user's language instead of a bare "last run failed".
+    if job.get("last_status") not in (None, "", "ok"):
+        from cron.scheduler import classify_cron_failure
+
+        result["last_error_kind"] = classify_cron_failure(
+            job.get("last_error"), agent_run=not job.get("no_agent")
+        )
     if job.get("script"):
         result["script"] = job["script"]
     if job.get("no_agent"):
@@ -1131,7 +1173,7 @@ Scheduling from cron-run sessions is disabled by default and enabled via cron.al
             },
             "prompt": {
                 "type": "string",
-                "description": "For create: the full self-contained prompt. If skills are also provided, this becomes the task instruction paired with those skills."
+                "description": "For create/update: the full self-contained prompt, the work only (when it runs goes in 'schedule'; data windows like 'since yesterday' stay here). If skills are also provided, this becomes the task instruction paired with those skills."
             },
             "schedule": {
                 "type": "string",
@@ -1147,7 +1189,7 @@ Scheduling from cron-run sessions is disabled by default and enabled via cron.al
             },
             "deliver": {
                 "type": "string",
-                "description": "Omit this parameter to auto-deliver back to the current chat and topic (recommended). Auto-detection preserves thread/topic context. Only set explicitly when the user asks to deliver somewhere OTHER than the current conversation. Values: 'origin' (same as omitting), 'local' (no delivery, save only), 'all' (fan out to every connected home channel), or platform:chat_id:thread_id for a specific destination. Combine with comma: 'origin,all' delivers to the origin plus every other connected channel. Examples: 'telegram:-1001234567890:17585', 'discord:#engineering', 'sms:+15551234567', 'all'. WARNING: 'platform:chat_id' without :thread_id loses topic targeting. 'all' resolves at fire time, so a job created before a channel was wired up will pick it up automatically once connected."
+                "description": "Omit this parameter to auto-deliver back to the current chat and topic (recommended). Auto-detection preserves thread/topic context. Only set explicitly when the user asks to deliver somewhere OTHER than the current conversation. Values: 'origin' (same as omitting), 'local' (no delivery, save only), 'all' (fan out to every connected home channel), or platform:chat_id:thread_id for a specific destination. Combine with comma: 'origin,all' delivers to the origin plus every other connected channel. Examples: 'telegram:-1001234567890:17585', 'discord:#engineering', 'sms:+15551234567', 'all'. WARNING: 'platform:chat_id' without :thread_id loses topic targeting. 'all' resolves at fire time, so a job created before a channel was wired up will pick it up automatically once connected. The desktop app and CLI/TUI sessions have no chat to deliver into: there the tool result states where the output will show — relay that, and never promise delivery into the conversation."
             },
             "skills": {
                 "type": "array",

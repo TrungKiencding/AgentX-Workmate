@@ -340,3 +340,36 @@ def test_security_pins_present_in_mirrored_lazy_features():
         "pyproject extras — the lazy install path would not enforce the "
         "CVE-patched floor:\n  " + "\n  ".join(problems)
     )
+
+
+def test_faster_whisper_carriers_pin_av_below_pyav19():
+    """faster-whisper 1.2.1 passes ``metadata_errors`` to ``av.open()``, a kwarg
+    PyAV 19 removed, so the pair fails every local transcription with a TypeError
+    (fixed upstream in SYSTRAN/faster-whisper#1495, unreleased as of 1.2.1).
+    faster-whisper only declares ``av>=11``, so every extra and lazy feature
+    carrying 1.2.1 must exact-pin a pre-19 ``av``, or a lock refresh or a lazy
+    install resolves the broken pair.
+    """
+    from packaging.requirements import Requirement
+    from packaging.version import Version
+
+    data = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    carriers = {
+        f"extra {name}": [Requirement(r) for r in reqs]
+        for name, reqs in data["project"]["optional-dependencies"].items()
+        if any(Requirement(r).name == "faster-whisper" for r in reqs)
+    }
+    carriers.update(
+        {
+            f"lazy {feature}": [Requirement(s) for s in specs]
+            for feature, specs in _lazy_deps_by_feature().items()
+            if any(Requirement(s).name == "faster-whisper" for s in specs)
+        }
+    )
+    assert carriers, "nothing carries faster-whisper: retire this pin and test"
+    for where, reqs in carriers.items():
+        av = [r for r in reqs if r.name == "av"]
+        assert av, f"{where} carries faster-whisper without an av pin"
+        (pin,) = av
+        (spec,) = pin.specifier
+        assert spec.operator == "==" and Version(spec.version) < Version("19"), (where, str(pin))

@@ -43,10 +43,7 @@ const buttonVariants = cva(
         textStrong: `font-medium text-(--text-primary) underline underline-offset-4 decoration-(--border-strong) hover:decoration-current ${TEXT_ACTION_ICON}`,
         // Inline control (spec §5.5): meta text + 16px glyph, the frame shows on
         // hover only — context-bar items, in-row pickers, "Thêm" chips.
-        chip: 'rounded-(--radius-control) text-sm text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary) active:bg-(--bg-pressed)',
-        // An interactive card (spec §5.10): a flat hairline tile whose border
-        // firms to --border-strong on hover — never a lift, never a shadow.
-        card: 'rounded-(--radius-card) border border-(--border-default) bg-(--bg-app) text-(--text-primary) hover:border-(--border-strong) active:bg-(--bg-subtle)'
+        chip: 'rounded-(--radius-control) text-sm text-(--text-secondary) hover:bg-(--bg-hover) hover:text-(--text-primary) active:bg-(--bg-pressed)'
       },
       size: {
         default: 'h-(--control-h-md) px-3.5 has-[>svg]:px-3',
@@ -62,9 +59,6 @@ const buttonVariants = cva(
         micro: "h-auto gap-1 px-1 py-0 text-xs has-[>svg]:px-0.5 [&_svg:not([class*='size-'])]:size-3.5",
         // Pairs with the `chip` variant: the inline control's 4×8 box.
         chip: 'h-7 gap-1.5 px-2',
-        // Pairs with the `card` variant: a padded, left-aligned tile whose
-        // leading glyph is the list icon size (18px).
-        card: "h-auto min-h-(--intro-card-min-height) items-center justify-start gap-2.5 px-4 py-3 text-left whitespace-normal [&_svg:not([class*='size-'])]:size-4.5",
         icon: "size-(--control-h-md) [&_svg:not([class*='size-'])]:size-5",
         'icon-xs': "size-6 [&_svg:not([class*='size-'])]:size-3.5",
         'icon-sm': 'size-(--control-h-sm)',

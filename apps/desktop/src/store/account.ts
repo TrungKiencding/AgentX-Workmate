@@ -272,6 +272,15 @@ function applyDeviceUpdate(result: DesktopDeviceUpdateResult, id: string): void 
 }
 
 export async function renameDevice(id: string, name: string): Promise<DesktopDeviceUpdateResult> {
+  return renameDevices([id], name)
+}
+
+/**
+ * Give several installs one label — the installs Settings shows as a single
+ * machine. Stops at the first refusal and refreshes once at the end, rather
+ * than once per install.
+ */
+export async function renameDevices(ids: string[], name: string): Promise<DesktopDeviceUpdateResult> {
   const bridge = window.agentxDesktop?.devices
 
   if (!bridge?.rename) {
@@ -280,16 +289,28 @@ export async function renameDevice(id: string, name: string): Promise<DesktopDev
 
   const scope = deviceAccountScope()
   const accountGeneration = deviceAccountGeneration
+  const sameAccount = () => scope === deviceAccountScope() && accountGeneration === deviceAccountGeneration
   deviceGeneration += 1
 
-  const result = await Promise.resolve()
-    .then(() => bridge.rename!(id, name))
-    .catch(() => ({ status: 'offline' as const }))
+  let result: DesktopDeviceUpdateResult = { status: 'ok' }
 
-  if (scope === deviceAccountScope() && accountGeneration === deviceAccountGeneration) {
+  for (const id of ids) {
+    result = await Promise.resolve()
+      .then(() => bridge.rename!(id, name))
+      .catch(() => ({ status: 'offline' as const }))
+
+    if (!sameAccount()) {
+      return result
+    }
+
     applyDeviceUpdate(result, id)
-    await refreshDevices()
+
+    if (result.status !== 'ok') {
+      break
+    }
   }
+
+  await refreshDevices()
 
   return result
 }
@@ -309,34 +330,60 @@ export async function revokeDevice(
   id: string,
   options: { rotateKey?: boolean } = {}
 ): Promise<DesktopDeviceRevokeResult> {
+  return revokeDevices([id], options)
+}
+
+/**
+ * Revoke several installs — one machine's reinstalls, or every machine but
+ * this one — in order, stopping at the first refusal.
+ *
+ * The key is rotated once, with the last revocation: one key per person, so a
+ * rotation per install would only issue keys nobody collects. The result is
+ * the last call's, or the refusal that stopped the run.
+ */
+export async function revokeDevices(
+  ids: string[],
+  options: { rotateKey?: boolean } = {}
+): Promise<DesktopDeviceRevokeResult> {
   const bridge = window.agentxDesktop?.devices
 
   if (!bridge) {
     return { detail: 'This build cannot manage devices.', status: 'unconfigured' }
   }
 
-  let result: DesktopDeviceRevokeResult
+  let result: DesktopDeviceRevokeResult = { status: 'ok' }
   const scope = deviceAccountScope()
   const accountGeneration = deviceAccountGeneration
+  const sameAccount = () => scope === deviceAccountScope() && accountGeneration === deviceAccountGeneration
   deviceGeneration += 1
 
-  try {
-    result = await bridge.revoke(id, options)
-  } catch (error) {
-    result = {
-      detail: error instanceof Error ? error.message : String(error),
-      status: 'offline'
+  for (const [index, id] of ids.entries()) {
+    const last = index === ids.length - 1
+
+    try {
+      result = await bridge.revoke(id, last ? options : { ...options, rotateKey: false })
+    } catch (error) {
+      result = {
+        detail: error instanceof Error ? error.message : String(error),
+        status: 'offline'
+      }
+    }
+
+    if (!sameAccount()) {
+      return result
+    }
+
+    applyDeviceUpdate(result, id)
+
+    if (result.status !== 'ok' || $devices.get().status === 'revoked') {
+      break
     }
   }
 
   // Whatever happened, the list is now stale — including the case where the
   // revoked machine was this one, which `refreshDevices` reports as `revoked`.
-  if (scope === deviceAccountScope() && accountGeneration === deviceAccountGeneration) {
-    applyDeviceUpdate(result, id)
-
-    if ($devices.get().status !== 'revoked') {
-      await refreshDevices()
-    }
+  if ($devices.get().status !== 'revoked') {
+    await refreshDevices()
   }
 
   return result

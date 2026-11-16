@@ -228,3 +228,128 @@ def test_route_requires_the_session_credential(world, client):
 
     assert response.status_code == 401
     assert world.spawns == []
+
+
+# ── a gateway that outlived the checkout it runs ───────────────────────────
+#
+# The gateway is started detached, so it survives an app upgrade that replaces
+# its checkout and deletes the old one. It then keeps answering on the old
+# version from a deleted working directory (pilot feedback 2026-11: a Telegram
+# reply reported "[write_file] [Errno 2] No such file or directory" for files
+# it had written).
+
+
+@pytest.fixture
+def restarts(world, monkeypatch):
+    calls: list[tuple] = []
+
+    def restart(profile=None):
+        calls.append((profile,))
+        proc = _Proc(pid=6000 + len(calls))
+        web_server._ACTION_PROCS["gateway-restart"] = proc
+        return proc, False
+
+    monkeypatch.setattr(web_server, "_spawn_gateway_restart", restart)
+    return calls
+
+
+def test_a_gateway_whose_checkout_is_gone_is_restarted(world, restarts, monkeypatch):
+    world.running_pid = 777
+    monkeypatch.setattr(autostart, "running_gateway_is_stale", lambda pid: True)
+
+    result = autostart.autostart_gateway()
+
+    assert result == {"started": True, "reason": "restarted_stale", "pid": 777, "platforms": ["telegram"]}
+    assert restarts == [(None,)]
+    # A restart, never a second gateway beside the first.
+    assert world.spawns == []
+
+
+def test_a_stale_gateway_under_a_service_manager_is_left_to_it(world, restarts, monkeypatch):
+    world.running_pid = 777
+    world.service = True
+    monkeypatch.setattr(autostart, "running_gateway_is_stale", lambda pid: True)
+
+    assert autostart.autostart_gateway()["reason"] == "service"
+    assert restarts == []
+
+
+def test_a_stale_gateway_is_not_restarted_twice_at_once(world, restarts, monkeypatch):
+    world.running_pid = 777
+    monkeypatch.setattr(autostart, "running_gateway_is_stale", lambda pid: True)
+
+    autostart.autostart_gateway()
+    second = autostart.autostart_gateway()
+
+    assert second["reason"] == "busy"
+    assert second["action"] == "gateway-restart"
+    assert len(restarts) == 1
+
+
+def test_stale_means_the_recorded_code_root_no_longer_exists(tmp_path, monkeypatch):
+    from gateway import status
+
+    here = tmp_path / "checkout"
+    here.mkdir()
+    monkeypatch.setattr(status, "running_gateway_code_root", lambda pid_path=None: str(here))
+    assert autostart.running_gateway_is_stale(777) is False
+
+    here.rmdir()
+    assert autostart.running_gateway_is_stale(777) is True
+
+
+def test_a_gateway_without_a_record_is_judged_by_its_working_directory(tmp_path, monkeypatch):
+    """Gateways started before the record existed are the ones an upgrade to
+    this version finds running."""
+    import psutil
+
+    from gateway import status
+
+    monkeypatch.setattr(status, "running_gateway_code_root", lambda pid_path=None: None)
+
+    def process(cwd=None, error=None):
+        class _Process:
+            def __init__(self, pid):
+                pass
+
+            def cwd(self):
+                if error is not None:
+                    raise error
+                return cwd
+
+        monkeypatch.setattr(psutil, "Process", _Process)
+
+    process(cwd=str(tmp_path))
+    assert autostart.running_gateway_is_stale(777) is False
+
+    process(cwd=str(tmp_path / "removed"))
+    assert autostart.running_gateway_is_stale(777) is True
+
+    process(cwd="/opt/agentx/checkout (deleted)")
+    assert autostart.running_gateway_is_stale(777) is True
+
+    process(error=FileNotFoundError(2, "No such file or directory"))
+    assert autostart.running_gateway_is_stale(777) is True
+
+    # No evidence, no restart.
+    process(cwd="")
+    assert autostart.running_gateway_is_stale(777) is False
+    process(error=psutil.AccessDenied(777))
+    assert autostart.running_gateway_is_stale(777) is False
+    process(error=psutil.NoSuchProcess(777))
+    assert autostart.running_gateway_is_stale(777) is False
+
+
+def test_the_gateway_records_the_checkout_it_runs(tmp_path):
+    from pathlib import Path
+
+    from gateway import status
+
+    record = status._build_pid_record()
+
+    assert Path(record["code_root"]) == Path(status.__file__).resolve().parent.parent
+    pid_file = tmp_path / "gateway.pid"
+    pid_file.write_text(__import__("json").dumps(record))
+    assert status.running_gateway_code_root(pid_file) == record["code_root"]
+    pid_file.write_text(__import__("json").dumps({"pid": 1, "kind": record["kind"]}))
+    assert status.running_gateway_code_root(pid_file) is None

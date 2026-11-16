@@ -16,6 +16,7 @@ import {
   buildAppEnv,
   createSandbox,
   launchDesktop,
+  revealSidebarSession,
   waitForAppReady,
   writeEnvFile,
   writeMockProviderConfig,
@@ -79,10 +80,7 @@ test('resume hides real context-compaction handoffs', async ({}, testInfo) => {
     const { page } = fixture
     await waitForAppReady(fixture, 120_000)
 
-    const sessionRow = page
-      .locator('[data-slot="sidebar"] button')
-      .filter({ hasText: SESSION_TITLE })
-      .first()
+    const sessionRow = await revealSidebarSession(page, SESSION_TITLE, 60_000)
     await sessionRow.click()
 
     const transcript = page.locator('[data-slot="aui_thread-viewport"]')

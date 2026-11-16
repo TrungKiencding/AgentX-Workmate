@@ -4,6 +4,7 @@ import type { ReactNode } from 'react'
 import { noteActiveTreeGroup, revealTreePane } from '@/components/pane-shell/tree/store'
 import { registry } from '@/contrib/registry'
 import type { Contribution } from '@/contrib/types'
+import type { Locale } from '@/i18n'
 
 type NavigateLike = (to: string, options?: { replace?: boolean }) => void
 
@@ -114,15 +115,24 @@ function isContributedPath(pathname: string): boolean {
 // while the app is there.
 
 export const SIDEBAR_NAV_AREA = 'sidebar.nav'
+/** Rendered controls above the sidebar navigation, without a duplicate row. */
+export const SIDEBAR_HEADER_AREA = 'sidebar.header'
 
 /** Payload of a `sidebar.nav` data contribution. */
 export interface SidebarNavContribution {
   /** Codicon name, e.g. `'project'`. */
   codicon: string
-  label: string
+  /** Row label. A function receives the app's active locale and is re-read
+   *  when it changes, so a localized label follows a language switch. */
+  label: string | ((locale: Locale) => string)
   /** Route to navigate to (usually a contributed page's path). */
   path: string
+  /** Glyph tint, the way the built-in rows colour theirs (`--tint-<name>`).
+   *  Omit for the neutral icon ink. */
+  tint?: SidebarNavTint
 }
+
+export type SidebarNavTint = 'blue' | 'green' | 'indigo' | 'orange' | 'pink' | 'purple' | 'red' | 'teal' | 'yellow'
 
 // Views that render as a full-screen modal card (OverlayView) over the shell.
 // While one is open the app's titlebar control clusters must hide so they don't
@@ -190,6 +200,19 @@ export function sessionRoute(sessionId: string): string {
   return `${SESSION_ROUTE_PREFIX}${encodeURIComponent(sessionId)}`
 }
 
+/**
+ * History state of the route a fresh draft's first send re-homes onto. That
+ * session was created BY a message, so it is never an empty chat — not even
+ * for the frames between the route switching to its (still empty) slice and
+ * the optimistic message landing in it, which used to flash the home greeting
+ * back up under the send.
+ */
+export const STARTED_BY_SEND_ROUTE_STATE = { startedBySend: true } as const
+
+export function routeStartedBySend(state: unknown): boolean {
+  return typeof state === 'object' && state !== null && (state as { startedBySend?: unknown }).startedBySend === true
+}
+
 export function appViewForPath(pathname: string): AppView {
   const path = routePathname(pathname)
 
@@ -202,6 +225,11 @@ export function appViewForPath(pathname: string): AppView {
   }
 
   return APP_VIEW_BY_PATH.get(path) ?? 'chat'
+}
+
+/** Temporary route tasks must not replace a remembered workspace destination. */
+export function isOverlayRoute(to: string): boolean {
+  return isOverlayView(appViewForPath(to))
 }
 
 /** Does `to` land on a full page rendered INSIDE the workspace pane

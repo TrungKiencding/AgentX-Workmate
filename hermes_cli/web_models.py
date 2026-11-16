@@ -84,6 +84,9 @@ class WhatsAppOnboardingStart(BaseModel):
     mode: Optional[str] = "bot"
     allowed_users: Optional[str] = ""
     profile: Optional[str] = None
+    # Discard the saved device session and pair a new QR — the way back when
+    # the phone removed the linked device (or the owner wants another number).
+    relink: bool = False
 
 
 class WhatsAppOnboardingApply(BaseModel):
@@ -387,6 +390,7 @@ class CronJobUpdate(BaseModel):
 class AutomationBlueprintInstantiate(BaseModel):
     blueprint: str                      # blueprint key, e.g. "morning-brief"
     values: Dict[str, Any] = {}      # filled slot values from the form
+    locale: Optional[str] = None     # UI language: the job's name + prompt are written in it
 
 
 # --- from web_server.py (originally lines 13002-13019) ---

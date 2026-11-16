@@ -498,16 +498,52 @@ def _append_unique_pid(
     pids.append(pid)
 
 
+def _gateway_pid_runs_in_home(pid: int, home: str | Path) -> bool:
+    """Return True only when *pid*'s environment proves it runs in ``home``.
+
+    AGENTX_HOME travels in the environment, not in argv, so a flag-less
+    ``gateway run`` cannot be attributed to a home from its command line.
+    A process with no AGENTX_HOME runs in the platform default root. An
+    environment that cannot be read proves nothing, so it is not accepted.
+    """
+    try:
+        import psutil
+
+        env = psutil.Process(pid).environ()
+    except Exception:
+        return False
+    raw = ""
+    for key, value in (env or {}).items():
+        if str(key).upper() == "AGENTX_HOME":
+            raw = str(value or "").strip()
+            break
+    from gateway.status import _same_hermes_home
+
+    if not raw:
+        from hermes_constants import _get_platform_default_hermes_home
+
+        return _same_hermes_home(_get_platform_default_hermes_home(), home)
+    if not Path(raw).expanduser().is_absolute():
+        return False
+    return _same_hermes_home(raw, home)
+
+
 def _scan_gateway_pids(
     exclude_pids: set[int],
     all_profiles: bool = False,
     include_restart_managers: bool = False,
+    home_verified: bool = False,
 ) -> list[int]:
     """Best-effort process-table scan for gateway PIDs.
 
     This supplements the profile-scoped PID file so status views can still spot
     a live gateway when the PID file is stale/missing, and ``--all`` sweeps can
     discover gateways outside the current profile.
+
+    ``home_verified`` is for callers that state a fact about *this* home (cron
+    status: "jobs will fire"). A flag-less gateway is then only returned when
+    its process environment ties it to the current AGENTX_HOME, instead of
+    being attributed to it for want of a profile flag.
     """
     # Exclude the entire ancestor chain so the CLI process that invoked this
     # scan (e.g. ``agentx gateway status``) is never mistaken for a running
@@ -548,6 +584,10 @@ def _scan_gateway_pids(
         # its absence is NOT disqualifying — only a non-matching explicit
         # AGENTX_HOME= in argv is.
         if "--profile " in command_lc or " -p " in command_lc:
+            return False
+        if home_verified and (
+            " --account " in command_lc or " --account=" in command_lc
+        ):
             return False
         if (
             "hermes_home=" in command_lc
@@ -720,6 +760,12 @@ def _scan_gateway_pids(
     if is_windows() and len(pids) > 1:
         pids = _filter_venv_launcher_stubs(pids)
 
+    # A named profile is tied to this home by its ``--profile`` flag above.
+    # Flag-less matches are not tied to anything yet: keep only the ones whose
+    # environment says they run here.
+    if home_verified and not all_profiles and not current_profile_name:
+        pids = [pid for pid in pids if _gateway_pid_runs_in_home(pid, current_home)]
+
     return pids
 
 
@@ -754,7 +800,9 @@ def _filter_venv_launcher_stubs(pids: list[int]) -> list[int]:
 
 
 def find_gateway_pids(
-    exclude_pids: set | None = None, all_profiles: bool = False
+    exclude_pids: set | None = None,
+    all_profiles: bool = False,
+    home_verified: bool = False,
 ) -> list:
     """Find PIDs of running gateway processes.
 
@@ -766,6 +814,10 @@ def find_gateway_pids(
             needs this because a code update affects every profile.
             When ``False`` (default), only PIDs belonging to the current
             AgentX profile are returned.
+        home_verified: When ``True``, a flag-less gateway found only by the
+            process scan is returned only if its environment ties it to the
+            current AGENTX_HOME (see ``_scan_gateway_pids``). The PID file and
+            the service manager are already scoped to this home.
     """
     _exclude = set(exclude_pids or set())
     pids: list[int] = []
@@ -782,10 +834,12 @@ def find_gateway_pids(
         include_restart_managers = not supports_systemd_services()
     except Exception:
         include_restart_managers = False
+    scan_kwargs = {"home_verified": True} if home_verified else {}
     for pid in _scan_gateway_pids(
         _exclude,
         all_profiles=all_profiles,
         include_restart_managers=include_restart_managers,
+        **scan_kwargs,
     ):
         _append_unique_pid(pids, pid, _exclude)
     return pids
@@ -5224,9 +5278,31 @@ def _guard_named_profile_under_multiplexer(force: bool = False) -> None:
     if not suffix:
         return  # default profile (or unrecognized) — this guard doesn't apply
 
+    # A signed-in account's own home is that person's *default* profile even
+    # though its suffix is the account slug: it is the multiplexer, never one
+    # of the profiles a multiplexer serves. Without this, a stale install-root
+    # gateway (from before the machine signed anyone in) made the account's
+    # own gateway refuse to start after a messaging-channel change.
     try:
-        from hermes_constants import get_default_hermes_root
-        default_root = get_default_hermes_root()
+        from hermes_constants import split_home_scope
+
+        account, named_profile = split_home_scope(get_hermes_home())
+    except Exception:
+        account, named_profile = None, None
+    if account and not named_profile:
+        return
+    if named_profile:
+        suffix = named_profile
+
+    try:
+        from hermes_constants import (
+            get_active_account,
+            get_default_hermes_root,
+            get_user_root,
+        )
+        # The multiplexer serving this profile is its owner's default gateway:
+        # the account home when signed in, the install root otherwise.
+        default_root = get_user_root() if get_active_account() else get_default_hermes_root()
         # (b) Is the default-profile gateway running?
         from gateway.status import get_running_pid as _default_running_pid  # noqa
     except Exception:

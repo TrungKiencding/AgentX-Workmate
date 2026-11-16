@@ -1,10 +1,40 @@
 import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import * as path from 'node:path'
 import { createInterface } from 'node:readline'
 
 const DESKTOP_ROOT = path.resolve(import.meta.dirname, '..')
 const REPO_ROOT = path.resolve(DESKTOP_ROOT, '..', '..')
 const DEFAULT_TIMEOUT_MS = 60_000
+
+function venvPython(venvRoot: string): string | null {
+  const candidate =
+    process.platform === 'win32' ? path.join(venvRoot, 'Scripts', 'python.exe') : path.join(venvRoot, 'bin', 'python')
+
+  return existsSync(candidate) ? candidate : null
+}
+
+/**
+ * Picks the interpreter for the stdio gateway. `uv run --active` only works
+ * when the caller activated the dev venv; without it uv falls back to the
+ * project `.venv` (often empty — `--no-sync` never installs into it) and the
+ * gateway dies on `No module named 'dotenv'`. So: an activated venv wins,
+ * then the repo's `venv/` (what the dev setup and the desktop backend use),
+ * and only then `uv run`.
+ */
+function gatewayCommand(): { args: string[]; command: string; venvRoot?: string } {
+  const gatewayArgs = ['-m', 'tui_gateway.entry']
+
+  for (const venvRoot of [process.env.VIRTUAL_ENV, path.join(REPO_ROOT, 'venv')]) {
+    const python = venvRoot ? venvPython(venvRoot) : null
+
+    if (python) {
+      return { args: gatewayArgs, command: python, venvRoot }
+    }
+  }
+
+  return { args: ['run', '--active', '--no-sync', 'python', ...gatewayArgs], command: 'uv' }
+}
 
 interface JsonRpcError {
   code?: number
@@ -72,10 +102,12 @@ export class RealSessionBuilder {
   private closed = false
 
   private constructor(hermesHome: string) {
-    this.child = spawn('uv', ['run', '--active', '--no-sync', 'python', '-m', 'tui_gateway.entry'], {
+    const { args, command, venvRoot } = gatewayCommand()
+    this.child = spawn(command, args, {
       cwd: REPO_ROOT,
       env: {
         ...process.env,
+        ...(venvRoot ? { VIRTUAL_ENV: venvRoot } : {}),
         AGENTX_HOME: hermesHome,
         PYTHONPATH: REPO_ROOT,
       },

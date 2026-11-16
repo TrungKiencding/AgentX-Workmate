@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { containingBlockUtilities } from './__tests__/containing-block-utilities'
 import { Dialog, DialogContent, DialogTitle, preventCloseButtonAutoFocus } from './dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select'
 
@@ -33,6 +34,48 @@ describe('Select portalled inside a Dialog', () => {
 
     // The dropdown item is a descendant of the dialog, i.e. portalled into it.
     expect(dialog.contains(option)).toBe(true)
+  })
+})
+
+describe('DialogContent never captures its fixed descendants', () => {
+  // Popovers portalled into the dialog are `position: fixed`. A transform (the
+  // old `-translate-x/y-1/2` centring), filter or contain on the dialog box
+  // makes it their containing block: a dropdown past the dialog's edge gets
+  // clipped and scrolls the dialog sideways when Radix scrolls the selected
+  // item into view. Each layout variant is checked, with and without a banner.
+  it.each([
+    ['default', {}],
+    ['fitContent', { fitContent: true }],
+    ['banner', { banner: 'Notice' }]
+  ] as const)('%s dialog carries no transform/filter/contain utility', (_name, props) => {
+    render(
+      <Dialog open>
+        <DialogContent {...props}>
+          <DialogTitle>Test dialog</DialogTitle>
+        </DialogContent>
+      </Dialog>
+    )
+
+    const dialog = screen.getByRole('dialog')
+
+    expect(containingBlockUtilities(dialog.className)).toEqual([])
+    // Centred by insets + auto margins instead.
+    expect(dialog.className).toMatch(/\binset-0\b/u)
+    expect(dialog.className).toMatch(/\bm-auto\b/u)
+  })
+
+  it('fitContent shrinks to its content rather than stretching between the insets', () => {
+    render(
+      <Dialog open>
+        <DialogContent fitContent>
+          <DialogTitle>Test dialog</DialogTitle>
+        </DialogContent>
+      </Dialog>
+    )
+
+    // With left/right both 0, `w-auto` would fill the window; `w-fit` keeps the
+    // shrink-to-fit width the translate-centred dialog used to have.
+    expect(screen.getByRole('dialog').className).toMatch(/\bw-fit\b/u)
   })
 })
 

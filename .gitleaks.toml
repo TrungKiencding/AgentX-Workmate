@@ -107,6 +107,23 @@ regexes = [
     '''^MCowBQYDK2VwAyEA[A-Za-z0-9+/]{43}=$''',
 ]
 
+# The public half of the Ed25519 key that signs Workmate's own releases — the
+# in-app updater pins it to verify a release feed before installing anything
+# (apps/desktop/electron/app-update/feed.ts, APP_RELEASE_PUBLIC_KEY). Same case
+# as the WebMate key above, same three conditions: this file, this rule, and a
+# value that IS an Ed25519 public key. The private half lives only on the
+# release machine and never enters this repository.
+[[allowlists]]
+description = "Workmate release-signing public key"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+    '''^apps/desktop/electron/app-update/feed\.ts$''',
+]
+regexes = [
+    '''^MCowBQYDK2VwAyEA[A-Za-z0-9+/]{43}=$''',
+]
+
 # --- Placeholders -------------------------------------------------------------
 #
 # Files whose entire purpose is to show the shape of a value without carrying

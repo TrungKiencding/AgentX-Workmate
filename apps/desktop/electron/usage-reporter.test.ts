@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { parseKeycloakTokenResponse } from './keycloak-oidc'
 import { loadKeycloakSession, persistKeycloakSession } from './keycloak-session-store'
 import type { NativeTokenStoreIo } from './native-token-store'
-import { usageIdentityFromSession, UsageReporter } from './usage-reporter'
+import { USAGE_BATCH_MAX, usageIdentityFromSession, UsageReporter } from './usage-reporter'
 
 const identity = { subject: 'alice', token: 'synthetic-access', issuer: 'https://sso.example/auth/realms/test' }
 describe('usage reporting', () => {
@@ -101,6 +101,7 @@ describe('usage reporting', () => {
     })
 
     let now = 0
+
     const reporter = new UsageReporter({
       identity: async () => identity,
       version: '1.1.1',
@@ -278,6 +279,99 @@ describe('delivery failures in the desktop log', () => {
  * allowed client gets in. An ID token is refused with 401. Workmate 1.1.0 sent
  * its ID token, and every event was lost.
  */
+describe('delivering a batch', () => {
+  const facts = (n: number) => ({
+    event_id: `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`,
+    occurred_at: '2026-11-15T14:08:03.456Z',
+    feature: 'cron.run',
+    outcome: 'success' as const,
+    duration_ms: n
+  })
+
+  function reporter(send: (url: string, init: RequestInit) => Promise<Response>, log = vi.fn()) {
+    return new UsageReporter({
+      identity: async () => null,
+      version: '1.1.4',
+      os: 'Windows',
+      fetch: send as unknown as typeof fetch,
+      sleep: async () => {},
+      log
+    })
+  }
+
+  it('sends the events in one request, each with the product, release and platform', async () => {
+    const send = vi.fn(async (_url: string, _init: RequestInit) => new Response('', { status: 202 }))
+
+    expect(await reporter(send).deliver(identity, [facts(1), facts(2)])).toBe('accepted')
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send.mock.calls[0][0]).toBe('https://sso.example/sso/api/analytics/events')
+    expect(JSON.parse(String(send.mock.calls[0][1].body)).events).toEqual(
+      [facts(1), facts(2)].map(f => ({
+        product: 'agentx-workmate',
+        ...f,
+        version: '1.1.4',
+        os: 'Windows',
+        browser: 'Native'
+      }))
+    )
+  })
+
+  it('says how the console refused, and retries only what may pass later', async () => {
+    const refusing = vi.fn(async () => new Response('', { status: 422 }))
+    expect(await reporter(refusing).deliver(identity, [facts(1)])).toEqual({ refused: 422 })
+    expect(refusing).toHaveBeenCalledTimes(1)
+
+    const busy = vi.fn(async () => new Response('', { status: 429 }))
+    expect(await reporter(busy).deliver(identity, [facts(1)])).toBe('failed')
+    expect(busy).toHaveBeenCalledTimes(3)
+
+    const bodies: string[] = []
+
+    const flaky = vi.fn(async (_url: string, init: RequestInit) => {
+      bodies.push(String(init.body))
+
+      if (bodies.length < 3) {
+        throw new TypeError('fetch failed')
+      }
+
+      return new Response('', { status: 202 })
+    })
+
+    expect(await reporter(flaky).deliver(identity, [facts(1)])).toBe('accepted')
+    expect(new Set(bodies).size).toBe(1) // the same events, the same ids
+  })
+
+  it('sends nothing it should not: no token, no events, too many, or a plain-HTTP console', async () => {
+    const send = vi.fn(async () => new Response('', { status: 202 }))
+    const r = reporter(send)
+
+    expect(await r.deliver({ ...identity, token: '' }, [facts(1)])).toEqual({ refused: 0 })
+    expect(await r.deliver(identity, [])).toEqual({ refused: 0 })
+    expect(
+      await r.deliver(
+        identity,
+        Array.from({ length: USAGE_BATCH_MAX + 1 }, (_, n) => facts(n))
+      )
+    ).toEqual({ refused: 0 })
+    expect(await r.deliver({ ...identity, issuer: 'http://sso.example/auth/realms/x' }, [facts(1)])).toEqual({
+      refused: 0
+    })
+    expect(await r.deliver({ ...identity, issuer: 'not a url' }, [facts(1)])).toEqual({ refused: 0 })
+    expect(send).not.toHaveBeenCalled()
+  })
+
+  it('logs a failure once and never a token or an event', async () => {
+    const log = vi.fn()
+    const r = reporter(async () => new Response('', { status: 503 }), log)
+
+    await r.deliver(identity, [facts(1)])
+    await r.deliver(identity, [facts(2)])
+
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(String(log.mock.calls[0][0])).not.toMatch(/synthetic-access|cron\.run|0000/)
+  })
+})
+
 describe('SSO console contract', () => {
   const ISSUER = 'https://sso.example/auth/realms/agent-hub'
   const ALLOWED_CLIENTS = ['agentx-chat', 'agentx-workmate']

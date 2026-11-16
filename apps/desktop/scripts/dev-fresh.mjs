@@ -26,6 +26,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import { isCredentialEnvVar, isMain } from './utils.mjs'
+import { sandboxShellEnv } from './sandbox-env.mjs'
 
 const DESKTOP_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const DEFAULT_SANDBOX_ROOT = path.join(os.tmpdir(), 'agentx-desktop-dev-fresh')
@@ -99,6 +100,7 @@ export function freshEnv(baseEnv, paths) {
 
   env.AGENTX_HOME = paths.agentxHome
   env.AGENTX_DESKTOP_USER_DATA_DIR = paths.userDataDir
+  Object.assign(env, sandboxShellEnv(paths.runDir, env.PATH))
 
   return env
 }

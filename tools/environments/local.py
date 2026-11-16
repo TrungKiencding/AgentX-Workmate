@@ -15,6 +15,8 @@ import time
 from collections.abc import Mapping
 from pathlib import Path
 
+from hermes_constants import safe_getcwd
+
 from tools.environments.base import BaseEnvironment, _pipe_stdin
 from hermes_cli._subprocess_compat import windows_hide_flags
 
@@ -63,7 +65,7 @@ def _resolve_local_initial_cwd(cwd: str) -> str:
     values once, up front, so both ``subprocess.Popen(cwd=...)`` and the
     in-shell ``cd`` use the same absolute directory.
     """
-    expanded = os.path.expanduser(cwd) if cwd else os.getcwd()
+    expanded = os.path.expanduser(cwd) if cwd else safe_getcwd()
     if _IS_WINDOWS:
         expanded = _msys_to_windows_path(expanded)
         # Use the Windows-aware check explicitly: when _IS_WINDOWS is
@@ -75,8 +77,10 @@ def _resolve_local_initial_cwd(cwd: str) -> str:
     if os.path.isabs(expanded):
         return expanded
 
-    candidate = os.path.abspath(expanded)
-    current = os.getcwd()
+    current = safe_getcwd()
+    # Not os.path.abspath: it calls os.getcwd(), which raises when the process's
+    # working directory has been deleted.
+    candidate = os.path.normpath(os.path.join(current, expanded))
 
     # Common recovery for config values like ``agentx-agent`` when AgentX was
     # launched from that directory already.  ``os.path.abspath`` would point at

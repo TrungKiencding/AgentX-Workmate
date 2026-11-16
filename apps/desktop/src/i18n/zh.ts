@@ -3,6 +3,17 @@ import { defineFieldCopy } from '@/app/settings/field-copy'
 import type { Translations } from './types'
 
 export const zh: Translations = {
+  sessionResources: {
+    title: '会话资源',
+    createOutput: '创建输出',
+    createOutputPrompt: '把这次对话的结果整理成一个文档文件。',
+    addSource: '添加来源',
+    changes: '更改',
+    changesHint: '此文件夹中尚未提交的更改',
+    outputs: '输出',
+    sources: '来源',
+    openFailed: '无法打开此项目。请再次选择以重试。'
+  },
   common: {
     unknownError: '未知错误',
     apply: '应用',
@@ -242,6 +253,15 @@ export const zh: Translations = {
     }
   },
 
+  quitGuard: {
+    messageOne: 'AgentX 仍在处理 1 个对话。',
+    messageMany: 'AgentX 仍在处理 {count} 个对话。',
+    more: '另有 {count} 个',
+    detail: '现在退出会中途打断任务，尚未写完的内容将丢失。',
+    stay: '继续运行',
+    quit: '仍然退出'
+  },
+
   remoteDisplayBanner: {
     message: reason => `软件渲染已启用 — 检测到远程显示（${reason}）。为防止画面闪烁，已禁用 GPU 加速。`
   },
@@ -422,7 +442,11 @@ export const zh: Translations = {
       'composer.slash': '斜杠命令面板',
       'composer.help': '快速帮助',
       'composer.history': '切换弹窗/历史',
-      'composer.cancel': '关闭弹窗·取消运行'
+      'composer.cancel': '关闭弹窗·取消运行',
+      'view.newTerminal': '新建终端',
+      'view.nextTerminal': '下一个终端',
+      'view.prevTerminal': '上一个终端',
+      'view.closeTerminal': '关闭终端'
     }
   },
 
@@ -496,11 +520,8 @@ export const zh: Translations = {
       keyRotating: '签发中…',
       keyRotateFailed: detail => `无法签发新密钥：${detail}`,
       keyModels: n => `${n} 个可用模型`,
-      deviceOtherTitle: n => `仍有访问权限的其他设备 (${n})`,
       deviceHistoryTitle: n => `吊销历史 (${n})`,
       deviceHistoryHint: '这些安装已无法访问账户。如果尚未更换模型密钥，已保存的密钥可能仍然有效。',
-      deviceDuplicateHint: '部分安装使用相同的设备名称。吊销前请在详情中核对安装编号和注册日期。',
-      deviceDetails: '详情',
       deviceHostname: '设备名称',
       deviceApp: '应用',
       deviceVersion: '版本',
@@ -509,8 +530,6 @@ export const zh: Translations = {
       deviceIdentity: '安装编号',
       deviceAccountAccess: '账户访问',
       deviceUnknown: '未知',
-      deviceRecordId: n => `安装 ${n}`,
-      deviceRegisteredAt: n => `注册于 ${n}`,
       deviceRevokedAt: n => `吊销于 ${n}`,
       deviceRename: '重命名',
       deviceRenameHint: '留空则使用设备名称。此名称保存在你的账户中。',
@@ -523,6 +542,17 @@ export const zh: Translations = {
       deviceRotationDone: '已签发新的模型密钥。',
       deviceRotationFailed: '已吊销账户访问，但签发新模型密钥失败。保存的密钥可能仍然有效，请重试签发。',
       deviceRotationUnsupported: '已吊销账户访问。此服务不支持签发新的模型密钥，请联系管理员停用旧密钥。',
+      deviceColDevice: '设备',
+      deviceColRevoked: '吊销时间',
+      deviceColActions: '操作',
+      deviceInstalls: n => `${n} 个安装`,
+      deviceInstallsTitle: '安装',
+      devicePageRange: (from, to, total) => `显示第 ${from}–${to} 项，共 ${total} 项`,
+      devicePage: (page, pages) => `第 ${page}/${pages} 页`,
+      deviceRevokeOthers: '吊销所有其他设备',
+      deviceRevokeOthersConfirmTitle: '吊销所有其他设备？',
+      deviceRevokeOthersConfirmDesc: n => `其他设备上的 ${n} 个安装将无法访问你的账户。此设备保持登录。`,
+      deviceRevokeGroupNote: n => `此设备有 ${n} 个安装，将全部一并吊销。`,
       devicesTitle: '你的设备',
       devicesEmpty: '还没有记录任何设备',
       devicesEmptyDesc: '下次启动 AgentX Workmate 时，这台机器会出现在这里。',
@@ -714,6 +744,17 @@ export const zh: Translations = {
       themeTitle: '主题',
       themeDesc: '仅桌面端调色板。所选模式叠加其上。',
       themeProfileNote: profile => `已为「${profile}」配置文件保存——每个配置文件保留各自的主题。`,
+      themeDescriptions: {
+        quiet: '暖调中性灰——颜色只用作信号',
+        nous: '玻璃质感的中性色，配 Nous 蓝色点缀',
+        'night-owl': '深海军蓝，配长春花蓝与青色',
+        'nous-classic': '最初的宝蓝深色，配 Nous 浅色配色',
+        midnight: '深蓝紫色，配冷色点缀',
+        ember: '暖调深红与古铜——锻炉氛围',
+        mono: '干净的灰阶——极简而专注',
+        cyberpunk: '黑底霓虹绿——矩阵终端风格',
+        slate: '冷调石板蓝——专注的开发者主题'
+      },
       installTitle: '从 VS Code 安装',
       installDesc: '粘贴 Marketplace 扩展 ID（例如 dracula-theme.theme-dracula），将其配色主题转换为桌面调色板。',
       installPlaceholder: 'publisher.extension',
@@ -737,7 +778,10 @@ export const zh: Translations = {
         chooseTitle: '选择宠物',
         chooseDesc: '选择后会自动安装（如需）并设为当前宠物。',
         searchPlaceholder: '搜索宠物…',
-        unreachable: '无法连接到 petdex 画廊。请检查网络连接并重新打开此页面。',
+        unreachable: '无法加载宠物库。请检查网络连接后重试。',
+        retry: '重试',
+        catalogLoading: '正在加载宠物库…',
+        catalogOffline: '无法加载宠物库，当前仅显示你已有的宠物。',
         noMatch: query => `没有匹配「${query}」的宠物。`,
         installedTag: '已安装',
         generatedTag: '生成',
@@ -848,7 +892,8 @@ export const zh: Translations = {
           languageCode: 'ElevenLabs 语言',
           tagAudioEvents: '标记音频事件',
           diarize: '说话人区分'
-        }
+        },
+        echoTranscripts: '回显转写文字'
       },
       tts: {
         provider: '文字转语音提供方',
@@ -894,6 +939,13 @@ export const zh: Translations = {
         },
         piper: {
           voice: 'Piper 语音'
+        },
+        agentxGateway: {
+          voice: 'AgentX AI Gateway 语音'
+        },
+        deepinfra: {
+          model: 'DeepInfra TTS 模型',
+          voice: 'DeepInfra 语音'
         }
       },
       memory: {
@@ -945,7 +997,11 @@ export const zh: Translations = {
       terminal: {
         cwd: '工具与终端操作的默认项目目录。',
         persistentShell: '当后端支持时，在命令之间保留 Shell 状态。',
-        envPassthrough: '传入工具执行的环境变量。'
+        envPassthrough: '传入工具执行的环境变量。',
+        dockerImage: '执行后端为 Docker 时使用的容器镜像。',
+        singularityImage: '执行后端为 Singularity 时使用的镜像。',
+        modalImage: '执行后端为 Modal 时使用的镜像。',
+        daytonaImage: '执行后端为 Daytona 时使用的镜像。'
       },
       codeExecution: {
         mode: '代码执行被限定到当前项目的严格程度。'
@@ -978,11 +1034,26 @@ export const zh: Translations = {
         enabled: '启用本地或提供方支持的语音转写。',
         elevenlabs: {
           languageCode: '可选的 ISO-639-3 语言代码。留空让 ElevenLabs 自动检测。'
-        }
+        },
+        echoTranscripts: '把语音消息的原始 🎙️ 转写文字发回聊天。'
       },
       updates: {
         nonInteractiveLocalChanges:
           '在没有终端可询问的情况下运行 `agentx update` 时（从本应用更新的远程后端，或消息渠道的 /update 命令），保留本地源码修改（暂存）或丢弃（放弃）。通过终端更新时始终会询问。'
+      },
+      tts: {
+        xai: {
+          voiceId: 'xAI 语音 ID（如 eve）或自定义语音 ID。',
+          language: '朗读语言代码（如 en、pt-BR），或填 "auto" 自动检测。',
+          speed: '播放速度。0.7 = 较慢，1.0 = 正常，1.5 = 较快。',
+          autoSpeechTags: '合成前让大模型在文稿中插入表现力音频标签（[laughing]、[sighs]）。',
+          optimizeStreamingLatency: '延迟与音质的取舍。0 = 音质最佳，2 = 延迟最低。',
+          sampleRate: '音频采样率（Hz）。越高音质越好，文件越大。',
+          bitRate: 'MP3 比特率（bps）。仅在编码为 mp3 时生效。'
+        },
+        neutts: {
+          device: 'NeuTTS 的本地推理设备。'
+        }
       }
     }),
     about: {
@@ -2106,6 +2177,43 @@ export const zh: Translations = {
   },
 
   messaging: {
+    guide: {
+      title: '连接指南',
+      replay: '查看分步指南',
+      skip: '跳过',
+      finish: '结束指南',
+      docs: '图文指南',
+      source: '打开设置页面',
+      secret: '这是您的私人凭据。请直接粘贴到字段中，不要分享给他人。',
+      connectBody: '先在屏幕底部保存更改，再打开下方开关。如果显示“需要重启”，请重启AgentX以应用更改。',
+      testTitle: '发送测试消息',
+      testBody: '等待“已连接”，然后在消息应用中向已设置的机器人或账号发送问候。Telegram需要先点击Start。',
+      testNote: '如果机器人请求访问权限，请回到此处批准您自己的请求。结束指南不代表连接成功，请确认机器人回复。',
+      fieldFallback: '从平台管理页面获取此值。请打开图文指南查看位置和填写格式。',
+      progress: (current, total) => `指南 · ${current}/${total}`,
+      fieldHelp: label => `${label}填写指南`
+    },
+    fieldGuide: {
+      TELEGRAM_BOT_TOKEN:
+        '在Telegram打开@BotFather → 发送/newbot → 设置名称及以bot结尾的用户名。复制“HTTP API”下方的完整令牌，不是t.me链接或@bot名称。',
+      TELEGRAM_ALLOWED_USERS:
+        '在Telegram打开@userinfobot → 点击Start → 复制Id旁的数字。多个ID用逗号分隔。留空时可在Workmate批准私信请求，不会自动允许所有人访问。',
+      DISCORD_BOT_TOKEN:
+        'Discord Developer Portal → Applications → 您的应用 → Bot → Reset Token。复制新令牌，并在同一页面启用Message Content Intent。',
+      DISCORD_ALLOWED_USERS:
+        'Discord → User Settings → Advanced → 启用Developer Mode。右键个人资料 → Copy User ID。粘贴数字ID，不是显示名称。',
+      SLACK_BOT_TOKEN:
+        'Slack应用设置 → OAuth & Permissions → Install to Workspace。授权后复制以xoxb-开头的Bot User OAuth Token，此处不要使用xapp-令牌。',
+      SLACK_APP_TOKEN:
+        'Slack应用 → Basic Information → App-Level Tokens → Generate Token and Scopes → 添加connections:write。复制xapp-令牌，再启用Socket Mode。',
+      SLACK_ALLOWED_USERS: '在Slack打开成员资料 → 三点菜单 → Copy member ID。粘贴以U或W开头的ID，多个ID用逗号分隔。',
+      EMAIL_PASSWORD:
+        'Gmail：Google账号 → 安全 → 启用两步验证 → 应用专用密码。为AgentX创建并粘贴16位密码，不是Gmail登录密码。如无此选项，请联系邮箱管理员。',
+      TWILIO_ACCOUNT_SID:
+        'Twilio Console → Account Dashboard → Account Info → Account SID。复制以AC开头的完整值，这是账号标识，不是电话号码。',
+      TWILIO_AUTH_TOKEN:
+        'Twilio Console → Account Dashboard → Account Info → Auth Token → Show。复制令牌。还需Twilio号码和接收SMS的webhook，请先查看图文指南。'
+    },
     pageTitle: '消息',
     pageDescription: '在你常用的应用里给 AgentX 发消息。',
     groupInUse: '正在使用',
@@ -2161,7 +2269,7 @@ export const zh: Translations = {
     credentialsSet: '凭据已设置',
     needsSetup: '需要设置',
     gatewayStopped: '消息网关已停止',
-    openSetupGuide: '打开设置指南',
+    openSetupGuide: '在网页上查看完整指南',
     destinationTitle: '会话地址',
     destinationUnavailable: '已连接，但此平台未提供公开地址。',
     openDestination: '在应用中打开',
@@ -2204,9 +2312,26 @@ export const zh: Translations = {
     revokedUser: name => `已撤销 ${name}`,
     failedApprove: name => `批准 ${name} 失败`,
     failedRevoke: name => `撤销 ${name} 失败`,
+    pairingExpired: '此请求已过期。请让对方再次给机器人发消息以生成新请求，然后在此批准。',
     pairingLockedOut: '批准失败次数过多，该平台已被暂时锁定，请稍后再试。',
     waitingSince: minutes => (minutes < 1 ? '刚刚' : `${minutes} 分钟前`),
     fieldCopy: {
+      EMAIL_ADDRESS: { label: 'AgentX邮箱地址', help: '使用AgentX专用邮箱，填写完整地址，如agentx@example.com。' },
+      EMAIL_PASSWORD: { label: '应用专用密码', help: '从邮箱服务的应用专用密码设置获取。Gmail需要启用两步验证。' },
+      EMAIL_IMAP_HOST: {
+        label: '收件服务器（IMAP）',
+        help: 'Gmail填写imap.gmail.com。企业邮箱请向管理员索取IMAP主机，不加https://或端口。'
+      },
+      EMAIL_SMTP_HOST: {
+        label: '发件服务器（SMTP）',
+        help: 'Gmail填写smtp.gmail.com。企业邮箱请向管理员索取SMTP主机，不加https://或端口。'
+      },
+      TWILIO_ACCOUNT_SID: {
+        label: 'Twilio账号SID',
+        help: '在Twilio Console → Account Dashboard → Account Info获取，以AC开头。'
+      },
+      TWILIO_AUTH_TOKEN: { label: 'Twilio认证令牌', help: '在同一Account Info中找到Auth Token，点击Show后复制。' },
+
       TELEGRAM_BOT_TOKEN: {
         label: 'Bot 令牌',
         help: '用 @BotFather 创建一个机器人，然后粘贴它给你的令牌。',
@@ -2214,10 +2339,15 @@ export const zh: Translations = {
       },
       TELEGRAM_ALLOWED_USERS: {
         label: '允许的 Telegram 用户 ID',
-        help: '推荐。来自 @userinfobot 的逗号分隔数字 ID。不设置则任何人都能私信你的机器人。'
+        help: '在Telegram打开@userinfobot → 点击Start → 复制Id旁的数字。多个ID用逗号分隔。留空时可在Workmate批准私信请求，不会自动允许所有人访问。',
+        placeholder: '例如 12345678, 87654321'
       },
       TELEGRAM_PROXY: { label: '代理 URL', help: '仅在 Telegram 被屏蔽的网络中需要。' },
-      DISCORD_BOT_TOKEN: { label: 'Bot 令牌', help: '在 Discord 开发者门户创建应用，添加机器人，然后粘贴其令牌。' },
+      DISCORD_BOT_TOKEN: {
+        label: 'Bot 令牌',
+        help: '在 Discord 开发者门户创建应用，添加机器人，然后粘贴其令牌。',
+        placeholder: '粘贴 Discord 机器人令牌'
+      },
       DISCORD_ALLOWED_USERS: { label: '允许的 Discord 用户 ID', help: '推荐。逗号分隔的 Discord 用户 ID。' },
       DISCORD_REPLY_TO_MODE: { label: '回复方式', help: 'first、all 或 off。' },
       DISCORD_ALLOW_ALL_USERS: {
@@ -2244,10 +2374,10 @@ export const zh: Translations = {
       },
       SLACK_ALLOWED_USERS: { label: '允许的 Slack 用户 ID', help: '推荐。逗号分隔的 Slack 用户 ID。' },
       MATTERMOST_URL: { label: '服务器 URL', placeholder: 'https://mattermost.example.com' },
-      MATTERMOST_TOKEN: { label: 'Bot 令牌' },
+      MATTERMOST_TOKEN: { label: 'Bot 令牌', placeholder: '粘贴 Mattermost 机器人令牌' },
       MATTERMOST_ALLOWED_USERS: { label: '允许的用户 ID', help: '推荐。逗号分隔的 Mattermost 用户 ID。' },
       MATRIX_HOMESERVER: { label: 'Homeserver URL', placeholder: 'https://matrix.org' },
-      MATRIX_ACCESS_TOKEN: { label: '访问令牌' },
+      MATRIX_ACCESS_TOKEN: { label: '访问令牌', placeholder: '粘贴机器人账号的访问令牌' },
       MATRIX_USER_ID: { label: 'Bot 用户 ID', placeholder: '@agentx:example.org' },
       MATRIX_ALLOWED_USERS: { label: '允许的 Matrix 用户 ID', help: '推荐。@user:server 格式的逗号分隔用户 ID。' },
       SIGNAL_HTTP_URL: {
@@ -2270,7 +2400,7 @@ export const zh: Translations = {
       mattermost: '在你的 Mattermost 服务器上，创建机器人账户或个人访问令牌，然后在此粘贴服务器 URL 和令牌。',
       matrix: '用机器人账户登录你的 homeserver，然后复制访问令牌、用户 ID 和 homeserver URL。',
       signal: '在可访问的位置运行 signal-cli REST 桥接，然后把 AgentX 指向该 URL 和已注册的电话号码。',
-      whatsapp: '启动 AgentX 自带的 WhatsApp 桥接，首次运行时扫描二维码，然后启用该平台。',
+      whatsapp: '像使用电脑版 WhatsApp 一样，用手机上的 WhatsApp 扫描一次二维码即可。无需粘贴代码，也无需终端。',
       bluebubbles:
         '在装有 iMessage 的 Mac 上运行 BlueBubbles Server，暴露其 API，然后用服务器密码把 AgentX 指向该 URL。',
       homeassistant: '在 Home Assistant 中打开你的个人资料并创建长期访问令牌。把它连同你的 HA URL 一起粘贴到这里。',
@@ -2286,6 +2416,113 @@ export const zh: Translations = {
       api_server:
         '把 AgentX 暴露为兼容 OpenAI 的 API。设置一个鉴权密钥，然后把 Open WebUI / LobeChat 等指向 host:port。',
       webhook: '运行一个 HTTP 服务器，供其他工具 (GitHub、GitLab、自定义应用)POST。用 secret 验证签名。'
+    },
+    figures: {
+      previous: '上一张',
+      next: '下一张',
+      position: (current, total) => `图片 ${current}/${total}`,
+      enlarge: '放大图片',
+      showVisual: '查看带图的分步指南',
+      items: {
+        'telegram-botfather-search': {
+          alt: '在 Telegram 中搜索 BotFather 的结果，已圈出官方认证账号',
+          caption: '搜索 @BotFather 并选择带蓝色认证标记的账号。其他同名账号都是冒充的。'
+        },
+        'telegram-botfather-token': {
+          alt: '创建机器人后 BotFather 的消息，已圈出“HTTP API”下方的代码',
+          caption: '发送 /newbot，设置名称，再设置以“bot”结尾的用户名。复制“HTTP API”下方的整行代码（图中已遮挡）。'
+        },
+        'telegram-userinfobot-id': {
+          alt: 'userinfobot 的回复，已圈出 Id 行',
+          caption: '打开 @userinfobot 并点 Start。Id 行的数字就是你的 ID（图中为示例）。'
+        },
+        'discord-new-application': {
+          alt: 'Discord Developer Portal 中新建应用的对话框，名称、同意框和创建按钮已编号',
+          caption: 'Developer Portal → 新建应用：输入名称，勾选同意框，再点创建。Discord 可能会验证你是否为真人。'
+        },
+        'discord-reset-token': {
+          alt: 'Bot 页面的 Token 区域，已圈出重置 Token 按钮',
+          caption: 'Bot → 重置 Token。Token 只显示一次——请立即复制并粘贴到 Workmate。'
+        },
+        'discord-reset-token-confirm': {
+          alt: '重置 Token 确认框，已圈出红色按钮',
+          caption: '点红色按钮确认。Discord 会再次要求输入账号密码。'
+        },
+        'discord-message-content-intent': {
+          alt: '已开启的消息内容 Intent 和已编号的保存更改按钮',
+          caption: '在同一 Bot 页面开启消息内容 Intent 并点保存更改。缺少这一步机器人无法读取消息。'
+        },
+        'telegram-pairing-code': {
+          alt: '机器人消息，已圈出配对码',
+          caption: '第一次发消息时，机器人会发送配对码。这是正常的：它在等你在 Workmate 中允许。'
+        },
+        'workmate-allow-request': {
+          alt: 'Workmate 中的消息请求，已圈出允许按钮',
+          caption: '回到 Workmate，确认是你的名字后点允许。然后再给机器人发消息（图中为示例名称）。'
+        },
+        'discord-bot-permissions': {
+          alt: '机器人权限表，已圈出需要的权限',
+          caption:
+            'OAuth2 → URL 生成器：勾选 bot 和 applications.commands，再选查看频道、发送消息、嵌入链接、附加文件、读取消息历史。'
+        },
+        'discord-invite-url': {
+          alt: 'OAuth2 页面底部生成的 URL，已圈出',
+          caption: '复制生成的 URL，在浏览器中打开，选择你管理的服务器来邀请机器人。'
+        },
+        'discord-developer-mode': {
+          alt: 'Discord 设置中的开发者部分，已圈出开发者模式开关',
+          caption: 'Discord → 用户设置 → 开发者 → 开启开发者模式。然后右键你的名字 → 复制用户 ID。'
+        }
+      }
+    },
+    whatsapp: {
+      step1Title: '关联手机',
+      step2Title: '谁可以给 AgentX 发消息',
+      step2Body:
+        '无需粘贴代码。默认情况下，陌生人发来消息会收到配对码，你在这里点“允许”后才能对话。想预先允许某些号码，请展开“建议设置”。',
+      step2BodySelf: '你选择了给自己发消息：只有你能与 AgentX 对话，Workmate 已自动限制为你的号码。无需其他操作。',
+      modeLabel: '你将如何给 AgentX 发消息？',
+      modeSelf: '用我自己的 WhatsApp 号码',
+      modeSelfHint: '在 WhatsApp 里给自己发消息，AgentX 会在那里回复。朋友给你发的消息不受影响。',
+      modeBot: '用一个 AgentX 专用号码',
+      modeBotHint:
+        '使用一个备用号码（例如另一台手机上的 WhatsApp Business）。给该号码发消息的人在你允许后即可与 AgentX 对话。',
+      showQr: '显示二维码',
+      retry: '生成新二维码',
+      preparing: '正在准备二维码…',
+      preparingHint: '首次可能需要约一分钟，AgentX 正在下载 WhatsApp 组件。',
+      scanTitle: '用手机上的 WhatsApp 扫描',
+      scanSteps: [
+        '在要使用的手机上打开 WhatsApp。',
+        'iPhone：点“设置”。Android：点右上角的 ⋮。',
+        '点“已关联设备”→“关联设备”。',
+        '将摄像头对准此二维码。请在 WhatsApp 内扫描，不要用相机应用。'
+      ],
+      qrRefresh: '二维码每隔几秒会更新——扫描完成前请保持此页面打开。',
+      qrAlt: '将 WhatsApp 关联到 AgentX 的二维码',
+      saving: '已扫描。正在保存并开启 WhatsApp…',
+      linkedTo: who => `已关联 ${who}`,
+      linkedUnknown: '已关联一个 WhatsApp 账号',
+      trySelf: '试一试：打开 WhatsApp，找到与你自己的对话（你的名字旁标有“你”），发一句问候。',
+      tryBot: '试一试：用另一个 WhatsApp 号码给这个号码发一句问候。首次请在本页出现请求时点“允许”。',
+      relink: '关联其他号码',
+      relinkTitle: '关联另一个 WhatsApp 号码？',
+      relinkBody: 'AgentX 将停止使用当前关联的号码并显示新的二维码。请用你想使用的手机扫描。',
+      relinkConnected: '关联其他号码前，请先在第 3 步关闭连接并重启 AgentX。',
+      linkedToast: 'WhatsApp 已关联',
+      linkedToastBody: 'AgentX 正在重启以开始接收消息。',
+      linkedToastRestart: '点“重启 AgentX”以开始接收消息。',
+      linkFailed: '无法保存 WhatsApp 设置',
+      errors: {
+        notPaired: 'WhatsApp 已开启，但尚未关联手机。请在第 1 步显示二维码并用手机扫描。',
+        bridgeExited:
+          'WhatsApp 连接已中断。如果你在手机上移除了此设备，请在第 1 步点“关联其他号码”重新扫描；否则请点“重启 AgentX”。',
+        expired: '二维码已过期。请生成新二维码后重新扫描。',
+        noNode: '这台电脑缺少 WhatsApp 所需的 Node.js。请重新安装 AgentX Workmate 后再试。',
+        install: '无法下载 WhatsApp 组件。请检查网络连接后重试。',
+        loggedOut: 'WhatsApp 拒绝了关联。请生成新二维码后重新扫描。',
+        generic: 'WhatsApp 尚未关联。请尝试新的二维码。'
+      }
     }
   },
 
@@ -2477,15 +2714,6 @@ export const zh: Translations = {
       'every-15-minutes': '每 15 分钟',
       custom: '自定义'
     },
-    scheduleHints: {
-      daily: '每天上午 9:00',
-      weekdays: '周一至周五上午 9:00',
-      weekly: '每周一上午 9:00',
-      monthly: '每月第一天上午 9:00',
-      hourly: '每个整点',
-      'every-15-minutes': '每 15 分钟',
-      custom: 'Cron 语法或自然语言'
-    },
     days: {
       '0': '周日',
       '1': '周一',
@@ -2503,6 +2731,22 @@ export const zh: Translations = {
     monthlyOnDayAt: (dayOfMonth, time) => `每月 ${dayOfMonth} 日 ${time}`,
     topOfHour: '每个整点',
     everyHourAt: minute => `每小时的 :${minute}`,
+    everyMinutes: count => `每 ${count} 分钟`,
+    everyHours: count => (count === 1 ? '每小时' : `每 ${count} 小时`),
+    everyDays: count => (count === 1 ? '每天' : `每 ${count} 天`),
+    timeLabel: '时间',
+    weekdayLabel: '星期',
+    monthdayLabel: '日期',
+    monthdayOption: day => `${day} 日`,
+    monthdayShortMonthHint: '没有这一天的月份会被跳过。',
+    minuteLabel: '每小时的第几分钟',
+    minuteOption: minute => `:${minute}`,
+    runDoneTitle: name => `“${name}”刚刚运行完成`,
+    runDoneBody: '结果已就绪。',
+    runFailedTitle: name => `“${name}”未能完成`,
+    runFailedBody: '打开计划任务查看原因。',
+    runUntitled: '计划任务',
+    viewRun: '查看',
     newCron: '新建定时任务',
     emptyDescNew: '按 cron 表达式排程一个提示词。AgentX 会运行它，并把结果发送到你选择的目的地。',
     emptyDescSearch: '尝试更宽泛的搜索词。',
@@ -2541,7 +2785,7 @@ export const zh: Translations = {
     editTitle: '编辑定时任务',
     createTitle: '新建定时任务',
     editDesc: '更新排程、提示词或投递目标。更改将在下次运行时生效。',
-    createDesc: '排程一个提示词以自动运行。使用 cron 语法或类似"每 15 分钟"的自然语言。',
+    createDesc: '选择 AgentX 要自动完成的事情和运行时间。结果会发送到你选择的位置。',
     nameLabel: '名称',
     namePlaceholder: '晨间简报',
     promptLabel: '提示词',
@@ -2552,8 +2796,8 @@ export const zh: Translations = {
     modelLabel: '模型',
     modelDefault: '默认（全局模型）',
     customScheduleLabel: '自定义排程',
-    customPlaceholder: '0 9 * * * 或 weekdays at 9am',
-    customHint: 'Cron 表达式，或类似"每小时""工作日上午 9 点"的短语。',
+    customPlaceholder: '0 9 * * 1-5 或 every 2h',
+    customHint: 'Cron 表达式（分 时 日 月 周），或 "every 30m"、"every 2h" 这样的间隔。',
     optional: '可选',
     promptRequired: '提示词为必填项。',
     promptScheduleRequired: '提示词和排程为必填项。',
@@ -2663,13 +2907,15 @@ export const zh: Translations = {
       'new-session': '新对话',
       skills: '实用工具',
       messaging: '消息平台',
-      artifacts: '产物'
+      artifacts: '产物',
+      cron: '自动任务'
     },
     account: {
       menuLabel: '账户菜单',
       accountSettings: '账户',
       settings: '设置',
-      shortcuts: '键盘快捷键'
+      shortcuts: '键盘快捷键',
+      signOut: '退出登录'
     },
     searchAria: '搜索对话',
     searchPlaceholder: '搜索对话…',
@@ -2680,12 +2926,6 @@ export const zh: Translations = {
     sessions: '最近',
     connectedChannels: '已连接频道',
     cronJobs: '定时任务',
-    groupAriaGrouped: '以单一列表显示对话',
-    groupAriaUngrouped: '按项目分组对话',
-    showProjects: '显示项目',
-    showSessions: '显示对话',
-    groupTitleGrouped: '取消分组',
-    groupTitleUngrouped: '按项目分组',
     allPinned: '这里的全部已置顶。取消置顶某个对话即可在最近中显示。',
     shiftClickHint: '把常回来看的对话置顶。',
     noWorkspace: '不属于任何项目',
@@ -2693,32 +2933,12 @@ export const zh: Translations = {
     noSessions: '暂无对话',
     projects: {
       sectionLabel: '项目',
-      home: '主页',
-      newButton: '新建项目',
-      createTitle: '新建项目',
-      createDesc: '为项目命名并添加一个或多个文件夹。',
       renameTitle: '重命名项目',
-      addFolderTitle: '添加文件夹',
-      namePlaceholder: '例如 Skunkworks',
-      nameFromFolder: '已按文件夹命名，可随意修改。',
-      nameRequiredMulti: '有多个文件夹时，请为项目命名。',
-      foldersLabel: '文件夹',
-      ideaLabel: '想法',
-      ideaPlaceholder: '这个项目是关于什么的？（保存到 IDEA.md）',
-      ideaGenerate: '生成想法',
-      ideaGenerating: '生成中…',
-      ideaShuffle: '随机模板',
-      noFolders: '尚未添加文件夹。',
-      addFolder: '添加文件夹',
-      primaryBadge: '主',
-      removeFolder: '移除',
-      create: '创建',
       menu: '操作',
       menuRename: '重命名',
       menuAppearance: '外观',
       noColor: '无颜色',
       menuAddFolder: '添加文件夹',
-      menuSetActive: '设为活动',
       menuDelete: '删除',
       moveToProject: '移动到项目',
       movedTo: name => `已移动到 ${name}`,
@@ -2728,7 +2948,6 @@ export const zh: Translations = {
       reveal: '在文件夹中显示',
       copyPath: '复制路径',
       removeFromSidebar: '从侧边栏移除',
-      createFailed: '无法创建项目',
       staleBackend: '请更新 AgentX 后端以创建项目——当前后端比桌面应用旧（设置 → 更新 → 后端）。',
       deleteConfirm: '这会从 AgentX 中移除已保存的项目。文件、代码文件夹和工作树保持不变。',
       startWork: '新建工作树',
@@ -2755,10 +2974,17 @@ export const zh: Translations = {
         '从 git 中移除（删除工作树目录，但保留分支），或仅从侧边栏隐藏该泳道并将工作树保留在磁盘上。',
       removeWorktreeDirty: '此工作树有未提交的更改。强制移除（丢弃这些更改），或仅隐藏泳道并保留在磁盘上。',
       forceRemove: '强制移除',
-      enter: label => `打开 ${label}`,
       reorder: label => `重新排序 ${label}`,
       toggle: (label, open) => `${open ? '展开' : '收起'} ${label} 对话`,
-      back: '全部项目'
+      back: '全部项目',
+      addButton: '添加项目',
+      emptyHint: '添加工作文件夹',
+      showAll: count => `查看全部 ${count} 个聊天`,
+      menuNewChat: '新建聊天',
+      menuShowAll: '查看全部聊天',
+      renameFailed: '无法重命名项目',
+      addFolderFailed: '无法添加文件夹',
+      folderAdded: (folder, project) => `已将 ${folder} 添加到 ${project}`
     },
     newSessionIn: label => `在 ${label} 中新建对话`,
     showMoreIn: (count, label) => `在 ${label} 中再显示 ${count} 个`,
@@ -2796,6 +3022,7 @@ export const zh: Translations = {
       renameTitle: '重命名对话',
       renameDesc: '留空则清除。',
       untitledPlaceholder: '无标题对话',
+      mainConversation: '主对话',
       untitledChat: id => `会话 ${id}`,
       ageNow: '刚刚',
       ageDay: '天',
@@ -2812,17 +3039,35 @@ export const zh: Translations = {
       thisWeek: '本周',
       lastWeek: '上周',
       thisMonth: '本月'
-    }
+    },
+    chats: '聊天'
   },
 
   composer: {
+    quota: {
+      stale: '上次用量数据',
+      title: '模型用量额度',
+      remaining: '剩余',
+      used: '已用',
+      unlimited: '无限制',
+      resets: '重置时间',
+      noReset: '不自动重置',
+      unknownReset: '重置时间未知',
+      pendingReset: '等待确认重置',
+      offline: '暂时无法获取用量，请刷新。',
+      unsupported: '服务器未开放用量查询，请联系管理员。',
+      warning: '额度即将用尽',
+      exhausted: '额度已用尽',
+      view: '查看额度',
+      loading: '正在加载额度…'
+    },
     message: '消息',
     wakingProfile: profile => `正在唤醒 ${profile}…`,
     placeholderStarting: '正在启动 AgentX…',
     placeholderReconnecting: '正在重新连接 AgentX…',
     placeholderReadOnly: '只读模式 — 无法向 AI 发送请求',
     placeholderFollowUp: '发送后续消息',
-    newSessionPlaceholders: ['今天需要做什么？'],
+    newSessionPlaceholders: ['与 AgentX 一起工作'],
     newSessionPlaceholdersRepo: ['问问代码，或交代一件事…'],
     followUpPlaceholders: [
       '发送后续消息',
@@ -2946,6 +3191,22 @@ export const zh: Translations = {
         description: '讲解所选代码的工作方式，并链接到关键文件。',
         text: '请解释这是如何工作的，并指给我关键文件。'
       }
+    },
+    workspace: {
+      pickerLabel: '选择工作文件夹',
+      none: '选择文件夹',
+      chooseHint: '选择一个文件夹，AgentX 将在其中读取和保存文件',
+      chosen: path => `在 ${path} 中工作`,
+      settled: path => `此聊天在 ${path} 中工作`,
+      menuLabel: label => `文件夹：${label}`,
+      search: '搜索项目…',
+      noMatch: '没有匹配的项目',
+      projects: '项目',
+      discovered: '在此电脑上找到',
+      chooseOther: '打开其他文件夹…',
+      noFolder: '不使用文件夹',
+      newChatHere: '在此文件夹中新建聊天',
+      pickFailed: '无法打开文件夹选择器'
     }
   },
 
@@ -3128,7 +3389,8 @@ export const zh: Translations = {
     statusAvailable: version => `AgentX Workmate ${version} 已发布`,
     statusDownloading: percent => `正在下载更新 · ${percent}%`,
     statusReady: version => `${version} 已就绪 — 重启以更新`,
-    statusInstalling: '正在安装更新…'
+    statusInstalling: '正在安装更新…',
+    sidebarAvailable: version => `更新到 ${version}`
   },
 
   install: {
@@ -3541,25 +3803,46 @@ export const zh: Translations = {
     modelMenu: {
       search: '搜索模型',
       noModels: '未找到模型',
-      editModels: '编辑模型…',
-      refreshModels: '刷新模型',
-      fast: '快速'
+      editModels: '管理模型'
     },
     modelOptions: {
-      noOptions: '此模型没有可用选项',
-      options: '选项',
-      thinking: '思考',
-      fast: '快速',
-      effort: '推理强度',
-      minimal: '最小',
+      thinkingLevel: '思考',
+      none: '关闭',
+      minimal: '最少',
       low: '低',
       medium: '中',
       high: '高',
       xhigh: '极高',
       max: '最高',
       ultra: '超高',
+      effortShort: {
+        none: '不思考',
+        minimal: '最少',
+        low: '低',
+        medium: '中',
+        high: '高',
+        xhigh: '极高',
+        max: '最高',
+        ultra: '超高'
+      },
+      effortHint: {
+        none: '不先思考，回答最快',
+        minimal: '稍作思考即回答',
+        low: '适合简单任务',
+        medium: '适合大多数任务',
+        high: '适合复杂任务，回答较慢',
+        xhigh: '适合难题，成本更高',
+        max: '尽力思考，最慢、成本最高',
+        ultra: 'AgentX 最高档，以模型上限为准'
+      },
+      defaultMark: '默认',
+      scaleStart: '更快',
+      scaleEnd: '更深',
+      fast: '速度优先',
+      fastMode: '速度优先',
+      fastHint: '回复更快，价格更高',
       updateFailed: '模型选项更新失败',
-      fastFailed: '快速模式更新失败'
+      fastFailed: '速度优先更新失败'
     },
     gatewayMenu: {
       gateway: '网关',
@@ -3584,7 +3867,12 @@ export const zh: Translations = {
       smart: '智能',
       smartDescription: '自动评估操作，并在需要时询问',
       off: '关闭',
-      offDescription: '不显示审批提示，直接运行'
+      offDescription: '不显示审批提示，直接运行',
+      changeFailed: '无法更改审批模式',
+      confirmOffTitle: '让 AgentX 不经询问直接执行所有操作？',
+      confirmOffBody:
+        'AgentX 在运行命令、修改或删除文件之前将不再询问。请仅在你信任当前任务且不在电脑前时开启。黑名单中的命令仍会被阻止。',
+      confirmOffAction: '不经询问直接执行'
     },
     statusbar: {
       restart: '重启',
@@ -3852,6 +4140,8 @@ export const zh: Translations = {
         delegate: { past: '已委派', present: '正在委派', noun: _count => '个任务' },
         edit: { past: '已编辑', present: '正在编辑', noun: _count => '个文件' },
         explore: { past: '已查看', present: '正在查看', noun: _count => '个文件' },
+        search: { past: '已搜索', present: '正在搜索', noun: _count => '次' },
+        browse: { past: '已浏览', present: '正在浏览', noun: _count => '个网页' },
         other: { past: '已使用', present: '正在使用', noun: _count => '个工具' },
         run: { past: '已运行', present: '正在运行', noun: _count => '条命令' }
       },
@@ -3862,35 +4152,7 @@ export const zh: Translations = {
       greetingMorning: name => (name ? `早上好，${name}` : '早上好'),
       greetingAfternoon: name => (name ? `下午好，${name}` : '下午好'),
       greetingEvening: name => (name ? `晚上好，${name}` : '晚上好'),
-      bodyVariants: [
-        '提个问题、贴一段报错，或者指给我一个文件夹。我能读文档和代码、跑工具，帮你把事情做完。',
-        '用你自己的话描述任务：总结一份文档、起草一封邮件、修一段代码。我会选对工具，并在有风险的步骤前先确认。',
-        '丢来一个文件、一张表格或一个粗略的想法。我会先调查，给出下一步建议，并保证一切可以回退。',
-        '搜索仓库、编辑文件、跑测试、开 PR。告诉我目标，机械性的部分交给我。',
-        '从周报到项目计划：输入一个任务或问题。我会记住这次会话、注明来源，拿不准时会停下来问你。'
-      ],
-      quickStart: '快速开始',
-      resume: title => `继续“${title}”`,
-      starterExplainLabel: '介绍这个代码文件夹',
-      starterExplainPrompt: '请说明这个代码文件夹是做什么的，代码又是如何组织的。',
-      starterPlanLabel: '规划一项改动',
-      starterPlanPrompt: '我想改一个地方。先问清楚你需要知道的信息，再给出方案，然后再写代码。',
-      starterExplainFolderLabel: '介绍这个文件夹',
-      starterExplainFolderPrompt: '请说明当前工作文件夹里有什么，以及是如何组织的。',
-      starterSummarizeLabel: '总结一份文档',
-      starterSummarizePrompt: '我想总结一份文档。先向我要文件或文本，然后给出要点和我需要处理的事项。',
-      starterDraftLabel: '起草一封邮件',
-      starterDraftPrompt: '帮我起草一封邮件。先问我收件人、要表达的内容和语气，然后写出一版可以直接发送的邮件。',
-      starterPlanWeekLabel: '规划本周',
-      starterPlanWeekPrompt: '帮我规划这一周。先问我手头有哪些事和截止时间，然后按天排好，重要的事放在前面。',
-      starterExplainDesc: '这里的代码做什么、怎么组织',
-      starterExplainFolderDesc: '这个文件夹里有什么',
-      starterPlanDesc: '先问清楚，再提出做法',
-      starterPlanWeekDesc: '把一周的事按天排好',
-      starterSummarizeDesc: '从文件或段落里提炼要点',
-      starterDraftDesc: '从几条笔记到可直接发送的邮件',
-      resumeDesc: '接着上一次的对话',
-      projectDesc: '在这个项目的文件夹里开始'
+      headlines: ['今天想做点什么？', '想从哪里开始？', '有什么可以帮你？']
     },
     thread: {
       loadingSession: '正在加载对话',
@@ -3913,6 +4175,7 @@ export const zh: Translations = {
       dismissError: '关闭错误',
       filesChanged: count => `${count} 个文件已更改`,
       reviewChanges: '查看',
+      stopped: '已停止',
       createdFiles: count => `本轮已创建 ${count} 个文件`,
       readAloudFailed: '朗读失败',
       preparingAudio: '正在准备音频...',
@@ -3927,6 +4190,8 @@ export const zh: Translations = {
       restorePrevious: '恢复上一个检查点',
       restoreCheckpoint: '恢复检查点',
       restoreFromHere: '恢复检查点 — 从此提示重新运行',
+      compactionLabel: '已总结上下文',
+      compactionNote: '助手会基于这份总结继续工作，以节省上下文。上面的消息仍完整保存，但不能再编辑或恢复。',
       restoreTitle: '恢复到此检查点？',
       restoreBody: '此提示之后的所有消息将从对话中移除，并从此处重新运行该提示。',
       restoreConfirm: '恢复并重新运行',
@@ -4254,9 +4519,6 @@ export const zh: Translations = {
     undo: '撤销',
     unarchiveFailed: '无法恢复对话。可在 设置 → 已归档对话 中找回。',
     archiveFailed: '归档失败',
-    cwdChangeFailed: '工作目录更改失败',
-    cwdStagedTitle: '工作目录已暂存',
-    cwdStagedMessage: '重启桌面后端后，新的工作文件夹才会应用到当前打开的对话。',
     modelSwitchFailed: '模型切换失败',
     sessionExported: '对话已导出',
     sessionExportFailed: '无法导出对话',
@@ -4284,6 +4546,95 @@ export const zh: Translations = {
       failed: error => `移交失败：${error}`,
       timedOut: '等待 AgentX 后台服务超时。`agentx gateway` 是否正在运行？'
     }
+  },
+
+  turnError: {
+    kinds: {
+      offline: {
+        title: '你已离线',
+        hint: '请检查 Wi-Fi 或网络连接，然后重试。'
+      },
+      network_error: {
+        title: '无法连接到 AgentX',
+        hint: '网络可能不稳定，或 AgentX 服务器暂时无法访问。请稍后重试；如果仍然出错，请告知管理员。'
+      },
+      timeout: {
+        title: '模型响应时间过长',
+        hint: '请求已超时。请重试；如果请求很长或附带了很多文件，请拆分成几部分。'
+      },
+      rate_limited: {
+        title: '当前请求过多',
+        hint: '请求发送速度超过了允许的上限。请稍等片刻再重试。'
+      },
+      quota_exceeded: {
+        title: '你的 AI 额度已用完',
+        hint: '你的账户本期支出额度已用完。请联系管理员增加额度，或等待下一周期。'
+      },
+      auth_failed: {
+        title: '你的 AI 访问权限已失效',
+        hint: '你账户的 AI 密钥已过期或被吊销。请退出后重新登录；如果仍然不行，请联系管理员。'
+      },
+      model_unavailable: {
+        title: '此模型当前不可用',
+        hint: '该模型可能已被移除或暂停。请选择其他模型后重试。'
+      },
+      model_not_allowed: {
+        title: '你的账户无权使用此模型',
+        hint: '请选择其他模型，或请管理员为你开通权限。'
+      },
+      context_too_long: {
+        title: '对话过长',
+        hint: '内容超出了模型一次能读取的量。请开始新对话、缩短消息或减少附件。'
+      },
+      content_filtered: {
+        title: '被内容过滤器拦截',
+        hint: '模型提供商拒绝处理此内容。请换种说法后重新发送。'
+      },
+      bad_request: {
+        title: '模型无法处理此请求',
+        hint: '此模型可能不支持某个附件或选项。请换用其他内容，或选择其他模型。'
+      },
+      overloaded: {
+        title: '模型负载过高',
+        hint: '当前使用人数较多。这是提供商的问题，不是你的问题——请几分钟后重试。'
+      },
+      upstream_error: {
+        title: 'AI 服务出现问题',
+        hint: '错误出在模型提供商一方，不是你的问题。请几分钟后重试；如果仍然出错，请告知管理员。'
+      },
+      stream_interrupted: {
+        title: '回复被中断',
+        hint: '模型回答时连接中断了。请重试以获取新的回复。'
+      },
+      no_response: {
+        title: '模型没有回复',
+        hint: '模型结束时没有生成任何内容。请重试，或选择其他模型。'
+      },
+      max_steps: {
+        title: '任务所需步骤超出上限',
+        hint: '已在单轮步骤上限处停止。发送“继续”以接着做，或拆分请求。'
+      },
+      local_error: {
+        title: 'Workmate 在本机遇到问题',
+        hint: '请重试。如果反复出现，请重启 Workmate，或把下方的详细信息发给管理员。'
+      },
+      operation_failed: {
+        title: '出了点问题',
+        hint: '请重试。如果反复出现，请把下方的详细信息发给管理员。'
+      }
+    },
+    licenseTitle: '你的 AgentX 许可证目前不允许使用 AI',
+    waitCauses: {
+      overloaded: '当前使用人数较多。这是提供商的问题，不是你的问题。',
+      rate_limited: '请求发送速度超过了允许的上限。'
+    },
+    waitSeconds: seconds => `请在约 ${seconds} 秒后重试。`,
+    waitMinutes: minutes => `请在约 ${minutes} 分钟后重试。`,
+    retry: '重试',
+    details: '错误详情',
+    code: code => `错误代码：${code}`,
+    copyDetails: '复制错误详情',
+    copyDetailsFailed: '无法复制错误详情'
   },
 
   errors: {

@@ -18,13 +18,21 @@ export type ChatMessage = {
   parts: ChatMessagePart[]
   timestamp?: number
   pending?: boolean
+  /** A failed turn's raw error text, as the gateway or provider sent it. */
   error?: string
+  /** What the failure is shown as (lib/turn-error.ts `turnErrorCode`): the
+   *  gateway's `failure_code`, refined. Absent on rows from before it existed —
+   *  the error text is classified then. */
+  errorCode?: string
   branchGroupId?: string
   hidden?: boolean
   /** Sealed mid-turn commentary (`message.interim`) — rendered without the
    *  action footer so only the turn's final reply carries copy/refresh, and
    *  the live view matches rehydration (which merges the turn into one bubble). */
   interim?: boolean
+  /** The user stopped this reply before it finished (live only: a stored
+   *  reply has no such flag). The transcript says so under the bubble. */
+  stopped?: boolean
   /** Composer attachment ref strings (`@file:...`, `@image:...`) sent with this user message. */
   attachmentRefs?: string[]
   /** Durable backend `messages.id`. Absent until the row is persisted. */
@@ -35,6 +43,18 @@ export type ChatMessage = {
    *  the created-files card. Live from `message.complete`, rehydrated from
    *  the reply row's `display_metadata.files_created`. */
   createdFiles?: DeliverableFile[]
+  /** A context compaction point (`display_kind: 'compaction'`): rendered as a
+   *  divider whose disclosure holds the summary the model continued from. */
+  compaction?: CompactionMarker
+}
+
+export interface CompactionMarker {
+  summary: string
+  /** Model-history user turns the transcript does not show after this divider
+   *  (copied head/tail, the handoff itself). A turn shown after the LAST
+   *  divider has prompt.submit ordinal `userTurnsBefore + its own count`.
+   *  Absent from a backend older than this app. */
+  userTurnsBefore?: number
 }
 
 export type GatewayEventPayload = {
@@ -42,6 +62,8 @@ export type GatewayEventPayload = {
   rendered?: string
   status?: string
   message?: string
+  /** On an `error` frame: the failure's own code, when the backend knew it. */
+  code?: string
   id?: string
   name?: string
   tool_id?: string
@@ -55,6 +77,8 @@ export type GatewayEventPayload = {
   summary?: string
   error?: string | boolean
   inline_diff?: string
+  /** +/- of the whole edit; `inline_diff` is only a capped preview of it. */
+  inline_diff_stats?: { added?: number; removed?: number }
   duration_s?: number
   todos?: unknown
   model?: string
@@ -130,6 +154,9 @@ export type GatewayEventPayload = {
   // Structured billing wall forwarded on message.complete when a turn fails
   // with FailoverReason.billing (shape mirrors @agentx/shared BillingBlock).
   billing?: BillingBlock
+  // message.complete of a failed turn: what ended it, in the shared code words
+  // (tui_gateway/usage_outcome.py), and the classified reason behind the code.
+  failure_code?: string
   failure_reason?: string
   // message.complete with failure_reason "license_read_only" — the AgentX
   // license the backend refused the turn by (validated with lib/license
@@ -373,6 +400,17 @@ function parseDisplayMetadata(metadata: SessionMessage['display_metadata']): nul
   return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : null
 }
 
+function compactionMarker(message: SessionMessage): CompactionMarker {
+  const raw = message.content ?? message.text
+  const summary = typeof raw === 'string' ? raw.trim() : ''
+  const meta = parseDisplayMetadata(message.display_metadata)?.compaction
+  const before = meta && typeof meta === 'object' ? (meta as Record<string, unknown>).user_turns_before : undefined
+
+  return typeof before === 'number' && Number.isInteger(before) && before >= 0
+    ? { summary, userTurnsBefore: before }
+    : { summary }
+}
+
 function timelineTaskCount(metadata: SessionMessage['display_metadata']): number | undefined {
   const count = parseDisplayMetadata(metadata)?.task_count
 
@@ -393,6 +431,85 @@ export function messageReactions(metadata: SessionMessage['display_metadata']): 
 
 export function messageCreatedFiles(metadata: SessionMessage['display_metadata']): DeliverableFile[] {
   return createdFilesFromPayload(parseDisplayMetadata(metadata)?.files_created)
+}
+
+interface StoredEditDiff {
+  inline_diff: string
+  inline_diff_stats?: { added?: number; removed?: number }
+}
+
+/**
+ * The file-edit diffs a turn pinned to its reply (`display_metadata.edit_diffs`,
+ * keyed by tool call id — tui_gateway `_persist_turn_edit_diffs`). A stored
+ * tool row holds only the tool's own result, so without these a reopened chat
+ * lost every "+N" edit row and the files-changed card.
+ */
+function storedEditDiffs(messages: SessionMessage[]): Map<string, StoredEditDiff> {
+  const diffs = new Map<string, StoredEditDiff>()
+
+  for (const message of messages) {
+    if (message.role !== 'assistant') {
+      continue
+    }
+
+    const raw = parseDisplayMetadata(message.display_metadata)?.edit_diffs
+
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+      continue
+    }
+
+    for (const [toolCallId, value] of Object.entries(raw as Record<string, unknown>)) {
+      const entry = value && typeof value === 'object' ? (value as Record<string, unknown>) : null
+
+      if (!entry || typeof entry.inline_diff !== 'string' || !entry.inline_diff.trim()) {
+        continue
+      }
+
+      const stats = entry.inline_diff_stats
+
+      diffs.set(toolCallId, {
+        inline_diff: entry.inline_diff,
+        ...(stats && typeof stats === 'object' ? { inline_diff_stats: stats as StoredEditDiff['inline_diff_stats'] } : {})
+      })
+    }
+  }
+
+  return diffs
+}
+
+/** Puts each stored diff back on its tool row's result, where the live row had it. */
+function withStoredEditDiffs(messages: ChatMessage[], diffs: Map<string, StoredEditDiff>): ChatMessage[] {
+  if (!diffs.size) {
+    return messages
+  }
+
+  return messages.map(message => {
+    if (message.role !== 'assistant') {
+      return message
+    }
+
+    let changed = false
+
+    const parts = message.parts.map(part => {
+      const diff = part.type === 'tool-call' && part.toolCallId ? diffs.get(part.toolCallId) : undefined
+
+      if (!diff || part.type !== 'tool-call') {
+        return part
+      }
+
+      const result = part.result && typeof part.result === 'object' && !Array.isArray(part.result) ? part.result : {}
+
+      if (typeof (result as Record<string, unknown>).inline_diff === 'string') {
+        return part
+      }
+
+      changed = true
+
+      return { ...part, result: { ...(result as Record<string, unknown>), ...diff } }
+    })
+
+    return changed ? { ...message, parts } : message
+  })
 }
 
 function timelineDisplayContent(message: SessionMessage, content: string): string {
@@ -697,6 +814,7 @@ function toolResult(
   return {
     ...parsedResult,
     ...(payload?.inline_diff ? { inline_diff: payload.inline_diff } : {}),
+    ...(payload?.inline_diff_stats ? { inline_diff_stats: payload.inline_diff_stats } : {}),
     ...(summary ? { summary } : {}),
     ...(payload?.message ? { message: payload.message } : {}),
     ...(payload?.duration_s !== undefined ? { duration_s: payload.duration_s } : {}),
@@ -987,6 +1105,88 @@ function withUniqueToolCallIds(messages: ChatMessage[]): ChatMessage[] {
   })
 }
 
+/** The files an assistant message shows as produced: the backend's list and
+ *  the ones handed over through `deliver_file`. */
+export function messageOutputFiles(message: ChatMessage): DeliverableFile[] {
+  if (message.role !== 'assistant') {
+    return []
+  }
+
+  const files = new Map((message.createdFiles ?? []).map(file => [file.path, file]))
+
+  for (const part of message.parts) {
+    if (part.type !== 'tool-call' || part.toolName !== 'deliver_file' || part.isError) {
+      continue
+    }
+
+    let result: unknown = part.result
+
+    if (typeof result === 'string') {
+      try {
+        result = JSON.parse(result)
+      } catch {
+        continue
+      }
+    }
+
+    const record = result && typeof result === 'object' ? (result as Record<string, unknown>) : null
+
+    if (record && typeof record.path === 'string' && record.path && !files.has(record.path)) {
+      files.set(record.path, {
+        mimeType: typeof record.mime_type === 'string' ? record.mime_type : undefined,
+        name: typeof record.name === 'string' && record.name ? record.name : record.path.split(/[\\/]/).pop() || record.path,
+        path: record.path,
+        sizeBytes: typeof record.size_bytes === 'number' ? record.size_bytes : undefined
+      })
+    }
+  }
+
+  return [...files.values()]
+}
+
+/**
+ * A compaction that summarized turns away takes their bubbles off screen —
+ * and with them the only record, until the next reload reads the archived
+ * rows, of the files those turns produced. Keep them: whatever the replaced
+ * transcript showed as produced and the new one no longer does rides on the
+ * newest compaction divider, where the session's results list still finds it.
+ */
+export function carryOutputsAcrossCompaction(previous: readonly ChatMessage[], next: ChatMessage[]): ChatMessage[] {
+  const dividerIndex = next.findLastIndex(message => message.compaction)
+
+  if (dividerIndex < 0) {
+    return next
+  }
+
+  const kept = new Set(next.flatMap(message => messageOutputFiles(message).map(file => file.path)))
+  const lost = new Map<string, DeliverableFile>()
+
+  for (const message of previous) {
+    for (const file of messageOutputFiles(message)) {
+      if (!kept.has(file.path) && !lost.has(file.path)) {
+        lost.set(file.path, file)
+      }
+    }
+
+    if (message.compaction) {
+      for (const file of message.createdFiles ?? []) {
+        if (!kept.has(file.path) && !lost.has(file.path)) {
+          lost.set(file.path, file)
+        }
+      }
+    }
+  }
+
+  if (!lost.size) {
+    return next
+  }
+
+  const divider = next[dividerIndex]
+  const createdFiles = [...(divider.createdFiles ?? []), ...lost.values()]
+
+  return next.map((message, index) => (index === dividerIndex ? { ...message, createdFiles } : message))
+}
+
 export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
   const result: ChatMessage[] = []
   let pendingToolParts: ChatMessagePart[] = []
@@ -1055,6 +1255,22 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
 
       pendingToolParts = [...pendingToolParts, storedToolMessagePart(message, index)]
       pendingToolTimestamp ??= message.timestamp
+
+      return
+    }
+
+    if (message.display_kind === 'compaction') {
+      flushPendingTools(index)
+      activeAssistantIndex = null
+      const compaction = compactionMarker(message)
+
+      result.push({
+        id: `${message.timestamp || Date.now()}-${index}-compaction`,
+        role: 'system',
+        parts: [textPart(compaction.summary)],
+        timestamp: message.timestamp,
+        compaction
+      })
 
       return
     }
@@ -1178,13 +1394,20 @@ export function toChatMessages(messages: SessionMessage[]): ChatMessage[] {
   })
   flushPendingTools(messages.length)
 
-  const withoutGeneratedImageEchoes = result.map(message =>
-    message.role === 'assistant' ? { ...message, parts: dedupeGeneratedImageEchoesInParts(message.parts) } : message
+  const withoutGeneratedImageEchoes = withStoredEditDiffs(
+    result.map(message =>
+      message.role === 'assistant' ? { ...message, parts: dedupeGeneratedImageEchoesInParts(message.parts) } : message
+    ),
+    storedEditDiffs(messages)
   )
 
   return withUniqueToolCallIds(
     withoutGeneratedImageEchoes.filter(
-      m => chatMessageText(m).trim() || m.parts.some(part => part.type !== 'text') || m.attachmentRefs?.length
+      m =>
+        m.compaction ||
+        chatMessageText(m).trim() ||
+        m.parts.some(part => part.type !== 'text') ||
+        m.attachmentRefs?.length
     )
   )
 }
@@ -1209,6 +1432,7 @@ export function preserveLocalAssistantErrors(
     return {
       ...message,
       error: local.error,
+      errorCode: local.errorCode,
       pending: false
     }
   })

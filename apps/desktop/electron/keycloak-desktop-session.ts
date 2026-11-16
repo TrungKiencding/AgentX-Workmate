@@ -26,7 +26,12 @@
  * offline session, and this module ends it itself once the days are up.
  */
 
-import { type KeycloakLoginDeps, logoutKeycloakSession, refreshKeycloakSession, runKeycloakLogin } from './keycloak-login'
+import {
+  type KeycloakLoginDeps,
+  logoutKeycloakSession,
+  refreshKeycloakSession,
+  runKeycloakLogin
+} from './keycloak-login'
 import {
   type KeycloakOidcConfig,
   nativeOidcFromProviders,

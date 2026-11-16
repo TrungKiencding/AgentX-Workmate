@@ -2,23 +2,13 @@ import { useStore } from '@nanostores/react'
 import { useQuery } from '@tanstack/react-query'
 
 import { useSessionView } from '@/app/chat/session-view'
-import { Codicon } from '@/components/ui/codicon'
-import { DropdownMenuItem, dropdownMenuRow } from '@/components/ui/dropdown-menu'
 import type { HermesGateway } from '@/hermes'
 import { useI18n } from '@/i18n'
 import { modelCatalogQueryPolicy, modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { currentPickerSelection } from '@/lib/model-status-label'
-import { DEFAULT_REASONING_EFFORT } from '@/lib/reasoning-effort'
-import { cn } from '@/lib/utils'
 import { $modelPresets, applyModelPreset, modelPresetKey, setModelPreset } from '@/store/model-presets'
-import { $visibleModels } from '@/store/model-visibility'
 import { notifyError } from '@/store/notifications'
-import {
-  $defaultReasoningEffort,
-  markComposerSelectionManual,
-  setCurrentFastMode,
-  setCurrentReasoningEffort
-} from '@/store/session'
+import { markComposerSelectionManual, setCurrentFastMode, setCurrentReasoningEffort } from '@/store/session'
 import { sessionTileDelegate } from '@/store/session-states'
 import type { ModelOptionsResponse } from '@/types/hermes'
 
@@ -51,7 +41,6 @@ interface ModelMenuPanelProps {
  */
 export function ModelMenuPanel({ gateway, onSelectModel, profile = 'default', requestGateway }: ModelMenuPanelProps) {
   const { t } = useI18n()
-  const copy = t.shell.modelMenu
   // Bind to THIS surface's SessionView (primary or tile) so each pane's menu
   // shows/switches its own model — not the primary-only globals.
   const view = useSessionView()
@@ -61,8 +50,6 @@ export function ModelMenuPanel({ gateway, onSelectModel, profile = 'default', re
   const currentProvider = useStore(view.$provider)
   const currentReasoningEffort = useStore(view.$reasoningEffort)
   const modelPresets = useStore($modelPresets)
-  const defaultEffort = useStore($defaultReasoningEffort) || DEFAULT_REASONING_EFFORT
-  const visibleModels = useStore($visibleModels)
   const touchesPrimary = view.kind === 'primary'
 
   // Subscribe to the SAME query the menu runs (identical key ⇒ React Query
@@ -188,7 +175,13 @@ export function ModelMenuPanel({ gateway, onSelectModel, profile = 'default', re
       }
 
       if (patch.fast !== undefined) {
-        void patchFast(patch.fast, row.provider, row.model)
+        // A `…-fast` variant IS the fast mode — the menu swaps the model id
+        // itself. Turning the speed param on as well would strand it on the
+        // session, where the next model picked shows "fast" it never had.
+        // Turning the variant off still clears a param left over from before.
+        if (!row.fastViaVariant || (!patch.fast && currentFastMode)) {
+          void patchFast(patch.fast, row.provider, row.model)
+        }
       }
     }
   }
@@ -196,19 +189,6 @@ export function ModelMenuPanel({ gateway, onSelectModel, profile = 'default', re
   return (
     <ModelCatalogMenu
       controller={controller}
-      footer={
-        <DropdownMenuItem
-          className={cn(dropdownMenuRow, 'text-(--ui-text-tertiary)')}
-          disabled={modelOptions.isFetching}
-          onSelect={event => {
-            event.preventDefault()
-            void modelOptions.refetch({ cancelRefetch: false })
-          }}
-        >
-          <Codicon className={cn(modelOptions.isFetching && 'animate-spin')} name="sync" size="0.75rem" />
-          {copy.refreshModels}
-        </DropdownMenuItem>
-      }
       gateway={gateway}
       includeMoa
       profile={profile}

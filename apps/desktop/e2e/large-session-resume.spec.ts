@@ -8,6 +8,7 @@ import {
   buildAppEnv,
   createSandbox,
   launchDesktop,
+  revealSidebarSession,
   type Sandbox,
   waitForAppReady,
   writeEnvFile,
@@ -74,13 +75,8 @@ async function setupSeededDesktop(mockServer?: MockServerOptions): Promise<Seede
   }
 }
 
-function sessionRow(page: Page) {
-  return page.locator('[data-slot="sidebar"] button').filter({ hasText: SESSION_TITLE }).first()
-}
-
 async function openSeededSession(page: Page): Promise<void> {
-  const row = sessionRow(page)
-  await row.waitFor({ state: 'visible', timeout: 60_000 })
+  const row = await revealSidebarSession(page, SESSION_TITLE, 60_000)
   await row.click()
   await page.waitForFunction(
     expected => (document.querySelector('[data-slot="aui_thread-viewport"]')?.textContent ?? '').includes(expected),

@@ -127,7 +127,6 @@ interface SidebarSessionsSectionProps {
   liveSessions?: SessionInfo[]
   // Client-side optimistic eviction layer (deleted/archived ids).
   removedSessionIds?: ReadonlySet<string>
-  activeProjectId?: null | string
   labelMeta?: React.ReactNode
   labelIcon?: React.ReactNode
   // When false the section header is static (no caret/toggle) and always open.
@@ -181,7 +180,6 @@ export function SidebarSessionsSection({
   projectRepoWorktrees,
   liveSessions,
   removedSessionIds,
-  activeProjectId,
   labelMeta,
   labelIcon,
   collapsible = true,
@@ -307,10 +305,9 @@ export function SidebarSessionsSection({
     !projectContent &&
     sessions.length >= VIRTUALIZE_THRESHOLD
 
-  // First paint into the grouped view (e.g. the app restoring the Projects tab)
-  // has flat recents in `sessions` but no tree yet. Show skeletons rather than
-  // flashing the flat session list until the overview/content/groups resolve. A
-  // background refresh keeps the prior tree, so this only fires when empty.
+  // First paint of the project list has no tree yet. Show skeletons rather than
+  // an empty state until the overview/content resolves; the caller passes
+  // `projectsLoading` only for that first pull, so a refresh never flashes.
   const showProjectsSkeleton =
     projectsLoading && !hasProjectOverview && !hasProjectContent && !projectContent && !groups?.length
 
@@ -342,18 +339,14 @@ export function SidebarSessionsSection({
   } else if (showEmptyState) {
     inner = emptyState
   } else if (projectOverview?.length) {
-    // The model is already ordered (Home leads; then the default sort groups
-    // explicit-before-auto, with a manual drag-order winning when present).
-    // Render in that order and make rows drag-to-reorder when a handler is
-    // wired — Home stays outside the sortable list, it's a fixture.
-    const home = projectOverview[0]?.isNoProject ? projectOverview[0] : undefined
-    const sortableProjects = home ? projectOverview.slice(1) : projectOverview
-    const projectsDraggable = sortableProjects.length > 1 && !!onReorderProjects
+    // The model is already ordered (the default sort puts explicit projects
+    // before auto ones, with a manual drag-order winning when present). Render
+    // in that order; rows drag to reorder when a handler is wired.
+    const projectsDraggable = projectOverview.length > 1 && !!onReorderProjects
     const Row = projectsDraggable ? SortableProjectOverviewRow : ProjectOverviewRow
 
-    const projectRow = (project: SidebarProjectTree, Component: typeof ProjectOverviewRow) => (
-      <Component
-        activeProjectId={activeProjectId}
+    const rows = projectOverview.map(project => (
+      <Row
         key={project.id}
         onEnter={onEnterProject}
         onNewSession={onNewSessionInWorkspace}
@@ -361,26 +354,20 @@ export function SidebarSessionsSection({
         project={project}
         renderRows={renderRows}
       />
-    )
+    ))
 
-    const rows = sortableProjects.map(project => projectRow(project, Row))
-
-    inner = (
-      <>
-        {home && projectRow(home, ProjectOverviewRow)}
-        {projectsDraggable && onReorderProjects ? (
-          <ReorderableList
-            ids={sortableProjects.map(project => project.id)}
-            onReorder={onReorderProjects}
-            sensors={dndSensors}
-          >
-            {rows}
-          </ReorderableList>
-        ) : (
-          rows
-        )}
-      </>
-    )
+    inner =
+      projectsDraggable && onReorderProjects ? (
+        <ReorderableList
+          ids={projectOverview.map(project => project.id)}
+          onReorder={onReorderProjects}
+          sensors={dndSensors}
+        >
+          {rows}
+        </ReorderableList>
+      ) : (
+        rows
+      )
   } else if (groups?.length) {
     // Profile/source groups never reorder; render them flat with static rows.
     inner = groups.map(group => (

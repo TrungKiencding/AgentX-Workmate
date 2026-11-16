@@ -147,6 +147,8 @@ LAZY_DEPS: dict[str, tuple[str, ...]] = {
     "stt.mistral": ("mistralai==2.4.8",),
     "stt.faster_whisper": (
         "faster-whisper==1.2.1",
+        # Same av pin as the voice extra: PyAV 19 breaks faster-whisper 1.2.1.
+        "av==18.0.0",
         "sounddevice==0.5.5",
         "numpy==2.4.3",
     ),

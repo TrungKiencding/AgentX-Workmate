@@ -25,10 +25,83 @@ def _hermes_root_path() -> Path:
         return Path(os.path.expanduser("~/.agentx"))
 
 
+def _hermes_user_root_path() -> Path:
+    """The signed-in account's home when the active home is inside one, else the root.
+
+    Derived from :func:`_hermes_home_path` and :func:`_hermes_root_path`
+    (rather than ``hermes_constants.get_user_root``) so tests and callers that
+    pin those two seams get a consistent third. Profiles hang off this root:
+    on a signed-in desktop AGENTX_HOME is ``<root>/accounts/<slug>`` (or a
+    profile inside it), and that account home holds the ``.env`` / ``auth.json``
+    every one of the person's profiles inherits.
+    """
+    root = _hermes_root_path()
+    try:
+        from hermes_constants import ACCOUNTS_DIR_NAME, split_home_scope
+
+        account, _profile = split_home_scope(_hermes_home_path(), root)
+    except Exception:
+        return root
+    return root / ACCOUNTS_DIR_NAME / account if account else root
+
+
+def _hermes_protected_dirs() -> list[Path]:
+    """AgentX homes whose credential / state files the file tools must not touch.
+
+    The active home, the signed-in account's home, the install root, and every
+    account home on the install (with the profiles inside it): one signed-in
+    person's agent has no business reading or rewriting another's secrets.
+    Sibling profiles of the *same* person are left to the cross-profile soft
+    guard, as before.
+    """
+    root = _hermes_root_path()
+    candidates: list[Path] = [_hermes_home_path(), _hermes_user_root_path(), root]
+    try:
+        from hermes_constants import ACCOUNTS_DIR_NAME
+
+        for account_home in sorted((root / ACCOUNTS_DIR_NAME).iterdir()):
+            if not account_home.is_dir():
+                continue
+            candidates.append(account_home)
+            try:
+                candidates.extend(
+                    p for p in sorted((account_home / "profiles").iterdir()) if p.is_dir()
+                )
+            except OSError:
+                pass
+    except Exception:
+        pass
+    dirs: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        try:
+            key = os.path.realpath(candidate)
+        except Exception:
+            continue
+        if key not in seen:
+            seen.add(key)
+            dirs.append(candidate)
+    return dirs
+
+
 def build_write_denied_paths(home: str) -> set[str]:
     """Return exact sensitive paths that must never be written."""
-    hermes_home = _hermes_home_path()
-    hermes_root = _hermes_root_path()
+    # Per-home secrets, for the active profile AND every home it inherits
+    # from: the top-level .env leaks credentials across every profile that
+    # inherits from root (#15981), and on a signed-in desktop the account
+    # home plays that role for the person's profiles. Other accounts' homes
+    # are covered too — see _hermes_protected_dirs.
+    hermes_secrets = [
+        str(base / rel)
+        for base in _hermes_protected_dirs()
+        for rel in (
+            ".env",
+            # Anthropic PKCE credential store.
+            ".anthropic_oauth.json",
+            # Bitwarden Secrets Manager encrypted disk cache.
+            os.path.join("cache", "bws_cache.enc.json"),
+        )
+    ]
     return {
         os.path.realpath(p)
         for p in [
@@ -36,19 +109,7 @@ def build_write_denied_paths(home: str) -> set[str]:
             os.path.join(home, ".ssh", "id_rsa"),
             os.path.join(home, ".ssh", "id_ed25519"),
             os.path.join(home, ".ssh", "config"),
-            # Active profile .env (or top-level .env when not in profile mode).
-            str(hermes_home / ".env"),
-            # Top-level .env, even when running under a profile — overwriting it
-            # leaks credentials across every profile that inherits from root (#15981).
-            str(hermes_root / ".env"),
-            # Active profile Anthropic PKCE credential store.
-            str(hermes_home / ".anthropic_oauth.json"),
-            # Top-level Anthropic PKCE credential store remains sensitive even
-            # when a profile is active; default/non-profile sessions still read it.
-            str(hermes_root / ".anthropic_oauth.json"),
-            # Bitwarden Secrets Manager encrypted disk cache.
-            str(hermes_home / "cache" / "bws_cache.enc.json"),
-            str(hermes_root / "cache" / "bws_cache.enc.json"),
+            *hermes_secrets,
             os.path.join(home, ".netrc"),
             os.path.join(home, ".pgpass"),
             os.path.join(home, ".npmrc"),
@@ -112,7 +173,7 @@ def _classify_write_denial(path: str) -> Optional[str]:
     mcp_tokens_dir_name = "mcp-tokens"
 
     hermes_dirs = []
-    for base in (_hermes_home_path(), _hermes_root_path()):
+    for base in _hermes_protected_dirs():
         try:
             real = os.path.realpath(base)
             if real not in hermes_dirs:
@@ -138,12 +199,16 @@ def _classify_write_denial(path: str) -> Optional[str]:
                 return "credential"
         except Exception:
             pass
-        try:
-            pairing_real = os.path.realpath(os.path.join(base_real, "pairing"))
-            if resolved == pairing_real or resolved.startswith(pairing_real + os.sep):
-                return "credential"
-        except Exception:
-            pass
+        # Pairing stores decide who may talk to the bot. Both layouts: only
+        # the legacy ``pairing/`` was listed, so the consolidated
+        # ``platforms/pairing/`` every current install uses stayed writable.
+        for pairing_rel in ("pairing", os.path.join("platforms", "pairing")):
+            try:
+                pairing_real = os.path.realpath(os.path.join(base_real, pairing_rel))
+                if resolved == pairing_real or resolved.startswith(pairing_real + os.sep):
+                    return "credential"
+            except Exception:
+                pass
 
     safe_roots = get_safe_write_roots()
     if safe_roots:
@@ -238,13 +303,13 @@ def get_read_block_error(path: str) -> Optional[str]:
     """
     resolved = Path(path).expanduser().resolve()
 
-    # Resolve BOTH the active AGENTX_HOME (profile-aware) AND the global
-    # AgentX root so credential stores at <root>/auth.json etc. are also
-    # blocked when running under a profile (AGENTX_HOME points at
-    # <root>/profiles/<name> in profile mode). Same shape as the write
-    # deny widening (#15981, #14157).
+    # Resolve the active AGENTX_HOME (profile-aware), the home it inherits
+    # from (the signed-in account's, else the global root) and every other
+    # account home, so credential stores at <root>/auth.json,
+    # <root>/accounts/<slug>/auth.json etc. are also blocked when running
+    # under a profile. Same shape as the write deny widening (#15981, #14157).
     hermes_dirs: list[Path] = []
-    for base in (_hermes_home_path(), _hermes_root_path()):
+    for base in _hermes_protected_dirs():
         try:
             real = base.resolve()
             if real not in hermes_dirs:
@@ -400,7 +465,8 @@ def _resolve_active_profile_name() -> str:
     """
     try:
         home_real = _hermes_home_path().resolve()
-        root_real = _hermes_root_path().resolve()
+        # Profiles hang off the user root (the account home when signed in).
+        root_real = _hermes_user_root_path().resolve()
     except (OSError, RuntimeError):
         return "default"
     profiles_dir = root_real / "profiles"
@@ -433,7 +499,10 @@ def classify_cross_profile_target(path: str) -> Optional[dict]:
     """
     try:
         target = Path(os.path.expanduser(str(path))).resolve()
-        root_real = _hermes_root_path().resolve()
+        # Same anchor as _resolve_active_profile_name: inside a signed-in
+        # account, ``<account>/skills`` is the person's default profile and
+        # ``<account>/profiles/<name>`` their named ones.
+        root_real = _hermes_user_root_path().resolve()
     except (OSError, RuntimeError):
         return None
 

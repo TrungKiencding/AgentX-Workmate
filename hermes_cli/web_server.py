@@ -171,6 +171,40 @@ def _start_desktop_cron_ticker(stop_event: "threading.Event", interval: int = 60
     provider.start(stop_event, interval=interval)
 
 
+def _desktop_cron_roles(env: "dict[str, str] | None" = None, home: "Path | None" = None) -> "tuple[bool, bool]":
+    """``(ticks its own jobs, sweeps assistants' jobs)`` for this desktop backend.
+
+    The app runs one *primary* backend for as long as it is open, plus *pool*
+    backends — one per other profile in use — that it stops when their profile
+    has been idle for ten minutes or the pool is full. A pool backend cannot be
+    trusted with scheduled work:
+
+    * it is stopped on renderer idleness alone, so a routine it was running was
+      killed mid-run *after* its next run had been moved forward — the run was
+      lost and left a prompt-only session behind;
+    * its last heartbeat kept the sweeper away for minutes after it was gone,
+      so a due task sat there until the assistant's chat was opened again
+      (pilot feedback 2026-11: "chỉ chạy sau khi bấm vào cuộc trò chuyện");
+    * a sweeper elected in a pool backend takes its child ticks down with it.
+
+    So the primary sweeps, alone, and a pool backend serving a Bot Mode
+    assistant does not tick: the primary's sweeper runs that assistant's tasks
+    in a child that outlives any pool backend. A pool backend for an ordinary
+    (non-assistant) profile still ticks — nothing else would.
+    """
+    env = os.environ if env is None else env
+    if env.get("AGENTX_DESKTOP_POOL") != "1":
+        return True, True
+    try:
+        from hermes_constants import get_hermes_home
+        from tools.bot_mode_protocol import read_bots_meta
+
+        is_assistant = read_bots_meta(Path(home or get_hermes_home())) is not None
+    except Exception:  # noqa: BLE001 - when unsure, keep ticking: a missed run is worse
+        is_assistant = False
+    return (not is_assistant), False
+
+
 def _warm_gateway_module() -> None:
     """Pre-import heavy modules so the event loop is not stalled on first use.
 
@@ -244,13 +278,33 @@ async def _lifespan(app: "FastAPI"):
     cron_thread: "threading.Thread | None" = None
     if os.getenv("AGENTX_DESKTOP") == "1":
         cron_stop = threading.Event()
-        cron_thread = threading.Thread(
-            target=_start_desktop_cron_ticker,
-            args=(cron_stop,),
-            daemon=True,
-            name="desktop-cron-ticker",
-        )
-        cron_thread.start()
+        ticks_own_jobs, sweeps_assistants = _desktop_cron_roles()
+        if ticks_own_jobs:
+            cron_thread = threading.Thread(
+                target=_start_desktop_cron_ticker,
+                args=(cron_stop,),
+                daemon=True,
+                name="desktop-cron-ticker",
+            )
+            cron_thread.start()
+        else:
+            _log.info(
+                "Desktop cron scheduler not started: this is a pool backend for a "
+                "Bot Mode assistant; the primary backend runs its scheduled tasks"
+            )
+        if sweeps_assistants:
+            # Bot Mode assistants are profiles whose own backend only runs
+            # while they are in use: tick their stores from here (each in an
+            # isolated per-profile child) so their scheduled tasks fire while
+            # the app is open. See cron/bot_profile_sweeper.py.
+            from cron.bot_profile_sweeper import start_bot_profile_sweeper
+
+            threading.Thread(
+                target=start_bot_profile_sweeper,
+                args=(cron_stop,),
+                daemon=True,
+                name="desktop-bot-cron-sweeper",
+            ).start()
 
     # Reap idle/dead keep-alive PTY sessions in the background (30-min TTL).
     pty_reaper_task = asyncio.create_task(run_reaper(PTY_REGISTRY))
@@ -278,6 +332,7 @@ async def _lifespan(app: "FastAPI"):
         auto_archive_task.cancel()
         hub_sync_task.cancel()
         await PTY_REGISTRY.close_all()
+        _shutdown_whatsapp_onboarding()
         _shutdown_hub_sync()
         if cron_stop is not None:
             cron_stop.set()
@@ -8237,6 +8292,15 @@ async def reveal_env_var(
     return {"key": body.key, "value": value}
 
 
+# Setup links the desktop opens from the Messaging page are for people, not
+# developers: each platform's own documentation, or — when a channel has no
+# vendor page (IRC, the Signal bridge, WeChat iLink, Photon, Raft, the API
+# server, webhooks) — the illustrated Vietnamese guide's "other channels"
+# section. Never a source repository (tests pin this).
+_MESSAGING_OTHER_CHANNELS_DOCS = (
+    "https://agentx-landingpage.astralx.com.vn/docs/kenh-tin-nhan/#kenh-khac"
+)
+
 # Entries omit fields they don't need to override; the catalog builder fills
 # in env_vars from OPTIONAL_ENV_VARS via prefix matching when not specified,
 # and pulls required_env from a plugin's PlatformEntry when available.
@@ -8287,14 +8351,16 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "signal": {
         "name": "Signal",
         "description": "Connect through a signal-cli REST bridge.",
-        "docs_url": "https://github.com/bbernhard/signal-cli-rest-api",
+        "docs_url": _MESSAGING_OTHER_CHANNELS_DOCS,
         "env_vars": ("SIGNAL_HTTP_URL", "SIGNAL_ACCOUNT", "SIGNAL_ALLOWED_USERS"),
         "required_env": ("SIGNAL_HTTP_URL", "SIGNAL_ACCOUNT"),
     },
     "whatsapp": {
         "name": "WhatsApp",
         "description": "Use AgentX through the bundled WhatsApp bridge with QR-based auth.",
-        "docs_url": "https://github.com/tulir/whatsmeow",
+        # The pairing itself happens in-app (QR); this is WhatsApp's own help
+        # page for Linked Devices, which is what a person needs on the phone.
+        "docs_url": "https://faq.whatsapp.com/1317564962315842",
         "env_vars": (
             "WHATSAPP_ENABLED",
             "WHATSAPP_MODE",
@@ -8313,7 +8379,9 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "email": {
         "name": "Email",
         "description": "Talk to AgentX through an IMAP/SMTP mailbox.",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/index.md",
+        # The one credential people must fetch elsewhere is an app password;
+        # Google's help page explains it (and why it can be unavailable).
+        "docs_url": "https://support.google.com/accounts/answer/185833",
         "env_vars": (
             "EMAIL_ADDRESS",
             "EMAIL_PASSWORD",
@@ -8356,7 +8424,7 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "google_chat": {
         "name": "Google Chat",
         "description": "Connect AgentX to Google Chat via Cloud Pub/Sub.",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/google_chat.md",
+        "docs_url": "https://developers.google.com/workspace/chat",
     },
     "wecom": {
         "name": "WeCom (group bot)",
@@ -8385,7 +8453,7 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "weixin": {
         "name": "Weixin / WeChat (Personal)",
         "description": "Connect a personal WeChat account through Tencent's iLink Bot API.",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/weixin.md",
+        "docs_url": _MESSAGING_OTHER_CHANNELS_DOCS,
         "env_vars": ("WEIXIN_ACCOUNT_ID", "WEIXIN_TOKEN", "WEIXIN_BASE_URL"),
         "required_env": ("WEIXIN_ACCOUNT_ID", "WEIXIN_TOKEN"),
     },
@@ -8412,34 +8480,34 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     # Channels page can point at the Microsoft Teams setup guide.
     "teams": {
         "description": "Connect AgentX to Microsoft Teams chats via the Bot Framework.",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/teams.md",
+        "docs_url": "https://learn.microsoft.com/en-us/microsoftteams/platform/bots/what-are-bots",
     },
     # Bundled platform plugins: name comes from the plugin registry label;
     # give each a human description (the registry's install_hint is a
     # dependency note, not a description) and a docs link.
     "irc": {
         "description": "Relay messages between an IRC channel (or DMs) and AgentX.",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/irc.md",
+        "docs_url": _MESSAGING_OTHER_CHANNELS_DOCS,
     },
     "line": {
         "description": "Use AgentX from LINE via the LINE Messaging API webhook.",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/line.md",
+        "docs_url": "https://developers.line.biz/en/docs/messaging-api/getting-started/",
     },
     "ntfy": {
         "description": "Chat with AgentX over ntfy push topics (ntfy.sh or self-hosted).",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/ntfy.md",
+        "docs_url": "https://docs.ntfy.sh/",
     },
     "photon": {
         "description": "Use AgentX through iMessage via Photon's managed Spectrum platform.",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/photon.md",
+        "docs_url": _MESSAGING_OTHER_CHANNELS_DOCS,
     },
     "raft": {
         "description": "Join a Raft workspace as an external agent.",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/raft.md",
+        "docs_url": _MESSAGING_OTHER_CHANNELS_DOCS,
     },
     "simplex": {
         "description": "Talk to AgentX over SimpleX Chat via a local simplex-chat daemon.",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/simplex.md",
+        "docs_url": "https://simplex.chat/docs/cli.html",
     },
     "yuanbao": {
         "name": "Yuanbao (元宝)",
@@ -8450,7 +8518,7 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "api_server": {
         "name": "API server",
         "description": "Expose AgentX as an OpenAI-compatible HTTP API for tools like Open WebUI.",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/index.md",
+        "docs_url": _MESSAGING_OTHER_CHANNELS_DOCS,
         "env_vars": (
             "API_SERVER_ENABLED",
             "API_SERVER_KEY",
@@ -8463,20 +8531,20 @@ _PLATFORM_OVERRIDES: dict[str, dict[str, Any]] = {
     "webhook": {
         "name": "Webhooks",
         "description": "Receive events from GitHub, GitLab, and other webhook sources.",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/webhooks.md",
+        "docs_url": _MESSAGING_OTHER_CHANNELS_DOCS,
         "env_vars": ("WEBHOOK_ENABLED", "WEBHOOK_PORT", "WEBHOOK_SECRET"),
         "required_env": (),
     },
     "msgraph_webhook": {
         "name": "Microsoft Graph Webhook",
         "description": "Receive Microsoft Graph change notifications (Teams meetings, Outlook, …).",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/msgraph-webhook.md",
+        "docs_url": "https://learn.microsoft.com/en-us/graph/change-notifications-overview",
         "required_env": (),
     },
     "whatsapp_cloud": {
         "name": "WhatsApp Cloud API",
         "description": "Use AgentX via Meta's hosted WhatsApp Cloud API (no local bridge).",
-        "docs_url": "https://github.com/TrungKiencding/AgentX-Workmate/blob/main/website/docs/user-guide/messaging/whatsapp-cloud.md",
+        "docs_url": "https://developers.facebook.com/docs/whatsapp/cloud-api/get-started",
     },
     "relay": {
         "name": "Relay (experimental)",
@@ -8519,7 +8587,6 @@ _MESSAGING_ENV_FALLBACKS: dict[str, dict[str, Any]] = {
     "SIGNAL_HTTP_URL": {
         "description": "signal-cli REST API base URL, e.g. http://127.0.0.1:8080",
         "prompt": "Signal bridge URL",
-        "url": "https://github.com/bbernhard/signal-cli-rest-api",
     },
     "SIGNAL_ACCOUNT": {
         "description": "Signal account phone number registered with the bridge",
@@ -9023,10 +9090,24 @@ def _messaging_platform_payload(
             env_on_disk.get("WHATSAPP_ALLOWED_USERS")
             or ("" if scoped else os.getenv("WHATSAPP_ALLOWED_USERS", ""))
         ).strip()
+        # Linked = a WhatsApp device session exists on disk. Without it the
+        # bridge cannot start, so the desktop offers the in-app QR instead of
+        # a terminal command. The phone number lets people check WHICH
+        # account is linked before they rely on it.
+        session_path = _whatsapp_session_path(profile_home)
+        linked = (session_path / "creds.json").exists()
+        _account_id, account_name, account_phone = (
+            _whatsapp_linked_account_from_session(session_path)
+            if linked
+            else (None, None, None)
+        )
         whatsapp_setup = {
             "mode": whatsapp_mode if whatsapp_mode in {"bot", "self-chat"} else "",
             "allowed_users_set": bool(allowed_users_value),
             "home_channel_set": bool(home_channel),
+            "linked": linked,
+            "account_name": account_name,
+            "account_phone": account_phone,
         }
 
     payload = {
@@ -9056,6 +9137,11 @@ def _messaging_platform_payload(
 
 def _write_platform_enabled(platform_id: str, enabled: bool) -> None:
     write_platform_config_field(platform_id, "enabled", enabled)
+    if platform_id == "whatsapp":
+        # gateway/config.py lets WHATSAPP_ENABLED override the YAML flag in
+        # both directions, and QR linking writes it as "true". Without this
+        # the step-3 switch could never turn WhatsApp off.
+        save_env_value("WHATSAPP_ENABLED", "true" if enabled else "false")
 
 
 _WHATSAPP_ONBOARDING_TTL_SECONDS = 600
@@ -9101,10 +9187,10 @@ def _normalize_whatsapp_allowed_users(value: Any) -> str:
     return ",".join(part.replace(" ", "") for part in raw.split(",") if part.strip())
 
 
-def _whatsapp_session_path() -> Path:
+def _whatsapp_session_path(home: Optional[Path] = None) -> Path:
     from hermes_constants import get_hermes_dir
 
-    return get_hermes_dir("platforms/whatsapp/session", "whatsapp/session")
+    return get_hermes_dir("platforms/whatsapp/session", "whatsapp/session", home=home)
 
 
 def _whatsapp_phone_from_identifier(value: Any) -> str | None:
@@ -9370,6 +9456,21 @@ def _prune_whatsapp_onboarding_sessions() -> None:
         _whatsapp_onboarding_sessions.pop(pairing_id, None)
 
 
+def _shutdown_whatsapp_onboarding() -> None:
+    """End every live QR pairing run when this backend stops.
+
+    The bridge runs in its own session (so a terminal signal cannot reach
+    it); without this a desktop quit left it rotating QR codes. The bridge
+    also exits by itself once its parent is gone (see bridge_helpers.js).
+    """
+    with _whatsapp_onboarding_lock:
+        records = list(_whatsapp_onboarding_sessions.values())
+        _whatsapp_onboarding_sessions.clear()
+    for record in records:
+        record.status = "cancelled"
+        _terminate_whatsapp_pairing(record.proc)
+
+
 def _supersede_whatsapp_onboarding_sessions(session_path: Path) -> None:
     for existing in _whatsapp_onboarding_sessions.values():
         if existing.session_path == str(session_path) and existing.status not in _WHATSAPP_ONBOARDING_TERMINAL_STATUSES:
@@ -9414,6 +9515,149 @@ def _restart_gateway_after_whatsapp_onboarding(profile: Optional[str] = None) ->
     }
 
 
+# Adapter states in which the gateway's own bridge process is still alive and
+# keeps (re)opening the session directory: "connecting"/"retrying"/"paused"
+# reconnect with the same useMultiFileAuthState path, so they are as unsafe to
+# re-pair under as "connected".
+_WHATSAPP_LIVE_ADAPTER_STATES = frozenset({"connected", "connecting", "retrying", "paused"})
+
+
+def _whatsapp_runtime_state(profile: Optional[str]) -> Optional[str]:
+    """WhatsApp adapter state as reported by this home's LIVE gateway, or None.
+
+    ``gateway_state.json`` outlives the process that wrote it: a gateway
+    restarted without the WhatsApp adapter never rewrites the ``whatsapp``
+    key, so its last "connected" stays on disk.  Trust the entry only when it
+    was stamped by the profile's current live gateway process — the same
+    writer-identity ownership filter the /api/status aggregation uses.
+    """
+    try:
+        requested = (profile or "").strip()
+        if requested and requested.lower() != "current":
+            home: Optional[Path] = _resolve_profile_dir(requested)
+            runtime = read_runtime_status(path=home / "gateway_state.json")
+        else:
+            home = None
+            runtime = read_runtime_status()
+    except Exception:
+        return None
+    platforms = runtime.get("platforms") if isinstance(runtime, dict) else None
+    if not isinstance(platforms, dict) or not platforms:
+        return None
+    owned = _owned_profile_platforms(
+        _profile_gateway_writer_identity(home, runtime), platforms
+    )
+    whatsapp = owned.get("whatsapp")
+    state = whatsapp.get("state") if isinstance(whatsapp, dict) else None
+    return state if isinstance(state, str) else None
+
+
+def _whatsapp_bridge_owns_session(session_path: Path) -> bool:
+    """True when a live bridge process recorded in ``bridge.pid`` uses this session.
+
+    The gateway's adapter writes ``<session>/bridge.pid`` (pid + kernel start
+    time) when it spawns the bridge and removes it on a clean disconnect.  A
+    bridge that outlived its gateway (crash, or reused across a restart)
+    keeps writing key updates into the directory, so it blocks re-pairing
+    just like a connected adapter.  Identity is re-validated (start time, or
+    the command line for legacy one-line files) so a recycled PID never
+    counts.
+    """
+    pid_file = session_path / "bridge.pid"
+    try:
+        lines = pid_file.read_text(encoding="utf-8").split("\n")
+        pid = int(lines[0].strip())
+        recorded_start = (
+            int(lines[1].strip()) if len(lines) > 1 and lines[1].strip() else None
+        )
+    except (OSError, ValueError, TypeError, IndexError):
+        return False
+    try:
+        from plugins.platforms.whatsapp.adapter import _bridge_pid_is_ours
+
+        return bool(_bridge_pid_is_ours(pid, session_path, recorded_start))
+    except Exception:
+        _log.debug("WhatsApp bridge.pid ownership check failed", exc_info=True)
+        return False
+
+
+def _any_gateway_process_running() -> bool:
+    """Whether any messaging gateway runs on this machine (any home or profile).
+
+    Errs on "yes": the caller only acts — stops a bridge — when this is False.
+    """
+    try:
+        from hermes_cli.gateway import find_gateway_pids
+
+        return bool(find_gateway_pids(all_profiles=True))
+    except Exception:
+        return True
+
+
+async def _reap_orphan_whatsapp_bridge(profile: Optional[str], session_path: Path) -> None:
+    """Stop a bridge that outlived every gateway, so re-pairing is not blocked forever.
+
+    A gateway that crashed (or was killed during an app update) can leave its
+    bridge running; with WhatsApp then turned off nothing ever stops it, and
+    every relink answered 409 "still running in the background" with no way
+    out in the app. When no gateway process runs at all — not this home's,
+    not a multiplexing one whose state this home cannot see — the bridge on
+    this session has no owner left: stop it (the adapter's own pidfile kill,
+    which re-validates the PID's identity first) and give it a moment to exit.
+    """
+    if _whatsapp_runtime_state(profile) is not None or not _whatsapp_bridge_owns_session(session_path):
+        return
+    if _any_gateway_process_running():
+        return
+    try:
+        from plugins.platforms.whatsapp.adapter import _kill_stale_bridge_by_pidfile
+
+        _kill_stale_bridge_by_pidfile(session_path)
+    except Exception:
+        _log.debug("Could not stop the orphaned WhatsApp bridge", exc_info=True)
+        return
+    for _ in range(30):
+        if not _whatsapp_bridge_owns_session(session_path):
+            return
+        await asyncio.sleep(0.1)
+
+
+def _whatsapp_relink_blocker(profile: Optional[str], session_path: Path) -> Optional[str]:
+    """Why re-pairing under ``session_path`` is unsafe right now, or None.
+
+    Re-pairing renames the session directory aside and starts a fresh
+    ``--pair-only`` bridge on the same path; any other live bridge on that
+    path would write its creds.json over the new login.
+    """
+    state = _whatsapp_runtime_state(profile)
+    if state == "connected":
+        return "WhatsApp is connected. Turn the connection off before linking again."
+    if state in _WHATSAPP_LIVE_ADAPTER_STATES:
+        return (
+            "WhatsApp is still trying to reconnect. Turn the connection off "
+            "before linking again."
+        )
+    if _whatsapp_bridge_owns_session(session_path):
+        return (
+            "WhatsApp is still running in the background. Turn the connection "
+            "off and wait a moment before linking again."
+        )
+    return None
+
+
+def _retire_whatsapp_session(session_path: Path) -> None:
+    """Move a device session aside (one previous copy kept) before re-pairing.
+
+    Renamed rather than deleted: a mistaken "link again" must not destroy
+    the only working login, and the next re-pair replaces the old copy so
+    sessions never pile up.
+    """
+    previous = session_path.with_name(session_path.name + ".previous")
+    if previous.exists():
+        shutil.rmtree(previous)
+    session_path.rename(previous)
+
+
 @app.post("/api/messaging/whatsapp/onboarding/start")
 async def start_whatsapp_onboarding(body: WhatsAppOnboardingStart):
     mode = _normalize_whatsapp_onboarding_mode(body.mode)
@@ -9424,6 +9668,22 @@ async def start_whatsapp_onboarding(body: WhatsAppOnboardingStart):
         session_path = _whatsapp_session_path()
         expires_at_ts = time.time() + _WHATSAPP_ONBOARDING_TTL_SECONDS
         expires_at = _utc_iso_from_ts(expires_at_ts)
+        if body.relink and (session_path / "creds.json").exists():
+            # A live bridge still writes key updates into this directory;
+            # re-pairing under it would let the old login overwrite the new.
+            await _reap_orphan_whatsapp_bridge(effective_profile, session_path)
+            blocker = _whatsapp_relink_blocker(effective_profile, session_path)
+            if blocker:
+                raise HTTPException(status_code=409, detail=blocker)
+            with _whatsapp_onboarding_lock:
+                _supersede_whatsapp_onboarding_sessions(session_path)
+            try:
+                _retire_whatsapp_session(session_path)
+            except OSError as exc:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Could not set the old WhatsApp session aside: {exc}",
+                ) from exc
         if (session_path / "creds.json").exists():
             pairing_id = secrets.token_urlsafe(16)
             account_id, account_name, account_phone = _whatsapp_linked_account_from_session(session_path)

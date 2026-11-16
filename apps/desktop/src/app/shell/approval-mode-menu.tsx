@@ -18,6 +18,52 @@ import {
   syncApprovalModeForProfile
 } from '@/store/approval-mode'
 
+export const APPROVAL_MODE_ORDER = ['manual', 'smart', 'off'] as const satisfies readonly ApprovalMode[]
+
+/**
+ * The three approval modes as a radio list — label plus one line on what it
+ * means. One list for every surface that offers the choice (the status-bar
+ * menu, the pill under the composer), so they cannot drift apart.
+ */
+export function ApprovalModeOptions({
+  mode,
+  onSelect
+}: {
+  mode: ApprovalMode
+  onSelect: (mode: ApprovalMode) => void
+}) {
+  const { t } = useI18n()
+  const copy = t.shell.approvalMode
+
+  const labels: Record<ApprovalMode, string> = { manual: copy.manual, off: copy.off, smart: copy.smart }
+
+  const descriptions: Record<ApprovalMode, string> = {
+    manual: copy.manualDescription,
+    off: copy.offDescription,
+    smart: copy.smartDescription
+  }
+
+  return (
+    <>
+      <DropdownMenuLabel>{copy.title}</DropdownMenuLabel>
+      <DropdownMenuSeparator />
+      <DropdownMenuRadioGroup onValueChange={value => onSelect(value as ApprovalMode)} value={mode}>
+        {APPROVAL_MODE_ORDER.map(value => (
+          // `h-auto`: a menu row is one line tall by default, and these carry a
+          // label AND a description — at the fixed height the rows ran into
+          // each other.
+          <DropdownMenuRadioItem className="h-auto items-start gap-2 py-1.5" key={value} value={value}>
+            <span className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-sm text-foreground">{labels[value]}</span>
+              <span className="text-xs leading-snug text-(--ui-text-tertiary)">{descriptions[value]}</span>
+            </span>
+          </DropdownMenuRadioItem>
+        ))}
+      </DropdownMenuRadioGroup>
+    </>
+  )
+}
+
 export function useApprovalModeStatusbarItem(profile: string, requestGateway: ApprovalModeRequester): StatusbarItem {
   const { t } = useI18n()
   const copy = t.shell.approvalMode
@@ -27,15 +73,6 @@ export function useApprovalModeStatusbarItem(profile: string, requestGateway: Ap
   const labels = useMemo<Record<ApprovalMode, string>>(
     () => ({ manual: copy.manual, smart: copy.smart, off: copy.off }),
     [copy.manual, copy.off, copy.smart]
-  )
-
-  const descriptions = useMemo<Record<ApprovalMode, string>>(
-    () => ({
-      manual: copy.manualDescription,
-      smart: copy.smartDescription,
-      off: copy.offDescription
-    }),
-    [copy.manualDescription, copy.offDescription, copy.smartDescription]
   )
 
   useEffect(() => {
@@ -50,25 +87,12 @@ export function useApprovalModeStatusbarItem(profile: string, requestGateway: Ap
     menuAlign: 'end',
     menuClassName: 'w-72 p-1',
     menuContent: (
-      <>
-        <DropdownMenuLabel>{copy.title}</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuRadioGroup
-          onValueChange={value => {
-            void setApprovalModeForProfile(requestGateway, profile, value as ApprovalMode).catch(() => undefined)
-          }}
-          value={mode}
-        >
-          {(['manual', 'smart', 'off'] as const).map(value => (
-            <DropdownMenuRadioItem className="items-start gap-2" key={value} value={value}>
-              <span className="flex min-w-0 flex-col gap-0.5">
-                <span className="text-xs text-foreground">{labels[value]}</span>
-                <span className="text-2xs leading-snug text-(--ui-text-tertiary)">{descriptions[value]}</span>
-              </span>
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
-      </>
+      <ApprovalModeOptions
+        mode={mode}
+        onSelect={value => {
+          void setApprovalModeForProfile(requestGateway, profile, value).catch(() => undefined)
+        }}
+      />
     ),
     title: copy.ariaLabel(labels[mode]),
     variant: 'menu'

@@ -77,7 +77,10 @@ import type {
   WebhookCreateResponse,
   WebhookEnableResponse,
   WebhooksResponse,
-  WebmateBackendStatus
+  WebmateBackendStatus,
+  WhatsAppLinkMode,
+  WhatsAppOnboardingApplyResponse,
+  WhatsAppOnboardingSession
 } from '@/types/hermes'
 
 // Desktop startup fires a burst of read-only data calls (config, profiles,
@@ -234,7 +237,11 @@ export type {
   WebhookEnableResponse,
   WebhookRoute,
   WebhooksResponse,
-  WebmateBackendStatus
+  WebmateBackendStatus,
+  WhatsAppLinkMode,
+  WhatsAppOnboardingApplyResponse,
+  WhatsAppOnboardingSession,
+  WhatsAppSetupInfo
 } from '@/types/hermes'
 
 export class HermesGateway extends JsonRpcGatewayClient {
@@ -644,12 +651,15 @@ export function getSession(id: string, profile?: string | null): Promise<Session
 // this GET to the remote backend (which serves its own state.db); for a local
 // profile the primary opens that profile's state.db via ?profile=. Omit for
 // the current/default profile.
+// `view=display` asks for the transcript the user lived through: turns a
+// context compaction archived come back, and each compaction is one
+// `display_kind: 'compaction'` row. Older backends ignore it.
 export function getSessionMessages(id: string, profile?: string | null): Promise<SessionMessagesResponse> {
-  const suffix = profile ? `?profile=${encodeURIComponent(profile)}` : ''
+  const query = new URLSearchParams({ ...(profile ? { profile } : {}), view: 'display' })
 
   return window.agentxDesktop.api<SessionMessagesResponse>({
     ...(profile ? { profile } : {}),
-    path: `/api/sessions/${encodeURIComponent(id)}/messages${suffix}`
+    path: `/api/sessions/${encodeURIComponent(id)}/messages?${query}`
   })
 }
 
@@ -1205,6 +1215,48 @@ export function testMessagingPlatform(platformId: string): Promise<MessagingPlat
   })
 }
 
+// -- WhatsApp in-app QR linking ----------------------------------------------
+// The backend runs the bundled bridge in pair-only mode and relays its QR. The
+// run lives in that backend process's memory, so every call carries the same
+// profile scope; the start/apply bodies take the profile explicitly (the
+// endpoints read it off the body, not the query string).
+
+export function startWhatsAppLink(body: {
+  mode: WhatsAppLinkMode
+  relink?: boolean
+}): Promise<WhatsAppOnboardingSession> {
+  return window.agentxDesktop.api<WhatsAppOnboardingSession>({
+    ...profileScoped(),
+    path: '/api/messaging/whatsapp/onboarding/start',
+    method: 'POST',
+    body: { mode: body.mode, relink: Boolean(body.relink), ...profileScoped() }
+  })
+}
+
+export function getWhatsAppLink(pairingId: string): Promise<WhatsAppOnboardingSession> {
+  return window.agentxDesktop.api<WhatsAppOnboardingSession>({
+    ...profileScoped(),
+    path: `/api/messaging/whatsapp/onboarding/${encodeURIComponent(pairingId)}`
+  })
+}
+
+export function applyWhatsAppLink(pairingId: string, mode: WhatsAppLinkMode): Promise<WhatsAppOnboardingApplyResponse> {
+  return window.agentxDesktop.api<WhatsAppOnboardingApplyResponse>({
+    ...profileScoped(),
+    path: `/api/messaging/whatsapp/onboarding/${encodeURIComponent(pairingId)}/apply`,
+    method: 'POST',
+    body: { mode, ...profileScoped() }
+  })
+}
+
+export function cancelWhatsAppLink(pairingId: string): Promise<{ ok: boolean }> {
+  return window.agentxDesktop.api<{ ok: boolean }>({
+    ...profileScoped(),
+    path: `/api/messaging/whatsapp/onboarding/${encodeURIComponent(pairingId)}`,
+    method: 'DELETE'
+  })
+}
+
 // -- Pairing (who may DM the bot) --------------------------------------------
 // Unknown DMers get a one-time code and land in `pending` until an admin
 // approves them. Approval grants on the row's `request_id`, never on the code:
@@ -1392,16 +1444,20 @@ export function deleteCronJob(jobId: string): Promise<{ ok: boolean }> {
 // configured gateways), so it carries only the profileScoped() header for
 // routing. instantiate creates a real per-profile job, so it names the target
 // profile explicitly via ?profile=. This mirrors the dashboard's api.ts.
-export function getAutomationBlueprints(): Promise<{ blueprints: AutomationBlueprint[] }> {
+//
+// `locale` is the app's display language: the catalog comes back translated
+// when the backend has a table for it (English otherwise), and a job created
+// from a translated form gets its name and prompt in that language.
+export function getAutomationBlueprints(locale?: string): Promise<{ blueprints: AutomationBlueprint[] }> {
   return window.agentxDesktop.api<{ blueprints: AutomationBlueprint[] }>({
     ...profileScoped(),
-    path: '/api/cron/blueprints',
+    path: locale ? `/api/cron/blueprints?locale=${encodeURIComponent(locale)}` : '/api/cron/blueprints',
     timeoutMs: STARTUP_REQUEST_TIMEOUT_MS
   })
 }
 
 export function instantiateAutomationBlueprint(
-  body: { blueprint: string; values: Record<string, string> },
+  body: { blueprint: string; locale?: string; values: Record<string, string> },
   profile: string
 ): Promise<CronJob> {
   return window.agentxDesktop.api<CronJob>({

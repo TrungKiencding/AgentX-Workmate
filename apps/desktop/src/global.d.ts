@@ -126,6 +126,7 @@ declare global {
       // the account follows the sign-in, so there is nothing for a renderer to
       // set. `provision` is the one action, and it is a rotation.
       account?: {
+        quota?: () => Promise<DesktopAccountQuotaView>
         status: () => Promise<DesktopAccountStatus>
         provision: (options?: { rotate?: boolean }) => Promise<DesktopAccountProvisionResult>
         // The AgentX key gate (electron/agentx-key-gate.ts). Optional: an
@@ -857,6 +858,16 @@ export interface HermesTitleBarTheme {
 export interface HermesActiveWork {
   count: number
   titles: string[]
+  /** The confirmation's words in the app's language (the main process has no
+   *  translations); sent only while something is running. */
+  copy?: {
+    detail: string
+    messageMany: string
+    messageOne: string
+    more: string
+    quit: string
+    stay: string
+  }
 }
 
 export interface HermesWindowState {
@@ -1520,4 +1531,19 @@ export interface HermesSelectPathsOptions {
 export interface BackendExit {
   code: number | null
   signal: string | null
+}
+
+/** Sanitized account budget; credentials never enter the renderer. USD, as billed by LiteLLM. */
+export interface DesktopAccountQuota {
+  spend: number
+  limit: number | null
+  remaining: number | null
+  reset_at: string | null
+  renews: boolean
+  updated_at: string
+}
+
+export interface DesktopAccountQuotaView {
+  status: 'ok' | 'offline' | 'unsupported' | 'forbidden' | 'unavailable' | 'error'
+  quota: DesktopAccountQuota | null
 }

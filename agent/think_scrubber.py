@@ -56,13 +56,27 @@ intentional, bounded construct.
 
 from __future__ import annotations
 
+import re
 from typing import Tuple
 
-__all__ = ["StreamingThinkScrubber", "THINK_TAG_NAMES"]
+__all__ = ["THINK_CLOSE_TAGS", "THINK_OPEN_TAGS", "THINK_TAG_ALTERNATION", "THINK_TAG_NAMES", "StreamingThinkScrubber"]
 
+# The one canonical list of inline reasoning tag names. Every reasoning-hiding
+# surface (this scrubber, the final-response stripper, the CLI and gateway
+# stream filters, TTS, the auxiliary-client strip) binds to it; a tag added
+# here is covered everywhere. Consumers match case-insensitively. The CJK names
+# cover models (MiniMax-M3) that emit Chinese reasoning tags: 思考 (think),
+# 反思 (reflect), 推理 (reason), 推敲 (deliberate). MiniMax-M3 also emits the
+# namespaced ``<mm:think>``; streaming surfaces match literal tags, so a
+# namespaced name is listed whole.
 THINK_TAG_NAMES: Tuple[str, ...] = (
     "think", "thinking", "reasoning", "thought", "REASONING_SCRATCHPAD",
+    "思考", "反思", "推理", "推敲", "mm:think",
 )
+THINK_OPEN_TAGS: Tuple[str, ...] = tuple(f"<{name.lower()}>" for name in THINK_TAG_NAMES)
+THINK_CLOSE_TAGS: Tuple[str, ...] = tuple(f"</{name.lower()}>" for name in THINK_TAG_NAMES)
+# Regex alternation over the names, for callers that build their own patterns.
+THINK_TAG_ALTERNATION: str = "|".join(re.escape(name) for name in THINK_TAG_NAMES)
 
 
 class StreamingThinkScrubber:

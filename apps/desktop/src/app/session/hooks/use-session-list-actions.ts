@@ -3,6 +3,7 @@ import { useCallback, useRef } from 'react'
 import { getCronJobs, listAllProfileSessions, listSidebarSessions, type SessionInfo } from '@/hermes'
 import { sameCronSignature } from '@/lib/session-signatures'
 import {
+  BOT_ROOM_SESSION_SOURCE,
   isMessagingSource,
   LOCAL_SESSION_SOURCE_IDS,
   MESSAGING_SESSION_SOURCE_IDS,
@@ -36,10 +37,18 @@ import { $workingSessionIds, getRecentlySettledSessionIds } from '@/store/sessio
 // sidebar section (refreshMessagingSessions). Excluding them here keeps
 // "Load more" paging through interactive local chats instead of
 // interleaving gateway threads that bury them.
-const SIDEBAR_EXCLUDED_SOURCES = ['cron', 'kanban', 'subagent', 'tool', ...MESSAGING_SESSION_SOURCE_IDS]
+const SIDEBAR_EXCLUDED_SOURCES = [
+  'cron',
+  'kanban',
+  'subagent',
+  'tool',
+  BOT_ROOM_SESSION_SOURCE,
+  ...MESSAGING_SESSION_SOURCE_IDS
+]
+
 // The messaging slice is the inverse: drop cron + every local source so only
 // external-platform conversations remain, then split per platform in the UI.
-const MESSAGING_EXCLUDED_SOURCES = ['cron', ...LOCAL_SESSION_SOURCE_IDS]
+const MESSAGING_EXCLUDED_SOURCES = ['cron', BOT_ROOM_SESSION_SOURCE, ...LOCAL_SESSION_SOURCE_IDS]
 
 // Rows a session refresh must preserve even if the aggregator omits them:
 // in-flight first turns (message_count 0), pinned rows aged off the page, the

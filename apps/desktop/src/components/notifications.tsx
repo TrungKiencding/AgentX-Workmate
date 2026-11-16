@@ -2,10 +2,10 @@ import { useStore } from '@nanostores/react'
 import { type CSSProperties, type ReactNode, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
+import { DetailPanel } from '@/components/detail-panel'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
-import { CopyButton } from '@/components/ui/copy-button'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import {
@@ -303,24 +303,7 @@ function NotificationDetail({ detail }: { detail: string }) {
   return (
     <details className="mt-1.5 text-sm text-(--text-secondary)">
       <summary className="select-none text-(--text-secondary) hover:text-(--text-primary)">{copy.details}</summary>
-      <div className="mt-1 rounded-md bg-(--bg-subtle) p-2">
-        <pre
-          className="max-h-32 overflow-auto whitespace-pre-wrap wrap-break-word font-mono text-xs leading-relaxed"
-          data-selectable-text="true"
-        >
-          {detail}
-        </pre>
-        <CopyButton
-          appearance="inline"
-          className="mt-1 rounded-sm px-1.5 py-0.5 text-xs"
-          errorMessage={copy.copyDetailFailed}
-          iconClassName="size-3"
-          label={copy.copyDetail}
-          text={detail}
-        >
-          {copy.copyDetail}
-        </CopyButton>
-      </div>
+      <DetailPanel copyFailedLabel={copy.copyDetailFailed} copyLabel={copy.copyDetail} detail={detail} />
     </details>
   )
 }

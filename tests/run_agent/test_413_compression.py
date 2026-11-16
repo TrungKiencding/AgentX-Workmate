@@ -1190,3 +1190,5 @@ class TestOverflowWithCompactionDisabled:
         assert result.get("failed") is True
         assert result.get("compaction_disabled") is True
         assert "auto-compaction is disabled" in result["error"]
+        # Classified, so the desktop and the usage metrics say "too long".
+        assert result.get("failure_reason") == "payload_too_large"

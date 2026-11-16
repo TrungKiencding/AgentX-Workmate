@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import enum
 import logging
+import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional
 
@@ -36,6 +37,10 @@ class FailoverReason(enum.Enum):
 
     # Billing / quota
     billing = "billing"                  # 402 or confirmed credit exhaustion — rotate immediately
+    # A gateway's spend cap (LiteLLM key/user/team budget). Deterministic
+    # until an administrator raises it, and not a provider credit wall: no
+    # retry, no credential rotation, no "add credits" guidance.
+    budget_exceeded = "budget_exceeded"
     rate_limit = "rate_limit"            # 429 or quota-based throttling — backoff then rotate
     # Upstream model rate-limited (aggregator 429) — fallback to a different
     # model, NOT credential rotation. The user's key is healthy.
@@ -103,6 +108,36 @@ class ClassifiedError:
         return self.reason in {FailoverReason.auth, FailoverReason.auth_permanent}
 
     @property
+    def failure_reason(self) -> str:
+        """The reason a failed turn reports (``failure_reason`` on its result).
+
+        The recovery reason, except where the same recovery covers failures a
+        person reads differently and must act on differently:
+
+        - a connection that could not be made retries like a timeout, but is
+          reported as ``connection_failed``;
+        - a stream the provider cut off mid-answer retries like a timeout, but
+          is reported as ``stream_interrupted`` (nothing "took too long");
+        - a gateway that gave up waiting on its upstream (HTTP 504, Cloudflare
+          524) retries like a server error, but is reported as ``timeout``;
+        - a key or team refused one model (LiteLLM answers that with a 401)
+          rotates like an auth failure, but is reported as
+          ``model_not_allowed`` — signing in again does not grant the model.
+
+        Every value this returns is in ``REPORTED_FAILURE_REASONS``.
+        """
+        if self.reason == FailoverReason.timeout:
+            if self.error_context.get("connect_failed"):
+                return "connection_failed"
+            if self.error_context.get("stream_dropped"):
+                return "stream_interrupted"
+        if self.reason == FailoverReason.server_error and self.error_context.get("gateway_timeout"):
+            return FailoverReason.timeout.value
+        if self.is_auth and self.error_context.get("model_access_denied"):
+            return "model_not_allowed"
+        return self.reason.value
+
+    @property
     def billing_unverified(self) -> bool:
         """True when a ``billing`` verdict rests on an ambiguous body.
 
@@ -113,7 +148,27 @@ class ClassifiedError:
 
 
 
+#: Every value ``ClassifiedError.failure_reason`` can take: the recovery reasons
+#: plus the ones it reports apart from their recovery. Surfaces that turn a
+#: failed turn's ``failure_reason`` into words (gateway chat replies, the cron
+#: failure kind, the desktop's failure code) key off this set.
+REPORTED_FAILURE_REASONS = frozenset(
+    {reason.value for reason in FailoverReason}
+    | {"connection_failed", "stream_interrupted", "model_not_allowed"}
+)
+
+
 # ── Provider-specific patterns ──────────────────────────────────────────
+
+# A key or team that may not call the requested model. LiteLLM (the AgentX AI
+# Gateway) answers that with a 401 "Authentication Error, key not allowed to
+# access model …" — an entitlement of the credential, not a broken credential.
+_MODEL_ACCESS_DENIED_PATTERNS = (
+    "not allowed to access model",
+    "not allowed to access this model",
+    "not allowed to use model",
+    "not allowed to call model",
+)
 
 # Patterns that indicate billing exhaustion (not transient rate limit)
 _BILLING_PATTERNS = [
@@ -264,6 +319,40 @@ _PAYLOAD_TOO_LARGE_PATTERNS = [
     "request_too_large",
     "request exceeds the maximum size",
 ]
+
+# Request-BODY byte caps that byte-limited gateways report as a 400 (not 413) in wordings the exact list
+# above misses: "RequestSize(bytes): 34021227, Limit(bytes): 33554432", "request body too large, must be
+# less than 20MB" (Novita), "Request size exceeds the limit of {0}" (Z.AI). Without a match they fell to
+# format_error or token-overflow, and an image-heavy session (large in bytes, small in tokens) re-sent
+# the same oversized history. A subject AND an overflow signal are both required so field-level length
+# complaints ("tools[0].description content length exceeds maximum allowed") stay out; a
+# response-scoped subject never matches, because shrinking the request cannot fix a large response.
+_BYTE_SIZE_SUBJECT = re.compile(
+    # The overflow verb must follow "... size" directly, so a parameter named there ("request size
+    # parameter page_size exceeds the maximum of 100") is not the body.
+    r"(?<!response )\b(?:(?:request ?size|(?:request )?(?:body|payload) size)(?: is)? (?:exceed|too large|too big)"
+    r"|request body(?: is)? too large|(?:request )?payload(?: is)? too large)"
+)
+_BYTE_SIZE_OVERFLOW = re.compile(r"exceed|too large|too big")
+# A size subject that counts tokens is a token cap ("Request body too large for gpt-4.1 model. Max size:
+# 8000 tokens." from GitHub Models / Azure AI Inference), so it keeps the token rules; only the
+# context-overflow path adopts a quoted limit, and the byte path would compress against the old window.
+_TOKEN_COUNT = re.compile(r"\btokens?\b")
+_REQUEST_WORDS = {"request", "requestsize", "byte", "bytes"}
+
+
+def _is_byte_size_limit_message(error_msg: str) -> bool:
+    """True when ``error_msg`` reports the request body over a byte-size cap (see above)."""
+    msg = (error_msg or "").lower()
+    if not _BYTE_SIZE_OVERFLOW.search(msg) or _TOKEN_COUNT.search(msg):
+        return False
+    if _BYTE_SIZE_SUBJECT.search(msg):
+        return True
+    # "content length" alone is a field-length complaint unless the request or bytes are named. "_" stays
+    # inside a word: the SDK's str() carries the body, whose "invalid_request_error" type is not "request".
+    content_length = "content length" in msg or "content-length" in msg
+    return content_length and bool(_REQUEST_WORDS & set(re.split(r"[^a-z0-9_]+", msg)))
+
 
 # Image-size patterns.  Matched against 400 bodies (not 413) because most
 # providers return a 400 with a specific image-too-big message before the
@@ -606,6 +695,14 @@ _CONTENT_POLICY_BLOCKED_PATTERNS = [
     # echo back; the underscore form is provider-specific enough.
     "content_filter",
     "responsibleaipolicyviolation",
+    # LiteLLM re-raises every provider's refusal as ContentPolicyViolationError
+    # (so an AgentX AI Gateway refusal arrives as a plain 400), Azure words it
+    # as its "content management policy", OpenAI's image and chat refusals as
+    # "rejected as a result of our safety system".
+    "contentpolicyviolation",
+    "content_policy_violation",
+    "content management policy",
+    "rejected as a result of our safety system",
     # MiniMax output-layer safety filter. The error string is surfaced
     # verbatim by MiniMax SDK / OpenAI-compatible endpoints, usually in the
     # form "output new_sensitive (1027)" when the model's *output* (often a
@@ -615,6 +712,48 @@ _CONTENT_POLICY_BLOCKED_PATTERNS = [
     # strings will not collide. See #32421.
     "new_sensitive",
 ]
+
+# A gateway's spend cap: LiteLLM's BudgetExceededError ("Budget has been
+# exceeded! Current cost: …, Max budget: …", type ``budget_exceeded``) and its
+# per-user/team form ("ExceededBudget: User=… over budget"), sent as a 400.
+# Verbatim LiteLLM wording only — "budget" alone also names Anthropic's
+# ``thinking.budget_tokens`` and the agent's own iteration budget.
+_GATEWAY_BUDGET_PATTERNS = [
+    "budget has been exceeded",
+    "exceededbudget",
+    "budget_exceeded",
+]
+
+# A connection that was never made, or was refused or reset: reported as a
+# network failure (``connection_failed``) while it retries as a transport
+# timeout. Timeout types stay timeouts (APITimeoutError subclasses
+# APIConnectionError, so it is named here only to be excluded).
+_CONNECT_FAILURE_TYPES = frozenset({
+    "APIConnectionError", "ConnectError", "ConnectionError",
+    "ConnectionRefusedError", "ConnectionResetError", "ConnectionAbortedError",
+    "BrokenPipeError", "RemoteProtocolError", "ReadError",
+    "ServerDisconnectedError", "ClientConnectorError", "gaierror",
+})
+_TIMEOUT_TYPES = frozenset({
+    "APITimeoutError", "ReadTimeout", "ConnectTimeout", "PoolTimeout",
+    "WriteTimeout", "TimeoutError", "ServerTimeoutError",
+})
+
+
+def _is_connect_failure(error: Exception) -> bool:
+    """True when ``error`` (or what it wraps) is a failed or broken connection, not a timeout."""
+    seen = 0
+    current: Optional[BaseException] = error
+    while current is not None and seen < 6:
+        name = type(current).__name__
+        if name in _TIMEOUT_TYPES or isinstance(current, TimeoutError):
+            return False
+        if name in _CONNECT_FAILURE_TYPES or isinstance(current, ConnectionError):
+            return True
+        current = current.__cause__ or current.__context__
+        seen += 1
+    return False
+
 
 # Auth patterns (non-status-code signals)
 _AUTH_PATTERNS = [
@@ -796,6 +935,14 @@ _SSL_TRANSIENT_PATTERNS = [
 
 # ── Classification pipeline ─────────────────────────────────────────────
 
+def _model_access_context(error_msg: str) -> Dict[str, Any]:
+    """error_context marking an auth rejection as one model refused (see
+    ``_MODEL_ACCESS_DENIED_PATTERNS``), so it is reported as such."""
+    if any(p in error_msg for p in _MODEL_ACCESS_DENIED_PATTERNS):
+        return {"model_access_denied": True}
+    return {}
+
+
 def classify_api_error(
     error: Exception,
     *,
@@ -944,6 +1091,17 @@ def classify_api_error(
     if any(p in error_msg for p in _CONTENT_POLICY_BLOCKED_PATTERNS):
         return _result(
             FailoverReason.content_policy_blocked,
+            retryable=False,
+            should_fallback=True,
+        )
+
+    # A gateway's spend cap (LiteLLM, as the AgentX AI Gateway). It arrives as
+    # a 400, so without this it is a ``format_error``; it is no provider
+    # credit wall either (``billing`` would rotate credentials and point at a
+    # top-up page). The same key fails until an administrator raises the cap.
+    if any(p in error_msg for p in _GATEWAY_BUDGET_PATTERNS):
+        return _result(
+            FailoverReason.budget_exceeded,
             retryable=False,
             should_fallback=True,
         )
@@ -1182,7 +1340,10 @@ def classify_api_error(
         # (Part 1 of Fixes #52310.)
         from agent.reasoning_timeouts import get_reasoning_stale_timeout_floor
         if get_reasoning_stale_timeout_floor(model) is not None:
-            return _result(FailoverReason.timeout, retryable=True)
+            return _result(
+                FailoverReason.timeout, retryable=True,
+                error_context={"stream_dropped": True},
+            )
         # Absolute token/message-count thresholds are only a proxy for smaller
         # context windows.  Large-context sessions can have hundreds of
         # messages while still being far below their actual token budget.
@@ -1195,7 +1356,10 @@ def classify_api_error(
                 retryable=True,
                 should_compress=True,
             )
-        return _result(FailoverReason.timeout, retryable=True)
+        return _result(
+            FailoverReason.timeout, retryable=True,
+            error_context={"stream_dropped": True},
+        )
 
     # ── 7b. Stale-call circuit breaker → failover immediately ──────
     # _check_stale_giveup() in agent/chat_completion_helpers.py raises a
@@ -1222,6 +1386,8 @@ def classify_api_error(
     # ── 8. Transport / timeout heuristics ───────────────────────────
 
     if error_type in _TRANSPORT_ERROR_TYPES or isinstance(error, (TimeoutError, ConnectionError, OSError)):
+        if _is_connect_failure(error):
+            return _result(FailoverReason.timeout, retryable=True, error_context={"connect_failed": True})
         return _result(FailoverReason.timeout, retryable=True)
 
     # ── 9. Fallback: unknown ────────────────────────────────────────
@@ -1258,6 +1424,7 @@ def _classify_by_status(
             retryable=False,
             should_rotate_credential=True,
             should_fallback=True,
+            error_context=_model_access_context(error_msg),
         )
 
     if status_code == 403:
@@ -1282,6 +1449,7 @@ def _classify_by_status(
             FailoverReason.auth,
             retryable=False,
             should_fallback=True,
+            error_context=_model_access_context(error_msg),
         )
 
     if status_code == 402:
@@ -1360,6 +1528,31 @@ def _classify_by_status(
             return result_fn(
                 FailoverReason.overloaded,
                 retryable=True,
+            )
+        # OpenAI (and LiteLLM forwarding it) sends an exhausted quota as a
+        # 429 with code ``insufficient_quota`` — the same status as a
+        # throttle, but no amount of waiting refills it. Reading it as a rate
+        # limit retried with backoff and then told the person the service was
+        # "busy". Only the explicit code counts, or OpenAI's wording without
+        # a quota *window*: Gemini's free tier sends the very same "You
+        # exceeded your current quota" for its per-minute limit, alongside
+        # RESOURCE_EXHAUSTED / "quota exceeded for metric" / "retry in Ns",
+        # and that one does refill.
+        if (
+            error_code.lower() == "insufficient_quota"
+            or "insufficient_quota" in error_msg
+            or (
+                "exceeded your current quota" in error_msg
+                and not any(p in error_msg for p in _RATE_LIMIT_PATTERNS)
+                and "quota exceeded for metric" not in error_msg
+                and "retry in" not in error_msg
+            )
+        ):
+            return result_fn(
+                FailoverReason.billing,
+                retryable=False,
+                should_rotate_credential=True,
+                should_fallback=True,
             )
         # Distinguish an OpenRouter-aggregator upstream 429 (an upstream model
         # like DeepSeek rate-limited OpenRouter's aggregate traffic) from an
@@ -1478,9 +1671,14 @@ def _classify_by_status(
             should_fallback=True,
         )
 
-    # Other 5xx — retryable
+    # Other 5xx — retryable. A 504 / Cloudflare 524 is a proxy that gave up
+    # waiting on its upstream: same recovery, reported as a timeout.
     if 500 <= status_code < 600:
-        return result_fn(FailoverReason.server_error, retryable=True)
+        return result_fn(
+            FailoverReason.server_error,
+            retryable=True,
+            error_context={"gateway_timeout": True} if status_code in {504, 524} else {},
+        )
 
     return None
 
@@ -1592,6 +1790,16 @@ def _classify_400(
             retryable=True,
             # The request shape was fine — never route this into compression.
             should_compress=False,
+        )
+
+    # Request-body byte cap reported as a 400. Before the request-validation
+    # and context-overflow rules: Novita tags it INVALID_REQUEST_BODY and
+    # Z.AI's "request size exceeds the limit" trips the overflow heuristics.
+    if _is_byte_size_limit_message(error_msg):
+        return result_fn(
+            FailoverReason.payload_too_large,
+            retryable=True,
+            should_compress=True,
         )
 
     # Request-validation errors (unsupported / unknown parameter) MUST be
@@ -1822,7 +2030,7 @@ def _classify_by_message(
     """Classify based on error message patterns when no status code is available."""
 
     # Payload-too-large patterns (from message text when no status_code)
-    if any(p in error_msg for p in _PAYLOAD_TOO_LARGE_PATTERNS):
+    if any(p in error_msg for p in _PAYLOAD_TOO_LARGE_PATTERNS) or _is_byte_size_limit_message(error_msg):
         return result_fn(
             FailoverReason.payload_too_large,
             retryable=True,
@@ -1958,9 +2166,10 @@ def _classify_by_message(
     # fall through to FailoverReason.unknown. Classified as timeout (the
     # transport bucket) so the retry loop's eager transport fallback and
     # client rebuild apply. Never routes to compression: a connection that
-    # was never established is not a context-overflow signal.
+    # was never established is not a context-overflow signal. Reported as a
+    # failed connection (``failure_reason``), not a timeout.
     if any(p in error_msg for p in _CONNECTION_MESSAGE_PATTERNS):
-        return result_fn(FailoverReason.timeout, retryable=True)
+        return result_fn(FailoverReason.timeout, retryable=True, error_context={"connect_failed": True})
 
     return None
 

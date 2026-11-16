@@ -1,5 +1,7 @@
 import type { GatewayEvent } from '@agentx/shared'
 
+import { invalidateAccountQuota } from '@/store/account-quota'
+
 export interface UsageSignal {
   key: string
   profile?: string
@@ -43,6 +45,10 @@ export function usageSignal(event: GatewayEvent): UsageSignal | null {
 
 export function reportUsageEvent(event: GatewayEvent): void {
   const signal = usageSignal(event)
+
+  if (signal?.phase === 'finish') {
+    invalidateAccountQuota()
+  }
 
   if (signal) {
     void window.agentxDesktop?.usageEvent?.(signal).catch(() => {})

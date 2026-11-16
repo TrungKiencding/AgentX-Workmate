@@ -94,6 +94,7 @@ import {
   tokenPreview
 } from './connection-config'
 import { describeCrashReason, installCrashForensics } from './crash-forensics'
+import { CronUsageOutbox } from './cron-usage-outbox'
 import { adoptServedDashboardToken } from './dashboard-token'
 import { DOCUMENT_MIME_TYPES, previewKindForFile } from './deliverables'
 import { loadOrCreateInstallationId, sshOwnershipId } from './desktop-installation'
@@ -192,7 +193,7 @@ import { linkTitleTarget } from './private-network-host'
 import { decideProfileDeleteAction, profileNameFromDeleteRequest, resolveRouteProfile } from './profile-delete-routing'
 import { fetchPrimaryProfileSessions } from './profile-session-routing'
 import { createQuickEntryShortcut, quickEntryWindowBounds, sanitizeQuickEntrySettings } from './quick-entry'
-import { type ActiveWork, mergeActiveWork, normalizeActiveWork, quitPromptFor } from './quit-guard'
+import { type ActiveWork, closeDecisionFor, mergeActiveWork, normalizeActiveWork, quitPromptFor } from './quit-guard'
 import * as remoteLifecycle from './remote-lifecycle'
 import {
   RemoteLivenessTracker,
@@ -2598,6 +2599,12 @@ let isQuittingForHandoff = false
 // (the app.quit() that follows re-enters before-quit and must pass through).
 let quitPromptOpen = false
 let quitConfirmedWithActiveWork = false
+// Set once before-quit has let a quit through: the windows that close after it
+// are the app leaving, not a person closing a window on running work.
+let quitUnderway = false
+// macOS windows kept hidden instead of closed because a turn was running in
+// them (see closeDecisionFor); closed for real once the work is done.
+const windowsHiddenForActiveWork = new Set<BrowserWindow>()
 // Set once an aborted installer's process tree is gone, so the app.quit() that
 // was held for it passes straight through.
 let installerQuitTeardownDone = false
@@ -5175,7 +5182,9 @@ function restorePersistedZoomLevel(window) {
       // A pre-JSON install's legacy value takes the same one-time move off the
       // retired 125% default.
       const level =
-        stored == null ? DEFAULT_ZOOM_LEVEL : (resolveSavedZoomLevel(Number(stored), undefined).level ?? DEFAULT_ZOOM_LEVEL)
+        stored == null
+          ? DEFAULT_ZOOM_LEVEL
+          : (resolveSavedZoomLevel(Number(stored), undefined).level ?? DEFAULT_ZOOM_LEVEL)
 
       const applied = applyZoomLevel(window.webContents, level)
       writeZoomState(applied)
@@ -6255,6 +6264,8 @@ async function resolveLocalBackendAuth(
   // owned by the Keycloak layer (keyed by realm, not by the ephemeral port), so
   // the entry here is the current access token, not the refresh authority.
   _nativeTokens.set(baseUrl, session.tokens)
+  // A session to send with: what scheduled runs left while there was none goes now.
+  scheduleCronUsageDrain()
 
   const ticket = await patience.run('ws ticket', () => mintGatewayWsTicket(baseUrl))
 
@@ -7922,6 +7933,9 @@ async function testDesktopConnectionConfig(input: any = {}) {
   }
 }
 
+// The renderer reads this phase as the start of a new boot cycle and drops the
+// previous cycle's error with it (BOOT_RESTART_PHASE in src/store/boot.ts) —
+// keep the two in step.
 function resetBootProgressForReconnect() {
   updateBootProgress(
     {
@@ -8250,6 +8264,10 @@ async function spawnPoolBackend(profile, entry) {
         // Marks this dashboard backend as desktop-spawned so it runs the cron
         // scheduler tick loop (the gateway isn't running under the app).
         AGENTX_DESKTOP: '1',
+        // …and as a pool backend: one the app reaps when its profile is idle.
+        // The backend uses this to leave an assistant's scheduled tasks to the
+        // primary backend, which outlives it (hermes_cli/web_server.py).
+        AGENTX_DESKTOP_POOL: '1',
         AGENTX_WEB_DIST: webDist,
         ...(readyFile ? { AGENTX_DESKTOP_READY_FILE: readyFile } : {})
       },
@@ -9814,10 +9832,15 @@ function createWindow() {
   mainWindow.on('moved', schedulePersistWindowState)
   mainWindow.on('maximize', schedulePersistWindowState)
   mainWindow.on('unmaximize', schedulePersistWindowState)
-  mainWindow.on('close', () => schedulePersistWindowState.flush())
-
   // the closed wrapper remains truthy, so clear only the window this callback owns.
   const createdMainWindow = mainWindow
+
+  mainWindow.on('close', event => {
+    schedulePersistWindowState.flush()
+    // Closing the window on a running turn must not silently kill it.
+    heldCloseForActiveWork(event, createdMainWindow)
+  })
+
   mainWindow.on('closed', () => {
     closePetOverlay()
     wakeIndicatorController.close()
@@ -10461,6 +10484,42 @@ const usageReporter = new UsageReporter({
   }
 })
 
+// Scheduled runs fire with or without this app; each leaves its event in its home's
+// outbox, and this sends them with the signed-in session (cron-usage-outbox.ts).
+const cronUsageOutbox = new CronUsageOutbox({
+  root: AGENTX_HOME,
+  identity: async () => {
+    const config = keycloakConfigForProfile()
+
+    return config
+      ? usageIdentityFromSession(await ensureKeycloakAccessToken(config, keycloakDeps()), config.issuer)
+      : null
+  },
+  deliver: (identity, events) => usageReporter.deliver(identity, events),
+  log: rememberLog
+})
+
+const CRON_USAGE_DRAIN_MS = 5 * 60 * 1000
+let cronUsageDrainTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Drains the outbox shortly (a sign-in or a backend start), then every few minutes. */
+function scheduleCronUsageDrain(delayMs = 15_000): void {
+  if (cronUsageDrainTimer) {
+    clearTimeout(cronUsageDrainTimer)
+  }
+
+  cronUsageDrainTimer = setTimeout(() => {
+    cronUsageDrainTimer = null
+    void cronUsageOutbox.drain().finally(() => {
+      if (!cronUsageDrainTimer) {
+        scheduleCronUsageDrain(CRON_USAGE_DRAIN_MS)
+      }
+    })
+  }, delayMs)
+  // Never what keeps the app from quitting: a file left unsent goes next time.
+  cronUsageDrainTimer.unref?.()
+}
+
 ipcMain.handle('agentx:usage:event', (_event, signal) => {
   if (!signal || typeof signal.key !== 'string' || signal.key.length > 512) {
     return false
@@ -10786,6 +10845,15 @@ async function callAccountRoute(
     return unavailable(detail)
   }
 }
+
+ipcMain.handle('agentx:account:quota', async () =>
+  callAccountRoute(
+    '/api/account/quota',
+    { timeoutMs: 12_000 },
+    detail => ({ status: /^(404|405):/.test(detail) ? 'unsupported' : 'offline', quota: null }),
+    'quota'
+  )
+)
 
 async function callDeviceRoute(path: string, options: any = {}): Promise<any> {
   return callAccountRoute(path, options, detail => ({ current: '', detail, devices: [], status: 'offline' }), 'devices')
@@ -11534,6 +11602,7 @@ ipcMain.on('agentx:active-work', (event, payload) => {
 
   activeWorkByWebContents.set(id, normalizeActiveWork(payload))
   updateStreamThrottleFromActiveWork()
+  closeWindowsHiddenForFinishedWork()
 })
 
 ipcMain.on('agentx:titlebar-theme', (_event, payload) => {
@@ -13087,33 +13156,60 @@ function configureSpellChecker() {
   }
 }
 
-// Ask before a quit kills a turn in flight. True when the quit was intercepted
-// and the confirmation is on screen; "Quit Anyway" re-enters before-quit with
-// the latch set and falls straight through to the teardown below.
-function heldQuitForActiveWork(event: Electron.Event): boolean {
-  if (SKIP_QUIT_CONFIRM || quitConfirmedWithActiveWork || quitPromptOpen) {
-    return false
+// A window a person closed while a turn ran in it stays (hidden) for as long
+// as the work does. Once nothing is running, honour the close.
+function closeWindowsHiddenForFinishedWork() {
+  if (windowsHiddenForActiveWork.size === 0 || mergeActiveWork(activeWorkByWebContents.values()).count > 0) {
+    return
   }
 
-  const prompt = quitPromptFor(mergeActiveWork(activeWorkByWebContents.values()), isQuittingForHandoff)
-  const parent = BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0]
+  for (const win of [...windowsHiddenForActiveWork]) {
+    windowsHiddenForActiveWork.delete(win)
 
-  if (!prompt || !parent || parent.isDestroyed()) {
-    return false
+    // Brought back in the meantime (Dock click): it is in use again.
+    if (!win.isDestroyed() && !win.isVisible()) {
+      win.close()
+    }
+  }
+}
+
+function hideWindowForActiveWork(win: BrowserWindow) {
+  windowsHiddenForActiveWork.add(win)
+  win.once('closed', () => windowsHiddenForActiveWork.delete(win))
+
+  // Hiding a fullscreen window leaves its black Space behind.
+  if (win.isFullScreen()) {
+    win.once('leave-full-screen', () => {
+      if (!win.isDestroyed()) {
+        win.hide()
+      }
+    })
+    win.setFullScreen(false)
+
+    return
   }
 
-  event.preventDefault()
+  win.hide()
+}
+
+// The confirmation itself, shared by "quit" and "close the last window".
+// Attached to `parent` when it can be seen; a sheet on a hidden window would
+// never appear, so that case gets an app-level dialog.
+function confirmQuitWithActiveWork(prompt: NonNullable<ReturnType<typeof quitPromptFor>>, parent?: BrowserWindow | null) {
+  const options: Electron.MessageBoxOptions = {
+    buttons: prompt.buttons,
+    cancelId: 0,
+    defaultId: 0,
+    detail: prompt.detail,
+    message: prompt.message,
+    type: 'question'
+  }
+
+  const visibleParent = parent && !parent.isDestroyed() && parent.isVisible() ? parent : null
+
   quitPromptOpen = true
 
-  void dialog
-    .showMessageBox(parent, {
-      buttons: ['Keep Running', 'Quit Anyway'],
-      cancelId: 0,
-      defaultId: 0,
-      detail: prompt.detail,
-      message: prompt.message,
-      type: 'question'
-    })
+  void (visibleParent ? dialog.showMessageBox(visibleParent, options) : dialog.showMessageBox(options))
     .then(({ response }) => {
       quitPromptOpen = false
 
@@ -13128,6 +13224,66 @@ function heldQuitForActiveWork(event: Electron.Event): boolean {
       quitConfirmedWithActiveWork = true
       app.quit()
     })
+}
+
+// Closing a chat window while a turn runs in the app. True when the close was
+// intercepted (the window was hidden, or the confirmation is on screen).
+function heldCloseForActiveWork(event: Electron.Event, win: BrowserWindow): boolean {
+  if (SKIP_QUIT_CONFIRM || quitPromptOpen) {
+    // A second click on the close button while the dialog is up: still held.
+    if (quitPromptOpen) {
+      event.preventDefault()
+    }
+
+    return quitPromptOpen
+  }
+
+  const work = mergeActiveWork(activeWorkByWebContents.values())
+
+  const decision = closeDecisionFor({
+    lastChatWindow: win === mainWindow && sessionWindows.size === 0,
+    platform: process.platform,
+    quitting: quitUnderway || quitConfirmedWithActiveWork || isQuittingForHandoff,
+    work
+  })
+
+  if (decision === 'close') {
+    return false
+  }
+
+  event.preventDefault()
+
+  if (decision === 'hide') {
+    hideWindowForActiveWork(win)
+
+    return true
+  }
+
+  const prompt = quitPromptFor(work, false)
+
+  if (prompt) {
+    confirmQuitWithActiveWork(prompt, win)
+  }
+
+  return true
+}
+
+// Ask before a quit kills a turn in flight. True when the quit was intercepted
+// and the confirmation is on screen; "Quit Anyway" re-enters before-quit with
+// the latch set and falls straight through to the teardown below.
+function heldQuitForActiveWork(event: Electron.Event): boolean {
+  if (SKIP_QUIT_CONFIRM || quitConfirmedWithActiveWork || quitPromptOpen) {
+    return false
+  }
+
+  const prompt = quitPromptFor(mergeActiveWork(activeWorkByWebContents.values()), isQuittingForHandoff)
+
+  if (!prompt) {
+    return false
+  }
+
+  event.preventDefault()
+  confirmQuitWithActiveWork(prompt, BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0])
 
   return true
 }
@@ -13138,6 +13294,9 @@ app.on('before-quit', event => {
   if (heldQuitForActiveWork(event)) {
     return
   }
+
+  // From here the app is leaving: windows closing now must not be held.
+  quitUnderway = true
 
   stopAccountTicker()
   appUpdateService?.stop()

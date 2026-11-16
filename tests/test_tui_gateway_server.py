@@ -1150,6 +1150,32 @@ def test_tui_non_interactive_tool_lifecycle_stays_hidden_when_tool_progress_off(
     assert events == []
 
 
+def test_tool_complete_carries_real_diff_stats_past_the_preview_cap(monkeypatch, tmp_path):
+    """The inline diff is a capped preview; its +/- must not be read as the
+    size of the change. A 200-line new file is +200, not +78."""
+    events: list[tuple[str, str, dict]] = []
+    monkeypatch.setattr(
+        server, "_emit", lambda event_type, sid, payload: events.append((event_type, sid, payload))
+    )
+    monkeypatch.setitem(
+        server._sessions,
+        "diff-stats-test",
+        {"tool_progress_mode": "all", "tool_started_at": {}},
+    )
+
+    target = tmp_path / "analysis.py"
+    args = {"path": str(target), "content": "..."}
+
+    server._on_tool_start("diff-stats-test", "tool-1", "write_file", args)
+    target.write_text("".join(f"line {i}\n" for i in range(200)), encoding="utf-8")
+    server._on_tool_complete("diff-stats-test", "tool-1", "write_file", args, '{"bytes_written": 1}')
+
+    complete = [payload for event_type, _sid, payload in events if event_type == "tool.complete"]
+    assert len(complete) == 1
+    assert "omitted" in complete[0]["inline_diff"]
+    assert complete[0]["inline_diff_stats"] == {"added": 200, "removed": 0}
+
+
 def test_dispatch_rejects_non_object_request():
     resp = server.dispatch([])
 
@@ -2502,7 +2528,7 @@ def test_session_resume_uses_parent_lineage_for_display(monkeypatch, omit_messag
         def reopen_session(self, target):
             captured["reopened"] = target
 
-        def get_resume_conversations(self, session_id):
+        def get_resume_conversations(self, session_id, **_kwargs):
             return (
                 self.get_messages_as_conversation(session_id, repair_alternation=True),
                 self.get_messages_as_conversation(session_id, include_ancestors=True),
@@ -2943,7 +2969,7 @@ def test_session_resume_passes_stored_runtime_to_agent(monkeypatch):
         def reopen_session(self, target):
             pass
 
-        def get_resume_conversations(self, session_id):
+        def get_resume_conversations(self, session_id, **_kwargs):
             return (
                 self.get_messages_as_conversation(session_id, repair_alternation=True),
                 self.get_messages_as_conversation(session_id, include_ancestors=True),
@@ -3012,7 +3038,7 @@ def test_session_resume_profile_uses_profile_db_cwd(monkeypatch, tmp_path):
         def reopen_session(self, _target):
             captured["reopened"] = _target
 
-        def get_resume_conversations(self, session_id):
+        def get_resume_conversations(self, session_id, **_kwargs):
             return (
                 self.get_messages_as_conversation(session_id, repair_alternation=True),
                 self.get_messages_as_conversation(session_id, include_ancestors=True),
@@ -4402,7 +4428,7 @@ def test_prompt_submit_rejects_negative_truncate_ordinal(monkeypatch):
     replaced = []
 
     class _FakeDB:
-        def replace_messages(self, key, messages):
+        def replace_messages(self, key, messages, **_kwargs):
             replaced.append((key, list(messages)))
 
     history = [
@@ -4539,7 +4565,7 @@ def test_prompt_submit_refuses_unconfirmed_nonempty_truncation(monkeypatch):
     replaced = []
 
     class _FakeDB:
-        def replace_messages(self, key, messages):
+        def replace_messages(self, key, messages, **_kwargs):
             replaced.append((key, list(messages)))
 
     history = [
@@ -4602,7 +4628,7 @@ def test_prompt_submit_refuses_empty_truncation_without_confirm(monkeypatch):
     replaced = []
 
     class _FakeDB:
-        def replace_messages(self, key, messages):
+        def replace_messages(self, key, messages, **_kwargs):
             replaced.append((key, list(messages)))
 
     history = [
@@ -4689,7 +4715,7 @@ def test_prompt_submit_empty_truncation_allowed_with_confirm(monkeypatch):
             self._target()
 
     class _FakeDB:
-        def replace_messages(self, key, messages):
+        def replace_messages(self, key, messages, **_kwargs):
             replaced.append((key, list(messages)))
 
     history = [
@@ -6025,6 +6051,39 @@ def test_pet_gallery_quoted_false_enabled_reports_disabled(tmp_path, monkeypatch
         {"id": "1", "method": "pet.gallery", "params": {}}
     )
     assert response["result"]["enabled"] is False
+
+
+def test_pet_gallery_reports_what_happened_to_the_catalog(tmp_path, monkeypatch):
+    """The picker needs to tell "petdex is down" from "nothing installed yet".
+
+    Both used to come back as an ok response holding only local pets, so an
+    empty first install showed "couldn't reach petdex" while the catalog was
+    still loading, and a real outage could never be retried.
+    """
+    from agent.pet import manifest
+
+    monkeypatch.setattr(server, "_hermes_home", tmp_path)
+    monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
+    monkeypatch.setattr("agent.pet.store.get_hermes_home", lambda: tmp_path)
+    monkeypatch.setattr(manifest, "prefetch", lambda **_: None)
+
+    def gallery(params):
+        return server.handle_request({"id": "1", "method": "pet.gallery", "params": params})["result"]
+
+    entry = manifest.ManifestEntry.from_dict(
+        {"slug": "boba", "spritesheetUrl": "https://assets.petdex.dev/curated/boba/spritesheet.webp"}
+    )
+    monkeypatch.setattr(manifest, "fetch_manifest", lambda **_: [entry])
+    assert gallery({"localOnly": True}) == {"enabled": False, "active": "", "pets": [], "catalog": "skipped"}
+    full = gallery({})
+    assert full["catalog"] == "ok"
+    assert [p["slug"] for p in full["pets"]] == ["boba"]
+
+    def down(**_):
+        raise manifest.ManifestError("could not fetch petdex manifest: no route")
+
+    monkeypatch.setattr(manifest, "fetch_manifest", down)
+    assert gallery({}) == {"enabled": False, "active": "", "pets": [], "catalog": "unreachable"}
 
 
 def test_pet_info_known_revision_elides_spritesheet(monkeypatch):
@@ -8100,7 +8159,7 @@ def test_slash_exec_r7_read_commands_use_metadata_mirror_flag_on(monkeypatch):
                 "pinned": True,
             }
 
-        def get_resume_conversations(self, session_id):
+        def get_resume_conversations(self, session_id, **_kwargs):
             return (
                 self.get_messages_as_conversation(session_id, repair_alternation=True),
                 self.get_messages_as_conversation(session_id, include_ancestors=True),
@@ -8185,7 +8244,7 @@ def test_prompt_submit_sets_approval_session_key(monkeypatch):
             }
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):
@@ -8225,7 +8284,7 @@ def test_prompt_submit_expands_context_refs(monkeypatch):
             }
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):
@@ -9380,7 +9439,7 @@ def test_prompt_submit_history_version_mismatch_surfaces_warning(monkeypatch):
             }
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):
@@ -9473,7 +9532,7 @@ def test_prompt_submit_merges_on_model_switch_marker(monkeypatch):
         return _is_model_switch_marker(entry)
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):
@@ -9594,7 +9653,7 @@ def test_prompt_submit_history_version_match_persists_normally(monkeypatch):
             }
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):
@@ -9722,7 +9781,8 @@ def test_prompt_submit_can_truncate_before_user_ordinal(monkeypatch):
         def __init__(self):
             self.replaced = []
 
-        def replace_messages(self, session_id, messages):
+        def replace_messages(self, session_id, messages, active_only=False):
+            assert active_only, "a rewind must keep compaction-archived rows"
             self.replaced.append((session_id, list(messages)))
 
     stub_db = _StubDb()
@@ -9779,7 +9839,7 @@ def test_prompt_submit_refuses_turn_when_truncate_persist_fails(monkeypatch):
     server._sessions["trunc-fail-sid"] = sess
 
     class _FailDb:
-        def replace_messages(self, session_id, messages):
+        def replace_messages(self, session_id, messages, **_kwargs):
             raise OSError("disk full")
 
     monkeypatch.setattr(server, "_get_db", lambda: _FailDb())
@@ -9871,7 +9931,7 @@ def test_prompt_submit_truncate_ordinal_skips_display_kind_rows(monkeypatch):
         def __init__(self):
             self.replaced = []
 
-        def replace_messages(self, session_id, messages):
+        def replace_messages(self, session_id, messages, **_kwargs):
             self.replaced.append((session_id, list(messages)))
 
     stub_db = _StubDb()
@@ -12171,6 +12231,93 @@ def test_session_branch_writes_to_parent_profile_db(monkeypatch, tmp_path):
         # not just the row. Otherwise its own flushes (and a later compression
         # rotation) land on the launch db, splitting the lineage again.
         assert isinstance(seen.get("agent_session_db"), ProfileDB)
+    finally:
+        for k in list(server._sessions):
+            server._sessions.pop(k, None)
+
+
+@pytest.mark.parametrize(
+    "params, kept",
+    [
+        # Branch at A2 in a live chat whose first turn streamed an interim
+        # bubble: the desktop's count (5) used to pull in U3.
+        ({"user_ordinal": 1, "include_reply": True, "count": 5}, ["U1", "A1 interim", "", "A1 final", "U2", "A2"]),
+        ({"user_ordinal": 1, "include_reply": False, "count": 4}, ["U1", "A1 interim", "", "A1 final", "U2"]),
+        # An older client: the count path still works.
+        ({"count": 2}, ["U1", "A1 interim", "", "A1 final"]),
+        # An out-of-range ordinal falls back to the count.
+        ({"user_ordinal": 9, "include_reply": True, "count": 1}, ["U1"]),
+    ],
+)
+def test_session_branch_cuts_at_the_user_turn_the_client_addressed(monkeypatch, tmp_path, params, kept):
+    seen: dict = {"msgs": []}
+
+    class DB:
+        def get_session_title(self, _key):
+            return "parent"
+
+        def get_next_title_in_lineage(self, current):
+            return f"{current} (branch)"
+
+        def create_session(self, new_key, **kwargs):
+            seen["created"] = new_key
+
+        def append_messages_batch(self, session_id, messages, **kwargs):
+            seen["msgs"].extend(messages)
+            return list(range(1, len(messages) + 1))
+
+        def set_session_title(self, key, title):
+            return True
+
+        def get_session(self, key):
+            return {"id": key, "cwd": str(tmp_path)}
+
+        def update_session_cwd(self, *a, **k):
+            return None
+
+    class FakeAgent:
+        def __init__(self):
+            self.model = "test-model"
+            self.session_id = None
+
+    history = [
+        {"role": "user", "content": "U1"},
+        {"role": "assistant", "content": "A1 interim", "tool_calls": [{"id": "t"}]},
+        {"role": "tool", "content": ""},
+        {"role": "assistant", "content": "A1 final"},
+        {"role": "user", "content": "U2"},
+        {"role": "assistant", "content": "A2"},
+        {"role": "user", "content": "[model switched]", "display_kind": "model_switch"},
+        {"role": "user", "content": "U3"},
+        {"role": "assistant", "content": "A3"},
+    ]
+    server._sessions["parent"] = {
+        "session_key": "parent-key",
+        "history": history,
+        "history_lock": __import__("threading").Lock(),
+        "running": False,
+        "cols": 80,
+        "source": "tui",
+        "agent": FakeAgent(),
+        "created_at": 1.0,
+        "last_active": 1.0,
+        "cwd": str(tmp_path),
+    }
+    monkeypatch.setattr(server, "_get_db", lambda: DB())
+    monkeypatch.setattr(server, "_claim_active_session_slot", lambda *a, **k: (None, None))
+    monkeypatch.setattr(server, "_make_agent", lambda *a, **k: FakeAgent())
+    monkeypatch.setattr(server, "_set_session_context", lambda *a, **k: {})
+    monkeypatch.setattr(server, "_clear_session_context", lambda *a, **k: None)
+    monkeypatch.setattr(server, "_resolve_model", lambda: "test-model")
+    monkeypatch.setattr(server, "_session_cwd", lambda s: str(tmp_path))
+    monkeypatch.setattr(server, "_register_session_cwd", lambda *a, **k: None)
+    monkeypatch.setattr(server, "_attach_worker", lambda *a, **k: None)
+    try:
+        resp = server.handle_request(
+            {"id": "1", "method": "session.branch", "params": {"session_id": "parent", **params}}
+        )
+        assert "result" in resp, resp
+        assert [m["content"] for m in seen["msgs"]] == kept
     finally:
         for k in list(server._sessions):
             server._sessions.pop(k, None)
@@ -16742,7 +16889,7 @@ def test_prompt_submit_passes_persist_user_message_to_agent(monkeypatch):
             }
 
     class _ImmediateThread:
-        def __init__(self, target=None, daemon=None):
+        def __init__(self, target=None, daemon=None, **_kwargs):
             self._target = target
 
         def start(self):

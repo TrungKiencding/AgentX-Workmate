@@ -453,6 +453,10 @@ def _handle_send(args):
                 home = HomeChannel(platform=platform, chat_id=wx_home, name="Weixin Home")
         if home:
             chat_id = home.chat_id
+            # The home thread is where /sethome ran (a Telegram topic); a bare
+            # target that names no thread goes there, not to the chat root.
+            if thread_id is None:
+                thread_id = getattr(home, "thread_id", None) or None
             used_home_channel = True
         else:
             home_env = _HOME_CHANNEL_ENV_OVERRIDES.get(

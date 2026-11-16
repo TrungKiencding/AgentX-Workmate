@@ -55,6 +55,21 @@ describe('toTranscriptMessages', () => {
     ])
   })
 
+  it('projects a compaction divider as an event, never the summary text', () => {
+    const rows = [
+      { role: 'user', text: 'hello' },
+      { role: 'user', text: '## Goal\nBuild the deck', display_kind: 'compaction' },
+      { role: 'assistant', text: 'hi' }
+    ]
+
+    const result = toTranscriptMessages(rows)
+    expect(result.map(msg => [msg.kind, msg.role, msg.text])).toEqual([
+      [undefined, 'user', 'hello'],
+      ['event', 'system', 'context summarized'],
+      [undefined, 'assistant', 'hi']
+    ])
+  })
+
   it('projects async_delegation_complete with task_count metadata', () => {
     const rows = [
       { role: 'user', text: 'do work' },

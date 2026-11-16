@@ -3,6 +3,17 @@ import { FIELD_DESCRIPTIONS, FIELD_LABELS } from '@/app/settings/constants'
 import type { Translations } from './types'
 
 export const en: Translations = {
+  sessionResources: {
+    title: 'Session resources',
+    createOutput: 'Create an output',
+    createOutputPrompt: 'Put the result of this conversation into a document file.',
+    addSource: 'Add a source',
+    changes: 'Changes',
+    changesHint: 'Uncommitted changes in this folder',
+    outputs: 'Outputs',
+    sources: 'Sources',
+    openFailed: 'Could not open this item. Select it to retry.'
+  },
   common: {
     unknownError: 'Unknown error',
     apply: 'Apply',
@@ -261,6 +272,15 @@ export const en: Translations = {
       backgroundFailedTitle: 'Background task failed',
       creditsTitle: 'Credits'
     }
+  },
+
+  quitGuard: {
+    messageOne: 'AgentX is still working on 1 chat.',
+    messageMany: 'AgentX is still working on {count} chats.',
+    more: '{count} more',
+    detail: 'Quitting stops the agent mid-turn. Any work it has not finished writing is lost.',
+    stay: 'Keep Running',
+    quit: 'Quit Anyway'
   },
 
   remoteDisplayBanner: {
@@ -527,13 +547,9 @@ export const en: Translations = {
       keyRotating: 'Issuing…',
       keyRotateFailed: detail => `Could not issue a new key: ${detail}`,
       keyModels: n => `${n} model${n === 1 ? '' : 's'} available`,
-      deviceOtherTitle: n => `Other devices with access (${n})`,
       deviceHistoryTitle: n => `Revocation history (${n})`,
       deviceHistoryHint:
         'These installs can no longer access your account. If the model key has not been replaced, a saved key may still work.',
-      deviceDuplicateHint:
-        'Some installs share a machine name. Check the install ID and registration date in Details before revoking.',
-      deviceDetails: 'Details',
       deviceHostname: 'Machine name',
       deviceApp: 'Application',
       deviceVersion: 'Version',
@@ -542,8 +558,6 @@ export const en: Translations = {
       deviceIdentity: 'Install ID',
       deviceAccountAccess: 'Account access',
       deviceUnknown: 'Unknown',
-      deviceRecordId: n => `Install ${n}`,
-      deviceRegisteredAt: n => `Registered ${n}`,
       deviceRevokedAt: n => `Revoked ${n}`,
       deviceRename: 'Rename',
       deviceRenameHint: 'Leave blank to use the machine name. This label is saved to your account.',
@@ -559,6 +573,18 @@ export const en: Translations = {
         'Account access was revoked, but issuing a new model key failed. The saved key may still work. Try issuing it again.',
       deviceRotationUnsupported:
         'Account access was revoked. This service cannot issue a new model key; ask your administrator to retire the old key.',
+      deviceColDevice: 'Device',
+      deviceColRevoked: 'Revoked',
+      deviceColActions: 'Actions',
+      deviceInstalls: n => (n === 1 ? '1 install' : `${n} installs`),
+      deviceInstallsTitle: 'Installs',
+      devicePageRange: (from, to, total) => `Showing ${from}–${to} of ${total}`,
+      devicePage: (page, pages) => `Page ${page} of ${pages}`,
+      deviceRevokeOthers: 'Revoke all other devices',
+      deviceRevokeOthersConfirmTitle: 'Revoke all other devices?',
+      deviceRevokeOthersConfirmDesc: n =>
+        `${n === 1 ? '1 install' : `${n} installs`} on your other devices will be blocked from your account. This device stays signed in.`,
+      deviceRevokeGroupNote: n => `This device has ${n} installs. All of them will be revoked together.`,
       devicesTitle: 'Your devices',
       devicesEmpty: 'No devices recorded yet',
       devicesEmptyDesc: 'This machine will appear here the next time AgentX Workmate starts.',
@@ -567,7 +593,8 @@ export const en: Translations = {
       deviceRevoked: 'Revoked',
       deviceRevoke: 'Revoke device',
       deviceRevokeConfirmTitle: 'Revoke this device?',
-      deviceRevokeConfirmDesc: name => `${name} will be blocked from accessing your account. This installation will move to revocation history.`,
+      deviceRevokeConfirmDesc: name =>
+        `${name} will be blocked from accessing your account. This installation will move to revocation history.`,
       deviceRotateKey: 'Also issue a new model key',
       deviceRotateKeyDesc:
         'Your devices share one model key, so revoking alone does not remove that device’s model access. Your other devices pick the new key up on their own.',
@@ -751,6 +778,17 @@ export const en: Translations = {
       themeTitle: 'Theme',
       themeDesc: 'Desktop palettes only. The selected mode is applied on top.',
       themeProfileNote: profile => `Saved for the ${profile} profile — each profile keeps its own theme.`,
+      themeDescriptions: {
+        quiet: 'Warm neutral grays — colour only as a signal',
+        nous: 'Glass neutrals with Nous blue accents',
+        'night-owl': 'Deep navy with periwinkle and cyan',
+        'nous-classic': 'The original royal-blue dark, with the Nous light palette',
+        midnight: 'Deep blue-violet with cool accents',
+        ember: 'Warm crimson and bronze — forge vibes',
+        mono: 'Clean grayscale — minimal and focused',
+        cyberpunk: 'Neon green on black — matrix terminal',
+        slate: 'Cool slate blue — focused developer theme'
+      },
       installTitle: 'Install from VS Code',
       installDesc:
         'Paste a Marketplace extension id (e.g. dracula-theme.theme-dracula) to convert its color theme into a desktop palette.',
@@ -776,7 +814,10 @@ export const en: Translations = {
         chooseTitle: 'Choose a pet',
         chooseDesc: 'Picking one installs it (if needed) and makes it active.',
         searchPlaceholder: 'Search pets…',
-        unreachable: "Couldn't reach the petdex gallery. Check your connection and reopen this page.",
+        unreachable: "Couldn't load the pet gallery. Check your connection, then try again.",
+        retry: 'Try again',
+        catalogLoading: 'Loading the pet gallery…',
+        catalogOffline: "Couldn't load the gallery — showing the pets you already have.",
         noMatch: query => `No pets match "${query}".`,
         installedTag: 'installed',
         generatedTag: 'Generated',
@@ -1195,7 +1236,8 @@ export const en: Translations = {
       toolsEnabledOf: (on, total) => `${on} of ${total} on`,
       toolsHint: 'Click a tool to turn just that one on or off.',
       noTools: 'This connection offers no tools.',
-      gatewayServerDesc: 'A server of yours on AgentX AgentHub, reached through its Gateway — one sign-in for all of them.',
+      gatewayServerDesc:
+        'A server of yours on AgentX AgentHub, reached through its Gateway — one sign-in for all of them.',
       gatewayToolsetDesc:
         'A toolset you put together on AgentX AgentHub, reached through its Gateway — one sign-in for all of them.',
       gatewayTokenNote: "This machine's token is kept in .env (AGENTX_HUB_GATEWAY_TOKEN) and renews itself.",
@@ -1242,7 +1284,7 @@ export const en: Translations = {
       model: 'Model',
       applying: 'Applying...',
       defaultsLabel: 'Defaults',
-      reasoning: 'Reasoning',
+      reasoning: 'Thinking',
       reasoningOff: 'Off',
       defaultsFailed: 'Failed to save model defaults',
       auxiliaryTitle: 'Auxiliary models',
@@ -1975,6 +2017,48 @@ export const en: Translations = {
   },
 
   messaging: {
+    guide: {
+      title: 'Connection guide',
+      replay: 'Show step-by-step guide',
+      skip: 'Skip',
+      finish: 'Finish guide',
+      docs: 'Illustrated guide',
+      source: 'Open setup page',
+      secret: 'This is your private credential. Paste it directly into the field; do not share it.',
+      connectBody:
+        'Save changes at the bottom of the screen first, then turn on the switch below. If “Restart needed” appears, choose “Restart AgentX” to apply the changes.',
+      testTitle: 'Send a test message',
+      testBody:
+        'Wait for “Connected”, then open the messaging app and send a greeting to the bot or account you set up. In Telegram, press Start first.',
+      testNote:
+        'If the bot asks for access, return here and allow your own request. Finishing this guide does not verify the connection; check that the bot replies.',
+      fieldFallback:
+        'Get this value from the platform’s management page. Open the illustrated guide for the location and format to use.',
+      progress: (current, total) => `Guide · ${current}/${total}`,
+      fieldHelp: label => `Help with ${label}`
+    },
+    fieldGuide: {
+      TELEGRAM_BOT_TOKEN:
+        'In Telegram, open @BotFather → send /newbot → choose a name and a username ending in bot. Copy the entire token after “HTTP API”, not the t.me link or @bot name.',
+      TELEGRAM_ALLOWED_USERS:
+        'Open @userinfobot in Telegram → press Start → copy the number beside Id. Enter your ID; separate multiple IDs with commas. You can leave this empty and approve DM requests in Workmate; an empty list does not grant access to everyone.',
+      DISCORD_BOT_TOKEN:
+        'Discord Developer Portal → Applications → your app → Bot → Reset Token. Copy the new token. Enable Message Content Intent on the same page so the bot can read messages.',
+      DISCORD_ALLOWED_USERS:
+        'Discord → User Settings → Advanced → enable Developer Mode. Right-click your profile → Copy User ID. Paste the numeric ID, not your display name.',
+      SLACK_BOT_TOKEN:
+        'Slack app settings → OAuth & Permissions → Install to Workspace. After authorizing, copy the Bot User OAuth Token starting with xoxb-. Do not use the xapp- token here.',
+      SLACK_APP_TOKEN:
+        'Slack app → Basic Information → App-Level Tokens → Generate Token and Scopes → add connections:write. Copy the xapp- token, then enable Socket Mode.',
+      SLACK_ALLOWED_USERS:
+        'In Slack, open a member’s profile → three-dot menu → Copy member ID. Paste the ID starting with U or W; separate multiple IDs with commas.',
+      EMAIL_PASSWORD:
+        'For Gmail: Google Account → Security → enable 2-Step Verification → App passwords. Create one for AgentX and paste the 16-character password, not your Gmail sign-in password. If unavailable, ask your mail administrator.',
+      TWILIO_ACCOUNT_SID:
+        'Twilio Console → Account Dashboard → Account Info → Account SID. Copy the entire value starting with AC. This identifies your account; it is not a phone number.',
+      TWILIO_AUTH_TOKEN:
+        'Twilio Console → Account Dashboard → Account Info → Auth Token → Show. Copy the token here. You also need a Twilio number and an inbound SMS webhook; read the illustrated guide before enabling.'
+    },
     pageTitle: 'Message channels',
     pageDescription: 'Message AgentX from the apps you already use.',
     search: 'Search messaging...',
@@ -2030,7 +2114,7 @@ export const en: Translations = {
     credentialsSet: 'Credentials set',
     needsSetup: 'Needs setup',
     gatewayStopped: 'AgentX messaging is switched off',
-    openSetupGuide: 'Open setup guide',
+    openSetupGuide: 'Full guide on the web',
     destinationTitle: 'Conversation address',
     destinationUnavailable: 'Connected, but this platform does not provide a public address.',
     openDestination: 'Open in app',
@@ -2073,9 +2157,35 @@ export const en: Translations = {
     revokedUser: name => `${name} revoked`,
     failedApprove: name => `Failed to approve ${name}`,
     failedRevoke: name => `Failed to revoke ${name}`,
+    pairingExpired: 'This request has expired. Ask them to message the bot again for a new one, then allow it here.',
     pairingLockedOut: 'Too many failed approvals — this platform is locked out. Try again later.',
     waitingSince: minutes => (minutes < 1 ? 'just now' : `${minutes}m ago`),
     fieldCopy: {
+      EMAIL_ADDRESS: {
+        label: 'AgentX email address',
+        help: 'Use a dedicated mailbox for AgentX. Enter the full address, such as agentx@example.com.'
+      },
+      EMAIL_PASSWORD: {
+        label: 'App password',
+        help: 'Get this from your email provider’s App passwords settings. Gmail requires 2-Step Verification.'
+      },
+      EMAIL_IMAP_HOST: {
+        label: 'Incoming mail server (IMAP)',
+        help: 'For Gmail: imap.gmail.com. For work email, ask your administrator for the IMAP host; omit https:// and the port.'
+      },
+      EMAIL_SMTP_HOST: {
+        label: 'Outgoing mail server (SMTP)',
+        help: 'For Gmail: smtp.gmail.com. For work email, ask your administrator for the SMTP host; omit https:// and the port.'
+      },
+      TWILIO_ACCOUNT_SID: {
+        label: 'Twilio Account SID',
+        help: 'Find it in Twilio Console → Account Dashboard → Account Info. It starts with AC.'
+      },
+      TWILIO_AUTH_TOKEN: {
+        label: 'Twilio Auth Token',
+        help: 'In the same Account Info section, find Auth Token. Choose Show, then copy it.'
+      },
+
       TELEGRAM_BOT_TOKEN: {
         label: 'Bot token',
         help: 'Create a bot with @BotFather, then paste the token it gives you.',
@@ -2084,7 +2194,7 @@ export const en: Translations = {
       TELEGRAM_ALLOWED_USERS: {
         placeholder: 'e.g. 12345678, 87654321',
         label: 'Who may message the bot',
-        help: 'Recommended. Comma-separated numeric IDs from @userinfobot. Without this, anyone can DM your bot.'
+        help: 'Open @userinfobot in Telegram → press Start → copy the number beside Id. Enter your ID; separate multiple IDs with commas. You can leave this empty and approve DM requests in Workmate; an empty list does not grant access to everyone.'
       },
       TELEGRAM_PROXY: { label: 'Proxy URL', help: 'Only needed on networks where Telegram is blocked.' },
       DISCORD_BOT_TOKEN: {
@@ -2173,7 +2283,7 @@ export const en: Translations = {
       signal:
         'Run a signal-cli REST bridge somewhere reachable, then point AgentX at the URL and the registered phone number.',
       whatsapp:
-        'Start the WhatsApp bridge that ships with AgentX, scan the QR code on first run, then turn the platform on.',
+        'Scan one QR code with WhatsApp on your phone, just like WhatsApp on a computer. No code to paste and no terminal.',
       bluebubbles:
         'Run BlueBubbles Server on a Mac with iMessage, expose its API, then point AgentX at the URL with the server password.',
       homeassistant:
@@ -2196,6 +2306,124 @@ export const en: Translations = {
         'Expose AgentX as an OpenAI-compatible API. Set an auth key, then point Open WebUI / LobeChat / etc. at the host:port.',
       webhook:
         'Run an HTTP server that other tools (GitHub, GitLab, custom apps) can POST to. Use the secret to verify signatures.'
+    },
+    figures: {
+      previous: 'Previous picture',
+      next: 'Next picture',
+      position: (current, total) => `Picture ${current}/${total}`,
+      enlarge: 'Enlarge picture',
+      showVisual: 'Step by step with pictures',
+      items: {
+        'telegram-botfather-search': {
+          alt: 'Telegram search results for BotFather with the verified account circled',
+          caption:
+            'Search for @BotFather and pick the account with the blue check. Other accounts with the same name are fakes.'
+        },
+        'telegram-botfather-token': {
+          alt: 'BotFather message after creating a bot, with the code under “HTTP API” circled',
+          caption:
+            'Send /newbot, choose a name, then a username ending in “bot”. Copy the whole code under “HTTP API” (masked here).'
+        },
+        'telegram-userinfobot-id': {
+          alt: 'userinfobot reply with the Id line circled',
+          caption: 'Open @userinfobot and press Start. The number on the Id line is your ID (sample number shown).'
+        },
+        'discord-new-application': {
+          alt: 'Create an application dialog in the Discord Developer Portal with the name field, agreement box and Create button numbered',
+          caption:
+            'Developer Portal → New Application: enter a name, tick the agreement box, then click Create. Discord may ask whether you are human.'
+        },
+        'discord-reset-token': {
+          alt: 'Token section of the Bot page with the Reset Token button circled',
+          caption: 'Bot → Reset Token. The token is shown only once — copy it right away and paste it into Workmate.'
+        },
+        'discord-reset-token-confirm': {
+          alt: 'Reset token confirmation with the red button circled',
+          caption: 'Click the red button to confirm. Discord asks for your account password again.'
+        },
+        'discord-message-content-intent': {
+          alt: 'Message Content Intent switched on and the Save Changes button numbered',
+          caption:
+            'On the same Bot page, turn on Message Content Intent and click Save Changes. Without it the bot cannot read messages.'
+        },
+        'telegram-pairing-code': {
+          alt: 'Bot message with the pairing code circled',
+          caption:
+            'The first time you write, the bot sends a pairing code. That is expected: it waits for you to allow it in Workmate.'
+        },
+        'workmate-allow-request': {
+          alt: 'Message request in Workmate with the Allow button circled',
+          caption:
+            'Back in Workmate, check it is your name and click Allow. Then message the bot again (sample name shown).'
+        },
+        'discord-bot-permissions': {
+          alt: 'Bot Permissions table with the needed permissions circled',
+          caption:
+            'OAuth2 → URL Generator: tick bot and applications.commands, then View Channels, Send Messages, Embed Links, Attach Files and Read Message History.'
+        },
+        'discord-invite-url': {
+          alt: 'Generated URL field at the bottom of the OAuth2 page circled',
+          caption: 'Copy the generated URL, open it in your browser and pick a server you manage to invite the bot.'
+        },
+        'discord-developer-mode': {
+          alt: 'Developer section of Discord settings with the Developer Mode switch circled',
+          caption:
+            'Discord → User Settings → Developer → turn on Developer Mode. Then right-click your name → Copy User ID.'
+        }
+      }
+    },
+    whatsapp: {
+      step1Title: 'Link your phone',
+      step2Title: 'Who can message AgentX',
+      step2Body:
+        'No code to paste. By default a stranger who messages gets a pairing code and can only chat after you click “Allow” here. To allow some numbers up front, open “Recommended”.',
+      step2BodySelf:
+        'You chose to message yourself: only you can chat with AgentX, and Workmate already limited it to your number. Nothing else to do.',
+      modeLabel: 'How will you message AgentX?',
+      modeSelf: 'From my own WhatsApp number',
+      modeSelfHint:
+        'You write in your chat with yourself in WhatsApp and AgentX answers there. Friends who message you are unaffected.',
+      modeBot: 'Through a separate number for AgentX',
+      modeBotHint:
+        'Use a spare number (for example WhatsApp Business on another phone). Anyone who messages it chats with AgentX once you allow them.',
+      showQr: 'Show QR code',
+      retry: 'Make a new code',
+      preparing: 'Preparing the QR code…',
+      preparingHint: 'The first time can take about a minute while AgentX downloads the WhatsApp component.',
+      scanTitle: 'Scan with WhatsApp on your phone',
+      scanSteps: [
+        'Open WhatsApp on the phone you will use.',
+        'iPhone: tap Settings. Android: tap ⋮ in the top-right corner.',
+        'Tap Linked devices → Link a device.',
+        'Point the camera at this code. Scan inside WhatsApp, not with the Camera app.'
+      ],
+      qrRefresh: 'The code changes every few seconds — keep this screen open until the scan finishes.',
+      qrAlt: 'QR code to link WhatsApp with AgentX',
+      saving: 'Scanned. Saving and turning WhatsApp on…',
+      linkedTo: who => `Linked to ${who}`,
+      linkedUnknown: 'A WhatsApp account is linked',
+      trySelf: 'To try it: open WhatsApp, find your chat with yourself (your name marked “You”) and say hello.',
+      tryBot:
+        'To try it: from another WhatsApp number, say hello to this number. The first time, click “Allow” when the request appears on this page.',
+      relink: 'Link another number',
+      relinkTitle: 'Link a different WhatsApp number?',
+      relinkBody:
+        'AgentX stops using the linked number and shows a new QR code. Scan it with the phone you want to use.',
+      relinkConnected: 'Turn the connection off in step 3 and restart AgentX before linking another number.',
+      linkedToast: 'WhatsApp linked',
+      linkedToastBody: 'AgentX is restarting to start receiving messages.',
+      linkedToastRestart: 'Click “Restart AgentX” to start receiving messages.',
+      linkFailed: 'Could not save the WhatsApp setup',
+      errors: {
+        notPaired: 'WhatsApp is on but no phone is linked. Show the QR code in step 1 and scan it with your phone.',
+        bridgeExited:
+          'The WhatsApp connection stopped. If you removed this device on your phone, click “Link another number” in step 1 to scan again; otherwise click “Restart AgentX”.',
+        expired: 'The QR code expired. Make a new code and scan again.',
+        noNode: 'This computer is missing Node.js, which WhatsApp needs. Reinstall AgentX Workmate, then try again.',
+        install: 'Could not download the WhatsApp component. Check your internet connection and try again.',
+        loggedOut: 'WhatsApp refused the link. Make a new code and scan again.',
+        generic: 'WhatsApp is not linked yet. Try a new code.'
+      }
     }
   },
 
@@ -2388,15 +2616,6 @@ export const en: Translations = {
       'every-15-minutes': 'Every 15 minutes',
       custom: 'Custom'
     },
-    scheduleHints: {
-      daily: 'Every day at 9:00 AM',
-      weekdays: 'Monday through Friday at 9:00 AM',
-      weekly: 'Every Monday at 9:00 AM',
-      monthly: 'The first day of each month at 9:00 AM',
-      hourly: 'At the top of every hour',
-      'every-15-minutes': 'Every 15 minutes',
-      custom: 'Cron syntax or natural language'
-    },
     days: {
       '0': 'Sunday',
       '1': 'Monday',
@@ -2414,6 +2633,22 @@ export const en: Translations = {
     monthlyOnDayAt: (dayOfMonth, time) => `Monthly on day ${dayOfMonth} at ${time}`,
     topOfHour: 'At the top of every hour',
     everyHourAt: minute => `Every hour at :${minute}`,
+    everyMinutes: count => `Every ${count} minute${count === 1 ? '' : 's'}`,
+    everyHours: count => (count === 1 ? 'Every hour' : `Every ${count} hours`),
+    everyDays: count => (count === 1 ? 'Every day' : `Every ${count} days`),
+    timeLabel: 'Time',
+    weekdayLabel: 'Day',
+    monthdayLabel: 'Day of the month',
+    monthdayOption: day => `Day ${day}`,
+    monthdayShortMonthHint: 'Months without this day are skipped.',
+    minuteLabel: 'Minute of the hour',
+    minuteOption: minute => `:${minute}`,
+    runDoneTitle: name => `“${name}” just ran`,
+    runDoneBody: 'Its result is ready.',
+    runFailedTitle: name => `“${name}” didn’t finish`,
+    runFailedBody: 'Open the schedule to see what went wrong.',
+    runUntitled: 'Scheduled task',
+    viewRun: 'View',
     newCron: 'New cron',
     emptyDescNew:
       'Schedule a prompt to run on a cron expression. AgentX will run it and deliver results to the destination you pick.',
@@ -2452,7 +2687,7 @@ export const en: Translations = {
     editTitle: 'Edit cron job',
     createTitle: 'New cron job',
     editDesc: 'Update the schedule, prompt, or delivery target. Changes apply on next run.',
-    createDesc: 'Schedule a prompt to run automatically. Use cron syntax or a natural phrase like "every 15 minutes".',
+    createDesc: 'Pick what AgentX should do and when. The result is delivered where you choose.',
     nameLabel: 'Name',
     namePlaceholder: 'Morning briefing',
     promptLabel: 'Prompt',
@@ -2463,8 +2698,8 @@ export const en: Translations = {
     modelLabel: 'Model',
     modelDefault: 'Default (global model)',
     customScheduleLabel: 'Custom schedule',
-    customPlaceholder: '0 9 * * * or weekdays at 9am',
-    customHint: 'Cron expression, or phrases like "every hour" or "weekdays at 9am".',
+    customPlaceholder: '0 9 * * 1-5 or every 2h',
+    customHint: 'A cron expression (minute hour day month weekday), or an interval like "every 30m" or "every 2h".',
     optional: 'Optional',
     promptRequired: 'Prompt is required.',
     promptScheduleRequired: 'Prompt and schedule are required.',
@@ -2574,13 +2809,15 @@ export const en: Translations = {
       'new-session': 'New chat',
       skills: 'Utilities',
       messaging: 'Message channels',
-      artifacts: 'Artifacts'
+      artifacts: 'Artifacts',
+      cron: 'Schedules'
     },
     account: {
       menuLabel: 'Account menu',
       accountSettings: 'Account',
       settings: 'Settings',
-      shortcuts: 'Keyboard shortcuts'
+      shortcuts: 'Keyboard shortcuts',
+      signOut: 'Sign out'
     },
     searchAria: 'Search chats',
     searchPlaceholder: 'Search chats…',
@@ -2591,12 +2828,6 @@ export const en: Translations = {
     sessions: 'Recent',
     connectedChannels: 'Connected channels',
     cronJobs: 'Cron jobs',
-    groupAriaGrouped: 'Show chats as a single list',
-    groupAriaUngrouped: 'Group chats by project',
-    showProjects: 'Show projects',
-    showSessions: 'Show chats',
-    groupTitleGrouped: 'Ungroup chats',
-    groupTitleUngrouped: 'Group by project',
     allPinned: 'Everything here is pinned. Unpin a chat to show it in recents.',
     shiftClickHint: 'Pin the chats you keep coming back to.',
     noWorkspace: 'Not in a project',
@@ -2604,32 +2835,12 @@ export const en: Translations = {
     noSessions: 'No chats yet',
     projects: {
       sectionLabel: 'Projects',
-      home: 'Home',
-      newButton: 'New project',
-      createTitle: 'New project',
-      createDesc: 'Name the project and add one or more folders.',
       renameTitle: 'Rename project',
-      addFolderTitle: 'Add folder',
-      namePlaceholder: 'e.g. Skunkworks',
-      nameFromFolder: 'Named after the folder. Change it if you like.',
-      nameRequiredMulti: 'With several folders, give the project a name.',
-      foldersLabel: 'Folders',
-      ideaLabel: 'Idea',
-      ideaPlaceholder: "What's this project about? (saved to IDEA.md)",
-      ideaGenerate: 'Generate idea',
-      ideaGenerating: 'Generating…',
-      ideaShuffle: 'Shuffle templates',
-      noFolders: 'No folders added yet.',
-      addFolder: 'Add folder',
-      primaryBadge: 'primary',
-      removeFolder: 'Remove',
-      create: 'Create',
       menu: 'Actions',
       menuRename: 'Rename',
       menuAppearance: 'Appearance',
       noColor: 'No color',
       menuAddFolder: 'Add folder',
-      menuSetActive: 'Set active',
       menuDelete: 'Delete',
       moveToProject: 'Move to project',
       movedTo: name => `Moved to ${name}`,
@@ -2639,7 +2850,6 @@ export const en: Translations = {
       reveal: 'Reveal in folder',
       copyPath: 'Copy path',
       removeFromSidebar: 'Hide from sidebar',
-      createFailed: 'Could not create project',
       staleBackend:
         'Update the AgentX backend to create projects — your backend is older than this desktop app (Settings → Updates → Backend).',
       deleteConfirm: 'This removes the saved project from AgentX. Files, code folders, and worktrees stay untouched.',
@@ -2668,10 +2878,17 @@ export const en: Translations = {
       removeWorktreeDirty:
         'This worktree has uncommitted changes. Force-remove it (discards those changes), or just hide the lane and keep it on disk.',
       forceRemove: 'Force remove',
-      enter: label => `Open ${label}`,
       reorder: label => `Reorder ${label}`,
       toggle: (label, open) => `${open ? 'Show' : 'Hide'} ${label} chats`,
-      back: 'All projects'
+      back: 'All projects',
+      addButton: 'Add project',
+      emptyHint: 'Add a working folder',
+      showAll: count => `Show all ${count} chats`,
+      menuNewChat: 'New chat',
+      menuShowAll: 'Show all chats',
+      renameFailed: "Couldn't rename the project",
+      addFolderFailed: "Couldn't add the folder",
+      folderAdded: (folder, project) => `Added ${folder} to ${project}`
     },
     newSessionIn: label => `New chat in ${label}`,
     showMoreIn: (count, label) => `Show ${count} more in ${label}`,
@@ -2690,7 +2907,8 @@ export const en: Translations = {
       hideTabBar: 'Hide tab bar',
       openInNewTab: 'Open in new tab',
       deleteConfirmTitle: title => `Delete “${title}”?`,
-      deleteConfirmBody: 'The chat and its messages are removed for good. This can’t be undone — archive it instead if you may want it back.',
+      deleteConfirmBody:
+        'The chat and its messages are removed for good. This can’t be undone — archive it instead if you may want it back.',
       deleteConfirmAction: 'Delete chat',
       openInSplit: 'Open in split',
       copyIdFailed: 'Could not copy chat ID',
@@ -2708,6 +2926,7 @@ export const en: Translations = {
       renameTitle: 'Rename chat',
       renameDesc: 'Leave empty to clear.',
       untitledPlaceholder: 'Untitled chat',
+      mainConversation: 'Main conversation',
       untitledChat: id => `Chat ${id}`,
       ageNow: 'now',
       ageDay: 'd',
@@ -2724,17 +2943,35 @@ export const en: Translations = {
       thisWeek: 'This week',
       lastWeek: 'Last week',
       thisMonth: 'This month'
-    }
+    },
+    chats: 'Chats'
   },
 
   composer: {
+    quota: {
+      stale: 'Last known usage',
+      title: 'Model allowance',
+      remaining: 'Remaining',
+      used: 'Used',
+      unlimited: 'Unlimited',
+      resets: 'Resets',
+      noReset: 'No automatic reset',
+      unknownReset: 'Reset time unavailable',
+      pendingReset: 'Awaiting reset confirmation',
+      offline: 'Usage is temporarily unavailable. Try refreshing.',
+      unsupported: 'Your server does not share usage details. Contact your administrator.',
+      warning: 'Nearly used up',
+      exhausted: 'Allowance used up',
+      view: 'View allowance',
+      loading: 'Loading allowance…'
+    },
     message: 'Message',
     wakingProfile: profile => `Waking up ${profile}…`,
     placeholderStarting: 'Starting AgentX...',
     placeholderReconnecting: 'Reconnecting to AgentX…',
     placeholderReadOnly: 'Read-only mode — requests to AI are turned off',
     placeholderFollowUp: 'Send follow-up',
-    newSessionPlaceholders: ['What do you need today?'],
+    newSessionPlaceholders: ['Work with AgentX'],
     newSessionPlaceholdersRepo: ['Ask about the code or hand over a task…'],
     followUpPlaceholders: [
       'Send a follow-up',
@@ -2858,6 +3095,22 @@ export const en: Translations = {
         description: 'Walk through how the selected code works and link to the key files.',
         text: 'Please explain how this works and point me to the key files.'
       }
+    },
+    workspace: {
+      pickerLabel: 'Choose a working folder',
+      none: 'Choose folder',
+      chooseHint: 'Pick a folder for AgentX to read and save files in',
+      chosen: path => `Working in ${path}`,
+      settled: path => `This chat works in ${path}`,
+      menuLabel: label => `Folder: ${label}`,
+      search: 'Search projects…',
+      noMatch: 'No matching project',
+      projects: 'Projects',
+      discovered: 'Found on this computer',
+      chooseOther: 'Open another folder…',
+      noFolder: 'No folder',
+      newChatHere: 'New chat in this folder',
+      pickFailed: "Couldn't open the folder picker"
     }
   },
 
@@ -3054,7 +3307,8 @@ export const en: Translations = {
     statusAvailable: version => `AgentX Workmate ${version} is available`,
     statusDownloading: percent => `Downloading the update · ${percent}%`,
     statusReady: version => `${version} is ready — restart to update`,
-    statusInstalling: 'Installing the update…'
+    statusInstalling: 'Installing the update…',
+    sidebarAvailable: version => `Update to ${version}`
   },
 
   install: {
@@ -3497,25 +3751,46 @@ export const en: Translations = {
     modelMenu: {
       search: 'Search models',
       noModels: 'No models found',
-      editModels: 'Edit Models…',
-      refreshModels: 'Refresh Models',
-      fast: 'Fast'
+      editModels: 'Manage models'
     },
     modelOptions: {
-      noOptions: 'No options for this model',
-      options: 'Options',
-      thinking: 'Thinking',
-      fast: 'Fast',
-      effort: 'Effort',
+      thinkingLevel: 'Thinking',
+      none: 'Off',
       minimal: 'Minimal',
       low: 'Low',
       medium: 'Medium',
       high: 'High',
-      xhigh: 'Extra High',
+      xhigh: 'Extra high',
       max: 'Max',
       ultra: 'Ultra',
+      effortShort: {
+        none: 'No thinking',
+        minimal: 'Minimal',
+        low: 'Low',
+        medium: 'Medium',
+        high: 'High',
+        xhigh: 'Extra high',
+        max: 'Max',
+        ultra: 'Ultra'
+      },
+      effortHint: {
+        none: 'Answers right away, fastest',
+        minimal: 'A quick glance before answering',
+        low: 'For simple tasks',
+        medium: 'Right for most tasks',
+        high: 'For complex work, takes longer',
+        xhigh: 'For hard problems, costs more',
+        max: 'Thinks as hard as it can, costs the most',
+        ultra: "AgentX's top level, capped by the model"
+      },
+      defaultMark: 'Default',
+      scaleStart: 'Faster',
+      scaleEnd: 'Deeper',
+      fast: 'Fast',
+      fastMode: 'Priority speed',
+      fastHint: 'Faster replies at a higher price',
       updateFailed: 'Model option update failed',
-      fastFailed: 'Fast mode update failed'
+      fastFailed: 'Priority speed update failed'
     },
     gatewayMenu: {
       gateway: 'Gateway',
@@ -3540,7 +3815,12 @@ export const en: Translations = {
       smart: 'Smart',
       smartDescription: 'Automatically assess actions and ask when needed',
       off: 'Off',
-      offDescription: 'Run without approval prompts'
+      offDescription: 'Run without approval prompts',
+      changeFailed: 'Couldn’t change the approval mode',
+      confirmOffTitle: 'Let AgentX run everything without asking?',
+      confirmOffBody:
+        'AgentX will no longer ask before it runs commands or changes and deletes files. Turn this on only for work you trust, when you are not at the machine. Commands on the blocklist stay blocked.',
+      confirmOffAction: 'Run without asking'
     },
     statusbar: {
       restart: 'restart',
@@ -3811,6 +4091,8 @@ export const en: Translations = {
         delegate: { past: 'Delegated', present: 'Delegating', noun: count => (count === 1 ? 'task' : 'tasks') },
         edit: { past: 'Edited', present: 'Editing', noun: count => (count === 1 ? 'file' : 'files') },
         explore: { past: 'Explored', present: 'Exploring', noun: count => (count === 1 ? 'file' : 'files') },
+        search: { past: 'Searched', present: 'Searching', noun: count => (count === 1 ? 'time' : 'times') },
+        browse: { past: 'Visited', present: 'Visiting', noun: count => (count === 1 ? 'page' : 'pages') },
         other: { past: 'Used', present: 'Using', noun: count => (count === 1 ? 'tool' : 'tools') },
         run: { past: 'Ran', present: 'Running', noun: count => (count === 1 ? 'command' : 'commands') }
       },
@@ -3821,39 +4103,7 @@ export const en: Translations = {
       greetingMorning: name => (name ? `Good morning, ${name}` : 'Good morning'),
       greetingAfternoon: name => (name ? `Good afternoon, ${name}` : 'Good afternoon'),
       greetingEvening: name => (name ? `Good evening, ${name}` : 'Good evening'),
-      bodyVariants: [
-        'Ask a question, paste an error, or point me at a folder. I read documents and code, run tools, and help you get the work done.',
-        'Describe the task in your own words: summarise a document, draft an email, fix a piece of code. I pick the right tools and check in before risky steps.',
-        'Drop in a file, a spreadsheet, or a rough idea. I investigate, suggest next steps, and keep everything reversible.',
-        "Search the repo, edit files, run tests, open PRs. Tell me the goal and I'll handle the mechanical parts.",
-        "From a weekly report to a project plan: type a task or a question. I remember the session, cite my sources, and stop to ask when I'm unsure."
-      ],
-      quickStart: 'Quick start',
-      resume: title => `Resume “${title}”`,
-      starterExplainLabel: 'Explain this code folder',
-      starterExplainPrompt: 'Explain what this code folder does and how the code is organised.',
-      starterPlanLabel: 'Plan a change',
-      starterPlanPrompt:
-        'I want to make a change. Ask me what you need to know, then propose a plan before writing code.',
-      starterExplainFolderLabel: 'Explain this folder',
-      starterExplainFolderPrompt: 'Explain what is in the current working folder and how it is organised.',
-      starterSummarizeLabel: 'Summarise a document',
-      starterSummarizePrompt:
-        'I want to summarise a document. Ask me for the file or the text, then give me the key points and anything I should act on.',
-      starterDraftLabel: 'Draft an email',
-      starterDraftPrompt:
-        'Help me draft an email. Ask me who it is for, what it needs to say, and the tone, then write a version I can send.',
-      starterPlanWeekLabel: 'Plan my week',
-      starterPlanWeekPrompt:
-        'Help me plan this week. Ask me what is on my plate and the deadlines, then lay it out day by day with the most important work first.',
-      starterExplainDesc: 'What the code here does and how it is laid out',
-      starterExplainFolderDesc: 'What is in this folder',
-      starterPlanDesc: 'Ask first, then propose an approach',
-      starterPlanWeekDesc: 'Lay the week out day by day',
-      starterSummarizeDesc: 'Pull the key points from a file or a passage',
-      starterDraftDesc: 'From a few notes to something you can send',
-      resumeDesc: 'Pick up your latest chat',
-      projectDesc: 'Start in this project’s folder'
+      headlines: ['What would you like to do today?', 'Where would you like to start?', 'How can I help?']
     },
     thread: {
       loadingSession: 'Loading chat',
@@ -3878,6 +4128,7 @@ export const en: Translations = {
       dismissError: 'Dismiss error',
       filesChanged: count => (count === 1 ? '1 file changed' : `${count} files changed`),
       reviewChanges: 'Review',
+      stopped: 'Stopped',
       createdFiles: count => (count === 1 ? '1 file created in this turn' : `${count} files created in this turn`),
       readAloudFailed: 'Read aloud failed',
       preparingAudio: 'Preparing audio...',
@@ -3892,6 +4143,9 @@ export const en: Translations = {
       restorePrevious: 'Restore previous checkpoint',
       restoreCheckpoint: 'Restore checkpoint',
       restoreFromHere: 'Restore checkpoint — rerun from this prompt',
+      compactionLabel: 'Context summarized',
+      compactionNote:
+        'The assistant continues from this summary to save context. Everything above is still saved here, but it can no longer be edited or restored.',
       restoreTitle: 'Restore to this checkpoint?',
       restoreBody:
         'Everything after this prompt is removed from the conversation, and the prompt runs again from here.',
@@ -4237,9 +4491,6 @@ export const en: Translations = {
     undo: 'Undo',
     unarchiveFailed: 'Couldn’t bring the chat back. Find it in Settings → Archived chats.',
     archiveFailed: 'Archive failed',
-    cwdChangeFailed: 'Working directory change failed',
-    cwdStagedTitle: 'Working directory staged',
-    cwdStagedMessage: 'Restart the desktop backend to apply the new working folder to this open chat.',
     modelSwitchFailed: 'Model switch failed',
     sessionExported: 'Chat exported',
     sessionExportFailed: 'Could not export chat',
@@ -4267,6 +4518,95 @@ export const en: Translations = {
       failed: error => `Handoff failed: ${error}`,
       timedOut: 'Timed out waiting for the AgentX background service. Is `agentx gateway` running?'
     }
+  },
+
+  turnError: {
+    kinds: {
+      offline: {
+        title: "You're offline",
+        hint: 'Check your Wi-Fi or network connection, then try again.'
+      },
+      network_error: {
+        title: "Couldn't reach AgentX",
+        hint: 'Your connection may be unstable, or the AgentX server is briefly unreachable. Try again in a minute; if it keeps happening, tell your administrator.'
+      },
+      timeout: {
+        title: 'The model took too long to respond',
+        hint: 'The request timed out. Try again; if your request is long or has many files, split it into smaller parts.'
+      },
+      rate_limited: {
+        title: 'Too many requests right now',
+        hint: 'Requests are arriving faster than allowed. Wait a moment, then try again.'
+      },
+      quota_exceeded: {
+        title: "You've used up your AI allowance",
+        hint: "Your account's spending limit for this period is used up. Ask your administrator for more, or wait for the next period."
+      },
+      auth_failed: {
+        title: 'Your AI access is no longer valid',
+        hint: "Your account's AI key has expired or been revoked. Sign out and sign back in; if that doesn't help, contact your administrator."
+      },
+      model_unavailable: {
+        title: "This model isn't available right now",
+        hint: 'It may have been removed or paused. Pick another model and try again.'
+      },
+      model_not_allowed: {
+        title: "Your account can't use this model",
+        hint: 'Pick another model, or ask your administrator for access.'
+      },
+      context_too_long: {
+        title: 'This conversation is too long',
+        hint: "It's more than the model can read at once. Start a new conversation, shorten your message, or attach fewer files."
+      },
+      content_filtered: {
+        title: 'Blocked by a content filter',
+        hint: 'The model provider declined this content. Rephrase it and send again.'
+      },
+      bad_request: {
+        title: "The model couldn't process this request",
+        hint: 'An attachment or option may not be supported by this model. Try different content, or pick another model.'
+      },
+      overloaded: {
+        title: 'The model is overloaded',
+        hint: "It's in heavy demand right now. This isn't on your side — try again in a few minutes."
+      },
+      upstream_error: {
+        title: 'The AI service ran into a problem',
+        hint: "The error is on the model provider's side, not yours. Try again in a few minutes; if it keeps happening, tell your administrator."
+      },
+      stream_interrupted: {
+        title: 'The reply was cut off',
+        hint: 'The connection dropped while the model was answering. Try again for a fresh reply.'
+      },
+      no_response: {
+        title: "The model didn't reply",
+        hint: 'It finished without producing anything. Try again, or pick another model.'
+      },
+      max_steps: {
+        title: 'The task needed more steps than allowed',
+        hint: 'It stopped at the step limit for one turn. Send "continue" to carry on, or split the request.'
+      },
+      local_error: {
+        title: 'Workmate hit a problem on this computer',
+        hint: 'Try again. If it keeps happening, restart Workmate or send the details below to your administrator.'
+      },
+      operation_failed: {
+        title: 'Something went wrong',
+        hint: 'Try again. If it keeps happening, send the details below to your administrator.'
+      }
+    },
+    licenseTitle: "Your AgentX license doesn't allow AI right now",
+    waitCauses: {
+      overloaded: "It's in heavy demand right now. This isn't on your side.",
+      rate_limited: 'Requests are arriving faster than allowed.'
+    },
+    waitSeconds: seconds => `Try again in about ${seconds} ${seconds === 1 ? 'second' : 'seconds'}.`,
+    waitMinutes: minutes => `Try again in about ${minutes} minutes.`,
+    retry: 'Try again',
+    details: 'Error details',
+    code: code => `Error code: ${code}`,
+    copyDetails: 'Copy error details',
+    copyDetailsFailed: "Couldn't copy the error details"
   },
 
   errors: {

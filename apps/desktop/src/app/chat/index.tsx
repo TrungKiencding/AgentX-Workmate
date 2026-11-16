@@ -3,14 +3,14 @@ import { useStore } from '@nanostores/react'
 import type { ReadableAtom } from 'nanostores'
 import type * as React from 'react'
 import { memo, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { useLocation } from 'react-router'
 
 import { PlatformAvatar } from '@/app/messaging/platform-icon'
-import { openSession } from '@/app/open-session'
 import type { SubmitTextOptions } from '@/app/session/hooks/use-prompt-actions/utils'
 import type { ModelSelection } from '@/app/shell/model-menu-panel'
 import { Thread } from '@/components/assistant-ui/thread'
 import { TranscriptWindowProvider } from '@/components/assistant-ui/thread/transcript-window'
+import { Intro } from '@/components/chat/intro'
 import { COMPOSER_HEART_CONFIG, HeartField } from '@/components/chat/vibe-hearts'
 import { GlyphField } from '@/components/glyph-field'
 import { usePaneVisible } from '@/components/pane-shell/pane-visibility'
@@ -49,7 +49,7 @@ import {
 } from '@/store/session'
 import { isSecondaryWindow, isWatchWindow } from '@/store/windows'
 
-import { primaryRouteSelectedSessionId, routeSessionId } from '../routes'
+import { primaryRouteSelectedSessionId, routeSessionId, routeStartedBySend } from '../routes'
 import { titlebarHeaderBaseClass, titlebarHeaderTitleClass } from '../shell/titlebar'
 
 import { ChatDropOverlay } from './chat-drop-overlay'
@@ -59,12 +59,14 @@ import { requestComposerInsert } from './composer/focus'
 import { droppedFileInlineRefs } from './composer/inline-refs'
 import { useComposerScope } from './composer/scope'
 import type { ChatBarState } from './composer/types'
+import { HomeWorkspaces } from './home-workspaces'
 import { useChatModelCatalog } from './hooks/use-chat-model-catalog'
 import { type DroppedFile, partitionDroppedFiles } from './hooks/use-composer-actions'
 import { type DragKind, useFileDropZone } from './hooks/use-file-drop-zone'
 import { ProfileTag } from './profile-tag'
 import { useRuntimeMessageRepository } from './runtime-repository'
 import { ScrollToBottomButton } from './scroll-to-bottom-button'
+import { SessionWorkspace } from './session-resources'
 import { useSessionView } from './session-view'
 import { SessionActionsMenu } from './sidebar/session-actions-menu'
 import { selectTranscriptWindow } from './transcript-window'
@@ -355,7 +357,6 @@ export const ChatView = memo(function ChatView({
   onDismissError
 }: ChatViewProps) {
   const location = useLocation()
-  const navigate = useNavigate()
   const { t } = useI18n()
   const paneVisible = usePaneVisible()
   // The view this surface renders: the primary route-driven session (global
@@ -465,15 +466,6 @@ export const ChatView = memo(function ChatView({
   // waiting for the resume effect (which paints a frame later) to clear them.
   const routeSessionMismatch = isRoutedSessionView && routedSessionId !== selectedSessionId
 
-  // Resuming from the home surface's quick-start row. Navigation belongs to
-  // the route, not to the presentational intro — the chip is handed the action.
-  const resumeFromIntro = useCallback(
-    (sessionId: string) => {
-      openSession(sessionId, navigate)
-    },
-    [navigate]
-  )
-
   // Session is still loading if the route references a session we haven't
   // resumed yet. Once `activeSessionId` is set (runtime has resumed), the
   // session exists — even if it has zero messages (a brand-new routed
@@ -496,8 +488,11 @@ export const ChatView = memo(function ChatView({
   // project" lands here — as long as it has actually resumed, nothing is
   // running, and the route isn't mid-swap. Display only: the runtime, the
   // resume path and the composer are untouched, and the once-per-launch
-  // entrance latch lives in the Intro itself. The compact new-session pop-out
-  // skips it — that's a scratch window, not the full-height empty state.
+  // entrance latch lives in the Intro itself. The chat a draft's first send
+  // just created is never one of them, though its slice is empty for a beat
+  // after the route re-homes onto it (STARTED_BY_SEND_ROUTE_STATE). The
+  // compact new-session pop-out skips it — that's a scratch window, not the
+  // full-height empty state.
   const freshDraftEmpty = freshDraftReady && !isRoutedSessionView && !selectedSessionId && !activeSessionId
 
   const routedChatEmpty =
@@ -507,7 +502,8 @@ export const ChatView = memo(function ChatView({
     !resumeExhausted &&
     Boolean(activeSessionId) &&
     !busy &&
-    !awaitingResponse
+    !awaitingResponse &&
+    !routeStartedBySend(location.state)
 
   const showIntro =
     !isMessagingConversation &&
@@ -644,70 +640,81 @@ export const ChatView = memo(function ChatView({
         readOnly={isMessagingConversation}
         suppressMessages={routeSessionMismatch}
       >
-        <div
-          className="relative min-h-0 max-w-full flex-1 overflow-hidden bg-(--ui-chat-surface-background) contain-[layout_paint]"
-          data-slot="composer-bounds"
-          {...dropHandlers}
+        <SessionWorkspace
+          canCompose={showChatBar}
+          enabled={!routeSessionMismatch && !loadingSession && !resumeExhausted}
+          onAddSource={isMessagingConversation ? undefined : onPickFiles}
+          sessionKey={queueSessionKey || activeSessionId || 'draft'}
         >
-          {/* Behind the transcript, inside this wrapper: it paints the opaque
+          <div
+            className="relative min-h-0 max-w-full flex-1 overflow-hidden bg-(--ui-chat-surface-background) contain-[layout_paint]"
+            data-slot="composer-bounds"
+            {...dropHandlers}
+          >
+            {/* Behind the transcript, inside this wrapper: it paints the opaque
               surface fill, so a backdrop mounted outside it would be covered.
               The field is the ground of the empty chat — it arrives with the
               greeting and leaves as the conversation starts — and an inactive
               tab lets go of its bitmap. */}
-          <GlyphField active={showIntro && paneVisible} />
-          <Thread
-            clampToComposer={showChatBar}
-            cwd={currentCwd}
-            gateway={gateway}
-            intro={
-              showIntro
-                ? { onResumeSession: resumeFromIntro, personality: introPersonality, seed: introSeed }
-                : undefined
-            }
-            loading={loadingSession ? 'session' : undefined}
-            onBranchInNewChat={onBranchInNewChat}
-            onCancel={haltRun}
-            onDismissError={onDismissError}
-            onRestoreToMessage={onRestoreToMessage}
-            readOnly={isMessagingConversation}
-            sessionId={activeSessionId}
-            sessionKey={threadKey}
-          />
-          {resumeExhausted && routedSessionId && (
-            <div className="absolute inset-0 z-10 grid place-items-center bg-(--ui-chat-surface-background) px-8 py-10">
-              <ErrorState
-                className="max-w-sm"
-                description={t.desktop.resumeStrandedBody}
-                title={t.desktop.resumeStrandedTitle}
-              >
-                <div className="grid justify-items-center">
-                  <Button onClick={() => onRetryResume(routedSessionId)} size="sm" variant="outline">
-                    {t.desktop.resumeRetry}
-                  </Button>
-                </div>
-              </ErrorState>
-            </div>
-          )}
-          {showChatBar && <ScrollToBottomButton />}
-          {isPrimary && <TurnDoneAnnouncer busy={busy} />}
-          {/* Vibe hearts rise from the composer only when no pet is out (else
-              they play on the pet). Fired by the core `reaction` event. */}
-          {!isMessagingConversation && !petPresent && (
-            <HeartField
-              className="absolute inset-x-0 z-30"
-              config={COMPOSER_HEART_CONFIG}
-              style={{
-                top: 0,
-                bottom: 'calc(var(--composer-measured-height) + 0.25rem)'
-              }}
+            <GlyphField active={showIntro && paneVisible} />
+            <Thread
+              clampToComposer={showChatBar}
+              cwd={currentCwd}
+              gateway={gateway}
+              loading={loadingSession ? 'session' : undefined}
+              onBranchInNewChat={onBranchInNewChat}
+              onCancel={haltRun}
+              onDismissError={onDismissError}
+              onRestoreToMessage={onRestoreToMessage}
+              readOnly={isMessagingConversation}
+              sessionId={activeSessionId}
+              sessionKey={threadKey}
             />
-          )}
-          {/* A session drag hovering an EDGE hands the visual to the zone
+            {/* The home surface: centred in the room the transcript would use,
+              above the docked composer. Only the fresh draft can still pick
+              its folder, so only it gets the folder card. */}
+            {showIntro && (
+              <div className="home-surface" data-slot="home-surface">
+                <Intro personality={introPersonality} seed={introSeed}>
+                  {freshDraftEmpty && <HomeWorkspaces cwd={currentCwd} />}
+                </Intro>
+              </div>
+            )}
+            {resumeExhausted && routedSessionId && (
+              <div className="absolute inset-0 z-10 grid place-items-center bg-(--ui-chat-surface-background) px-8 py-10">
+                <ErrorState
+                  className="max-w-sm"
+                  description={t.desktop.resumeStrandedBody}
+                  title={t.desktop.resumeStrandedTitle}
+                >
+                  <div className="grid justify-items-center">
+                    <Button onClick={() => onRetryResume(routedSessionId)} size="sm" variant="outline">
+                      {t.desktop.resumeRetry}
+                    </Button>
+                  </div>
+                </ErrorState>
+              </div>
+            )}
+            {showChatBar && <ScrollToBottomButton />}
+            {isPrimary && <TurnDoneAnnouncer busy={busy} />}
+            {/* Vibe hearts rise from the composer only when no pet is out (else
+              they play on the pet). Fired by the core `reaction` event. */}
+            {!isMessagingConversation && !petPresent && (
+              <HeartField
+                className="absolute inset-x-0 z-30"
+                config={COMPOSER_HEART_CONFIG}
+                style={{
+                  top: 0,
+                  bottom: 'calc(var(--composer-measured-height) + 0.25rem)'
+                }}
+              />
+            )}
+            {/* A session drag hovering an EDGE hands the visual to the zone
               target; the link overlay shows only for the center region. */}
-          <ChatDropOverlay kind={isMessagingConversation ? null : overlayKind} />
-          {!isMessagingConversation && <ChatSwapOverlay profile={gatewaySwapTarget} />}
-        </div>
-        {/* Composer renders OUTSIDE the contain:[layout paint] wrapper above:
+            <ChatDropOverlay kind={isMessagingConversation ? null : overlayKind} />
+            {!isMessagingConversation && <ChatSwapOverlay profile={gatewaySwapTarget} />}
+          </div>
+          {/* Composer renders OUTSIDE the contain:[layout paint] wrapper above:
             that wrapper is a containing block for — and clips — position:fixed
             descendants, so the popped-out (fixed) composer would anchor to the
             chat column (which shifts/resizes with the sidebars) and get clipped
@@ -715,37 +722,38 @@ export const ChatView = memo(function ChatView({
             anchors to the outer relative container instead: docked is absolute
             (identical placement), floating resolves against the viewport. Both
             states stay mounted here, so dock⇄float never remounts the editor. */}
-        {showChatBar && (
-          <Suspense fallback={<ChatBarFallback />}>
-            <ChatBar
-              busy={busy}
-              cwd={currentCwd}
-              disabled={!gatewayOpen}
-              focusKey={activeSessionId}
-              gateway={gateway}
-              maxRecordingSeconds={maxVoiceRecordingSeconds}
-              onAddContextRef={onAddContextRef}
-              onAddUrl={onAddUrl}
-              onAttachDroppedItems={onAttachDroppedItems}
-              onAttachImageBlob={onAttachImageBlob}
-              onCancel={onCancel}
-              onPasteClipboardImage={onPasteClipboardImage}
-              onPickFiles={onPickFiles}
-              onPickFolders={onPickFolders}
-              onPickImages={onPickImages}
-              onRemoveAttachment={onRemoveAttachment}
-              onSteer={onSteer}
-              onSubmit={submitWithCurrentModel}
-              onTranscribeAudio={onTranscribeAudio}
-              queueSessionKey={queueSessionKey}
-              sessionId={activeSessionId}
-              state={chatBarState}
-            />
-          </Suspense>
-        )}
-        {isMessagingConversation && messagingSourceId && messagingSourceLabel && (
-          <MessagingReadOnlyBar platformId={messagingSourceId} platformName={messagingSourceLabel} />
-        )}
+          {showChatBar && (
+            <Suspense fallback={<ChatBarFallback />}>
+              <ChatBar
+                busy={busy}
+                cwd={currentCwd}
+                disabled={!gatewayOpen}
+                focusKey={activeSessionId}
+                gateway={gateway}
+                maxRecordingSeconds={maxVoiceRecordingSeconds}
+                onAddContextRef={onAddContextRef}
+                onAddUrl={onAddUrl}
+                onAttachDroppedItems={onAttachDroppedItems}
+                onAttachImageBlob={onAttachImageBlob}
+                onCancel={onCancel}
+                onPasteClipboardImage={onPasteClipboardImage}
+                onPickFiles={onPickFiles}
+                onPickFolders={onPickFolders}
+                onPickImages={onPickImages}
+                onRemoveAttachment={onRemoveAttachment}
+                onSteer={onSteer}
+                onSubmit={submitWithCurrentModel}
+                onTranscribeAudio={onTranscribeAudio}
+                queueSessionKey={queueSessionKey}
+                sessionId={activeSessionId}
+                state={chatBarState}
+              />
+            </Suspense>
+          )}
+          {isMessagingConversation && messagingSourceId && messagingSourceLabel && (
+            <MessagingReadOnlyBar platformId={messagingSourceId} platformName={messagingSourceLabel} />
+          )}
+        </SessionWorkspace>
       </ChatRuntimeBoundary>
     </div>
   )

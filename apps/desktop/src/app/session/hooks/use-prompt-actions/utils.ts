@@ -2,6 +2,7 @@ import type { AppendMessage } from '@assistant-ui/react'
 
 import { translateNow, type Translations } from '@/i18n'
 import type { ChatMessage } from '@/lib/chat-messages'
+import { userIndexAtOrdinal, userOrdinalAt } from '@/lib/compaction-ordinal'
 import { type CommandsCatalogLike, filterDesktopCommandsCatalog } from '@/lib/desktop-slash-commands'
 import { isProviderSetupErrorMessage } from '@/lib/provider-setup-errors'
 import type { ComposerAttachment } from '@/store/composer'
@@ -370,28 +371,17 @@ export function appendText(message: AppendMessage): string {
     .trim()
 }
 
-export function visibleUserOrdinal(messages: readonly ChatMessage[], end: number): number {
-  return messages.slice(0, end).filter(m => m.role === 'user' && !m.hidden).length
+const isVisibleUserTurn = (message: ChatMessage) => message.role === 'user' && !message.hidden
+const compactionOffset = (message: ChatMessage) => message.compaction?.userTurnsBefore
+
+/** prompt.submit ordinal of the user turn at `end`; null when a context
+ *  compaction summarized it away (see lib/compaction-ordinal). */
+export function visibleUserOrdinal(messages: readonly ChatMessage[], end: number): null | number {
+  return userOrdinalAt(messages, end, isVisibleUserTurn, compactionOffset)
 }
 
 export function visibleUserIndexAtOrdinal(messages: readonly ChatMessage[], targetOrdinal: number): number {
-  let ordinal = 0
-
-  for (let index = 0; index < messages.length; index += 1) {
-    const message = messages[index]
-
-    if (message.role !== 'user' || message.hidden) {
-      continue
-    }
-
-    if (ordinal === targetOrdinal) {
-      return index
-    }
-
-    ordinal += 1
-  }
-
-  return -1
+  return userIndexAtOrdinal(messages, targetOrdinal, isVisibleUserTurn, compactionOffset)
 }
 
 export interface SubmitTextOptions {
@@ -409,6 +399,14 @@ export interface SubmitTextOptions {
    *  body — model-facing scaffolding the UI must never render — so the slash
    *  dispatcher passes the invocation (`/work fix the leak`) here. */
   displayText?: string
+  /** A gate the send waits on before anything leaves for the gateway — the
+   *  chat surface's model-catalog check (useChatModelCatalog). The prompt
+   *  pipeline runs it AFTER the optimistic message and the waiting state are
+   *  on screen, so a slow check never looks like a dropped send; a slash
+   *  command, which has no optimistic message, runs it first. Resolving false
+   *  takes the message back down and returns the words to the composer
+   *  (the send resolves false). */
+  beforeSend?: () => Promise<boolean>
   fromQueue?: boolean
   /** Runtime session id to submit into. Queue drains pass this so a
    *  backgrounded/source session cannot be replaced by the current foreground

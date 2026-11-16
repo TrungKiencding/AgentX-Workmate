@@ -2,7 +2,7 @@
 // turn's file-edit tool parts into one row per file. No React/DOM.
 
 import {
-  countDiffLineStats,
+  diffLineStatsFromResult,
   fileEditBasename,
   fileEditPath,
   inlineDiffFromResult,
@@ -29,7 +29,9 @@ interface ChangedFilePart {
 /**
  * One row per file the turn edited, in first-touched order, with the +/- of
  * every edit to that file summed. Only landed edits with a diff count: a call
- * still running has no result, and a failed one changed nothing.
+ * still running has no result, and a failed one changed nothing. The +/- is
+ * the backend's count of the whole change when it sent one — the diff here is
+ * a capped preview.
  */
 export function deriveChangedFiles(parts: readonly unknown[]): ChangedFile[] {
   const byPath = new Map<string, ChangedFile>()
@@ -54,7 +56,7 @@ export function deriveChangedFiles(parts: readonly unknown[]): ChangedFile[] {
       continue
     }
 
-    const stats = countDiffLineStats(diff)
+    const stats = diffLineStatsFromResult(result, diff)
     const existing = byPath.get(path)
 
     if (existing) {

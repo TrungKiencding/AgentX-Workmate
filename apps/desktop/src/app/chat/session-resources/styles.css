@@ -1,0 +1,242 @@
+/* Hallmark · component: session resources · theme: screenshot reference / existing tokens
+ * pre-emit critique: P5 H5 E4 S5 R5 V4
+ * states: default · hover · focus · active · disabled · loading · error · success
+ */
+.session-workspace {
+  /* The card's geometry, in one place. The docked gutter is the card plus its
+     own inset on each side (12 + 320 + 20). */
+  --session-resources-width: 320px;
+  --session-resources-inset: 12px;
+  --session-resources-launcher-row: 44px;
+  --session-resources-gutter: calc(var(--session-resources-width) + var(--session-resources-inset) + 20px);
+  display: flex;
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.session-conversation {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.session-conversation [data-slot='aui_thread-viewport'] {
+  /* Balance the themed scrollbar so overflowing history keeps the same
+     centerline as the composer outside the scrollport. */
+  scrollbar-gutter: stable both-edges;
+}
+/* Floating layout (index.tsx decides which, from the chat's width): the
+   transcript runs to the corner, so the toggle gets a row of its own. */
+.session-workspace[data-resources='true'][data-layout='floating'] > .session-conversation {
+  padding-top: var(--session-resources-launcher-row);
+}
+/* Docked layout: narrow the containing block itself so the absolute composer
+   and the in-flow transcript share the same center and width constraints. */
+.session-workspace[data-resources='true'][data-layout='docked'][data-resources-expanded='true']
+  > .session-conversation {
+  margin-inline-end: var(--session-resources-gutter);
+}
+.session-resources-launcher {
+  position: absolute;
+  top: 4px;
+  inset-inline-end: var(--session-resources-inset);
+  z-index: 5;
+}
+.session-resources-launcher [data-active='true'] {
+  background: var(--bg-hover);
+}
+.session-resources-card {
+  position: absolute;
+  top: var(--session-resources-launcher-row);
+  inset-inline-end: var(--session-resources-inset);
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--session-resources-width), calc(100% - 2 * var(--session-resources-inset)));
+  max-height: min(520px, calc(100% - var(--composer-measured-height, 160px) - 64px));
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--bg-app);
+  color: var(--text-secondary);
+  animation: session-resources-enter var(--dur-short) var(--ease-out);
+}
+.session-resources-content {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.session-resources-scroll {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.session-resources-section {
+  margin: 0 18px;
+  padding: 12px 0;
+}
+.session-resources-section + .session-resources-section {
+  border-top: 1px solid var(--border-subtle);
+}
+.session-resources-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+  margin-bottom: 4px;
+}
+.session-resources-section-heading h3 {
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 20px;
+}
+.session-resources-section-heading [data-slot='button'] {
+  color: var(--text-tertiary);
+}
+.session-resources-section ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.session-resources-changes {
+  margin: 0 18px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.session-resources-project {
+  overflow: hidden;
+  margin-bottom: 4px;
+  color: var(--text-tertiary);
+  font-size: 14px;
+  line-height: 20px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.session-resource-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: 28px;
+  gap: 12px;
+  padding: 4px 0;
+  border-radius: var(--radius-control);
+  text-align: start;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 20px;
+  cursor: pointer;
+  transition: background-color var(--dur-micro);
+}
+.session-resource-row:hover {
+  background: var(--bg-hover);
+}
+.session-resource-row:active {
+  background: var(--bg-pressed);
+}
+.session-resource-row:focus-visible,
+.session-resources-empty-action:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.session-resource-row:disabled {
+  color: var(--text-disabled);
+  cursor: default;
+}
+.session-resource-row > .codicon {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+.session-resource-row[data-output='true'] > .codicon {
+  color: var(--accent);
+}
+.session-resource-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.session-resource-folder {
+  /* Gives way before the name does. */
+  flex: 0 100 auto;
+  min-width: 0;
+  max-width: 40%;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.session-resource-type {
+  flex-shrink: 0;
+  max-width: 56px;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.session-resources-empty-action {
+  display: block;
+  width: 100%;
+  padding: 4px 0;
+  color: var(--text-tertiary);
+  text-align: start;
+  font-size: 14px;
+  line-height: 24px;
+  border-radius: var(--radius-control);
+}
+.session-resources-empty-action:hover {
+  color: var(--text-secondary);
+}
+.session-resources-empty-action:active {
+  background: var(--bg-pressed);
+}
+.session-resource-error {
+  margin: 0 0 8px;
+  color: var(--danger);
+  font-size: 13px;
+}
+@keyframes session-resources-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .session-resources-card {
+    animation: none;
+  }
+  .session-resource-row {
+    transition: none;
+  }
+}
+/* How many results the closed card holds: a narrow window floats the card
+   away by default, and this is what says a file was made. */
+.session-resources-launcher button {
+  position: relative;
+}
+.session-resources-count {
+  position: absolute;
+  top: -3px;
+  inset-inline-end: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding-inline: 4px;
+  border-radius: 999px;
+  background: var(--dt-primary);
+  color: var(--dt-primary-foreground);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}

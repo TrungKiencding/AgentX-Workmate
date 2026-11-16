@@ -126,7 +126,7 @@ const plugin: HermesPlugin = {
         area: PALETTE_AREA,
         data: {
           id: 'kanban.open',
-          label: 'Kanban: Open board',
+          label: () => ctx.i18n.t('openBoardCommand'),
           keywords: ['kanban', 'board', 'tasks', 'agents'],
           run: () => host.navigate('/kanban')
         } satisfies PaletteContribution
@@ -137,7 +137,7 @@ const plugin: HermesPlugin = {
         data: {
           id: 'kanban.newTask',
           action: 'kanban.newTask',
-          label: ctx.i18n.t('newTaskCommand'),
+          label: () => ctx.i18n.t('newTaskCommand'),
           keywords: ['kanban', 'task', 'new', 'create', 'triage'],
           run: newTask
         } satisfies PaletteContribution
@@ -149,7 +149,7 @@ const plugin: HermesPlugin = {
           id: 'kanban.newTask',
           category: 'view',
           defaults: ['mod+alt+n'],
-          label: ctx.i18n.t('newTaskCommand'),
+          label: () => ctx.i18n.t('newTaskCommand'),
           run: newTask
         } satisfies KeybindContribution
       }

@@ -121,29 +121,10 @@ class TestImageRejectionPhraseIsolation:
     so they route to the correct recovery handler (e.g. _try_shrink_image_parts).
     """
 
-    # Reproduces the phrase list used in run_agent.py's error-handler block.
-    _REJECTION_PHRASES = (
-        "only 'text' content type is supported",
-        "only text content type is supported",
-        "image_url is not supported",
-        "image content is not supported",
-        "multimodal is not supported",
-        "multimodal content is not supported",
-        "multimodal input is not supported",
-        "vision is not supported",
-        "vision input is not supported",
-        "does not support images",
-        "does not support image input",
-        "does not support multimodal",
-        "does not support vision",
-        "model does not support image",
-        "image_url'. expected",
-        "no endpoints found that support image input",
-    )
-
     def _matches(self, body: str) -> bool:
-        low = body.lower()
-        return any(p in low for p in self._REJECTION_PHRASES)
+        from agent.message_sanitization import _looks_like_image_content_rejection
+
+        return _looks_like_image_content_rejection(body)
 
     def test_anthropic_image_too_large_does_not_trip(self):
         # From agent/error_classifier.py _IMAGE_TOO_LARGE_PATTERNS —
@@ -162,3 +143,26 @@ class TestImageRejectionPhraseIsolation:
 
 
 
+
+
+class TestTextOnlyEndpointRejection:
+    """vLLM-style text-only hosts answer imaged history with "<model> is not a multimodal model"."""
+
+    def test_not_a_multimodal_model_is_an_image_rejection(self):
+        from agent.message_sanitization import _looks_like_image_content_rejection
+
+        body = ("Error code: 400 - {'object': 'error', 'message': 'Qwen/Qwen3-32B is not a "
+                "multimodal model', 'type': 'BadRequestError', 'code': 400}")
+        assert _looks_like_image_content_rejection(body)
+
+    def test_only_a_request_that_carried_an_image_counts(self):
+        from agent.message_sanitization import _messages_carry_images
+
+        imaged = [{"role": "user", "content": [
+            {"type": "text", "text": "what is this?"},
+            {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAAA"}},
+        ]}]
+        echoed = [{"role": "user", "content": "is gpt-x not a multimodal model?"}]
+        assert _messages_carry_images(imaged)
+        assert not _messages_carry_images(echoed)
+        assert not _messages_carry_images(None)

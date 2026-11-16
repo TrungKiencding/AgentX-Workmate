@@ -55,6 +55,7 @@ from hermes_cli.cli_agent_setup_mixin import CLIAgentSetupMixin
 from hermes_cli.cli_commands_mixin import CLICommandsMixin
 from hermes_cli.cli_billing_mixin import CLIBillingMixin
 from agent.interrupt_compat import request_hard_interrupt
+from agent.think_scrubber import THINK_CLOSE_TAGS, THINK_OPEN_TAGS, THINK_TAG_NAMES
 
 # prompt_toolkit for fixed input area TUI
 from prompt_toolkit.history import FileHistory
@@ -244,17 +245,20 @@ from hermes_cli.env_loader import load_hermes_dotenv
 from utils import base_url_host_matches, base_url_hostname, fast_safe_load
 
 _hermes_home = get_hermes_home()
+if __name__ == "__main__":
+    from hermes_cli.cli_sso import selected_home
+    from hermes_constants import get_active_account
+
+    _selected_home = None if get_active_account() else selected_home()
+    if _selected_home is not None:
+        os.environ["AGENTX_HOME"] = str(_selected_home)
+        _hermes_home = _selected_home
 _project_env = Path(__file__).parent / '.env'
 load_hermes_dotenv(hermes_home=_hermes_home, project_env=_project_env)
 
 
-_REASONING_TAGS = (
-    "REASONING_SCRATCHPAD",
-    "think",
-    "thinking",
-    "reasoning",
-    "thought",
-)
+# Regex-escaped, from the one canonical list (agent/think_scrubber.py).
+_REASONING_TAGS = tuple(re.escape(name) for name in THINK_TAG_NAMES)
 
 
 def _strip_reasoning_tags(text: str) -> str:
@@ -4356,29 +4360,8 @@ class ChatConsole:
         """
         yield self
 
-# ASCII Art - AGENTX WORKMATE wordmark, 5x5 pixel font (needs ~90 cols)
-WORKMATE_LOGO = """[bold #7DF9FF] ███   ████ █████ █   █ █████ █   █       █   █  ███  ████  █   █ █   █  ███  █████ █████[/]
-[bold #38BDF8]█   █ █     █     ██  █   █    █ █        █   █ █   █ █   █ █  █  ██ ██ █   █   █   █    [/]
-[#4F7BF7]█████ █  ██ ████  █ █ █   █     █         █ █ █ █   █ ████  ███   █ █ █ █████   █   ████ [/]
-[#6366F1]█   █ █   █ █     █  ██   █    █ █        ██ ██ █   █ █  █  █  █  █   █ █   █   █   █    [/]
-[#8B5CF6]█   █  ███  █████ █   █   █   █   █       █   █  ███  █   █ █   █ █   █ █   █   █   █████[/]"""
-
-# ASCII Art - AgentX Caduceus (compact, fits in left panel)
-WORKMATE_MASCOT = """[#7DF9FF]            ██            [/]
-[#7DF9FF]            ██            [/]
-[#38BDF8]         ████████         [/]
-[#38BDF8] ████████████████████████ [/]
-[#38BDF8] ██                    ██ [/]
-[#4F7BF7] ██  ████        ████  ██ [/]
-[#4F7BF7] ██  ████        ████  ██ [/]
-[#4F7BF7] ██                    ██ [/]
-[#4F7BF7] ██     ██████████     ██ [/]
-[#6366F1] ██                    ██ [/]
-[#6366F1] ████████████████████████ [/]
-[#6366F1]  ██████████████████████  [/]
-[#8B5CF6]      ████      ████      [/]
-[#8B5CF6]     ██████    ██████     [/]"""
-
+# Keep compatibility imports while sharing the banner artwork.
+from hermes_cli.banner import WORKMATE_LOGO, WORKMATE_MASCOT
 
 
 def _build_compact_banner() -> str:
@@ -7262,8 +7245,8 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
         # suppress them during streaming too — unless show_reasoning is
         # enabled, in which case we route the inner content to the
         # reasoning display box instead of discarding it.
-        _OPEN_TAGS = ("<REASONING_SCRATCHPAD>", "<think>", "<reasoning>", "<THINKING>", "<thinking>", "<thought>")
-        _CLOSE_TAGS = ("</REASONING_SCRATCHPAD>", "</think>", "</reasoning>", "</THINKING>", "</thinking>", "</thought>")
+        _OPEN_TAGS = THINK_OPEN_TAGS
+        _CLOSE_TAGS = THINK_CLOSE_TAGS
 
         # Append to a pre-filter buffer first
         self._stream_prefilt = getattr(self, "_stream_prefilt", "") + text
@@ -10337,6 +10320,7 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                     raise RuntimeError("inventory context unavailable")
                 providers = build_models_payload(
                     ctx,
+                    refresh=force_refresh,
                     probe_custom_providers=force_refresh,
                     probe_current_custom_provider=not force_refresh,
                 )["providers"]
@@ -10344,6 +10328,11 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
                 providers = []
 
             if not providers:
+                from hermes_cli.account_inference import account_inference
+
+                if account_inference() is not None:
+                    _cprint("  No assigned models are available. Run 'agentx login' to refresh your account access.")
+                    return
                 _cprint("  No authenticated providers found.")
                 _cprint("")
                 _cprint("  /model <name>                        switch model (persists)")
@@ -15179,6 +15168,17 @@ class HermesCLI(CLIAgentSetupMixin, CLICommandsMixin, CLIBillingMixin):
 
             def run_agent():
                 nonlocal result
+                if getattr(self, "_single_query_mode", False):
+                    # Single-query (`chat -q`): no later turn exists for a
+                    # detached subagent's result to re-enter. main() declares
+                    # the channel stateless, but this thread starts with an
+                    # empty context, so repeat it here.
+                    try:
+                        from gateway.session_context import declare_stateless_channel
+
+                        declare_stateless_channel()
+                    except Exception:
+                        pass
                 # Set callbacks inside the agent thread so thread-local storage
                 # in terminal_tool is populated for this thread.  The main thread
                 # registration (run() line ~9046) is invisible here because
@@ -19501,6 +19501,15 @@ def main(
     """
     global _active_worktree
 
+    if not (gateway or list_tools or list_toolsets):
+        from hermes_cli import cli_sso
+
+        try:
+            cli_sso.require_session(interactive=False)
+        except cli_sso.CLISignInError as exc:
+            print(str(exc), file=sys.stderr)
+            raise SystemExit(1) from exc
+
     # Force UTF-8 stdio on Windows before any banner/print() runs — the
     # Rich console prints Unicode box-drawing characters that would
     # UnicodeEncodeError on cp1252.  No-op on Linux/macOS.
@@ -19756,6 +19765,24 @@ def main(
         os.environ["AGENTX_SINGLE_QUERY_SESSION"] = "1"
         if not cli._claim_active_session("cli", stderr=bool(quiet)):
             sys.exit(1)
+        # A single-query run prints one response and exits. Nothing drains
+        # process_registry.completion_queue afterwards (only the interactive
+        # process_loop and the gateway watchers do), so a top-level
+        # delegate_task — forced into the background — was interrupted at
+        # exit and its result never reached the user. Declare the channel
+        # stateless, as `agentx -z` does, so delegations run inline and
+        # return within the turn. Scoped to this call (reset in ``finally``)
+        # so in-process callers are not left with a stateless context.
+        _stateless_reset = None
+        try:
+            from gateway.session_context import _SESSION_ASYNC_DELIVERY
+
+            _stateless_token = _SESSION_ASYNC_DELIVERY.set(False)
+
+            def _stateless_reset() -> None:
+                _SESSION_ASYNC_DELIVERY.reset(_stateless_token)
+        except Exception:
+            _stateless_reset = None
         try:
             query, single_query_images = _collect_query_images(query, image)
             # Kanban workers spawn with ``agentx chat -q "work kanban task <id>"``;
@@ -19974,7 +20001,11 @@ def main(
                 cli.chat(query, images=single_query_images or None)
                 cli._print_exit_summary(clear_screen=False)
         finally:
-            _finalize_single_query(cli)
+            try:
+                _finalize_single_query(cli)
+            finally:
+                if _stateless_reset is not None:
+                    _stateless_reset()
         return
     
     # Run interactive mode

@@ -10,6 +10,7 @@ import { _electron, chromium } from '@playwright/test'
 import { build } from 'esbuild'
 import { signEd25519 } from '../electron/signed-manifest'
 import { signAppAdHoc } from './sign-mac-adhoc.mjs'
+import { sandboxShellEnv } from './sandbox-env.mjs'
 
 const desktop = path.resolve(import.meta.dirname, '..')
 const repo = path.resolve(desktop, '../..')
@@ -56,9 +57,9 @@ fs.writeFileSync(
 )
 const env = {
   HOME: os.homedir(),
+  ...sandboxShellEnv(sandbox, '/usr/bin:/bin:/usr/sbin:/sbin'),
   USER: process.env.USER!,
   TMPDIR: sandbox,
-  PATH: '/usr/bin:/bin:/usr/sbin:/sbin',
   LANG: 'en_US.UTF-8',
   AGENTX_HOME: home,
   AGENTX_DESKTOP_USER_DATA_DIR: userData,

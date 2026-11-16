@@ -52,3 +52,70 @@ class TestNamedProfileMultiplexerGuard:
         monkeypatch.setattr(status, "_pid_exists", lambda pid: True)
 
 
+
+
+class TestMultiplexerGuardSignedIn:
+    """Signed-in desktop: the account home is the person's default profile and
+    its gateway is the multiplexer for the profiles inside that account."""
+
+    @pytest.fixture()
+    def layout(self, tmp_path, monkeypatch):
+        from pathlib import Path
+
+        from hermes_constants import get_default_hermes_root
+
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData" / "Local"))
+        monkeypatch.delenv("AGENTX_HOME", raising=False)
+        monkeypatch.delenv("GATEWAY_MULTIPLEX_PROFILES", raising=False)
+        root = get_default_hermes_root()
+        account = root / "accounts" / "xuan-1234abcd"
+        (account / "profiles" / "work").mkdir(parents=True)
+        return root, account
+
+    def _multiplexer_running_at(self, monkeypatch, home):
+        import gateway.status as status
+
+        home.mkdir(parents=True, exist_ok=True)
+        (home / "config.yaml").write_text(
+            "gateway:\n  multiplex_profiles: true\n", encoding="utf-8"
+        )
+        pid_file = (home / "gateway.pid").resolve()
+        pid_file.write_text("12345", encoding="utf-8")
+        monkeypatch.setattr(
+            status,
+            "_read_pid_record",
+            lambda p: {"pid": 12345} if p.resolve() == pid_file else None,
+        )
+        monkeypatch.setattr(status, "_pid_from_record", lambda rec: 12345)
+        monkeypatch.setattr(status, "_pid_exists", lambda pid: True)
+
+    def test_account_default_gateway_ignores_a_stale_root_multiplexer(
+        self, layout, monkeypatch
+    ):
+        from hermes_cli import gateway as gw
+
+        root, account = layout
+        self._multiplexer_running_at(monkeypatch, root)
+        monkeypatch.setenv("AGENTX_HOME", str(account))
+        gw._guard_named_profile_under_multiplexer(force=False)  # must not exit
+
+    def test_profile_inside_account_is_refused_under_the_account_multiplexer(
+        self, layout, monkeypatch, capsys
+    ):
+        from hermes_cli import gateway as gw
+
+        root, account = layout
+        self._multiplexer_running_at(monkeypatch, account)
+        monkeypatch.setenv("AGENTX_HOME", str(account / "profiles" / "work"))
+        with pytest.raises(SystemExit):
+            gw._guard_named_profile_under_multiplexer(force=False)
+        assert "serves profile 'work'" in capsys.readouterr().out
+
+    def test_profile_inside_account_ignores_the_root_multiplexer(self, layout, monkeypatch):
+        from hermes_cli import gateway as gw
+
+        root, account = layout
+        self._multiplexer_running_at(monkeypatch, root)
+        monkeypatch.setenv("AGENTX_HOME", str(account / "profiles" / "work"))
+        gw._guard_named_profile_under_multiplexer(force=False)  # must not exit

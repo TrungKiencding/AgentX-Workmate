@@ -56,8 +56,11 @@ function SelectContent({
       <SelectPrimitive.Content
         className={cn(
           `relative z-(--z-modal-popover) max-h-[60vh] ${MENU_SURFACE} p-0 ${MENU_MOTION}`,
+          // Never wider or taller than the room Radix measured next to the
+          // trigger: a long option (a model id) truncates instead of pushing
+          // the list off the window edge, the same caps DropdownMenu uses.
           position === 'popper' &&
-            'data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
+            'max-h-[min(60vh,var(--radix-select-content-available-height))] max-w-(--radix-select-content-available-width) data-[side=bottom]:translate-y-1 data-[side=left]:-translate-x-1 data-[side=right]:translate-x-1 data-[side=top]:-translate-y-1',
           className
         )}
         data-slot="select-content"
@@ -93,7 +96,12 @@ function SelectItem({ className, children, ...props }: React.ComponentProps<type
           <Check className="size-4" />
         </SelectPrimitive.ItemIndicator>
       </span>
-      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      {/* Radix drops ItemText's className, so the wrapper truncates: a label
+          wider than the capped list ends in an ellipsis on its one line
+          instead of wrapping into the next 36px row. */}
+      <span className="min-w-0 truncate">
+        <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+      </span>
     </SelectPrimitive.Item>
   )
 }

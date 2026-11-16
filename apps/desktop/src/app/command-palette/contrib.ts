@@ -9,10 +9,22 @@ import type { IconComponent } from '@/lib/icons'
 
 export const PALETTE_AREA = 'palette'
 
+/**
+ * A row's text. A function when it is translated: contributions register once
+ * at boot, in whatever language the app happened to start in, so a string
+ * captured there stayed in that language after the person switched (pilot
+ * feedback 2026-11-10: "chưa đồng bộ khi chuyển đổi ngôn ngữ"). The palette
+ * calls it each time it renders.
+ */
+export type ContributedLabel = (() => string) | string
+
+export const resolveContributedLabel = (label: ContributedLabel | undefined): string =>
+  (typeof label === 'function' ? label() : label) ?? ''
+
 /** Payload of a `palette` data contribution. */
 export interface PaletteContribution {
   id: string
-  label: string
+  label: ContributedLabel
   /** Keybind action id — its live combo renders as the hotkey hint. */
   action?: string
   icon?: IconComponent
@@ -30,10 +42,19 @@ export interface PaletteContribution {
   keepOpen?: boolean
 }
 
-/** Contributed palette rows, with stable render keys. */
-export function usePaletteContributions(): Array<PaletteContribution & { key: string }> {
+/** A contributed row as the palette renders it: its label resolved to text. */
+export type PaletteContributionRow = Omit<PaletteContribution, 'label'> & { key: string; label: string }
+
+/** Contributed palette rows, with stable render keys. Labels are read in the
+ *  app's current language on every render (the palette re-renders on a
+ *  language switch). */
+export function usePaletteContributions(): PaletteContributionRow[] {
   return useContributions(PALETTE_AREA)
-    .map(c => ({ key: `${c.source ?? 'core'}:${c.id}`, ...(c.data as PaletteContribution) }))
+    .map(c => {
+      const data = c.data as PaletteContribution
+
+      return { ...data, key: `${c.source ?? 'core'}:${c.id}`, label: resolveContributedLabel(data?.label) }
+    })
     .filter(item => Boolean(item.label && item.run))
 }
 

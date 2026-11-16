@@ -84,6 +84,8 @@ class TestContinuationCeilingWedge:
 
         result1 = self._exhaust_ceiling(loop_agent)
         assert "truncated after 4 continuation attempts" in (result1.get("error") or "")
+        # Reported as a reply that was cut off (tui_gateway/usage_outcome.py).
+        assert result1.get("failure_reason") == "response_truncated"
         calls_after_turn1 = loop_agent.client.chat.completions.create.call_count
         assert calls_after_turn1 == 4
 

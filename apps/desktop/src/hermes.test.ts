@@ -328,7 +328,7 @@ describe('AgentX REST helpers', () => {
     await getSessionMessages('session-1', 'xiaoxuxu')
 
     expect(api).toHaveBeenCalledWith({
-      path: '/api/sessions/session-1/messages?profile=xiaoxuxu',
+      path: '/api/sessions/session-1/messages?profile=xiaoxuxu&view=display',
       profile: 'xiaoxuxu'
     })
   })

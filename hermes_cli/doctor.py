@@ -257,6 +257,52 @@ def _has_provider_env_config(content: str) -> bool:
     return any(key in content for key in _PROVIDER_ENV_HINTS)
 
 
+def _configured_provider_key_envs(config_path: Path) -> set[str]:
+    """Env var names the configured model provider reads its API key from.
+
+    ``model.key_env`` and ``providers.<model.provider>.key_env`` name the key
+    of a user-defined provider (e.g. an OpenAI-compatible gateway). That name
+    is chosen by the config, so it is not in ``_PROVIDER_ENV_HINTS``.
+    """
+    names: set[str] = set()
+    try:
+        from hermes_cli.config import read_user_config_raw
+
+        cfg = read_user_config_raw(config_path)
+        model_section = cfg.get("model")
+        if not isinstance(model_section, dict):
+            return names
+        candidates = [model_section]
+        provider = str(model_section.get("provider") or "").strip().lower()
+        user_providers = cfg.get("providers")
+        if provider and isinstance(user_providers, dict):
+            candidates.extend(
+                entry
+                for name, entry in user_providers.items()
+                if isinstance(entry, dict) and str(name).strip().lower() == provider
+            )
+        for entry in candidates:
+            for field in ("key_env", "api_key_env"):
+                value = entry.get(field)
+                if isinstance(value, str) and value.strip():
+                    names.add(value.strip())
+    except Exception:
+        return set()
+    return names
+
+
+def _env_content_sets(content: str, names: set[str]) -> bool:
+    """Return True when the .env text assigns a non-empty value to any of ``names``."""
+    for line in content.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("export "):
+            stripped = stripped[len("export "):].lstrip()
+        key, sep, value = stripped.partition("=")
+        if sep and key.strip() in names and value.strip().strip("'\""):
+            return True
+    return False
+
+
 def _honcho_is_configured_for_doctor() -> bool:
     """Return True when Honcho is configured, even if this process has no active session."""
     try:
@@ -1051,7 +1097,9 @@ def run_doctor(args):
             content = env_path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
             content = env_path.read_text(encoding="latin-1")
-        if _has_provider_env_config(content):
+        if _has_provider_env_config(content) or _env_content_sets(
+            content, _configured_provider_key_envs(AGENTX_HOME / "config.yaml")
+        ):
             check_ok("API key or custom endpoint configured")
         else:
             check_warn(f"No API key found in {_DHH}/.env")
@@ -1165,6 +1213,9 @@ def run_doctor(args):
                     runtime_provider = provider
 
             catalog_provider = provider
+            # A ``providers.<name>`` entry that declares its own endpoint is a
+            # user-defined OpenAI-compatible provider (e.g. a LiteLLM gateway).
+            user_defined_endpoint = False
             if (
                 provider
                 and _resolve_provider_full is not None
@@ -1172,6 +1223,11 @@ def run_doctor(args):
             ):
                 provider_def = _resolve_provider_full(provider, user_providers, custom_providers)
                 catalog_provider = provider_def.id if provider_def is not None else None
+                user_defined_endpoint = bool(
+                    provider_def is not None
+                    and getattr(provider_def, "source", "") == "user-config"
+                    and str(getattr(provider_def, "base_url", "") or "").strip()
+                )
                 if catalog_provider is not None:
                     provider_ids_to_accept.add(catalog_provider)
 
@@ -1221,6 +1277,9 @@ def run_doctor(args):
                 provider_policy_id in providers_accepting_vendor_slugs
                 or provider_policy_id == "custom"
                 or provider_policy_id.startswith("custom:")
+                # Same reasoning as custom:<name>: a user-defined gateway
+                # serves whatever ids its backend exposes, vendor/model included.
+                or user_defined_endpoint
             )
             if (
                 default_model

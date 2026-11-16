@@ -1,347 +1,90 @@
 import { useStore } from '@nanostores/react'
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from '@/components/ui/dialog'
-import { FieldHint } from '@/components/ui/field'
-import { GenerateButton } from '@/components/ui/generate-button'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Tip } from '@/components/ui/tooltip'
-import { useAiBlockedReason } from '@/hooks/use-ai-blocked-reason'
 import { useI18n } from '@/i18n'
-import { pathLeaf } from '@/lib/display-path'
-import { Folder, FolderOpen, Plus, RefreshCw, X } from '@/lib/icons'
-import { type ProjectIdeaTemplate, randomIdeaTemplates } from '@/lib/project-idea-templates'
-import { cn } from '@/lib/utils'
 import { notifyError } from '@/store/notifications'
-import {
-  $projectDialog,
-  addProjectFolder,
-  closeProjectDialog,
-  createProject,
-  generateProjectIdea,
-  pickProjectFolder,
-  renameProject
-} from '@/store/projects'
+import { $projectDialog, closeProjectDialog, renameProjectOrAdopt } from '@/store/projects'
 
-// The name a new project gets for free: a single folder's own name. With
-// several folders there is no obvious pick, so the person names it.
-const suggestedProjectName = (folders: readonly string[]): string => (folders.length === 1 ? pathLeaf(folders[0]) : '')
-
-// Single dialog mounted once in the sidebar; it renders create / rename /
-// add-folder flows driven by the $projectDialog atom. Folders are chosen via
-// the native directory picker (reused from the default-project-dir setting).
+// Rename a project. Mounted once in the sidebar and driven by $projectDialog,
+// so a row's menu opens it without prop threading. Creating a project and
+// adding a folder have no dialog: both go straight to the folder picker.
 export function ProjectDialog() {
   const { t } = useI18n()
   const p = t.sidebar.projects
   const state = useStore($projectDialog)
   const open = state !== null
-  const mode = state?.mode ?? 'create'
-
   const [name, setName] = useState('')
-  // While the name is still the dialog's own suggestion (the single folder's
-  // leaf) it follows the folder list; the first keystroke makes it the
-  // person's, and from then on the list can change without touching it.
-  const [nameSuggested, setNameSuggested] = useState(true)
-  const [folders, setFolders] = useState<string[]>([])
-  const [idea, setIdea] = useState('')
-  const [templates, setTemplates] = useState<ProjectIdeaTemplate[]>([])
-  const [generatingIdea, setGeneratingIdea] = useState(false)
-  // A read-only AgentX license: generating an idea is model work.
-  const aiBlocked = useAiBlockedReason()
   const [submitting, setSubmitting] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
-  const nameHintId = useId()
 
   useEffect(() => {
-    if (open) {
-      setName(state?.name ?? '')
-      setNameSuggested(mode === 'create')
-      setFolders([])
-      setIdea('')
-      setTemplates(randomIdeaTemplates())
-      setGeneratingIdea(false)
+    if (state) {
+      setName(state.name)
       setSubmitting(false)
-
-      if (mode !== 'add-folder') {
-        window.setTimeout(() => nameRef.current?.select(), 0)
-      }
+      window.setTimeout(() => nameRef.current?.select(), 0)
     }
-  }, [open, mode, state?.name])
+  }, [state])
 
-  // The suggestion tracks the folders only while it is still a suggestion.
-  useEffect(() => {
-    if (mode === 'create' && nameSuggested) {
-      setName(suggestedProjectName(folders))
+  const trimmed = name.trim()
+  const unchanged = trimmed === state?.name.trim()
+
+  const submit = async () => {
+    if (!state || submitting || !trimmed) {
+      return
     }
-  }, [folders, mode, nameSuggested])
 
-  const onOpenChange = (next: boolean) => {
-    if (!next) {
+    // Saving the name it already has is a no-op, not a write.
+    if (unchanged) {
       closeProjectDialog()
-    }
-  }
 
-  // One submit beat for every flow: guard re-entry, run the write, close on
-  // success, surface a toast on failure. Callers pass only the write.
-  const runSubmit = async (write: () => Promise<unknown>) => {
-    if (submitting) {
       return
     }
 
     setSubmitting(true)
 
     try {
-      await write()
+      await renameProjectOrAdopt(state, trimmed)
       closeProjectDialog()
     } catch (err) {
-      notifyError(err, p.createFailed)
+      notifyError(err, p.renameFailed)
     } finally {
       setSubmitting(false)
     }
   }
 
-  const pickFolder = async () => {
-    try {
-      const dir = await pickProjectFolder()
-
-      if (!dir) {
-        return
-      }
-
-      const projectId = state?.projectId
-
-      if (mode === 'add-folder' && projectId) {
-        await runSubmit(() => addProjectFolder(projectId, dir))
-
-        return
-      }
-
-      setFolders(prev => (prev.includes(dir) ? prev : [...prev, dir]))
-    } catch (err) {
-      notifyError(err, p.createFailed)
-    }
-  }
-
-  // What the project will actually be called. A cleared field still falls back
-  // to the single folder's name — that default is the point of a one-folder
-  // project — while several folders need a typed name.
-  const suggestion = suggestedProjectName(folders)
-  const effectiveName = name.trim() || suggestion
-
-  const nameHint =
-    mode !== 'create'
-      ? null
-      : folders.length > 1 && !effectiveName
-        ? p.nameRequiredMulti
-        : folders.length === 1 && nameSuggested
-          ? p.nameFromFolder
-          : null
-
-  const submit = async () => {
-    const trimmed = name.trim()
-    const projectId = state?.projectId
-
-    if (mode === 'rename' && projectId) {
-      if (trimmed) {
-        await runSubmit(() => renameProject(projectId, trimmed))
-      }
-
-      return
-    }
-
-    // A project owns sessions by folder (cwd-prefix), so creation requires at
-    // least one — a folder-less project couldn't hold a session anyway.
-    if (mode === 'create' && effectiveName && folders.length) {
-      await runSubmit(() => createProject({ folders, idea: idea.trim() || undefined, name: effectiveName, use: true }))
-    }
-  }
-
-  const generateIdea = async () => {
-    if (generatingIdea || aiBlocked) {
-      return
-    }
-
-    setGeneratingIdea(true)
-
-    try {
-      const text = await generateProjectIdea(effectiveName)
-
-      if (text) {
-        setIdea(text)
-      }
-    } finally {
-      setGeneratingIdea(false)
-    }
-  }
-
-  const title = mode === 'rename' ? p.renameTitle : mode === 'add-folder' ? p.addFolderTitle : p.createTitle
-
-  const submitDisabled = submitting || (mode === 'rename' ? !name.trim() : !effectiveName || folders.length === 0)
-
   return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent className="max-w-md" onInteractOutside={event => event.preventDefault()}>
+    <Dialog onOpenChange={next => !next && closeProjectDialog()} open={open}>
+      <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {mode === 'create' && <DialogDescription>{p.createDesc}</DialogDescription>}
+          <DialogTitle>{p.renameTitle}</DialogTitle>
         </DialogHeader>
-
-        {mode !== 'add-folder' && (
-          <div className="flex flex-col gap-1.5">
-            <Input
-              aria-describedby={nameHint ? nameHintId : undefined}
-              autoFocus
-              disabled={submitting}
-              onChange={event => {
-                setName(event.target.value)
-                setNameSuggested(false)
-              }}
-              onKeyDown={event => {
-                if (event.key === 'Enter') {
-                  event.preventDefault()
-                  void submit()
-                } else if (event.key === 'Escape') {
-                  onOpenChange(false)
-                }
-              }}
-              // A single folder's name stands in for an empty field, so the
-              // hint shows exactly what the project would be called.
-              placeholder={suggestion || p.namePlaceholder}
-              ref={nameRef}
-              value={name}
-            />
-            {nameHint && <FieldHint id={nameHintId}>{nameHint}</FieldHint>}
-          </div>
-        )}
-
-        {mode === 'create' && (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-2xs font-medium text-(--ui-text-tertiary)">{p.foldersLabel}</span>
-            {folders.length === 0 ? (
-              <span className="text-xs text-(--ui-text-quaternary)">{p.noFolders}</span>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {folders.map((folder, index) => (
-                  <li
-                    className={cn(
-                      'flex items-center gap-2 rounded-md bg-(--ui-control-hover-background) px-2 py-1 text-xs'
-                    )}
-                    key={folder}
-                  >
-                    <Folder className="size-3.5 shrink-0 text-(--ui-text-tertiary)" />
-                    <span className="min-w-0 flex-1 truncate" title={folder}>
-                      {folder}
-                    </span>
-                    {index === 0 && (
-                      <span className="shrink-0 text-2xs text-(--ui-text-quaternary)">{p.primaryBadge}</span>
-                    )}
-                    <Tip label={p.removeFolder}>
-                      <Button
-                        aria-label={p.removeFolder}
-                        className="size-5 shrink-0 text-(--ui-text-quaternary) hover:text-foreground"
-                        onClick={() => setFolders(prev => prev.filter(f => f !== folder))}
-                        size="icon-xs"
-                        type="button"
-                        variant="ghost"
-                      >
-                        <X />
-                      </Button>
-                    </Tip>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <Button
-              className="self-start"
-              disabled={submitting}
-              onClick={() => void pickFolder()}
-              size="sm"
-              type="button"
-              variant="ghost"
-            >
-              <Plus />
-              {p.addFolder}
-            </Button>
-          </div>
-        )}
-
-        {mode === 'create' && (
-          <div className="flex flex-col gap-1.5">
-            <span className="text-2xs font-medium text-(--ui-text-tertiary)">{p.ideaLabel}</span>
-            <div className="relative">
-              <Textarea
-                className="min-h-20 pr-8 text-sm"
-                disabled={submitting}
-                onChange={event => setIdea(event.target.value)}
-                placeholder={p.ideaPlaceholder}
-                value={idea}
-              />
-              <GenerateButton
-                blockedReason={aiBlocked}
-                className="absolute top-1 right-1"
-                disabled={submitting}
-                generating={generatingIdea}
-                generatingLabel={p.ideaGenerating}
-                label={p.ideaGenerate}
-                onGenerate={() => void generateIdea()}
-              />
-            </div>
-            <div className="flex flex-wrap items-center gap-1">
-              {templates.map(template => (
-                <button
-                  className="flex items-center gap-1 rounded-full border border-(--ui-stroke-tertiary) px-2 py-0.5 text-2xs text-(--ui-text-secondary) transition-colors hover:border-(--ui-stroke-secondary) hover:bg-(--ui-control-hover-background) hover:text-foreground disabled:opacity-50"
-                  disabled={submitting}
-                  key={template.label}
-                  onClick={() => setIdea(template.idea)}
-                  type="button"
-                >
-                  <span aria-hidden>{template.emoji}</span>
-                  {template.label}
-                </button>
-              ))}
-              <Tip label={p.ideaShuffle}>
-                <Button
-                  aria-label={p.ideaShuffle}
-                  className="size-5 text-(--ui-text-quaternary) hover:text-foreground"
-                  disabled={submitting}
-                  onClick={() => setTemplates(randomIdeaTemplates())}
-                  size="icon-xs"
-                  type="button"
-                  variant="ghost"
-                >
-                  <RefreshCw />
-                </Button>
-              </Tip>
-            </div>
-          </div>
-        )}
-
-        {mode === 'add-folder' && (
-          <Button disabled={submitting} onClick={() => void pickFolder()} type="button">
-            <FolderOpen />
-            {p.addFolder}
-          </Button>
-        )}
-
-        {mode !== 'add-folder' && (
+        <form
+          className="contents"
+          onSubmit={event => {
+            event.preventDefault()
+            void submit()
+          }}
+        >
+          <Input
+            aria-label={p.renameTitle}
+            autoFocus
+            disabled={submitting}
+            onChange={event => setName(event.target.value)}
+            ref={nameRef}
+            value={name}
+          />
           <DialogFooter>
-            <Button disabled={submitting} onClick={() => onOpenChange(false)} type="button" variant="ghost">
+            <Button disabled={submitting} onClick={closeProjectDialog} type="button" variant="ghost">
               {t.common.cancel}
             </Button>
-            <Button disabled={submitDisabled} onClick={() => void submit()} type="button">
-              {mode === 'rename' ? t.common.save : p.create}
+            <Button disabled={submitting || !trimmed} type="submit">
+              {t.common.save}
             </Button>
           </DialogFooter>
-        )}
+        </form>
       </DialogContent>
     </Dialog>
   )

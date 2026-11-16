@@ -3,8 +3,15 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { DropdownMenu, DropdownMenuContent } from '@/components/ui/dropdown-menu'
+import { $modelPresets } from '@/store/model-presets'
 import { $collapsedProviders, toggleCollapsedProvider } from '@/store/provider-collapse'
-import { $activeSessionId, $currentModel, $currentProvider } from '@/store/session'
+import {
+  $activeSessionId,
+  $currentModel,
+  $currentProvider,
+  setCurrentFastMode,
+  setCurrentReasoningEffort
+} from '@/store/session'
 
 import { ModelMenuPanel } from './model-menu-panel'
 
@@ -54,20 +61,20 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-function renderPanel(onSelectModel = vi.fn()) {
+function renderPanel(onSelectModel = vi.fn(), requestGateway = vi.fn().mockResolvedValue({})) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
 
   const content = render(
     <QueryClientProvider client={client}>
       <DropdownMenu open>
         <DropdownMenuContent>
-          <ModelMenuPanel onSelectModel={onSelectModel} requestGateway={vi.fn() as never} />
+          <ModelMenuPanel onSelectModel={onSelectModel} requestGateway={requestGateway as never} />
         </DropdownMenuContent>
       </DropdownMenu>
     </QueryClientProvider>
   )
 
-  return { onSelectModel, content }
+  return { onSelectModel, content, requestGateway }
 }
 
 describe('ModelMenuPanel MoA presets', () => {
@@ -373,7 +380,8 @@ describe('ModelMenuPanel provider collapse', () => {
     // must survive — pruning it would lose state across a profile switch.
     getGlobalModelOptions.mockResolvedValueOnce({ providers: [DEEPSEEK_PROVIDER, MOA_PROVIDER] })
     const b = renderPanel()
-    await b.content.findByText('DeepSeek')
+    // A lone provider gets no heading, so its stored collapse can't hide it.
+    await b.content.findByText('Deepseek Chat')
 
     expect($collapsedProviders.get()).toEqual(['deepseek', 'google'])
   })
@@ -394,9 +402,96 @@ describe('ModelMenuPanel provider collapse', () => {
     // single refresh.
     getGlobalModelOptions.mockResolvedValueOnce({ providers: [DEEPSEEK_PROVIDER, MOA_PROVIDER] })
     const b = renderPanel()
-    await b.content.findByText('DeepSeek')
+    await b.content.findByText('Deepseek Chat')
 
     expect($collapsedProviders.get()).toContain('google')
     expect($collapsedProviders.get()).toContain('deepseek')
+  })
+})
+
+// The current model's options live inline under the list now (no per-row
+// hover submenu). What an edit MEANS is still the panel's call: push it onto
+// THIS surface's session, remember it against the model.
+describe('ModelMenuPanel inline options', () => {
+  const ANTHROPIC_PROVIDER = {
+    capabilities: { 'claude-opus-4.8': { fast: false, reasoning: true } },
+    models: ['claude-opus-4.8', 'claude-opus-4.8-fast', 'claude-sonnet-5'],
+    name: 'Anthropic',
+    slug: 'anthropic'
+  }
+
+  beforeEach(() => {
+    $modelPresets.set({})
+    setCurrentReasoningEffort('')
+    setCurrentFastMode(false)
+    $currentProvider.set('anthropic')
+    $currentModel.set('claude-opus-4.8')
+    getGlobalModelOptions.mockResolvedValue({ providers: [ANTHROPIC_PROVIDER] })
+  })
+
+  it('a thinking stop is written to the live session and remembered for the model', async () => {
+    const { content, requestGateway } = renderPanel()
+
+    fireEvent.click(await content.findByRole('menuitemradio', { name: 'High' }))
+
+    expect(requestGateway).toHaveBeenCalledWith('config.set', {
+      key: 'reasoning',
+      session_id: 'runtime-1',
+      value: 'high'
+    })
+    expect($modelPresets.get()['anthropic::claude-opus-4.8']).toEqual({ effort: 'high' })
+  })
+
+  it('variant fast swaps to the -fast id and leaves the speed param alone', async () => {
+    const { content, onSelectModel, requestGateway } = renderPanel()
+
+    fireEvent.click(await content.findByRole('menuitemcheckbox', { name: /Priority speed/ }))
+
+    expect(onSelectModel).toHaveBeenCalledWith({
+      model: 'claude-opus-4.8-fast',
+      provider: 'anthropic',
+      sessionId: 'runtime-1'
+    })
+    // Setting speed=fast too would strand it on the session: the next model
+    // picked would show a fast mode it never had.
+    expect(requestGateway).not.toHaveBeenCalledWith('config.set', expect.objectContaining({ key: 'fast' }))
+    expect($modelPresets.get()['anthropic::claude-opus-4.8']).toEqual({ fast: true })
+  })
+
+  it('turning a variant off still clears a speed param left on the session', async () => {
+    setCurrentFastMode(true)
+    $currentModel.set('claude-opus-4.8-fast')
+    const { content, requestGateway } = renderPanel()
+
+    fireEvent.click(await content.findByRole('menuitemcheckbox', { name: /Priority speed/ }))
+
+    expect(requestGateway).toHaveBeenCalledWith('config.set', {
+      key: 'fast',
+      session_id: 'runtime-1',
+      value: 'normal'
+    })
+  })
+
+  it('other rows say what they come back with only where it differs from the default', async () => {
+    $modelPresets.set({ 'anthropic::claude-sonnet-5': { effort: 'max' } })
+    const { content } = renderPanel()
+
+    const sonnet = (await content.findByText('Sonnet 5')).closest('[role="menuitem"]')
+    const opus = content.getByText('Opus 4.8').closest('[role="menuitem"]')
+
+    expect(sonnet?.textContent).toContain('Max')
+    // The current row is described by the options section, not by a suffix.
+    expect(opus?.textContent).toBe('Opus 4.8')
+  })
+
+  it('a MoA preset has no single thinking depth to offer', async () => {
+    $currentProvider.set('moa')
+    $currentModel.set('BeastMode')
+    getGlobalModelOptions.mockResolvedValue({ providers: [ANTHROPIC_PROVIDER, MOA_PROVIDER] })
+    const { content } = renderPanel()
+
+    await content.findByText('MoA: BeastMode')
+
+    expect(content.queryByRole('menuitemradio')).toBeNull()
   })
 })

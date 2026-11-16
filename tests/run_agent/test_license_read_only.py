@@ -211,9 +211,13 @@ class TestTheGatewayRefusesMidTurn:
     def test_a_refusal_with_the_license_still_full_is_the_providers_error(
         self, account_gateway, monkeypatch
     ):
+        from agent import conversation_loop
         from hermes_cli import account_credentials
 
         monkeypatch.setattr(account_credentials.mailbox(), "current", lambda: None)
+        # The gateway's 401 is first waited out (test_gateway_transient_401);
+        # without the wait here, so the refusal is reached at once.
+        monkeypatch.setattr(conversation_loop, "GATEWAY_REFUSAL_RETRY_DELAYS", (0.0, 0.0, 0.0))
         remember_license(_license(state="active", access="full", notice=None, revoked_at=None))
         agent = _make_agent(base_url=f"{GATEWAY}/v1")
         agent.client.chat.completions.create.side_effect = _auth_error(401)

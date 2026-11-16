@@ -7,6 +7,29 @@
 
 export type Locale = 'vi' | 'en' | 'zh' | 'zh-hant' | 'ja' | 'ar'
 
+/** What a failed turn is shown as (lib/turn-error.ts maps every failure code
+ *  onto one of these). */
+export type TurnErrorKind =
+  | 'auth_failed'
+  | 'bad_request'
+  | 'content_filtered'
+  | 'context_too_long'
+  | 'license'
+  | 'local_error'
+  | 'max_steps'
+  | 'model_not_allowed'
+  | 'model_unavailable'
+  | 'network_error'
+  | 'no_response'
+  | 'offline'
+  | 'operation_failed'
+  | 'overloaded'
+  | 'quota_exceeded'
+  | 'rate_limited'
+  | 'stream_interrupted'
+  | 'timeout'
+  | 'upstream_error'
+
 export type ToolTitleKey =
   | 'browser_click'
   | 'browser_fill'
@@ -138,6 +161,20 @@ interface AuxTaskCopy {
 }
 
 export interface Translations {
+  sessionResources: {
+    title: string
+    createOutput: string
+    /** The request "Create an output" writes into the composer — a whole,
+     *  sendable sentence, not the button's label. */
+    createOutputPrompt: string
+    addSource: string
+    changes: string
+    /** What the Changes row counts: the folder's working tree, not the turn. */
+    changesHint: string
+    outputs: string
+    sources: string
+    openFailed: string
+  }
   common: {
     apply: string
     unknownError: string
@@ -355,6 +392,17 @@ export interface Translations {
     }
   }
 
+  /** The "a chat is still running" confirmation on quit / window close. The
+   *  main process shows it; `{count}` is filled in there. */
+  quitGuard: {
+    messageOne: string
+    messageMany: string
+    more: string
+    detail: string
+    stay: string
+    quit: string
+  }
+
   remoteDisplayBanner: {
     message: (reason: string) => string
   }
@@ -535,11 +583,8 @@ export interface Translations {
       keyRotating: string
       keyRotateFailed: (detail: string) => string
       keyModels: (n: number) => string
-      deviceOtherTitle: (n: number) => string
       deviceHistoryTitle: (n: number) => string
       deviceHistoryHint: string
-      deviceDuplicateHint: string
-      deviceDetails: string
       deviceHostname: string
       deviceApp: string
       deviceVersion: string
@@ -548,8 +593,6 @@ export interface Translations {
       deviceIdentity: string
       deviceAccountAccess: string
       deviceUnknown: string
-      deviceRecordId: (n: string) => string
-      deviceRegisteredAt: (n: string) => string
       deviceRevokedAt: (n: string) => string
       deviceRename: string
       deviceRenameHint: string
@@ -562,6 +605,17 @@ export interface Translations {
       deviceRotationDone: string
       deviceRotationFailed: string
       deviceRotationUnsupported: string
+      deviceColDevice: string
+      deviceColRevoked: string
+      deviceColActions: string
+      deviceInstalls: (n: number) => string
+      deviceInstallsTitle: string
+      devicePageRange: (from: number, to: number, total: number) => string
+      devicePage: (page: number, pages: number) => string
+      deviceRevokeOthers: string
+      deviceRevokeOthersConfirmTitle: string
+      deviceRevokeOthersConfirmDesc: (n: number) => string
+      deviceRevokeGroupNote: (n: number) => string
       devicesTitle: string
       devicesEmpty: string
       devicesEmptyDesc: string
@@ -694,6 +748,9 @@ export interface Translations {
       themeTitle: string
       themeDesc: string
       themeProfileNote: (profile: string) => string
+      /** Built-in theme name → its one-line description. Theme *names* are
+       *  proper names and stay as they are. */
+      themeDescriptions: Record<string, string>
       installTitle: string
       installDesc: string
       installPlaceholder: string
@@ -717,6 +774,9 @@ export interface Translations {
         chooseDesc: string
         searchPlaceholder: string
         unreachable: string
+        retry: string
+        catalogLoading: string
+        catalogOffline: string
         noMatch: (query: string) => string
         installedTag: string
         generatedTag: string
@@ -1764,6 +1824,23 @@ export interface Translations {
   }
 
   messaging: {
+    guide: {
+      title: string
+      replay: string
+      skip: string
+      finish: string
+      docs: string
+      source: string
+      secret: string
+      connectBody: string
+      testTitle: string
+      testBody: string
+      testNote: string
+      fieldFallback: string
+      progress: (current: number, total: number) => string
+      fieldHelp: (label: string) => string
+    }
+    fieldGuide: Record<string, string>
     pageTitle: string
     pageDescription: string
     search: string
@@ -1833,10 +1910,62 @@ export interface Translations {
     revokedUser: (name: string) => string
     failedApprove: (name: string) => string
     failedRevoke: (name: string) => string
+    pairingExpired: string
     pairingLockedOut: string
     waitingSince: (minutes: number) => string
     fieldCopy: Record<string, { label?: string; help?: string; placeholder?: string }>
     platformIntro: Record<string, string>
+    /** Real, masked screenshots shown in the setup coach (see guide-figures.tsx). */
+    figures: {
+      previous: string
+      next: string
+      position: (current: number, total: number) => string
+      enlarge: string
+      showVisual: string
+      items: Record<string, { alt: string; caption: string }>
+    }
+    /** In-app QR linking (replaces the terminal-only `agentx whatsapp` step). */
+    whatsapp: {
+      step1Title: string
+      step2Title: string
+      step2Body: string
+      step2BodySelf: string
+      modeLabel: string
+      modeSelf: string
+      modeSelfHint: string
+      modeBot: string
+      modeBotHint: string
+      showQr: string
+      retry: string
+      preparing: string
+      preparingHint: string
+      scanTitle: string
+      scanSteps: string[]
+      qrRefresh: string
+      qrAlt: string
+      saving: string
+      linkedTo: (who: string) => string
+      linkedUnknown: string
+      trySelf: string
+      tryBot: string
+      relink: string
+      relinkTitle: string
+      relinkBody: string
+      relinkConnected: string
+      linkedToast: string
+      linkedToastBody: string
+      linkedToastRestart: string
+      linkFailed: string
+      errors: {
+        notPaired: string
+        bridgeExited: string
+        expired: string
+        noNode: string
+        install: string
+        loggedOut: string
+        generic: string
+      }
+    }
   }
 
   webhooks: {
@@ -1997,7 +2126,6 @@ export interface Translations {
     states: Record<string, string>
     deliveryLabels: Record<string, string>
     scheduleLabels: Record<string, string>
-    scheduleHints: Record<string, string>
     days: Record<string, string>
     dayFallback: (value: string) => string
     everyDayAt: (time: string) => string
@@ -2006,6 +2134,22 @@ export interface Translations {
     monthlyOnDayAt: (dayOfMonth: string, time: string) => string
     topOfHour: string
     everyHourAt: (minute: string) => string
+    everyMinutes: (count: number) => string
+    everyHours: (count: number) => string
+    everyDays: (count: number) => string
+    timeLabel: string
+    weekdayLabel: string
+    monthdayLabel: string
+    monthdayOption: (day: string) => string
+    monthdayShortMonthHint: string
+    minuteLabel: string
+    minuteOption: (minute: string) => string
+    runDoneTitle: (name: string) => string
+    runDoneBody: string
+    runFailedTitle: (name: string) => string
+    runFailedBody: string
+    runUntitled: string
+    viewRun: string
     newCron: string
     emptyDescNew: string
     emptyDescSearch: string
@@ -2168,6 +2312,7 @@ export interface Translations {
       accountSettings: string
       settings: string
       shortcuts: string
+      signOut: string
     }
     searchAria: string
     searchPlaceholder: string
@@ -2178,12 +2323,6 @@ export interface Translations {
     sessions: string
     connectedChannels: string
     cronJobs: string
-    groupAriaGrouped: string
-    groupAriaUngrouped: string
-    showProjects: string
-    showSessions: string
-    groupTitleGrouped: string
-    groupTitleUngrouped: string
     allPinned: string
     shiftClickHint: string
     noWorkspace: string
@@ -2191,32 +2330,12 @@ export interface Translations {
     noSessions: string
     projects: {
       sectionLabel: string
-      home: string
-      newButton: string
-      createTitle: string
-      createDesc: string
       renameTitle: string
-      addFolderTitle: string
-      namePlaceholder: string
-      nameFromFolder: string
-      nameRequiredMulti: string
-      foldersLabel: string
-      ideaLabel: string
-      ideaPlaceholder: string
-      ideaGenerate: string
-      ideaGenerating: string
-      ideaShuffle: string
-      noFolders: string
-      addFolder: string
-      primaryBadge: string
-      removeFolder: string
-      create: string
       menu: string
       menuRename: string
       menuAppearance: string
       noColor: string
       menuAddFolder: string
-      menuSetActive: string
       menuDelete: string
       moveToProject: string
       movedTo: (name: string) => string
@@ -2226,7 +2345,6 @@ export interface Translations {
       reveal: string
       copyPath: string
       removeFromSidebar: string
-      createFailed: string
       staleBackend: string
       deleteConfirm: string
       startWork: string
@@ -2252,10 +2370,19 @@ export interface Translations {
       removeWorktreeConfirm: string
       removeWorktreeDirty: string
       forceRemove: string
-      enter: (label: string) => string
       reorder: (label: string) => string
       toggle: (label: string, open: boolean) => string
       back: string
+      addButton: string
+      /** The project list's one-line empty state (it adds a folder). */
+      emptyHint: string
+      /** Under an open project row: drill into its full list of chats. */
+      showAll: (count: number) => string
+      menuNewChat: string
+      menuShowAll: string
+      renameFailed: string
+      addFolderFailed: string
+      folderAdded: (folder: string, project: string) => string
     }
     newSessionIn: (label: string) => string
     showMoreIn: (count: number, label: string) => string
@@ -2297,6 +2424,8 @@ export interface Translations {
       renameDesc: string
       untitledPlaceholder: string
       untitledChat: (id: string) => string
+      /** Display name of an assistant's canonical "Bot Chat" session. */
+      mainConversation: string
       ageNow: string
       ageDay: string
       ageHour: string
@@ -2309,9 +2438,28 @@ export interface Translations {
       lastWeek: string
       thisMonth: string
     }
+    /** The sidebar list of chats that live in no project. */
+    chats: string
   }
 
   composer: {
+    quota: {
+      stale: string
+      title: string
+      remaining: string
+      used: string
+      unlimited: string
+      resets: string
+      noReset: string
+      unknownReset: string
+      pendingReset: string
+      offline: string
+      unsupported: string
+      warning: string
+      exhausted: string
+      view: string
+      loading: string
+    }
     message: string
     wakingProfile: (profile: string) => string
     placeholderStarting: string
@@ -2406,6 +2554,26 @@ export interface Translations {
     snippets: Record<string, { label: string; description: string; text: string }>
     dropFiles: string
     dropSession: string
+    /** The folder control in the context bar under the composer (spec §5.8). */
+    workspace: {
+      pickerLabel: string
+      /** The control before a folder is chosen for a new chat. */
+      none: string
+      chooseHint: string
+      chosen: (path: string) => string
+      /** Tooltip once the chat exists and its folder is settled. */
+      settled: (path: string) => string
+      menuLabel: (label: string) => string
+      search: string
+      noMatch: string
+      projects: string
+      /** Repos the disk scan found that no chat has used yet. */
+      discovered: string
+      chooseOther: string
+      noFolder: string
+      newChatHere: string
+      pickFailed: string
+    }
   }
 
   statusStack: {
@@ -2575,6 +2743,8 @@ export interface Translations {
     statusDownloading: (percent: number) => string
     statusReady: (version: string) => string
     statusInstalling: string
+    /** The sidebar's update button while a release is waiting to be downloaded. */
+    sidebarAvailable: (version: string) => string
   }
 
   install: {
@@ -2950,15 +3120,13 @@ export interface Translations {
       search: string
       noModels: string
       editModels: string
-      refreshModels: string
-      fast: string
     }
     modelOptions: {
-      noOptions: string
-      options: string
-      thinking: string
-      fast: string
-      effort: string
+      /** The options section's heading over the thinking dial. */
+      thinkingLevel: string
+      /** Level names: the slider's heading, Settings' select, accessible
+       *  names. `none` is thinking switched off. */
+      none: string
       minimal: string
       low: string
       medium: string
@@ -2966,6 +3134,19 @@ export interface Translations {
       xhigh: string
       max: string
       ultra: string
+      /** Level names for the composer pill and the list (say "no thinking"
+       *  where a bare "Off" would be ambiguous beside a model name). */
+      effortShort: Record<'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra', string>
+      /** One plain-language line per level: what it trades off. */
+      effortHint: Record<'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh' | 'max' | 'ultra', string>
+      /** Appended to the hint while the profile default is the chosen level. */
+      defaultMark: string
+      /** The slider's two ends: what moving toward each side buys you. */
+      scaleStart: string
+      scaleEnd: string
+      fast: string
+      fastMode: string
+      fastHint: string
       updateFailed: string
       fastFailed: string
     }
@@ -2993,6 +3174,10 @@ export interface Translations {
       smartDescription: string
       off: string
       offDescription: string
+      changeFailed: string
+      confirmOffTitle: string
+      confirmOffBody: string
+      confirmOffAction: string
     }
     statusbar: {
       restart: string
@@ -3258,44 +3443,23 @@ export interface Translations {
      *  starts (tool/run-summary.ts): "Edited 2 files, running 1 command". */
     toolRun: {
       categories: Record<
-        'delegate' | 'edit' | 'explore' | 'other' | 'run',
+        'browse' | 'delegate' | 'edit' | 'explore' | 'other' | 'run' | 'search',
         { past: string; present: string; noun: (count: number) => string }
       >
       compacting: string
       searchResults: string
     }
-    /** The empty chat home surface — greeting + quick-start chips. */
+    /** The empty chat home surface — a greeting over one large line, both
+     *  sitting on top of the composer. Nothing in it is clickable. */
     intro: {
       greetingMorning: (name?: string) => string
       greetingAfternoon: (name?: string) => string
       greetingEvening: (name?: string) => string
-      /** The line under the greeting; one is picked per mount. English copy
-       *  flavoured per personality lives in intro-copy.jsonl — see intro-copy.ts. */
-      bodyVariants: readonly string[]
-      quickStart: string
-      resume: (title: string) => string
-      starterExplainLabel: string
-      starterExplainPrompt: string
-      starterPlanLabel: string
-      starterPlanPrompt: string
-      starterExplainFolderLabel: string
-      starterExplainFolderPrompt: string
-      starterSummarizeLabel: string
-      starterSummarizePrompt: string
-      starterDraftLabel: string
-      starterDraftPrompt: string
-      /** The office-context plan starter ("Plan my week"); `starterPlan*` is the coding one. */
-      starterPlanWeekLabel: string
-      starterPlanWeekPrompt: string
-      /** One-line descriptions under each task card on the home surface. */
-      starterExplainDesc: string
-      starterExplainFolderDesc: string
-      starterPlanDesc: string
-      starterPlanWeekDesc: string
-      starterSummarizeDesc: string
-      starterDraftDesc: string
-      resumeDesc: string
-      projectDesc: string
+      /** The large line over the composer; one is picked per mount. Keep each a
+       *  short question or invitation — it is a headline, not instructions.
+       *  English copy flavoured per personality lives in intro-copy.jsonl —
+       *  see intro-copy.ts. */
+      headlines: readonly string[]
     }
     thread: {
       loadingSession: string
@@ -3319,6 +3483,8 @@ export interface Translations {
       dismissError: string
       filesChanged: (count: number) => string
       reviewChanges: string
+      /** Under a reply the user stopped before it finished. */
+      stopped: string
       createdFiles: (count: number) => string
       readAloudFailed: string
       preparingAudio: string
@@ -3333,6 +3499,8 @@ export interface Translations {
       restorePrevious: string
       restoreCheckpoint: string
       restoreFromHere: string
+      compactionLabel: string
+      compactionNote: string
       restoreTitle: string
       restoreBody: string
       restoreConfirm: string
@@ -3573,9 +3741,6 @@ export interface Translations {
     undo: string
     unarchiveFailed: string
     archiveFailed: string
-    cwdChangeFailed: string
-    cwdStagedTitle: string
-    cwdStagedMessage: string
     modelSwitchFailed: string
     sessionExported: string
     sessionExportFailed: string
@@ -3603,6 +3768,25 @@ export interface Translations {
       failed: (error: string) => string
       timedOut: string
     }
+  }
+
+  /** A failed turn in plain words: the transcript's error block, the toast
+   *  and the OS notification (lib/turn-error.ts). Shared wording with AgentX
+   *  Chat and WebMate. */
+  turnError: {
+    /** Every kind but `license`, whose explanation is the license's own
+     *  sentence (t.license). */
+    kinds: Record<Exclude<TurnErrorKind, 'license'>, { title: string; hint: string }>
+    licenseTitle: string
+    /** The cause alone, for when the provider said how long to wait. */
+    waitCauses: { overloaded: string; rate_limited: string }
+    waitSeconds: (seconds: number) => string
+    waitMinutes: (minutes: number) => string
+    retry: string
+    details: string
+    code: (code: string) => string
+    copyDetails: string
+    copyDetailsFailed: string
   }
 
   errors: {

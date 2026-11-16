@@ -1,5 +1,3 @@
-import { DEFAULT_REASONING_EFFORT, reasoningEffortLabel } from '@/lib/reasoning-effort'
-
 /** Which model/provider pair a picker should mark "current". SessionView state
  *  also drives the composer label, so a complete pair there wins over an older
  *  `model.options` response. During initial hydration (or pre-session startup),
@@ -63,7 +61,7 @@ function prettifyBase(base: string): string {
   }
 
   if (/^gemini-/i.test(base)) {
-    return base.replace(/^gemini-/i, 'Gemini ').replace(/-/g, ' ')
+    return titleCase(base.replace(/^gemini-/i, 'Gemini ').replace(/-/g, ' '))
   }
 
   return titleCase(base.replace(/-/g, ' '))
@@ -113,32 +111,4 @@ export function conciseModelName(model: string): string {
   const kept = name.split(/\s+/).filter(word => !BUILD_WORD.test(word.replace(/:[a-z0-9-]+$/i, '')))
 
   return kept.length > 0 ? kept.join(' ') : name
-}
-
-/** Status bar trigger label — model name plus the live session state (effort/fast).
- *  `defaultEffort` is the profile's configured level, used when the surface has
- *  no explicit effort so the label never advertises a default the agent won't use. */
-export function formatModelStatusLabel(
-  model: string,
-  options?: { defaultEffort?: string; fastMode?: boolean; reasoningEffort?: string }
-): string {
-  const name = displayModelName(model)
-
-  if (!model.trim()) {
-    return name
-  }
-
-  const parts: string[] = []
-
-  // Fast is shown when the speed=fast param is on (options.fastMode) OR the
-  // active model is a `…-fast` variant (fast via a separate model id).
-  if (options?.fastMode || /-fast$/i.test(modelBaseId(model))) {
-    parts.push('Fast')
-  }
-
-  // Always surface the effort so the current reasoning level is visible at a
-  // glance, not just when non-default.
-  parts.push(reasoningEffortLabel(options?.reasoningEffort || options?.defaultEffort || DEFAULT_REASONING_EFFORT))
-
-  return `${name} · ${parts.join(' ')}`
 }

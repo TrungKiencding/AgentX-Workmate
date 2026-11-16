@@ -13,6 +13,8 @@
 //      re-selected forever instead of falling through to bootstrap.
 
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 
 import { test } from 'vitest'
@@ -168,13 +170,17 @@ test('getVenvSitePackagesEntries: returns empty on Windows when site-packages do
 })
 
 test('getVenvSitePackagesEntries: reads pyvenv.cfg version on POSIX and resolves lib/pythonX.Y/site-packages', () => {
-  const result = getVenvSitePackagesEntries('/venv', {
-    isWindows: false,
-    directoryExists: p => p === '/venv/lib/python3.12/site-packages',
-    readFile: () => 'version_info = 3.12.1\n'
-  })
-
-  assert.deepEqual(result, ['/venv/lib/python3.12/site-packages'])
+  // Exercise the POSIX layout on every host, with the host's filesystem path
+  // rules. A hardcoded /venv/... mock silently misses Windows backslashes.
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentx-posix-venv-layout-'))
+  try {
+    const expected = path.join(root, 'lib', 'python3.12', 'site-packages')
+    fs.mkdirSync(expected, { recursive: true })
+    fs.writeFileSync(path.join(root, 'pyvenv.cfg'), 'version_info = 3.12.1\n')
+    assert.deepEqual(getVenvSitePackagesEntries(root, { isWindows: false }), [expected])
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true })
+  }
 })
 
 test('getVenvSitePackagesEntries: returns empty on POSIX when pyvenv.cfg is missing', () => {

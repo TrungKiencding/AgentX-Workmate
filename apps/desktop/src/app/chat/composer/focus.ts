@@ -29,6 +29,8 @@ export interface FocusDetail {
 
 interface InsertDetail {
   mode: ComposerInsertMode
+  /** Leave a draft that already holds this text alone (a button pressed twice). */
+  once?: boolean
   target: ComposerTarget
   text: string
 }
@@ -203,7 +205,11 @@ export const requestComposerFocus = (
 
 export const requestComposerInsert = (
   text: string,
-  { mode = 'block', target = 'active' }: { mode?: ComposerInsertMode; target?: ComposerTarget | 'active' } = {}
+  {
+    mode = 'block',
+    once = false,
+    target = 'active'
+  }: { mode?: ComposerInsertMode; once?: boolean; target?: ComposerTarget | 'active' } = {}
 ) => {
   const trimmed = text.trim()
 
@@ -211,7 +217,7 @@ export const requestComposerInsert = (
     return
   }
 
-  dispatch<InsertDetail>(INSERT_EVENT, { mode, target: resolve(target), text: trimmed })
+  dispatch<InsertDetail>(INSERT_EVENT, { mode, once, target: resolve(target), text: trimmed })
 }
 
 export const onComposerFocusRequest = (handler: (detail: FocusDetail) => void) =>

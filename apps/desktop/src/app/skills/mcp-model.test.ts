@@ -16,12 +16,17 @@ import {
   isHubSlug,
   type McpGatewayEndpoint,
   type McpGatewayListing,
+  mcpReloadInFlight,
+  mcpReloadsLanded,
+  mcpReloadsStarted,
   mergeServers,
   missingCommandOf,
   parseServersDoc,
+  resetMcpReloads,
   scanServerBlocks,
   serverTitle,
   statusOf,
+  trackMcpReload,
   withEnabled,
   withStarterEntry,
   wrapDoc
@@ -442,5 +447,50 @@ describe('logs and the gateway', () => {
       )
     ).toBe(false)
     expect(gatewayNeedsSignIn(undefined)).toBe(false)
+  })
+})
+
+describe('trackMcpReload', () => {
+  const pending = () => {
+    let settle!: { fail: (error: Error) => void; land: () => void }
+
+    const request = new Promise<void>((resolve, reject) => {
+      settle = { fail: reject, land: resolve }
+    })
+
+    return { request, ...settle }
+  }
+
+  it('is in flight until every reload has settled, however each one ends', async () => {
+    resetMcpReloads()
+    const before = mcpReloadsStarted()
+    const first = pending()
+    const second = pending()
+
+    expect(mcpReloadInFlight()).toBe(false)
+    expect(trackMcpReload(first.request)).toBe(first.request)
+    void trackMcpReload(second.request).catch(() => undefined)
+    expect(mcpReloadInFlight()).toBe(true)
+    expect(mcpReloadsStarted()).toBe(before + 2)
+
+    let landed = false
+    const waiting = mcpReloadsLanded().then(() => (landed = true))
+
+    first.land()
+    await first.request
+    await Promise.resolve()
+    expect(landed).toBe(false)
+    expect(mcpReloadInFlight()).toBe(true)
+
+    // A reload that failed has landed all the same: nothing is being torn down any more.
+    second.fail(new Error('gateway closed'))
+    await waiting
+    expect(mcpReloadInFlight()).toBe(false)
+  })
+
+  it('answers at once when nothing is reloading', async () => {
+    resetMcpReloads()
+    await mcpReloadsLanded()
+    expect(mcpReloadInFlight()).toBe(false)
   })
 })

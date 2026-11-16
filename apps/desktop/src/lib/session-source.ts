@@ -57,6 +57,11 @@ const SOURCE_ALIASES: Record<string, string[]> = {
 // Exported so the recents fetch can keep these in the main list while the
 // messaging fetch excludes them.
 export const LOCAL_SESSION_SOURCE_IDS = ['cli', 'codex', 'desktop', 'gateway', 'kanban', 'local', 'tui']
+
+// Bot Mode group rooms run each assistant's turn in a hidden session tagged
+// with this source (tui_gateway BOT_ROOM_SOURCE). The room is the transcript a
+// person reads; these rows are plumbing and stay out of every session list.
+export const BOT_ROOM_SESSION_SOURCE = 'bot-room'
 const LOCAL_SOURCE_IDS = new Set(LOCAL_SESSION_SOURCE_IDS)
 
 // External messaging platforms that each get their own self-managed sidebar

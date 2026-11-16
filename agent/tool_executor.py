@@ -367,42 +367,26 @@ def _tool_search_scoped_names(agent) -> frozenset:
     set: the deferrable subset of the session's own enabled/disabled toolset
     scope.
 
-    Result is cached on the agent and refreshed when the tool registry's
-    generation changes (e.g. an MCP server reconnects), so the common case is
-    a dict lookup, not a full tool-defs rebuild on every tool call.
+    Read through the ``get_tool_definitions`` memo on every call and never
+    copied onto the agent: the memo expires with the check_fn verdicts it was
+    filtered on, while a per-agent copy keyed on registry generation would not,
+    and a recovered MCP server's tools would stay uncallable for the agent's
+    lifetime.
     """
     try:
         import model_tools
         from tools import tool_search as _ts
-        from tools.registry import registry as _registry
     except Exception:
         return frozenset()
-
-    enabled = getattr(agent, "enabled_toolsets", None)
-    disabled = getattr(agent, "disabled_toolsets", None)
-    cache_key = (
-        getattr(_registry, "_generation", 0),
-        frozenset(enabled) if enabled is not None else None,
-        frozenset(disabled) if disabled is not None else None,
-    )
-    cached = getattr(agent, "_tool_search_scope_cache", None)
-    if cached is not None and cached[0] == cache_key:
-        return cached[1]
     try:
-        scoped_defs = model_tools.get_tool_definitions(
-            enabled_toolsets=enabled,
-            disabled_toolsets=disabled,
+        return _ts.scoped_deferrable_names(model_tools.get_tool_definitions(
+            enabled_toolsets=getattr(agent, "enabled_toolsets", None),
+            disabled_toolsets=getattr(agent, "disabled_toolsets", None),
             quiet_mode=True,
             skip_tool_search_assembly=True,
-        ) or []
-        names = _ts.scoped_deferrable_names(scoped_defs)
+        ) or [])
     except Exception:
-        names = frozenset()
-    try:
-        agent._tool_search_scope_cache = (cache_key, names)
-    except Exception:
-        pass
-    return names
+        return frozenset()
 
 
 @dataclass

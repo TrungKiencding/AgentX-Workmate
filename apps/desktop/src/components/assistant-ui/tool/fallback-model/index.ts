@@ -60,6 +60,25 @@ export function countDiffLineStats(diff: string): DiffLineStats {
   return { added, removed }
 }
 
+function lineCount(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null
+}
+
+/**
+ * The +/- of a file edit. `inline_diff` is a preview the backend caps at 80
+ * lines, so counting it calls every longer new file "+78"; the backend sends
+ * the whole change's counts beside it as `inline_diff_stats`. Counting `diff`
+ * is the fallback for a result without them (a backend older than the stats,
+ * or a reloaded `patch`, whose stored `diff` is the full one).
+ */
+export function diffLineStatsFromResult(result: unknown, diff: string): DiffLineStats {
+  const stats = parseMaybeObject(parseMaybeObject(result).inline_diff_stats)
+  const added = lineCount(stats.added)
+  const removed = lineCount(stats.removed)
+
+  return added !== null && removed !== null ? { added, removed } : countDiffLineStats(diff)
+}
+
 export function fileEditPath(args: Record<string, unknown>, result: Record<string, unknown>): string {
   return (
     firstStringField(args, ['path', 'file', 'filepath']) ||
@@ -906,7 +925,7 @@ function collectResultItems(value: unknown): unknown[] {
   return payload === record ? [] : collectResultItems(payload)
 }
 
-function extractSearchResults(result: unknown, limit = 6): SearchResultRow[] {
+export function extractSearchResults(result: unknown, limit = 6): SearchResultRow[] {
   const list = collectResultItems(result)
 
   return list
@@ -1101,7 +1120,11 @@ function browserNavigateUrl(args: Record<string, unknown>, result: Record<string
   return schemelessUrl(args.url) || findFirstUrl(args.url) || findFirstUrl(args, result)
 }
 
-function toolPreviewTarget(toolName: string, args: Record<string, unknown>, result: Record<string, unknown>): string {
+export function toolPreviewTarget(
+  toolName: string,
+  args: Record<string, unknown>,
+  result: Record<string, unknown>
+): string {
   const direct =
     firstStringField(result, ['preview', 'url', 'target']) ||
     firstStringField(args, ['preview', 'url', 'target', 'path', 'file', 'filepath']) ||

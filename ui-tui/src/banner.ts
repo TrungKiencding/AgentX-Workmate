@@ -1,3 +1,4 @@
+import { MARK_ART } from './brand-mark.js'
 import type { ThemeColors } from './theme.js'
 
 const RICH_RE = /\[(?:bold\s+)?(?:dim\s+)?(#(?:[0-9a-fA-F]{3,8}))\]([\s\S]*?)(\[\/\])/g
@@ -51,25 +52,10 @@ const LOGO_ART = [
   '█   █  ███  █████ █   █   █   █   █       █   █  ███  █   █ █   █ █   █ █   █   █   █████'
 ]
 
-const MASCOT_ART = [
-  '            ██            ',
-  '            ██            ',
-  '         ████████         ',
-  ' ████████████████████████ ',
-  ' ██                    ██ ',
-  ' ██  ████        ████  ██ ',
-  ' ██  ████        ████  ██ ',
-  ' ██                    ██ ',
-  ' ██     ██████████     ██ ',
-  ' ██                    ██ ',
-  ' ████████████████████████ ',
-  '  ██████████████████████  ',
-  '      ████      ████      ',
-  '     ██████    ██████     '
-]
+const MASCOT_ART = MARK_ART
 
 const LOGO_GRADIENT = [0, 0, 1, 2, 3] as const
-const MASCOT_GRADIENT = [0, 0, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 3, 3] as const
+const MASCOT_GRADIENT = MARK_ART.map(() => 0)
 
 const colorize = (art: string[], gradient: readonly number[], c: ThemeColors): Line[] => {
   const p = [c.primary, c.accent, c.border, c.muted]

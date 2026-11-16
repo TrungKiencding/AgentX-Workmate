@@ -1263,3 +1263,75 @@ def test_windows_drive_letter_host_mount_splits_on_the_container_colon(monkeypat
 
     monkeypatch.setenv("TERMINAL_DOCKER_VOLUMES", json.dumps(["C:/data:/workspace:ro"]))
     assert [container for _host, container in base._parse_docker_volume_mounts()] == [Path("/workspace")]
+
+
+class TestMediaDeliverySignedInHomes:
+    """Desktop sign-in puts every home under ``<root>/accounts/<slug>``.
+
+    A gateway serving a profile inside an account must not be able to attach
+    that account's secrets, another account's, or any pairing store — the
+    denylist used to cover only the active home and the install root.
+    """
+
+    @pytest.fixture()
+    def install(self, tmp_path, monkeypatch):
+        from gateway.platforms import base
+
+        fake_home = tmp_path / "home"
+        root = fake_home / ".agentx"
+        account = root / "accounts" / "xuan-1234abcd"
+        work = account / "profiles" / "work"
+        other = root / "accounts" / "other-9999"
+        for home in (work, other):
+            home.mkdir(parents=True)
+        monkeypatch.setenv("HOME", str(fake_home))
+        monkeypatch.setenv("AGENTX_HOME", str(work))
+        monkeypatch.setattr(base, "_AGENTX_HOME", work)
+        monkeypatch.setattr(base, "_AGENTX_ROOT", root)
+        monkeypatch.setattr(base, "MEDIA_DELIVERY_SAFE_ROOTS", ())
+        monkeypatch.setattr(base, "_user_root", lambda: account)
+        monkeypatch.delenv("AGENTX_MEDIA_DELIVERY_STRICT", raising=False)
+        monkeypatch.delenv("AGENTX_MEDIA_ALLOW_DIRS", raising=False)
+        return root, account, work, other
+
+    @pytest.mark.parametrize(
+        "where,rel",
+        [
+            ("account", ".env"),
+            ("account", "auth.json"),
+            ("account", "config.yaml"),
+            ("account", "platforms/pairing/telegram-approved.json"),
+            ("work", "platforms/pairing/telegram-pending.json"),
+            ("other", ".env"),
+            ("other", "mcp-tokens/github.json"),
+            ("root", "platforms/pairing/telegram-approved.json"),
+        ],
+    )
+    def test_secrets_of_every_home_stay_unattachable(self, install, where, rel):
+        root, account, work, other = install
+        home = {"root": root, "account": account, "work": work, "other": other}[where]
+        secret = home / rel
+        secret.parent.mkdir(parents=True, exist_ok=True)
+        secret.write_text("secret")
+
+        assert BasePlatformAdapter.validate_media_delivery_path(str(secret)) is None
+
+    def test_ordinary_deliverable_in_the_account_still_sends(self, install):
+        root, account, work, other = install
+        report = account / "reports" / "q3.pdf"
+        report.parent.mkdir(parents=True)
+        report.write_bytes(b"%PDF-1.4")
+
+        assert BasePlatformAdapter.validate_media_delivery_path(str(report)) == str(report.resolve())
+
+    def test_strict_mode_allows_a_sibling_profile_cache_inside_the_account(
+        self, install, monkeypatch
+    ):
+        root, account, work, other = install
+        monkeypatch.setenv("AGENTX_MEDIA_DELIVERY_STRICT", "1")
+        monkeypatch.setenv("AGENTX_MEDIA_TRUST_RECENT_FILES", "0")
+        image = account / "profiles" / "work" / "cache" / "images" / "chart.png"
+        image.parent.mkdir(parents=True)
+        image.write_bytes(b"\x89PNG")
+
+        assert BasePlatformAdapter.validate_media_delivery_path(str(image)) == str(image.resolve())

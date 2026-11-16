@@ -7,7 +7,7 @@ import { FALLBACK_LOCALE, TRANSLATIONS } from '@/i18n'
 import { setRuntimeI18nLocale } from '@/i18n/runtime'
 import { licenseReadOnlyMessage } from '@/lib/license'
 
-// Generations started from the UI outside the chat — a project idea, a pet —
+// Generations started from the UI outside the chat — a pet —
 // stop with the license's reason while the AgentX license is read-only, and
 // a refusal the backend answered (the license turned read-only meanwhile)
 // reads the same and locks the UI.
@@ -25,22 +25,8 @@ vi.mock('@/store/gateway', () => ({
   activeGateway: () => ({ connectionState: 'open', request: (...args: unknown[]) => request(...args) }),
   ensureActiveGatewayOpen: vi.fn()
 }))
-vi.mock('@/hermes', () => ({
-  getHermesConfig: vi.fn(),
-  getProfiles: vi.fn(),
-  setApiRequestProfile: vi.fn(),
-  STARTUP_REQUEST_TIMEOUT_MS: 1000
-}))
-vi.mock('@/lib/desktop-fs', () => ({
-  desktopDefaultCwd: vi.fn(),
-  isDesktopFsRemoteMode: vi.fn(),
-  selectDesktopPaths: vi.fn(),
-  writeDesktopFileText: vi.fn()
-}))
-vi.mock('@/lib/desktop-git', () => ({ desktopGit: vi.fn() }))
 
 const { $license, $licenseReadOnly } = await import('./license')
-const { generateProjectIdea } = await import('./projects')
 
 const { $petGenError, $petGenPreview, $petGenSelected, $petGenStatus, $petGenToken, generateDrafts, hatchSelected } =
   await import('./pet-generate')
@@ -90,32 +76,6 @@ afterEach(() => {
   Object.defineProperty(window, 'agentxDesktop', { configurable: true, value: original })
   useLicense(null)
   setRuntimeI18nLocale(FALLBACK_LOCALE)
-})
-
-describe('a project idea', () => {
-  it('is not asked for while read-only', async () => {
-    useLicense(READ_ONLY)
-
-    await expect(generateProjectIdea('Atlas')).resolves.toBe('')
-    expect(request).not.toHaveBeenCalled()
-  })
-
-  it('a refusal on the way says why and locks the UI; other failures stay quiet', async () => {
-    useLicense(ACTIVE)
-    request.mockRejectedValueOnce(backendRefusal())
-
-    await expect(generateProjectIdea('Atlas')).resolves.toBe('')
-
-    expect(notifySpy).toHaveBeenCalledWith(expect.objectContaining({ kind: 'warning', message: REASON }))
-    expect($licenseReadOnly.get()).toBe(true)
-
-    useLicense(ACTIVE)
-    notifySpy.mockReset()
-    request.mockRejectedValueOnce(new Error('model overloaded'))
-
-    await expect(generateProjectIdea('Atlas')).resolves.toBe('')
-    expect(notifySpy).not.toHaveBeenCalled()
-  })
 })
 
 describe('a pet', () => {

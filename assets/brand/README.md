@@ -43,3 +43,8 @@ ring, and a plain downsample of the 1024 master turns it into a smudge in a
 
 `assets/banner.png` is not generated here — it is the wordmark, rendered from
 the 5×5 pixel font in `hermes_cli/banner.py`, not from this mark.
+
+The CLI and Ink TUI brand marks are derived from the same alpha mask, using
+terminal half-block characters. Regenerate with
+`python3 scripts/make_terminal_brand.py`; add `--check` to verify both outputs.
+Pillow is needed only to regenerate, not at runtime.

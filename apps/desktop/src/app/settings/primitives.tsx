@@ -45,11 +45,13 @@ export function SectionHeading({
     // Deliberately uneven rhythm: a section takes more air ABOVE its heading
     // than below it, so the heading reads as belonging to the rows under it
     // rather than floating between two equal gaps.
-    <div className="mb-3 flex items-center gap-2 pt-6 text-md font-semibold">
+    // Wraps on a narrow panel: the aside drops under the title instead of
+    // pushing the whole page into a horizontal scroll.
+    <div className="mb-3 flex flex-wrap items-center gap-2 pt-6 text-md font-semibold">
       <Icon className="size-4.5 shrink-0 text-muted-foreground" />
       <span>{title}</span>
       {meta && <Pill>{meta}</Pill>}
-      {aside && <div className="ml-auto flex min-w-0 items-center">{aside}</div>}
+      {aside && <div className="ml-auto flex min-w-0 max-w-full items-center">{aside}</div>}
     </div>
   )
 }

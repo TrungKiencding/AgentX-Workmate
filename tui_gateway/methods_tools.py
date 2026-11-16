@@ -1713,14 +1713,10 @@ def _(rid, params: dict) -> dict:
                             if str(params.get("repeat", "")).strip().isdigit()
                             else None
                         ),
-                        # Optional continuity toggle: the job's own previous
-                        # output is injected into each run (stored as the
-                        # reserved "self" entry in context_from).
-                        continuity=(
-                            is_truthy_value(params.get("continuity"))
-                            if params.get("continuity") is not None
-                            else None
-                        ),
+                        # No ``continuity`` here: this fork's scheduler has no
+                        # "run sees its previous output" support, and
+                        # ``cronjob()`` takes no such kwarg — forwarding it
+                        # failed EVERY add with a TypeError. Ignored if sent.
                     )
                 ),
             )

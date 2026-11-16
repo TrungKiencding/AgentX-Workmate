@@ -20,16 +20,37 @@ Read-only and unauthenticated; no credentials involved.
 
 from __future__ import annotations
 
+import json
 import logging
+import os
 import threading
 import time
 from dataclasses import dataclass
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
 MANIFEST_URL = "https://petdex.dev/api/manifest"
 
-_DEFAULT_TIMEOUT = 10.0
+# The manifest is a ~2 MB document behind a redirect. Ten seconds was enough on
+# a fast line and not on an office proxy or a tethered phone, where the picker
+# then reported the gallery unreachable for good (2026-11 pilot feedback).
+_DEFAULT_TIMEOUT = 25.0
+
+_CONNECT_TIMEOUT = 8.0
+
+# One immediate retry covers the common transient failures (a dropped
+# connection mid-download, a cold DNS answer) without a visible wait.
+_FETCH_ATTEMPTS = 2
+
+# Last manifest that parsed, kept beside the pets so the picker still lists the
+# catalog when petdex can't be reached. Asset hosts are pinned to petdex at
+# download time (``store._is_petdex_host``), so a stale or edited copy cannot
+# point an install anywhere else.
+_DISK_CACHE_NAME = ".manifest-cache.json"
+
+# How long a disk-cache fallback is served before the network is tried again.
+_STALE_RETRY_AFTER = 60.0
 
 # In-process cache for the (large, slow, identical-per-call) manifest. The list
 # is a static CDN object that barely changes, yet a single session can ask for
@@ -111,35 +132,16 @@ class ManifestError(RuntimeError):
     """Raised when the manifest can't be fetched or parsed."""
 
 
-def fetch_manifest(*, timeout: float = _DEFAULT_TIMEOUT, force: bool = False) -> list[ManifestEntry]:
-    """Return every approved pet from the public manifest.
-
-    Cached in-process for ``_MANIFEST_TTL`` seconds (pass ``force=True`` to
-    bypass). Follows the 307 redirect to R2.  Raises :class:`ManifestError` on
-    any network/parse failure so callers can surface a clean message.
-    """
-    global _cache
-
-    if not force and _cache is not None and time.monotonic() - _cache[0] < _MANIFEST_TTL:
-        return _cache[1]
-
+def _disk_cache_path() -> Path | None:
     try:
-        import httpx
-    except ImportError as exc:  # pragma: no cover - httpx is a core dep
-        raise ManifestError("httpx is required to fetch the petdex manifest") from exc
+        from agent.pet.store import pets_dir
 
-    try:
-        resp = httpx.get(
-            MANIFEST_URL,
-            timeout=timeout,
-            follow_redirects=True,
-            headers={"User-Agent": "agentx-agent-petdex"},
-        )
-        resp.raise_for_status()
-        payload = resp.json()
-    except Exception as exc:  # noqa: BLE001 - normalize to one error type
-        raise ManifestError(f"could not fetch petdex manifest: {exc}") from exc
+        return pets_dir() / _DISK_CACHE_NAME
+    except Exception:  # noqa: BLE001 - no home yet: just skip the disk cache
+        return None
 
+
+def _parse_entries(payload: object) -> list[ManifestEntry]:
     pets = payload.get("pets") if isinstance(payload, dict) else None
     if not isinstance(pets, list):
         raise ManifestError("petdex manifest had no 'pets' array")
@@ -151,8 +153,95 @@ def fetch_manifest(*, timeout: float = _DEFAULT_TIMEOUT, force: bool = False) ->
         entry = ManifestEntry.from_dict(raw)
         if entry.slug and entry.spritesheet_url:
             entries.append(entry)
+    return entries
+
+
+def _write_disk_cache(payload: dict) -> None:
+    path = _disk_cache_path()
+    if path is None:
+        return
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+    try:
+        tmp.write_text(json.dumps({"pets": payload.get("pets", [])}), encoding="utf-8")
+        os.replace(tmp, path)
+    except Exception as exc:  # noqa: BLE001 - the cache is an optimisation only
+        logger.debug("petdex manifest disk cache write failed: %s", exc)
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
+def _read_disk_cache() -> list[ManifestEntry] | None:
+    path = _disk_cache_path()
+    if path is None or not path.is_file():
+        return None
+    try:
+        entries = _parse_entries(json.loads(path.read_text(encoding="utf-8")))
+    except Exception as exc:  # noqa: BLE001 - a corrupt cache is the same as none
+        logger.debug("petdex manifest disk cache unreadable: %s", exc)
+        return None
+    return entries or None
+
+
+def _download_manifest(timeout: float) -> dict:
+    try:
+        import httpx
+    except ImportError as exc:  # pragma: no cover - httpx is a core dep
+        raise ManifestError("httpx is required to fetch the petdex manifest") from exc
+
+    last: Exception | None = None
+    for _attempt in range(_FETCH_ATTEMPTS):
+        try:
+            resp = httpx.get(
+                MANIFEST_URL,
+                # A dead route should fail fast; only the body gets the long wait.
+                timeout=httpx.Timeout(timeout, connect=min(timeout, _CONNECT_TIMEOUT)),
+                follow_redirects=True,
+                headers={"User-Agent": "agentx-agent-petdex"},
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+        except Exception as exc:  # noqa: BLE001 - normalize to one error type
+            last = exc
+            continue
+        if not isinstance(payload, dict):
+            raise ManifestError("petdex manifest had no 'pets' array")
+        return payload
+    raise ManifestError(f"could not fetch petdex manifest: {last}") from last
+
+
+def fetch_manifest(*, timeout: float = _DEFAULT_TIMEOUT, force: bool = False) -> list[ManifestEntry]:
+    """Return every approved pet from the public manifest.
+
+    Cached in-process for ``_MANIFEST_TTL`` seconds (pass ``force=True`` to
+    bypass). Follows the 307 redirect to R2 and retries once. When the network
+    fails, the last manifest that was fetched successfully is served from disk
+    (and the network is tried again after ``_STALE_RETRY_AFTER``). Raises
+    :class:`ManifestError` only when there is no copy at all, so callers can
+    surface a clean message.
+    """
+    global _cache
+
+    if not force and _cache is not None and time.monotonic() - _cache[0] < _MANIFEST_TTL:
+        return _cache[1]
+
+    try:
+        payload = _download_manifest(timeout)
+        entries = _parse_entries(payload)
+    except ManifestError as exc:
+        stale = _read_disk_cache()
+        if stale is None:
+            raise
+        logger.debug("petdex manifest unreachable, serving the saved copy: %s", exc)
+        # Backdate the stamp so the saved copy expires after _STALE_RETRY_AFTER
+        # rather than a full TTL.
+        _cache = (time.monotonic() - _MANIFEST_TTL + _STALE_RETRY_AFTER, stale)
+        return stale
 
     _cache = (time.monotonic(), entries)
+    if entries:
+        _write_disk_cache(payload)
     return entries
 
 

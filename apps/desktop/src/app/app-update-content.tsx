@@ -24,6 +24,8 @@ import {
   installAppUpdate
 } from '@/store/app-update'
 
+import { UPDATE_DIALOG_MARK_CLASS, UpdateDialogLayout } from './update-dialog-layout'
+
 /** The notes for the UI language: its own, its language's, English, Vietnamese. */
 function notesFor(notes: Record<string, string[]>, locale: string): string[] {
   return notes[locale] ?? notes[locale.split('-')[0]] ?? notes.en ?? notes.vi ?? []
@@ -142,29 +144,81 @@ function ReleaseView({
   const problem = problemFor(state, u)
 
   return (
-    <div className="grid gap-5 px-6 pb-6 pt-7 pr-8">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <BrandMark className="size-16" />
-        <DialogTitle className="text-center text-xl">
-          {ready ? u.readyTitle(release.version) : u.availableTitle(release.version)}
-        </DialogTitle>
-        <DialogDescription className="text-center text-xs text-muted-foreground">
-          {u.releasedOn(fmtDate.format(Date.parse(release.publishedAt)))}
-        </DialogDescription>
-      </div>
+    <UpdateDialogLayout
+      body={
+        problem || ready || notes.length > 0 ? (
+          <div className="grid gap-4">
+            {/* Words go in the scrolling part, what went wrong first, so the
+                actions below stay on screen however long main's reason runs. */}
+            {problem && (
+              <div className="grid gap-1 text-center" role="alert">
+                <p className="text-xs leading-5 text-destructive">
+                  <AlertCircle className="mr-1 inline size-3.5 align-[-0.15em]" />
+                  {problem.text}
+                </p>
+                <p className="select-text break-words text-2xs leading-4 text-muted-foreground">{problem.detail}</p>
+              </div>
+            )}
+            {ready && !state.blocked && (
+              <p className="text-center text-xs leading-5 text-muted-foreground">
+                {IS_MAC ? u.readyBodyMac : u.readyBodyWindows} {u.readyAgentNote}
+              </p>
+            )}
+            {notes.length > 0 && (
+              <div>
+                <p className="text-2xs font-medium text-(--ui-text-tertiary)">{u.whatsNew}</p>
+                <ul className="mt-1.5 grid gap-1.5 text-xs text-foreground">
+                  {notes.map(note => (
+                    <li className="flex items-start gap-2" key={note}>
+                      <span aria-hidden className="mt-1.5 inline-block size-1 shrink-0 rounded-full bg-primary" />
+                      <span className="leading-snug">{note}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : null
+      }
+      bodyLabel={notes.length > 0 ? u.whatsNew : (problem?.text ?? u.readyTitle(release.version))}
+      footer={
+        <ReleaseActions onLater={onLater} problem={Boolean(problem)} ready={ready} release={release} state={state} />
+      }
+      header={
+        <div className="flex flex-col items-center gap-3 text-center">
+          <BrandMark className={UPDATE_DIALOG_MARK_CLASS} />
+          <DialogTitle className="text-center text-xl">
+            {ready ? u.readyTitle(release.version) : u.availableTitle(release.version)}
+          </DialogTitle>
+          <DialogDescription className="text-center text-xs text-muted-foreground">
+            {u.releasedOn(fmtDate.format(Date.parse(release.publishedAt)))}
+          </DialogDescription>
+        </div>
+      }
+    />
+  )
+}
 
-      <div>
-        <p className="text-2xs font-medium text-(--ui-text-tertiary)">{u.whatsNew}</p>
-        <ul className="mt-1.5 grid gap-1.5 text-xs text-foreground">
-          {notes.map(note => (
-            <li className="flex items-start gap-2" key={note}>
-              <span aria-hidden className="mt-1.5 inline-block size-1 shrink-0 rounded-full bg-primary" />
-              <span className="leading-snug">{note}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
+/** What can be done about the release from here: the dialog's footer, always on screen. */
+function ReleaseActions({
+  onLater,
+  problem,
+  ready,
+  release,
+  state
+}: {
+  onLater: () => void
+  /** A download or install went wrong; the body says what. */
+  problem: boolean
+  ready: boolean
+  release: AppUpdateRelease
+  state: AppUpdateState
+}) {
+  const { t } = useI18n()
+  const u = t.appUpdate
 
+  return (
+    <>
       {state.blocked ? (
         <div className="grid gap-3">
           <p className="text-center text-xs leading-5 text-muted-foreground">{u.blocked[state.blocked]}</p>
@@ -175,20 +229,6 @@ function ReleaseView({
         </div>
       ) : (
         <div className="grid gap-2">
-          {ready && (
-            <p className="text-center text-xs leading-5 text-muted-foreground">
-              {IS_MAC ? u.readyBodyMac : u.readyBodyWindows} {u.readyAgentNote}
-            </p>
-          )}
-          {problem && (
-            <div className="grid gap-1 text-center" role="alert">
-              <p className="text-xs leading-5 text-destructive">
-                <AlertCircle className="mr-1 inline size-3.5 align-[-0.15em]" />
-                {problem.text}
-              </p>
-              <p className="select-text break-words text-2xs leading-4 text-muted-foreground">{problem.detail}</p>
-            </div>
-          )}
           {ready ? (
             <Button className="font-semibold" onClick={() => void installAppUpdate()} size="lg">
               {u.restartToUpdate}
@@ -214,7 +254,7 @@ function ReleaseView({
           </Button>
         </div>
       )}
-    </div>
+    </>
   )
 }
 
@@ -226,29 +266,35 @@ function Downloading({ onHide, state }: { onHide: () => void; state: AppUpdateSt
   const fraction = total > 0 ? Math.min(1, received / total) : 0
 
   return (
-    <div className="grid gap-5 px-6 pb-6 pt-7 pr-8">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <BrandMark className="size-16" />
-        <DialogTitle className="text-center text-xl">{u.downloadingTitle(state.release?.version ?? '')}</DialogTitle>
-        <DialogDescription className="text-center text-sm">{u.downloadInBackground}</DialogDescription>
-      </div>
+    <UpdateDialogLayout
+      footer={
+        <div className="grid gap-5">
+          <div className="grid gap-1.5">
+            <Progress aria-label={u.downloadingTitle(state.release?.version ?? '')} size="lg" value={fraction} />
+            <p className="text-center text-xs tabular-nums text-muted-foreground">
+              {u.downloadProgress(formatByteSize(received, '0 B'), formatByteSize(total))} ·{' '}
+              {Math.round(fraction * 100)}%
+            </p>
+          </div>
 
-      <div className="grid gap-1.5">
-        <Progress aria-label={u.downloadingTitle(state.release?.version ?? '')} size="lg" value={fraction} />
-        <p className="text-center text-xs tabular-nums text-muted-foreground">
-          {u.downloadProgress(formatByteSize(received, '0 B'), formatByteSize(total))} · {Math.round(fraction * 100)}%
-        </p>
-      </div>
-
-      <div className="grid gap-2">
-        <Button className="font-semibold" onClick={onHide} size="lg" variant="secondary">
-          {u.hide}
-        </Button>
-        <Button className="font-medium" onClick={() => void cancelAppUpdateDownload()} type="button" variant="text">
-          {u.cancelDownload}
-        </Button>
-      </div>
-    </div>
+          <div className="grid gap-2">
+            <Button className="font-semibold" onClick={onHide} size="lg" variant="secondary">
+              {u.hide}
+            </Button>
+            <Button className="font-medium" onClick={() => void cancelAppUpdateDownload()} type="button" variant="text">
+              {u.cancelDownload}
+            </Button>
+          </div>
+        </div>
+      }
+      header={
+        <div className="flex flex-col items-center gap-3 text-center">
+          <BrandMark className={UPDATE_DIALOG_MARK_CLASS} />
+          <DialogTitle className="text-center text-xl">{u.downloadingTitle(state.release?.version ?? '')}</DialogTitle>
+          <DialogDescription className="text-center text-sm">{u.downloadInBackground}</DialogDescription>
+        </div>
+      }
+    />
   )
 }
 
@@ -257,32 +303,41 @@ function ActiveWorkPrompt({ activeWork }: { activeWork: AppUpdateActiveWork }) {
   const u = t.appUpdate
 
   return (
-    <div className="grid gap-5 px-6 pb-6 pt-7 pr-8">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <AlertTriangle className="size-8 text-(--ui-yellow)" />
-        <DialogTitle className="text-center text-xl">{u.activeWorkTitle}</DialogTitle>
-        <DialogDescription className="text-center text-sm">{u.activeWorkBody(activeWork.count)}</DialogDescription>
-      </div>
-
-      {activeWork.titles.length > 0 && (
-        <ul className="grid gap-1 text-xs text-foreground">
-          {activeWork.titles.slice(0, 5).map(title => (
-            <li className="truncate" key={title}>
-              • {title}
-            </li>
-          ))}
-        </ul>
-      )}
-
-      <div className="grid gap-2">
-        <Button className="font-semibold" onClick={() => void installAppUpdate({ confirmActiveWork: true })} size="lg">
-          {u.updateAnyway}
-        </Button>
-        <Button className="font-medium" onClick={dismissActiveWorkPrompt} type="button" variant="text">
-          {u.keepWorking}
-        </Button>
-      </div>
-    </div>
+    <UpdateDialogLayout
+      body={
+        activeWork.titles.length > 0 ? (
+          <ul className="grid gap-1 text-xs text-foreground">
+            {activeWork.titles.slice(0, 5).map(title => (
+              <li className="truncate" key={title}>
+                • {title}
+              </li>
+            ))}
+          </ul>
+        ) : null
+      }
+      bodyLabel={u.activeWorkTitle}
+      footer={
+        <div className="grid gap-2">
+          <Button
+            className="font-semibold"
+            onClick={() => void installAppUpdate({ confirmActiveWork: true })}
+            size="lg"
+          >
+            {u.updateAnyway}
+          </Button>
+          <Button className="font-medium" onClick={dismissActiveWorkPrompt} type="button" variant="text">
+            {u.keepWorking}
+          </Button>
+        </div>
+      }
+      header={
+        <div className="flex flex-col items-center gap-3 text-center">
+          <AlertTriangle className="size-8 text-(--ui-yellow)" />
+          <DialogTitle className="text-center text-xl">{u.activeWorkTitle}</DialogTitle>
+          <DialogDescription className="text-center text-sm">{u.activeWorkBody(activeWork.count)}</DialogDescription>
+        </div>
+      }
+    />
   )
 }
 

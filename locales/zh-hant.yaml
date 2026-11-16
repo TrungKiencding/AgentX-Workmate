@@ -22,6 +22,9 @@ approval:
 gateway:
   approval_expired: "⚠️ 批准已逾期（代理不再等待）。請讓代理重試。"
   draining:         "⏳ 正在等待 {count} 個活躍代理結束後重新啟動..."
+  pairing_unknown_sender: "你好！我還不認識你，暫時無法回覆。\n\n你的配對碼：`{code}`\n\n請讓這個機器人的主人開啟 AgentX Workmate → 訊息頻道，在你的要求上按「允許」，然後再傳訊息給我。（終端機指令：`{command}`）"
+  pairing_rate_limited: "配對要求過多，請幾分鐘後再試。"
+  home_channel_unset: "📬 尚未為 {platform} 設定預設聊天。AgentX 會把排程任務結果和來自其他頻道的訊息傳到這裡。\n\n輸入 {command} 使用此聊天，或忽略此訊息。"
   goal_cleared:     "✓ 目標已清除。"
   no_active_goal:   "目前沒有作用中的目標。"
   config_read_failed: "⚠️ 無法讀取 config.yaml：{error}"
@@ -446,3 +449,10 @@ license:
   read_only_expired:    "你的 {plan} 方案已於 {date} 到期。Workmate 處於唯讀模式。"
   read_only_revoked:    "你的 AgentX 授權已被撤銷。Workmate 處於唯讀模式。"
   contact:              "請聯絡 {contact} 取得或續訂授權。"
+
+file_mutation:
+  label:         "檔案修改核對"
+  summary:       "本輪有 {count} 個檔案並未被修改，無論上文如何表述。請執行 `git status` 或 `read_file` 確認。"
+  summary_plain: "本輪有 {count} 個檔案未能儲存，無論上面的回覆怎麼說："
+  more:          "…… 另有 {count} 個"
+  failed:        "失敗"

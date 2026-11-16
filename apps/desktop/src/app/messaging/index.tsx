@@ -1,6 +1,6 @@
 import { useStore } from '@nanostores/react'
 import type * as React from 'react'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { PageLoader } from '@/components/page-loader'
 import { StatusDot, type StatusTone } from '@/components/status-dot'
@@ -23,7 +23,7 @@ import {
 } from '@/hermes'
 import { type Translations, useI18n } from '@/i18n'
 import { openExternalLink } from '@/lib/external-link'
-import { Check, ExternalLink, Save, Trash2 } from '@/lib/icons'
+import { Check, ExternalLink, HelpCircle, ImageIcon, Save, Trash2 } from '@/lib/icons'
 import { normalize } from '@/lib/text'
 import { cn } from '@/lib/utils'
 import { $changeEventsAvailable, $pairingChangeTick, $platformsChangeTick } from '@/store/live-sync'
@@ -40,7 +40,10 @@ import { PageSearchShell } from '../page-search-shell'
 import { ListRow } from '../settings/primitives'
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
+import { guideFigureIds, GuideFigures } from './guide-figures'
 import { PlatformAvatar } from './platform-icon'
+import { messagingGuideUrl, SetupGuide, useSetupGuide } from './setup-guide'
+import { useWhatsAppLink, WhatsAppLink } from './whatsapp-link'
 
 interface MessagingViewProps extends React.ComponentProps<'section'> {
   setStatusbarItemGroup?: SetStatusbarItemGroup
@@ -51,6 +54,11 @@ type EditMap = Record<string, Record<string, string>>
 // The six platforms an office leads with — a UI ordering constant only. The
 // rest stay one disclosure away; nothing is removed.
 const POPULAR_PLATFORMS = ['telegram', 'whatsapp', 'email', 'slack', 'discord', 'sms']
+
+// Values Workmate writes itself (the WhatsApp QR link saves mode and DM
+// policy; the step-3 switch sets WHATSAPP_ENABLED). The full form still lists
+// them under "Nâng cao"; the coach does not walk a beginner through them.
+const COACH_SKIPPED_FIELDS = new Set(['WHATSAPP_DM_POLICY', 'WHATSAPP_ENABLED', 'WHATSAPP_MODE'])
 
 // "Xem thêm" remembers its answer for the session (not persisted — a fresh
 // launch folds the long tail again).
@@ -446,9 +454,22 @@ export function MessagingView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
       await refreshPairing()
     } catch (err) {
       setPairing(snapshot)
+      const text = err instanceof Error ? err.message : String(err)
+
+      // 404 means the row aged out (codes live an hour) or was handled
+      // elsewhere: say what to do in the user's language rather than echo
+      // the backend's English, and refetch so a dead row cannot be clicked
+      // again.
+      if (/\b404\b|not found or expired/i.test(text)) {
+        notify({ kind: 'error', title: m.failedApprove(pairingLabel(user)), message: m.pairingExpired })
+        void refreshPairing()
+
+        return
+      }
+
       // 429 is the code path's brute-force lockout — a distinct condition the
       // operator can only wait out, so it gets its own message.
-      const lockedOut = err instanceof Error && err.message.includes('429')
+      const lockedOut = text.includes('429')
       notifyError(err, lockedOut ? m.pairingLockedOut : m.failedApprove(pairingLabel(user)))
     } finally {
       setApproving(null)
@@ -563,7 +584,9 @@ export function MessagingView({ setStatusbarItemGroup: _setStatusbarItemGroup, .
                 approved={approvedByPlatform[selected.id] ?? []}
                 approving={approving}
                 edits={edits[selected.id] || {}}
+                key={`${activeGatewayProfile}:${selected.id}`}
                 onApprove={user => void handleApprove(user)}
+                onChanged={() => void refreshPlatforms(true)}
                 onClear={key => void handleClear(selected, key)}
                 onEdit={(key, value) =>
                   setEdits(current => ({
@@ -714,9 +737,7 @@ function Step({
         aria-label={done ? t.messaging.stepDone : undefined}
         className={cn(
           'mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold tabular-nums',
-          done
-            ? 'bg-(--ui-green) text-(--ui-green-foreground)'
-            : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
+          done ? 'bg-(--ui-green) text-(--ui-green-foreground)' : 'bg-(--ui-bg-tertiary) text-(--ui-text-secondary)'
         )}
       >
         {done ? <Check aria-hidden className="size-3.5" /> : index}
@@ -734,6 +755,7 @@ function PlatformDetail({
   approving,
   edits,
   onApprove,
+  onChanged,
   onClear,
   onEdit,
   onRevoke,
@@ -746,6 +768,8 @@ function PlatformDetail({
   approving: null | string
   edits: Record<string, string>
   onApprove: (user: PairingUser) => void
+  /** Something outside the form changed the platform (WhatsApp QR link). */
+  onChanged: () => void
   onClear: (key: string) => void
   onEdit: (key: string, value: string) => void
   onRevoke: (user: PairingUser) => void
@@ -764,6 +788,40 @@ function PlatformDetail({
   const advancedFields = platform.env_vars.filter(field => !field.required && fieldCopy(field, m).advanced)
   const summary = summaryOf(platform, m)
 
+  const guide = useSetupGuide(
+    platform.id,
+    [...requiredFields, ...optionalFields, ...advancedFields].filter(field => !COACH_SKIPPED_FIELDS.has(field.key))
+  )
+
+  const helpRef = useRef<HTMLButtonElement>(null)
+  // WhatsApp links by scanning a QR here instead of pasting a token; the
+  // state sits at this level so the coach and the full form share one run.
+  const isWhatsApp = platform.id === 'whatsapp'
+  const whatsappLink = useWhatsAppLink(platform, onChanged)
+  const step1Title = isWhatsApp ? m.whatsapp.step1Title : m.step1Title
+  const step1Done = isWhatsApp ? Boolean(platform.whatsapp_setup?.linked) : platform.configured
+
+  const closeGuide = () => {
+    guide.close()
+    helpRef.current?.focus({ preventScroll: true })
+  }
+
+  const setupDocsUrl = POPULAR_PLATFORMS.includes(platform.id) ? messagingGuideUrl(platform.id) : platform.docs_url
+  const activeField = guide.step?.field
+  const activeCopy = activeField ? fieldCopy(activeField, m) : null
+
+  const guideTitle =
+    activeCopy?.label ||
+    (guide.step?.kind === 'prepare' ? step1Title : guide.step?.kind === 'test' ? m.guide.testTitle : m.step3Title)
+
+  const guideBody = activeField
+    ? m.fieldGuide[activeField.key] || activeCopy?.help || m.guide.fieldFallback
+    : guide.step?.kind === 'prepare'
+      ? introCopy(platform, m)
+      : guide.step?.kind === 'test'
+        ? m.guide.testBody
+        : m.guide.connectBody
+
   const destinationLabel =
     platform.destination?.label || platform.home_channel?.name || platform.home_channel?.chat_id || null
 
@@ -771,8 +829,37 @@ function PlatformDetail({
 
   const fieldRows = (fields: MessagingEnvVarInfo[]) =>
     fields.map(field => (
-      <MessagingField edits={edits} field={field} key={field.key} onClear={onClear} onEdit={onEdit} saving={saving} />
+      <MessagingField
+        edits={edits}
+        field={field}
+        key={field.key}
+        onClear={onClear}
+        onEdit={onEdit}
+        onHelp={() => guide.open(field.key)}
+        saving={saving}
+      />
     ))
+
+  const connectionControls = (
+    <div className="grid gap-3">
+      <div className="flex items-center gap-3">
+        <Switch
+          aria-label={platform.enabled ? m.disableAria(platform.name) : m.enableAria(platform.name)}
+          checked={platform.enabled}
+          className={cn(!platform.enabled && 'opacity-60')}
+          disabled={saving === `enabled:${platform.id}`}
+          onCheckedChange={onToggle}
+          size="md"
+        />
+        <p className="text-sm text-(--ui-text-secondary)">{m.step3Enable(platform.name)}</p>
+      </div>
+      {platform.state === 'pending_restart' && (
+        <div>
+          <Button onClick={() => void runGatewayRestart()}>{m.restartNow}</Button>
+        </div>
+      )}
+    </div>
+  )
 
   return (
     <>
@@ -788,9 +875,21 @@ function PlatformDetail({
           <p className="mt-1 text-sm text-(--ui-text-tertiary)">{taglineOf(platform, m)}</p>
           <PlatformHint platform={platform} />
         </div>
+        <Tip label={m.guide.replay}>
+          <Button
+            aria-expanded={Boolean(guide.step)}
+            aria-label={m.guide.replay}
+            onClick={() => guide.open()}
+            ref={helpRef}
+            size="icon"
+            variant="ghost"
+          >
+            <HelpCircle aria-hidden />
+          </Button>
+        </Tip>
       </header>
 
-      {platform.error_message && <ErrorBanner>{platform.error_message}</ErrorBanner>}
+      {platform.error_message && <ErrorBanner>{platformErrorCopy(platform, m)}</ErrorBanner>}
 
       {platform.enabled && platform.state === 'connected' && (
         <div className="border-y border-(--ui-stroke-tertiary)">
@@ -827,79 +926,112 @@ function PlatformDetail({
         </div>
       )}
 
-      <div className="grid gap-6">
-        <Step done={platform.configured} index={1} title={m.step1Title}>
-          <p className="max-w-prose text-sm leading-relaxed text-(--ui-text-secondary)">{introCopy(platform, m)}</p>
-          {platform.docs_url && (
+      {guide.step ? (
+        <SetupGuide
+          body={guideBody}
+          guide={{ ...guide, close: closeGuide, next: guide.index === guide.total - 1 ? closeGuide : guide.next }}
+          onDocs={() => openExternalLink(messagingGuideUrl(platform.id))}
+          title={guideTitle}
+        >
+          <GuideFigures ids={guideFigureIds(platform.id, guide.step.id)} key={guide.step.id} />
+          {activeField && (
+            <MessagingField
+              edits={edits}
+              field={activeField}
+              guided
+              onClear={onClear}
+              onEdit={onEdit}
+              saving={saving}
+            />
+          )}
+          {guide.step.kind === 'prepare' && isWhatsApp && <WhatsAppLink link={whatsappLink} platform={platform} />}
+          {guide.step.kind === 'prepare' && !isWhatsApp && platform.docs_url && (
             <div>
-              <Button asChild size="sm" variant="textStrong">
-                <a
-                  href={platform.docs_url}
-                  onClick={event => {
-                    // Route through the validated external opener instead of
-                    // letting Electron resolve the anchor. A packaged build's
-                    // empty/relative href resolves to the app's own
-                    // index.html file path, which shell.openPath then fails to
-                    // open ("file not found"). Plugin platforms (Teams, etc.)
-                    // ship no docs_url, so this guard + handler keeps the
-                    // button from ever pointing at a local bundle path.
-                    event.preventDefault()
-                    openExternalLink(platform.docs_url)
-                  }}
-                  rel="noreferrer"
-                  target="_blank"
-                >
-                  {m.openSetupGuide}
-                  <ExternalLink className="size-3.5" />
-                </a>
+              <Button onClick={() => openExternalLink(platform.docs_url)} size="sm" variant="outline">
+                {m.guide.source}
+                <ExternalLink aria-hidden />
               </Button>
             </div>
           )}
-        </Step>
+          {guide.step.kind === 'field' && activeField?.is_password && (
+            <p className="text-xs text-(--text-tertiary)">{m.guide.secret}</p>
+          )}
+          {guide.step.kind === 'connect' && connectionControls}
+          {guide.step.kind === 'test' && <p className="text-sm text-(--text-secondary)">{m.guide.testNote}</p>}
+        </SetupGuide>
+      ) : (
+        <div className="grid gap-6">
+          <Step done={step1Done} index={1} title={step1Title}>
+            <p className="max-w-prose text-sm leading-relaxed text-(--ui-text-secondary)">{introCopy(platform, m)}</p>
+            {isWhatsApp && <WhatsAppLink link={whatsappLink} platform={platform} />}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+              {!isWhatsApp && (
+                <Button onClick={() => guide.open()} size="sm" variant="outline">
+                  <ImageIcon aria-hidden className="size-3.5" />
+                  {m.figures.showVisual}
+                </Button>
+              )}
+              {setupDocsUrl && (
+                <Button asChild size="sm" variant="textStrong">
+                  <a
+                    href={setupDocsUrl}
+                    onClick={event => {
+                      // Route through the validated external opener instead of
+                      // letting Electron resolve the anchor. A packaged build's
+                      // empty/relative href resolves to the app's own
+                      // index.html file path, which shell.openPath then fails to
+                      // open ("file not found"). Plugin platforms (Teams, etc.)
+                      // ship no docs_url, so this guard + handler keeps the
+                      // button from ever pointing at a local bundle path.
+                      event.preventDefault()
+                      openExternalLink(setupDocsUrl)
+                    }}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {m.openSetupGuide}
+                    <ExternalLink className="size-3.5" />
+                  </a>
+                </Button>
+              )}
+            </div>
+          </Step>
 
-        <Step done={platform.configured} index={2} title={m.step2Title}>
-          {requiredFields.length > 0 ? (
-            <div className="grid gap-4">{fieldRows(requiredFields)}</div>
-          ) : (
-            <p className="max-w-prose text-sm text-(--ui-text-tertiary)">{m.noTokenNeeded}</p>
-          )}
-          {optionalFields.length > 0 && (
-            <div>
-              <DisclosureRow onToggle={() => setShowRecommended(value => !value)} open={showRecommended}>
-                {m.recommendedCount(optionalFields.length)}
-              </DisclosureRow>
-              {showRecommended && <div className="mt-2 grid gap-4 pl-5">{fieldRows(optionalFields)}</div>}
-            </div>
-          )}
-          {advancedFields.length > 0 && (
-            <div>
-              <DisclosureRow onToggle={() => setShowAdvanced(value => !value)} open={showAdvanced}>
-                {m.advanced(advancedFields.length)}
-              </DisclosureRow>
-              {showAdvanced && <div className="mt-2 grid gap-4 pl-5">{fieldRows(advancedFields)}</div>}
-            </div>
-          )}
-        </Step>
+          <Step done={platform.configured} index={2} title={isWhatsApp ? m.whatsapp.step2Title : m.step2Title}>
+            {requiredFields.length > 0 ? (
+              <div className="grid gap-4">{fieldRows(requiredFields)}</div>
+            ) : (
+              <p className="max-w-prose text-sm text-(--ui-text-tertiary)">
+                {isWhatsApp
+                  ? platform.whatsapp_setup?.linked && platform.whatsapp_setup.mode === 'self-chat'
+                    ? m.whatsapp.step2BodySelf
+                    : m.whatsapp.step2Body
+                  : m.noTokenNeeded}
+              </p>
+            )}
+            {optionalFields.length > 0 && (
+              <div>
+                <DisclosureRow onToggle={() => setShowRecommended(value => !value)} open={showRecommended}>
+                  {m.recommendedCount(optionalFields.length)}
+                </DisclosureRow>
+                {showRecommended && <div className="mt-2 grid gap-4 pl-5">{fieldRows(optionalFields)}</div>}
+              </div>
+            )}
+            {advancedFields.length > 0 && (
+              <div>
+                <DisclosureRow onToggle={() => setShowAdvanced(value => !value)} open={showAdvanced}>
+                  {m.advanced(advancedFields.length)}
+                </DisclosureRow>
+                {showAdvanced && <div className="mt-2 grid gap-4 pl-5">{fieldRows(advancedFields)}</div>}
+              </div>
+            )}
+          </Step>
 
-        <Step done={platform.enabled} index={3} title={m.step3Title}>
-          <div className="flex items-center gap-3">
-            <Switch
-              aria-label={platform.enabled ? m.disableAria(platform.name) : m.enableAria(platform.name)}
-              checked={platform.enabled}
-              className={cn('cursor-pointer', !platform.enabled && 'opacity-60')}
-              disabled={saving === `enabled:${platform.id}`}
-              onCheckedChange={onToggle}
-              size="md"
-            />
-            <p className="text-sm text-(--ui-text-secondary)">{m.step3Enable(platform.name)}</p>
-          </div>
-          {platform.state === 'pending_restart' && (
-            <div>
-              <Button onClick={() => void runGatewayRestart()}>{m.restartNow}</Button>
-            </div>
-          )}
-        </Step>
-      </div>
+          <Step done={platform.enabled} index={3} title={m.step3Title}>
+            {connectionControls}
+          </Step>
+        </div>
+      )}
 
       {approved.length > 0 && (
         <section>
@@ -970,7 +1102,7 @@ const PLATFORM_INTRO: Record<string, string> = {
   signal:
     'Run a signal-cli REST bridge somewhere reachable, then point AgentX at the URL and the registered phone number.',
   whatsapp:
-    'Start the WhatsApp bridge that ships with AgentX, scan the QR code on first run, then enable the platform.',
+    'Scan one QR code with WhatsApp on your phone, just like WhatsApp on a computer. No code to paste and no terminal.',
   bluebubbles:
     'Run BlueBubbles Server on a Mac with iMessage, expose its API, then point AgentX at the URL with the server password.',
   homeassistant:
@@ -994,6 +1126,21 @@ const PLATFORM_INTRO: Record<string, string> = {
     'Run an HTTP server that other tools (GitHub, GitLab, custom apps) can POST to. Use the secret to verify signatures.'
 }
 
+// Adapter failures arrive as English sentences written for a terminal user
+// ("…or run `agentx whatsapp`"). The ones with an in-app remedy are retold.
+export function platformErrorCopy(platform: MessagingPlatformInfo, m: Translations['messaging']): string {
+  const errors = m.whatsapp.errors
+
+  const known: Record<string, string> = {
+    whatsapp_bridge_exited: errors.bridgeExited,
+    whatsapp_node_missing: errors.noNode,
+    whatsapp_not_paired: errors.notPaired,
+    whatsapp_npm_install_failed: errors.install
+  }
+
+  return (platform.error_code && known[platform.error_code]) || platform.error_message || ''
+}
+
 const introCopy = (platform: MessagingPlatformInfo, m: Translations['messaging']) =>
   m.platformIntro[platform.id] || PLATFORM_INTRO[platform.id] || platform.description
 
@@ -1003,14 +1150,18 @@ const introCopy = (platform: MessagingPlatformInfo, m: Translations['messaging']
 function MessagingField({
   edits,
   field,
+  guided = false,
   onClear,
   onEdit,
+  onHelp,
   saving
 }: {
   edits: Record<string, string>
   field: MessagingEnvVarInfo
+  guided?: boolean
   onClear: (key: string) => void
   onEdit: (key: string, value: string) => void
+  onHelp?: () => void
   saving: string | null
 }) {
   const { t } = useI18n()
@@ -1020,13 +1171,30 @@ function MessagingField({
 
   return (
     <div className="grid gap-1">
-      <label className="flex flex-wrap items-center gap-2 text-base font-medium text-foreground" htmlFor={fieldId}>
-        {copy.label}
+      <div className="flex items-center gap-2">
+        <label
+          className={guided ? 'sr-only' : 'flex flex-wrap items-center gap-2 text-base font-medium text-foreground'}
+          htmlFor={fieldId}
+        >
+          {copy.label}
+        </label>
         {field.is_set && <StatusPill tone="good">{m.saved}</StatusPill>}
-      </label>
-      {copy.help && <p className="max-w-prose text-sm text-(--ui-text-tertiary)">{copy.help}</p>}
+        {onHelp && (
+          <Tip label={m.guide.fieldHelp(copy.label)}>
+            <Button aria-label={m.guide.fieldHelp(copy.label)} onClick={onHelp} size="icon-xs" variant="ghost">
+              <HelpCircle aria-hidden />
+            </Button>
+          </Tip>
+        )}
+      </div>
+      {!guided && copy.help && (
+        <p className="max-w-prose text-sm text-(--ui-text-tertiary)" id={`${fieldId}-help`}>
+          {copy.help}
+        </p>
+      )}
       <div className="mt-1 flex items-center gap-2">
         <Input
+          aria-describedby={!guided && copy.help ? `${fieldId}-help` : undefined}
           className="max-w-md"
           id={fieldId}
           onChange={event => onEdit(field.key, event.target.value)}
@@ -1038,7 +1206,16 @@ function MessagingField({
         {field.url && (
           <Tip label={m.openDocs}>
             <Button asChild size="icon" variant="ghost">
-              <a href={field.url} rel="noreferrer" target="_blank">
+              <a
+                aria-label={m.openDocs}
+                href={field.url}
+                onClick={event => {
+                  event.preventDefault()
+                  openExternalLink(field.url!)
+                }}
+                rel="noreferrer"
+                target="_blank"
+              >
                 <ExternalLink className="size-3.5" />
               </a>
             </Button>

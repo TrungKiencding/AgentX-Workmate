@@ -165,7 +165,18 @@ function RepoFlatSection({
     }
   }
 
-  const body = (
+  // A plain folder (no git) carries one lane, named after the folder itself —
+  // a "branch" header there only repeats the project's name under a branch
+  // glyph. List its chats directly; a repo keeps its branch/worktree lanes.
+  const plainFolder =
+    ordered.length === 1 &&
+    Boolean(ordered[0].isMain) &&
+    ordered[0].label === repo.label &&
+    !discoveredWorktrees?.length
+
+  const body = plainFolder ? (
+    <SidebarRowStack>{renderRows(ordered[0].sessions)}</SidebarRowStack>
+  ) : (
     <>
       {ordered.map(group => (
         <SidebarWorkspaceGroup

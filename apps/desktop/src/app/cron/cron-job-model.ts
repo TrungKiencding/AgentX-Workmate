@@ -34,14 +34,21 @@ export function validateCronEditor(input: CronEditorValidationInput): CronEditor
   return null
 }
 
-export interface CronEditorSaveValues {
-  deliver: string
+export interface CronModelSelection {
   /** Per-job model override ('' = follow the global default at fire time). */
   model: string
-  name: string
-  prompt: string
   /** Provider for the model override ('' = none). Always paired with model. */
   provider: string
+}
+
+/** Select values must distinguish colons in BOTH provider slugs and model ids. */
+export const cronModelSelectionKey = ({ model, provider }: CronModelSelection): string =>
+  JSON.stringify([provider, model])
+
+export interface CronEditorSaveValues extends CronModelSelection {
+  deliver: string
+  name: string
+  prompt: string
   schedule: string
 }
 

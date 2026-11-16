@@ -6,6 +6,7 @@ import copy
 import functools
 import hashlib
 import inspect
+import itertools
 import json
 import logging
 import os
@@ -27,6 +28,7 @@ from agent.secret_scope import (
 from hermes_constants import (
     DEFAULT_INDICATOR_STYLE,
     INDICATOR_STYLES,
+    MODEL_SWITCH_MARKER_PREFIX,
     get_hermes_home,
     get_hermes_home_override,
     reset_hermes_home_override,
@@ -36,10 +38,12 @@ from hermes_cli.account_license import LicenseReadOnly
 from hermes_cli.env_loader import load_hermes_dotenv
 from utils import is_truthy_value
 from tools.environments.local import hermes_subprocess_env
+from agent.compaction_display import fold_compaction_display
 from agent.replay_cleanup import sanitize_replay_history
 from agent.skill_commands import describe_skill_invocation
 from agent.conversation_loop import INTERRUPT_WAITING_FOR_MODEL_PREFIX
 from tui_gateway import git_probe
+from tui_gateway.deliverables import branch_cut_at_user_turn, branch_cut_index, branch_seed_rows
 from tui_gateway.usage_outcome import FALLBACK_CODE as FALLBACK_FAILURE_CODE
 from tui_gateway.usage_outcome import exception_failure_code, turn_failure_code
 from tui_gateway.turn_marker import (
@@ -1413,8 +1417,102 @@ def _get_db():
                 exc,
             )
             return None
+        _sweep_title_ghosts(_db)
     return _db
 
+
+def _sweep_title_ghosts(db) -> None:
+    """Once per process, in the background: drop the empty "ghost" chats that
+    titling other profiles' sessions through this db used to leave in the main
+    assistant's list (see ``SessionDB.delete_title_ghost_sessions``)."""
+
+    def _run():
+        try:
+            removed = db.delete_title_ghost_sessions()
+            if removed:
+                logger.info("removed %d empty ghost conversation(s) left by mis-routed titles", removed)
+        except Exception:
+            logger.debug("ghost conversation sweep failed", exc_info=True)
+
+    threading.Thread(target=_run, name="title-ghost-sweep", daemon=True).start()
+
+
+# Session sources that are app plumbing, never a conversation a person opens:
+# sub-agent runs, kanban workers and Bot Mode group-room turns (each assistant
+# answers a room in its own hidden session; the room itself is the transcript).
+BOT_ROOM_SOURCE = "bot-room"
+NON_CONVERSATION_SOURCES = frozenset({"kanban", "tool", BOT_ROOM_SOURCE})
+
+
+class ProfileHomeGone(FileNotFoundError):
+    """A session is bound to a named profile whose home was deleted."""
+
+
+def _open_profile_session_db(profile_home):
+    """Open a named profile's ``state.db`` — never for a profile that is gone.
+
+    ``SessionDB`` creates its parent directory, so opening the db of a deleted
+    profile through a session that still names its home (a group-room member's
+    hidden session, an idle chat the reaper finalizes later) silently re-created
+    ``profiles/<name>/`` with a bare ``state.db`` — and the deleted assistant
+    came back in every profile list. Raise instead; callers treat it like any
+    other unavailable db.
+    """
+    home = Path(profile_home)
+    if not home.is_dir():
+        raise ProfileHomeGone(f"Profile home no longer exists: {home}")
+    from hermes_state import SessionDB
+
+    return SessionDB(db_path=home / "state.db")
+
+
+def close_sessions_for_profile_home(profile_home, *, end_reason: str = "profile_deleted") -> int:
+    """Tear down every live session bound to ``profile_home``.
+
+    Called by the profile-delete route: a deleted profile's sessions must not
+    linger in this process (their agents hold the old home and would write into
+    it again). Returns how many sessions were closed. Never raises.
+    """
+    try:
+        target = Path(profile_home).resolve()
+    except Exception:
+        return 0
+    with _sessions_lock:
+        victims = []
+        for sid, session in list(_sessions.items()):
+            home = session.get("profile_home") if isinstance(session, dict) else None
+            if not home:
+                continue
+            try:
+                if Path(home).resolve() == target:
+                    victims.append(sid)
+            except Exception:
+                continue
+    closed = 0
+    for sid in victims:
+        try:
+            if _close_session_by_id(sid, end_reason=end_reason):
+                closed += 1
+        except Exception:
+            logger.debug("closing session %s of a deleted profile failed", sid, exc_info=True)
+    return closed
+
+
+
+def _title_db_for(session: dict, agent: Any):
+    """The db an auto-generated title is written to: the session's OWN.
+
+    A session bound to another profile (Bot Mode assistants answering on this
+    gateway, app-global remote mode) persists its turns into that profile's
+    ``state.db`` through the agent's long-lived handle. Titling it through the
+    launch db instead found no title there and wrote one — leaving an empty,
+    sourceless "ghost" conversation (named after the other profile's chat) in
+    the MAIN assistant's list. None when that profile's db isn't available:
+    no title beats a ghost.
+    """
+    if not session.get("profile_home"):
+        return _get_db()
+    return getattr(agent, "_session_db", None)
 
 def _db_for_profile(profile: str | None = None):
     """Return SessionDB for ``params.profile`` when it differs from launch.
@@ -1430,9 +1528,7 @@ def _db_for_profile(profile: str | None = None):
     if profile_home is None:
         return _get_db(), False
     try:
-        from hermes_state import SessionDB
-
-        return SessionDB(db_path=Path(profile_home) / "state.db"), True
+        return _open_profile_session_db(profile_home), True
     except Exception as exc:
         logger.warning(
             "TUI profile session store unavailable for %s: %s",
@@ -2300,10 +2396,12 @@ def _start_agent_build(sid: str, session: dict) -> None:
                     secret_token = set_secret_scope(build_profile_secret_scope(Path(profile_home)))
                 except Exception:
                     pass
+                if not Path(profile_home).is_dir():
+                    # The profile was deleted under this session: building
+                    # would persist its turns into the launch profile's db.
+                    raise ProfileHomeGone(f"Profile home no longer exists: {profile_home}")
                 try:
-                    from hermes_state import SessionDB
-
-                    session_db = SessionDB(db_path=Path(profile_home) / "state.db")
+                    session_db = _open_profile_session_db(profile_home)
                 except Exception:
                     session_db = None
 
@@ -2343,6 +2441,13 @@ def _start_agent_build(sid: str, session: dict) -> None:
                 agent = _make_agent(sid, key, **kw)
             finally:
                 _clear_session_context(tokens)
+
+            # A new chat's title (session.create ``title``) is only persisted
+            # after its first message, but the system prompt is built on that
+            # first turn. Hand the intended title to the prompt builder so a
+            # title-gated section (Bot Mode's "Bot Chat") applies from turn one.
+            if pending := str(current.get("pending_title") or "").strip():
+                agent._session_title_hint = pending
 
             # Session DB row deferred to first run_conversation() call.
             # pending_title applied post-first-message (see cli.exec handler).
@@ -2415,8 +2520,11 @@ def _start_agent_build(sid: str, session: dict) -> None:
             # _schedule_mcp_late_refresh. Cache-safe (pre-first-turn only).
             _schedule_mcp_late_refresh(sid, agent)
         except Exception as e:
+            # The client only gets str(e); keep the traceback where an
+            # administrator can find what actually failed to build.
+            logger.exception("agent init failed (session %s)", sid)
             current["agent_error"] = str(e)
-            _emit("error", sid, {"message": f"agent init failed: {e}"})
+            _emit("error", sid, _agent_init_error_payload(e))
         finally:
             if home_token is not None:
                 reset_hermes_home_override(home_token)
@@ -2836,10 +2944,8 @@ def _ensure_session_db_row(session: dict) -> None:
     # unified list mis-tags it, and resume 404s ("session not found").
     profile_home = session.get("profile_home")
     if profile_home:
-        from hermes_state import SessionDB
-
         try:
-            db = SessionDB(db_path=Path(profile_home) / "state.db")
+            db = _open_profile_session_db(profile_home)
         except Exception:
             logger.debug("failed to open profile db for session row", exc_info=True)
             return
@@ -2967,17 +3073,7 @@ def _persist_branch_seed(session: dict) -> None:
             # _branch_seed_persisted unset).
             db.append_messages_batch(
                 key,
-                [
-                    {
-                        "role": msg.get("role", "user"),
-                        "content": msg.get("content"),
-                        # Preserve the parent's original message timestamps —
-                        # append_message would otherwise stamp time.time() and the
-                        # branch's copied history would all appear authored "now".
-                        "timestamp": msg.get("timestamp"),
-                    }
-                    for msg in seed
-                ],
+                branch_seed_rows(seed),
                 chunk_rows=500,
             )
             session["_branch_seed_persisted"] = True
@@ -3001,10 +3097,8 @@ def _session_db(session: dict):
     db, close_db = None, False
     profile_home = session.get("profile_home")
     if profile_home:
-        from hermes_state import SessionDB
-
         try:
-            db, close_db = SessionDB(db_path=Path(profile_home) / "state.db"), True
+            db, close_db = _open_profile_session_db(profile_home), True
         except Exception:
             logger.debug("failed to open profile db for session", exc_info=True)
     else:
@@ -3514,6 +3608,40 @@ def _cron_sig():
         return None
 
 
+# How long the list of assistant homes is reused. Listing reads every
+# profile.yaml; an assistant created a moment ago has no routine due yet.
+_ASSISTANT_HOMES_TTL_S = 30.0
+_assistant_homes_cache: tuple[float, list] | None = None
+
+
+def _assistant_routines_sig():
+    """``(assistant, jobs.json mtime)`` for every Bot Mode assistant.
+
+    An assistant's routine runs in a child of the desktop's primary backend
+    (cron/bot_profile_sweeper.py) under the assistant's own home, so nothing
+    in THIS backend's home moves when it finishes — ``cron.changed`` stays
+    silent and the app could not tell the person a routine had run or failed
+    (pilot feedback 2026-11). The run's bookkeeping (last_run_at/last_status)
+    lands in the assistant's ``cron/jobs.json``; its mtime is the signal.
+    """
+    global _assistant_homes_cache
+    now = time.monotonic()
+    cached = _assistant_homes_cache
+    if cached is None or now - cached[0] > _ASSISTANT_HOMES_TTL_S:
+        from cron.bot_profile_sweeper import bot_profile_homes
+
+        cached = (now, bot_profile_homes(_watcher_home()))
+        _assistant_homes_cache = cached
+    sig = []
+    for name, home in cached[1]:
+        try:
+            mtime = (home / "cron" / "jobs.json").stat().st_mtime_ns
+        except OSError:
+            mtime = None
+        sig.append((name, mtime))
+    return tuple(sig)
+
+
 def _sessions_sig():
     """Newest mtime across state.db and its WAL — the cross-process change
     signal. Messaging-gateway turns and cron runs are written by OTHER
@@ -3587,6 +3715,7 @@ def _pairing_sig():
 _CHANGE_WATCHES: dict[str, tuple[float, Any, Any]] = {
     "pet.changed": (2.0, _pet_sig, _pet_changed_payload),
     "cron.changed": (1.0, _cron_sig, lambda: {}),
+    "routines.changed": (5.0, _assistant_routines_sig, lambda: {}),
     "sessions.changed": (0.5, _sessions_sig, lambda: {}),
     "platforms.changed": (2.0, _platforms_sig, lambda: {}),
     "pairing.changed": (2.0, _pairing_sig, lambda: {}),
@@ -4017,11 +4146,26 @@ def _persist_live_session_system_prompt(session: dict | None) -> None:
         logger.debug("failed to persist live session system prompt", exc_info=True)
 
 
+def _agent_init_error_payload(exc: BaseException) -> dict:
+    """The ``error`` frame for an agent that could not be built.
+
+    A failure that knows what it is carries a ``code`` (see
+    ``AccountGatewayError``); the client then says *that* instead of reading
+    "agent init failed" as a fault of the local app.
+    """
+    payload: dict = {"message": f"agent init failed: {exc}"}
+    code = getattr(exc, "code", None)
+    if isinstance(code, str) and code.strip():
+        payload["code"] = code.strip()
+    return payload
+
+
 # Stable leading text of the model-switch marker, shared by the builder and the
 # dedup below. Only the newest marker is meaningful (it names the *currently*
 # active model); older ones are stale and would otherwise be re-sent to the
 # provider on every turn (#65891).
-_MODEL_SWITCH_MARKER_PREFIX = "[System: The active model for this chat has changed to "
+# (Shared with session previews, which must not show the marker as a message.)
+_MODEL_SWITCH_MARKER_PREFIX = MODEL_SWITCH_MARKER_PREFIX
 
 
 def _is_model_switch_marker(entry: Any) -> bool:
@@ -5546,6 +5690,10 @@ def _on_tool_start(sid: str, tool_call_id: str, name: str, args: dict):
         _emit("tool.start", sid, payload)
 
 
+# Edit diffs one turn pins to its reply row (see _on_tool_complete).
+_TURN_EDIT_DIFFS_MAX = 200
+
+
 def _on_tool_complete(sid: str, tool_call_id: str, name: str, args: dict, result: str):
     payload = {"tool_id": tool_call_id, "name": name, "args": args}
     session = _sessions.get(sid)
@@ -5579,14 +5727,30 @@ def _on_tool_complete(sid: str, tool_call_id: str, name: str, args: dict, result
         from agent.display import render_edit_diff_with_delta
 
         rendered: list[str] = []
+        diff_stats: dict = {}
         if render_edit_diff_with_delta(
             name,
             result,
             function_args=args,
             snapshot=snapshot,
             print_fn=rendered.append,
+            stats=diff_stats,
         ):
             payload["inline_diff"] = "\n".join(rendered)
+            # inline_diff is a capped preview (80 lines). The +/- of the whole
+            # change rides beside it so a client never counts the preview.
+            if diff_stats:
+                payload["inline_diff_stats"] = diff_stats
+            # Kept for the end of the turn, which pins them to the reply row:
+            # the stored tool row holds only the tool's own result, so a
+            # reopened chat lost every edit's diff row and the files-changed
+            # card. Bounded: the preview is capped, and so is the count.
+            if session is not None and tool_call_id:
+                diffs = session.setdefault("turn_edit_diffs", {})
+                if len(diffs) < _TURN_EDIT_DIFFS_MAX:
+                    diffs[tool_call_id] = {
+                        key: payload[key] for key in ("inline_diff", "inline_diff_stats") if key in payload
+                    }
     except Exception:
         pass
     if _tool_progress_enabled(sid) or payload.get("inline_diff") or _tool_lifecycle_required_for_ui(name):
@@ -6450,6 +6614,37 @@ class _RuntimeFallbackResolution(NamedTuple):
     used_fallback: bool
 
 
+def _granted_replacement_model(exc: BaseException, rejected: str) -> str | None:
+    """A model the account is granted now, when *exc* refused *rejected* as ungranted.
+
+    The configured default when it is granted (the app keeps it on a granted
+    model), else the first model of the grant. None for any other failure, or
+    when the account has no grant on record.
+    """
+    try:
+        from hermes_cli.account_inference import AccountModelNotAllowed, account_models
+
+        if not isinstance(exc, AccountModelNotAllowed):
+            return None
+        granted = account_models()
+    except Exception:
+        return None
+    if not granted:
+        return None
+    default = ""
+    try:
+        from hermes_cli.config import load_config
+
+        configured = (load_config() or {}).get("model")
+        default = str(configured.get("default") or "") if isinstance(configured, dict) else str(configured or "")
+    except Exception:
+        pass
+    for candidate in (default, *granted):
+        if candidate and candidate != rejected and candidate in granted:
+            return candidate
+    return None
+
+
 def _resolve_runtime_with_fallback(
     resolve_kwargs: dict | None = None,
 ) -> _RuntimeFallbackResolution:
@@ -6613,7 +6808,24 @@ def _make_agent(
                 resolve_kwargs["explicit_base_url"] = override_base_url
         resolve_kwargs["requested"] = requested_provider
         resolve_kwargs["target_model"] = model or None
-        resolution = _resolve_runtime_with_fallback(resolve_kwargs)
+        try:
+            resolution = _resolve_runtime_with_fallback(resolve_kwargs)
+        except Exception as exc:
+            replacement = _granted_replacement_model(exc, model)
+            if replacement is None:
+                raise
+            # The chat was saved on a model the account's administrator has
+            # since taken away. Failing here left a reopened chat with no
+            # agent at all, so the desktop could not even switch its model:
+            # every turn answered "not assigned to your account". Open it on
+            # a model the account has now; the picker shows which.
+            logger.info(
+                "session %s: stored model %s is no longer granted; opening on %s",
+                sid, model, replacement,
+            )
+            model = replacement
+            resolve_kwargs["target_model"] = model
+            resolution = _resolve_runtime_with_fallback(resolve_kwargs)
         runtime = resolution.runtime
         if resolution.used_fallback:
             if not resolution.selected_model:
@@ -6623,11 +6835,20 @@ def _make_agent(
             # The switch already resolved concrete credentials/endpoint; honor
             # persisted overrides only while using that original runtime. They
             # must not leak into a different fallback provider/model pair.
-            if override_base_url:
+            #
+            # Never over an account's managed gateway, though: there the
+            # address, key and mode on record ARE the runtime. A chat saved
+            # before the gateway moved carries the retired address; it is
+            # accepted as "the gateway" precisely on the promise that the
+            # request goes to the address on record — writing the saved one
+            # back sent the turn (and the account's key) to a host the
+            # gateway had left.
+            managed = runtime.get("source") == "account-gateway"
+            if override_base_url and not managed:
                 runtime["base_url"] = override_base_url
-            if override_api_key:
+            if override_api_key and not managed:
                 runtime["api_key"] = override_api_key
-            if override_api_mode:
+            if override_api_mode and not managed:
                 runtime["api_mode"] = override_api_mode
     else:
         model, requested_provider = _resolve_startup_runtime()
@@ -6749,9 +6970,7 @@ def _init_session(
         db = session_db
     elif profile_home:
         try:
-            from hermes_state import SessionDB
-
-            db = SessionDB(db_path=Path(profile_home) / "state.db")
+            db = _open_profile_session_db(profile_home)
             _init_owns_db = True
         except Exception:
             db = _get_db()
@@ -7162,7 +7381,10 @@ def _history_to_messages(history: list[dict]) -> list[dict]:
     messages = []
     tool_call_args = {}
 
-    for m in history:
+    # Compaction handoffs render as dividers, never as an opaque user bubble.
+    # A DB display read is already folded (archived turns restored); this
+    # covers live-only histories — the in-memory fallback, older stores.
+    for m in fold_compaction_display([m for m in history if isinstance(m, dict)]):
         if not isinstance(m, dict):
             continue
         role = m.get("role")
@@ -7269,9 +7491,36 @@ def _coerce_seed_history(value: Any) -> list[dict]:
         if not isinstance(content, str) or not content.strip():
             continue
 
-        history.append({"role": role, "content": content})
+        entry: dict = {"role": role, "content": content}
+        files = _coerce_seed_files(item.get("files_created")) if role == "assistant" else []
+        if files:
+            # The files the copied turn produced: shown on its reply, the
+            # way the original turn showed them (presentation only).
+            entry["display_metadata"] = {"files_created": files}
+        history.append(entry)
 
     return history
+
+
+def _coerce_seed_files(value: Any) -> list[dict]:
+    """``files_created`` records a client copied into a branch seed, re-checked.
+
+    Only the shape the gateway itself emits survives, and the file is stat'ed
+    again: a seed is client input, and a card must point at a real file.
+    """
+    if not isinstance(value, list):
+        return []
+    from tui_gateway.deliverables import DEFAULT_LIMIT, describe_file
+
+    files: list[dict] = []
+    for record in value[:DEFAULT_LIMIT]:
+        path = record.get("path") if isinstance(record, dict) else None
+        if not isinstance(path, str) or not os.path.isabs(os.path.expanduser(path)):
+            continue
+        described = describe_file(os.path.expanduser(path))
+        if described is not None:
+            files.append(described)
+    return files
 
 
 def _content_display_text(content: Any) -> str:
@@ -7359,7 +7608,12 @@ def _clear_inflight_turn(session: dict) -> None:
     session["inflight_turn"] = None
 
 
-def _fail_inflight_turn(session: dict, error: Any) -> None:
+def _fail_inflight_turn(
+    session: dict,
+    error: Any,
+    failure_code: str | None = None,
+    failure_reason: str | None = None,
+) -> None:
     """Mark the in-flight turn terminal-error but keep it replayable.
 
     Normal completion clears ``inflight_turn`` because the response is now in
@@ -7369,7 +7623,9 @@ def _fail_inflight_turn(session: dict, error: Any) -> None:
     user's prompt, any partial assistant text, and the error itself instead of
     leaving the client stranded on a spinner or hydrating from stale DB state.
     The snapshot lives until the next turn starts (``_start_inflight_turn``
-    overwrites it) or the session closes.
+    overwrites it) or the session closes. ``failure_code`` and
+    ``failure_reason`` are the terminal frame's, so the replayed bubble
+    explains the failure the same way the live one did.
 
     Caller must hold ``session["history_lock"]``.
     """
@@ -7385,6 +7641,10 @@ def _fail_inflight_turn(session: dict, error: Any) -> None:
     turn["recoverable"] = True
     turn["streaming"] = False
     turn["updated_at"] = now
+    if failure_code:
+        turn["failure_code"] = failure_code
+    if failure_reason:
+        turn["failure_reason"] = failure_reason
     session["inflight_turn"] = turn
 
 
@@ -7930,6 +8190,9 @@ def _inflight_snapshot(session: dict) -> dict | None:
         snapshot["error"] = error
         snapshot["status"] = str(turn.get("status") or "error")
         snapshot["recoverable"] = bool(turn.get("recoverable"))
+        for key in ("failure_code", "failure_reason"):
+            if turn.get(key):
+                snapshot[key] = str(turn[key])
     return snapshot
 
 
@@ -7942,8 +8205,11 @@ def _emit_terminal_turn_error(sid: str, session: dict, error: Any) -> None:
     client that missed this frame (disconnect window) can recover it from
     ``session.resume``'s ``inflight`` payload.
     """
+    # What ended it, for the SSO usage metrics (tui_gateway/usage_outcome.py)
+    # and the desktop's explanation of the failure.
+    failure_code = exception_failure_code(error) if isinstance(error, BaseException) else FALLBACK_FAILURE_CODE
     with session["history_lock"]:
-        _fail_inflight_turn(session, error)
+        _fail_inflight_turn(session, error, failure_code)
         turn = session.get("inflight_turn") or {}
         message = str(turn.get("error") or "turn failed")
         partial = str(turn.get("assistant") or "")
@@ -7956,10 +8222,7 @@ def _emit_terminal_turn_error(sid: str, session: dict, error: Any) -> None:
         "status": "error",
         "error": message,
         "recoverable": True,
-        # What ended it, for the SSO usage metrics (tui_gateway/usage_outcome.py).
-        "failure_code": (
-            exception_failure_code(error) if isinstance(error, BaseException) else FALLBACK_FAILURE_CODE
-        ),
+        "failure_code": failure_code,
     }
     if partial:
         payload["partial"] = True
@@ -8340,7 +8603,9 @@ def _live_visible_history(session: dict, db, in_memory_fallback: list[dict]) -> 
     key = session.get("session_key")
     if db is not None and key:
         try:
-            display = db.get_messages_as_conversation(key, include_ancestors=True, include_row_ids=True)
+            display = db.get_messages_as_conversation(
+                key, include_ancestors=True, include_row_ids=True, include_compacted=True
+            )
             return _reconcile_display_with_live(display, in_memory_fallback)
         except Exception:
             logger.debug("live display projection read failed", exc_info=True)
@@ -9790,8 +10055,73 @@ def _start_notification_poller(sid: str, session: dict) -> threading.Event:
     return stop
 
 
+# Turns in flight (and recently finished) per folder, so the deliverables
+# walk can tell when another conversation was writing into the same folder at
+# the same time: whatever it produced would otherwise land on this turn's
+# "files created" card. Entries are (folder, started, ended-or-None).
+_WORKSPACE_TURNS: dict[int, tuple[str, float, float | None]] = {}
+_WORKSPACE_TURNS_LOCK = threading.Lock()
+_WORKSPACE_TURN_SEQ = itertools.count(1)
+# A turn whose end was never recorded stops counting as "running" after this
+# long, and finished ones are forgotten once nothing still running can overlap.
+_WORKSPACE_TURN_MAX_SECONDS = 6 * 3600
+
+
+def _workspace_folder(cwd: str) -> str:
+    try:
+        return os.path.realpath(cwd)
+    except (OSError, ValueError):
+        return cwd
+
+
+def _workspace_turn_begin(cwd: str, started_at: float) -> int:
+    token = next(_WORKSPACE_TURN_SEQ)
+    with _WORKSPACE_TURNS_LOCK:
+        horizon = started_at - _WORKSPACE_TURN_MAX_SECONDS
+        for key, (_folder, began, ended) in list(_WORKSPACE_TURNS.items()):
+            if (ended if ended is not None else began) < horizon:
+                del _WORKSPACE_TURNS[key]
+        _WORKSPACE_TURNS[token] = (_workspace_folder(cwd), started_at, None)
+    return token
+
+
+def _workspace_turn_end(token: int | None) -> None:
+    if token is None:
+        return
+    with _WORKSPACE_TURNS_LOCK:
+        entry = _WORKSPACE_TURNS.get(token)
+        if entry is not None and entry[2] is None:
+            _WORKSPACE_TURNS[token] = (entry[0], entry[1], time.time())
+
+
+def _workspace_shared_during(token: int | None, cwd: str, started_at: float, now: float) -> bool:
+    """Whether another turn ran in an overlapping folder while this one ran."""
+    folder = _workspace_folder(cwd)
+    with _WORKSPACE_TURNS_LOCK:
+        others = [entry for key, entry in _WORKSPACE_TURNS.items() if key != token]
+    for other_folder, began, ended in others:
+        end = ended if ended is not None else min(now, began + _WORKSPACE_TURN_MAX_SECONDS)
+        if end < started_at or began > now:
+            continue
+        if _folders_overlap(folder, other_folder):
+            return True
+    return False
+
+
+def _folders_overlap(a: str, b: str) -> bool:
+    if a == b:
+        return True
+    a_slash, b_slash = a.rstrip(os.sep) + os.sep, b.rstrip(os.sep) + os.sep
+    return a_slash.startswith(b_slash) or b_slash.startswith(a_slash)
+
+
 def _turn_files_created(
-    session: dict, history: list, result: Any, final_text: Any, started_at: float
+    session: dict,
+    history: list,
+    result: Any,
+    final_text: Any,
+    started_at: float,
+    workspace_turn: int | None = None,
 ) -> list[dict]:
     """Deliverable files this turn produced, or ``[]`` — never raises.
 
@@ -9799,7 +10129,10 @@ def _turn_files_created(
     past the turn-start snapshot). The bounded workspace walk runs only for a
     session whose cwd the user picked explicitly: a desktop session's default
     cwd is a launch directory such as ``$HOME``, and nothing that other apps
-    drop there during a turn is this turn's output.
+    drop there during a turn is this turn's output. Nor does it run when
+    another conversation was working in the same folder during this turn:
+    the walk cannot tell whose files it finds, and the paths this turn named
+    still count.
     """
     try:
         from tui_gateway.deliverables import collect_turn_deliverables
@@ -9810,6 +10143,8 @@ def _turn_files_created(
             new_messages = messages[len(history):] if len(messages) > len(history) else list(messages)
         cwd = _session_cwd(session)
         workspace_root = cwd if session.get("explicit_cwd") else None
+        if workspace_root and _workspace_shared_during(workspace_turn, cwd, started_at, time.time()):
+            workspace_root = None
         excluded_roots = [str(get_hermes_home()), str(_session_home(session))]
         return collect_turn_deliverables(
             new_messages,
@@ -9824,18 +10159,63 @@ def _turn_files_created(
         return []
 
 
-def _persist_turn_files_created(agent, session: dict, files: list[dict]) -> None:
-    """Pin ``files_created`` to the turn's reply row (best effort, presentation only)."""
+def _turn_reply_message(result: Any) -> dict | None:
+    """The assistant message that closed the turn, as the live history holds it."""
+    messages = result.get("messages") if isinstance(result, dict) else None
+    if not isinstance(messages, list):
+        return None
+    for message in reversed(messages):
+        if isinstance(message, dict) and message.get("role") == "assistant":
+            return message
+        if isinstance(message, dict) and message.get("role") == "user":
+            return None
+    return None
+
+
+def _pin_turn_display_metadata(agent, session: dict, patch: dict, result: Any = None) -> None:
+    """Merge *patch* into the turn's reply ``display_metadata`` (best effort, presentation only).
+
+    Twice: on the stored row, which a cold reload reads, and on the reply in
+    the live history, which every transcript rebuilt from memory reads
+    (``/compress`` — even one that removes nothing — undo, retry). Pinned only
+    to the row, a still-open conversation lost what it pinned the moment it
+    was rebuilt. ``display_metadata`` never reaches the provider: the request
+    builder strips it from every outgoing message.
+    """
+    if not patch:
+        return
+    reply = _turn_reply_message(result)
+    if reply is not None:
+        metadata = reply.get("display_metadata")
+        reply["display_metadata"] = {**(metadata if isinstance(metadata, dict) else {}), **patch}
     db = getattr(agent, "_session_db", None)
-    if db is None or not files:
+    if db is None:
         return
     session_id = getattr(agent, "session_id", None) or session.get("session_key")
     try:
         row_id = db.latest_message_row_id(session_id, role="assistant", require_text=False)
         if row_id is not None:
-            db.merge_message_display_metadata(session_id, row_id, {"files_created": files})
+            db.merge_message_display_metadata(session_id, row_id, patch)
     except Exception:
-        logger.debug("failed to persist turn deliverables", exc_info=True)
+        logger.debug("failed to pin turn display metadata", exc_info=True)
+
+
+def _persist_turn_files_created(agent, session: dict, files: list[dict], result: Any = None) -> None:
+    """Pin ``files_created`` to the turn's reply (see _pin_turn_display_metadata)."""
+    if files:
+        _pin_turn_display_metadata(agent, session, {"files_created": files}, result)
+
+
+def _persist_turn_edit_diffs(agent, session: dict, result: Any = None) -> None:
+    """Pin the turn's file-edit diffs to its reply, keyed by tool call id.
+
+    A reopened chat rebuilds edit rows from stored tool rows, which hold only
+    the tool's own result: without this, every \"+N\" diff row and the
+    files-changed card disappeared on reload.
+    """
+    diffs = session.pop("turn_edit_diffs", None)
+    if isinstance(diffs, dict) and diffs:
+        _pin_turn_display_metadata(agent, session, {"edit_diffs": diffs}, result)
 
 
 def _run_prompt_submit(
@@ -9884,6 +10264,8 @@ def _run_prompt_submit(
     # Wall clock, for the deliverables scan: a file counts as this turn's
     # output when its mtime is at or after this instant.
     _turn_started_wall = time.time()
+    # Diffs of this turn's file edits, pinned to its reply when it ends.
+    session["turn_edit_diffs"] = {}
     logger.info(
         "tui prompt accepted: ui_session=%s session_key=%s agent_session_id=%s "
         "kind=%s chars=%s images=%d",
@@ -9921,6 +10303,9 @@ def _run_prompt_submit(
         marker_text = session.pop("_auto_continue_prompt", None) or text
         if isinstance(marker_text, str) and marker_text.strip():
             record_turn_start(marker_home, marker_key, marker_text, attempts=marker_attempt)
+        # Lets this turn's deliverables walk notice another conversation
+        # writing into the same folder meanwhile (and theirs notice this one).
+        _workspace_turn = _workspace_turn_begin(_session_cwd(session), _turn_started_wall)
         try:
             from tools.approval import (
                 reset_current_session_key,
@@ -10346,8 +10731,16 @@ def _run_prompt_submit(
             # A turn that did not give the person their answer says why, for the SSO
             # usage metrics (tui_gateway/usage_outcome.py): never its text.
             failure_code = turn_failure_code(result, status)
+            # The classified reason behind it rides along ("overloaded" where the
+            # code says "upstream_error", the billing wall, the license refusal),
+            # so the desktop explains the failure without re-parsing the text.
+            failure_reason = (
+                str(result.get("failure_reason") or "") if failure_code and isinstance(result, dict) else ""
+            )
             if failure_code:
                 payload["failure_code"] = failure_code
+            if failure_reason:
+                payload["failure_reason"] = failure_reason
             if last_reasoning:
                 payload["reasoning"] = last_reasoning
             if status_note:
@@ -10356,10 +10749,13 @@ def _run_prompt_submit(
             # archives…) ride the terminal frame so the desktop can render
             # them as file cards, and are pinned to the reply row so a
             # rehydrated transcript shows the same cards.
-            files_created = _turn_files_created(session, history, result, raw, _turn_started_wall)
+            files_created = _turn_files_created(
+                session, history, result, raw, _turn_started_wall, _workspace_turn
+            )
             if files_created:
                 payload["files_created"] = files_created
-                _persist_turn_files_created(agent, session, files_created)
+                _persist_turn_files_created(agent, session, files_created, result)
+            _persist_turn_edit_diffs(agent, session, result)
             if result.get("response_previewed"):
                 payload["response_previewed"] = True
             # Forward the structured billing-wall descriptor (provider,
@@ -10368,15 +10764,13 @@ def _run_prompt_submit(
             _billing_block = result.get("billing_block") if isinstance(result, dict) else None
             if _billing_block:
                 payload["billing"] = _billing_block
-                payload["failure_reason"] = result.get("failure_reason")
             # Same for a turn the AgentX license refused
             # (hermes_cli.account_license.turn_refusal): the code and the
             # license travel as data, so the desktop explains it in its own
             # words and locks the composer rather than re-parsing the text.
             from hermes_cli.account_license import READ_ONLY_CODE as _LICENSE_READ_ONLY
 
-            if isinstance(result, dict) and result.get("failure_reason") == _LICENSE_READ_ONLY:
-                payload["failure_reason"] = _LICENSE_READ_ONLY
+            if failure_reason == _LICENSE_READ_ONLY:
                 payload["license"] = result.get("license")
             rendered = render_message(raw, cols)
             if rendered:
@@ -10390,6 +10784,8 @@ def _run_prompt_submit(
                     _fail_inflight_turn(
                         session,
                         result.get("error") if isinstance(result, dict) else raw,
+                        failure_code,
+                        failure_reason,
                     )
                     turn_error_retained = True
                 else:
@@ -10492,7 +10888,7 @@ def _run_prompt_submit(
                     _title_model = getattr(agent, "model", None)
                     _title_provider = getattr(agent, "provider", None)
                     maybe_auto_title(
-                        _get_db(),
+                        _title_db_for(session, agent),
                         _title_key,
                         text,
                         raw,
@@ -10576,6 +10972,7 @@ def _run_prompt_submit(
                 )
                 _emit("error", sid, {"message": str(e)})
         finally:
+            _workspace_turn_end(_workspace_turn)
             # Drop both local snapshots of the pre-turn history before asking
             # glibc to return pages. session["history"] already points at the
             # new/pruned result; retaining either list defeats this trim.
@@ -10589,7 +10986,7 @@ def _run_prompt_submit(
             try:
                 from hermes_cli.mem_trim import trim_memory
 
-                trim_memory(reason="tui turn completion")
+                trim_memory(reason="tui turn completion", collect=False)
             except Exception:
                 logger.debug("post-turn memory trim failed", exc_info=True)
 
@@ -12894,7 +13291,10 @@ def _format_live_history_output(session: dict) -> str:
     if db is not None and session.get("session_key"):
         try:
             history = db.get_messages_as_conversation(
-                session["session_key"], include_ancestors=True, include_row_ids=True
+                session["session_key"],
+                include_ancestors=True,
+                include_row_ids=True,
+                include_compacted=True,
             )
         except Exception:
             pass

@@ -21,13 +21,26 @@
 import { atom, type ReadableAtom } from 'nanostores'
 
 import { openSession, type OpenSessionIntent } from '@/app/open-session'
+import { navigateToWorkspacePage } from '@/app/routes'
 import { $narrowViewport } from '@/components/pane-shell/tree/store'
 import { onGatewayEvent } from '@/contrib/events'
-import { getLogs, getStatus } from '@/hermes'
-import { $gateway } from '@/store/gateway'
+import { deleteProfile as deleteProfileRequest, getLogs, getStatus } from '@/hermes'
+import { $gateway, primaryGateway, primaryGatewayProfile, retireGatewayForProfile } from '@/store/gateway'
 import { notify, notifyError } from '@/store/notifications'
-import { $activeGatewayProfile, ensureGatewayProfile, newSessionInProfile } from '@/store/profile'
+import {
+  $activeGatewayProfile,
+  $homeProfile,
+  ensureGatewayProfile,
+  homeProfileKey,
+  newSessionInProfile,
+  normalizeProfileKey,
+  prewarmProfileBackend,
+  refreshProfiles,
+  requestFreshSession,
+  setActiveProfile
+} from '@/store/profile'
 import { $activeSessionId, $currentCwd, $currentModel, $gatewayState } from '@/store/session'
+import { $focusedStoredSessionId } from '@/store/session-states'
 import { runGatewayRestart } from '@/store/system-actions'
 
 // -- state: readonly views over the app's live atoms -------------------------
@@ -68,6 +81,9 @@ export const host = {
     model: readonlyAtom<string>($currentModel),
     /** Profile the live gateway is routed to. */
     profile: readonlyAtom<string>($activeGatewayProfile),
+    /** Stored (database) id of the chat the user is typing into — the focused
+     *  tile's, else the main view's; null on a fresh draft. */
+    storedSessionId: readonlyAtom<null | string>($focusedStoredSessionId),
     /** Window geometry ({ width, height, narrow }). */
     viewport: readonlyAtom<ViewportRect>($viewport)
   },
@@ -85,7 +101,11 @@ export const host = {
 
   /** Navigate the app router (hash routes, e.g. '/command-center?section=system'). */
   navigate: (path: string) => {
-    window.location.hash = path.startsWith('#') ? path : `#${path}`
+    const target = path.startsWith('#') ? path.slice(1) : path
+
+    navigateToWorkspacePage(to => {
+      window.location.hash = `#${to}`
+    }, target)
   },
 
   /** Open a stored session the way core surfaces do (focus an existing
@@ -125,6 +145,47 @@ export const host = {
     window.location.hash = '#/'
   },
 
+  /** Delete a profile the way Settings ▸ Profiles does: the REST delete stops
+   *  that profile's backend before removing its folder (a CLI `profile delete`
+   *  races a live backend that respawns mid-delete), then the profile list
+   *  refreshes. Before the delete, the app moves off the profile WITHOUT
+   *  leaving the page the user is on (the live gateway goes home, the open chat
+   *  resets in place) and its background socket is retired — a socket left
+   *  dialling would respawn the backend and re-create the deleted folder. */
+  deleteProfile: async (name: string): Promise<void> => {
+    const key = normalizeProfileKey(name)
+
+    if (key === normalizeProfileKey($activeGatewayProfile.get())) {
+      const home = homeProfileKey() === key ? normalizeProfileKey(primaryGatewayProfile()) : homeProfileKey()
+      await ensureGatewayProfile(home)
+      setActiveProfile(home)
+      requestFreshSession({ keepRoute: true })
+    }
+
+    if ($homeProfile.get() && normalizeProfileKey($homeProfile.get()) === key) {
+      $homeProfile.set(null)
+    }
+
+    retireGatewayForProfile(key)
+    await deleteProfileRequest(name)
+    await refreshProfiles().catch(() => undefined)
+  },
+
+  /** Re-read the profile list after a plugin created or renamed one, so the
+   *  sidebar's profile switcher and pickers see it without waiting for a poll. */
+  refreshProfiles: async (): Promise<void> => {
+    await refreshProfiles()
+  },
+
+  /** Make `name`'s backend the live gateway (opening its socket if needed) so
+   *  the following `host.request` calls land on THAT profile. Other profiles'
+   *  sockets stay open, so their chats keep streaming. */
+  activateProfile: async (name: string): Promise<void> => ensureGatewayProfile(name),
+
+  /** Start a profile's backend in the background (hover intent) so opening its
+   *  chat is instant. Throttled and silent; a no-op for the live profile. */
+  warmProfile: (name: string): void => prewarmProfileBackend(name),
+
   /** HEAR the gateway stream (message deltas, session lifecycle, tool
    *  activity, …) by event type — `'*'` for everything. Returns a disposer.
    *  Listeners are isolated; a throw can't affect app dispatch. */
@@ -135,6 +196,21 @@ export const host = {
 
   /** One-shot system status snapshot (platforms, versions, …). */
   status: async () => getStatus(),
+
+  /** Gateway JSON-RPC on the WINDOW backend, whichever profile is active.
+   *  That gateway serves every local profile through a `profile` param, and a
+   *  runtime session id only lives on the gateway that minted it — so work
+   *  that spans several profiles and must outlive a profile switch (Bot Mode
+   *  group rooms, roster reads) talks here instead of following the switch. */
+  requestPrimary: async <T>(method: string, params: Record<string, unknown> = {}): Promise<T> => {
+    const gateway = primaryGateway() ?? $gateway.get()
+
+    if (!gateway) {
+      throw new Error('AgentX gateway unavailable')
+    }
+
+    return gateway.request<T>(method, params)
+  },
 
   /** Gateway JSON-RPC — sessions, config, skills, cron, kanban, everything
    *  the app itself uses. Lazy: resolves the LIVE socket per call. */
@@ -159,13 +235,27 @@ export { COMPOSER_AREAS, type ComposerAttachmentProvider, type ComposerMiddlewar
 // -- ui: the design language --------------------------------------------------
 
 export { PALETTE_AREA, type PaletteContribution } from '@/app/command-palette/contrib'
-export { type RouteContribution, ROUTES_AREA, SIDEBAR_NAV_AREA, type SidebarNavContribution } from '@/app/routes'
+/** THE full-page frame core pages wear (Tiện ích, Kênh tin nhắn, Artifact):
+ *  22px title + one-line description, then search · centered tabs · trailing
+ *  action. A plugin page that uses it reads as part of the app. */
+export { PageSearchShell, type PageShellTab } from '@/app/page-search-shell'
+export {
+  isOverlayRoute,
+  type RouteContribution,
+  ROUTES_AREA,
+  SIDEBAR_HEADER_AREA,
+  SIDEBAR_NAV_AREA,
+  type SidebarNavContribution,
+  type SidebarNavTint
+} from '@/app/routes'
 /** THE model catalog menu — the same searchable, provider-grouped, family-
- *  collapsing picker the chat composer uses, including the per-row
- *  thinking/effort/fast submenu. Drive it with a `ModelMenuController`: the
- *  menu renders and navigates, your controller decides what a selection MEANS
- *  (write to a session, hold a per-task override, …). Never fork it — a copy
- *  drifts from the composer the first time either side changes. */
+ *  collapsing picker the chat composer uses, including the inline
+ *  thinking-level dial and fast switch for the selected model. Drive it with
+ *  a `ModelMenuController`: the menu renders and navigates, your controller
+ *  decides what a selection MEANS (write to a session, hold a per-task
+ *  override, …) and, via `options`, which settings the surface can carry.
+ *  Never fork it — a copy drifts from the composer the first time either side
+ *  changes. */
 export {
   ModelCatalogMenu,
   type ModelChoice,
@@ -173,8 +263,11 @@ export {
   type ModelMenuController
 } from '@/app/shell/model-catalog-menu'
 export type { StatusbarItem } from '@/app/shell/statusbar-controls'
-
 export type { TitlebarTool } from '@/app/shell/titlebar-controls'
+
+/** The assistant-answer markdown renderer (same typography, code blocks and
+ *  link handling as the chat transcript) for text a plugin already holds. */
+export { MarkdownTextContent as Markdown } from '@/components/assistant-ui/markdown-text'
 /** Pane placement roles. `'floating'` is the one NON-tiling value: the pane is
  *  excluded from the layout tree and rendered as a fixed, draggable card above
  *  it — it takes no width from any zone, has no tab, and can't be docked.
@@ -273,24 +366,32 @@ export {
   useI18n,
   usePluginI18n
 } from '@/i18n'
+export { claimRunAnnouncement, finishedRuns, type RunStamps } from '@/lib/cron-runs'
 /** THE compact-number formatter — every user-facing count/token figure goes
  *  through here (1230 → "1.2k", 1_500_000 → "1.5M"). Don't hand-roll `/1000`. */
 export { compactNumber } from '@/lib/format'
+/** Where a composer middleware's model-facing note starts: the transcript shows
+ *  only the user's words before it. */
+export { HANDOFF_NOTE_MARKER } from '@/lib/handoff-note'
 export { triggerHaptic as haptic } from '@/lib/haptics'
 /** The app's lucide icon set (RefreshCw, LayoutDashboard, Activity, …). */
 export * as icons from '@/lib/icons'
 export { isImeComposing, shouldSubmitOnEnter } from '@/lib/ime'
+export { isCronPrompt, stripInternalPreamble } from '@/lib/internal-preamble'
 export { type KeybindContribution, KEYBINDS_AREA } from '@/lib/keybinds/actions'
 /** The app's deterministic identity color for a name (profiles, assignees,
  *  authors) + its translucent tag fill — so plugin-rendered identities read
  *  the same hue as everywhere else. */
 export { profileColor, profileColorSoft } from '@/lib/profile-color'
+
+export const PANES_AREA = 'panes'
 /** The shared client itself, for invalidation OUTSIDE React (e.g. a
  *  `ctx.socket` frame invalidating a query). Inside components keep using
  *  `useQueryClient`. */
 export { queryClient } from '@/lib/query-client'
+export const STATUSBAR_AREAS = { left: 'statusBar.left', right: 'statusBar.right' } as const
+export const TITLEBAR_AREAS = { center: 'titleBar.center', left: 'titleBar.left', right: 'titleBar.right' } as const
 
-export const PANES_AREA = 'panes'
 /** AgentX' reasoning levels + their compact labels, so a plugin surfacing a
  *  thinking depth uses the same scale and spelling as the rest of the app. */
 export {
@@ -300,9 +401,6 @@ export {
   type ReasoningEffort,
   reasoningEffortLabel
 } from '@/lib/reasoning-effort'
-export const STATUSBAR_AREAS = { left: 'statusBar.left', right: 'statusBar.right' } as const
-export const TITLEBAR_AREAS = { center: 'titleBar.center', left: 'titleBar.left', right: 'titleBar.right' } as const
-
 /** The app's own gateway-readiness evaluation (setup.status +
  *  setup.runtime_check, reconciled) — pass `host.request`. Don't hand-roll
  *  readiness from raw RPC shapes. */

@@ -481,3 +481,33 @@ class TestNoCredsPreflight:
         # but the fatal-error code is NOT the "not paired" one.
         assert result is False
         assert adapter._fatal_error_code != "whatsapp_not_paired"
+
+
+class TestPublicDestination:
+    """The desktop shows the linked number as a wa.me link instead of
+    "connected, but the platform has no public address"."""
+
+    def test_linked_number_becomes_a_wa_me_link(self, tmp_path):
+        adapter = _make_adapter()
+        adapter._session_path = tmp_path
+        (tmp_path / "creds.json").write_text(
+            '{"me":{"id":"84901234567:12@s.whatsapp.net","name":"Shop"}}',
+            encoding="utf-8",
+        )
+
+        assert adapter.public_destination() == {
+            "kind": "account",
+            "label": "+84901234567",
+            "url": "https://wa.me/84901234567",
+        }
+
+    def test_no_session_or_unreadable_creds_means_no_destination(self, tmp_path):
+        adapter = _make_adapter()
+        adapter._session_path = tmp_path
+        assert adapter.public_destination() is None
+
+        (tmp_path / "creds.json").write_text("{not json", encoding="utf-8")
+        assert adapter.public_destination() is None
+
+        (tmp_path / "creds.json").write_text('{"me":{}}', encoding="utf-8")
+        assert adapter.public_destination() is None

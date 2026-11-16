@@ -35,8 +35,12 @@ import {
   $newChatWorkspaceTarget,
   $sessions,
   $yoloActive,
+  addPendingSessionDelete,
+  clearPendingSessionDelete,
   forgetRememberedSession,
+  getRememberedSessionId,
   type NewChatWorkspaceTarget,
+  pendingSessionDeletes,
   rememberedSessionProfile,
   resolveComposerSessionKey,
   sessionPinId,
@@ -55,6 +59,7 @@ import {
   setMessagingPlatformTotals,
   setMessagingSessions,
   setNewChatWorkspaceTarget,
+  setRememberedSessionId,
   setResumeExhaustedSessionId,
   setResumeFailedSessionId,
   setSelectedStoredSessionId,
@@ -83,7 +88,13 @@ import type {
   UsageStats
 } from '@/types/hermes'
 
-import { navigateToWorkspacePage, NEW_CHAT_ROUTE, sessionRoute, SETTINGS_ROUTE } from '../../../routes'
+import {
+  navigateToWorkspacePage,
+  NEW_CHAT_ROUTE,
+  sessionRoute,
+  SETTINGS_ROUTE,
+  STARTED_BY_SEND_ROUTE_STATE
+} from '../../../routes'
 import type { ClientSessionState, SidebarNavItem } from '../../../types'
 import { replayPendingPrompts } from '../../pending-prompts'
 import { sessionContextDrift } from '../session-context-drift'
@@ -93,6 +104,9 @@ import {
   applyRuntimeInfo,
   applyStoredSessionPreviewRuntimeInfo,
   type BranchMessage,
+  branchSeedFiles,
+  type BranchUserTurnAnchor,
+  branchUserTurnAnchor,
   chatMessageArraysEquivalent,
   isSessionGoneError,
   liveTurnStreamId,
@@ -217,6 +231,41 @@ function normalizeNewChatWorkspaceTarget(target: NewChatWorkspaceTarget): NewCha
   return typeof target === 'string' ? target.trim() || null : target
 }
 
+// Once per app run: the hook mounts again for tiles and remounts on profile
+// switches, and the backend must get each leftover delete only once.
+let pendingDeletesReplayed = false
+
+/**
+ * Finishes the deletes a reload or quit cut short (see addPendingSessionDelete):
+ * hides those chats at once, asks the backend again, and drops each entry
+ * once it answers. A delete the backend refuses brings the chat back.
+ */
+export async function replayPendingSessionDeletes(
+  hide: (ids: string[]) => void,
+  restore: (ids: string[]) => void,
+  remove: typeof deleteSession = deleteSession
+): Promise<void> {
+  const pending = pendingSessionDeletes()
+
+  if (!pending.length) {
+    return
+  }
+
+  hide(pending.map(entry => entry.id))
+
+  await Promise.all(
+    pending.map(async entry => {
+      try {
+        await remove(entry.id, entry.profile)
+      } catch {
+        restore([entry.id])
+      } finally {
+        clearPendingSessionDelete(entry.id)
+      }
+    })
+  )
+}
+
 export function useSessionActions({
   activeSessionId,
   activeSessionIdRef,
@@ -247,6 +296,22 @@ export function useSessionActions({
   // unconditionally; a fast A → B → C switch could therefore be overwritten
   // by A's delayed session.info event and visibly jump back to A.
   const storedIdRotation = useStore($activeSessionStoredIdRotation)
+
+  useEffect(() => {
+    if (pendingDeletesReplayed) {
+      return
+    }
+
+    pendingDeletesReplayed = true
+    void replayPendingSessionDeletes(
+      ids => {
+        tombstoneSessions(ids)
+        setSessions(prev => prev.filter(session => !ids.some(id => sessionMatchesStoredId(session, id))))
+        setMessagingSessions(prev => prev.filter(session => !ids.some(id => sessionMatchesStoredId(session, id))))
+      },
+      ids => untombstoneSessions(ids)
+    )
+  }, [])
 
   // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
   useEffect(() => {
@@ -429,7 +494,7 @@ export function useSessionActions({
           // "Untitled session" until the turn persists and auto-title runs. The
           // server later returns its own preview/title and supersedes this.
           upsertOptimisticSession(created, stored, null, preview?.trim() || null)
-          navigate(sessionRoute(stored), { replace: true })
+          navigate(sessionRoute(stored), { replace: true, state: STARTED_BY_SEND_ROUTE_STATE })
           // Other windows (e.g. the main window when this is the pop-out) can't
           // see this session until they re-pull the shared list.
           broadcastSessionsChanged()
@@ -1174,7 +1239,8 @@ export function useSessionActions({
       sourceSessionId: null | string,
       parentStoredId: null | string,
       cwd?: string,
-      profile?: null | string
+      profile?: null | string,
+      anchor?: BranchUserTurnAnchor | null
     ): Promise<boolean> => {
       creatingSessionRef.current = true
 
@@ -1192,14 +1258,20 @@ export function useSessionActions({
         const branched = sourceSessionId
           ? await requestGateway<SessionCreateResponse>('session.branch', {
               session_id: sourceSessionId,
-              count: branchMessages.length
+              // `count` is for gateways that predate the anchor.
+              count: branchMessages.length,
+              ...(anchor ?? {})
             })
           : await requestGateway<SessionCreateResponse>('session.create', {
               cols: 96,
               source: 'desktop',
               ...(cwd && { cwd }),
               ...(profile ? { profile } : {}),
-              messages: branchMessages.map(({ content, role }) => ({ content, role })),
+              messages: branchMessages.map(({ content, role, source }) => {
+                const files = branchSeedFiles(source)
+
+                return files.length ? { content, files_created: files, role } : { content, role }
+              }),
               ...(parentStoredId && { parent_session_id: parentStoredId })
             })
 
@@ -1292,6 +1364,7 @@ export function useSessionActions({
       const start = 0
       const end = at >= 0 ? at + 1 : messages.length
       const branchMessages = toBranchMessages(messages.slice(start, end))
+      const anchor = at >= 0 ? branchUserTurnAnchor(messages, at) : null
 
       if (!branchMessages.length) {
         notify({ kind: 'warning', title: copy.nothingToBranch, message: copy.branchNoText })
@@ -1311,7 +1384,8 @@ export function useSessionActions({
         activeSessionIdRef.current,
         selectedStoredSessionIdRef.current,
         $currentCwd.get().trim(),
-        profile
+        profile,
+        anchor
       )
     },
     [activeSessionIdRef, busyRef, copy, forkBranch, selectedStoredSessionIdRef]
@@ -1429,12 +1503,20 @@ export function useSessionActions({
         startFreshSessionDraft(true)
       }
 
+      // Before the first await: a reload or quit while the runtime closes
+      // must neither reopen this chat as the remembered one nor lose the
+      // delete — the next launch finishes it (replayPendingSessionDeletes).
+      const rememberedBefore = getRememberedSessionId(rememberedOwner)
+      forgetRememberedSession(removedIds, rememberedOwner)
+      addPendingSessionDelete({ id: storedSessionId, profile: removed?.profile ?? null })
+
       try {
         if (closingRuntimeId) {
           await requestGateway('session.close', { session_id: closingRuntimeId }).catch(() => undefined)
         }
 
         const deletedIds = (await deleteSession(storedSessionId, removed?.profile))?.deleted_ids ?? []
+        clearPendingSessionDelete(storedSessionId)
         clearQueuedPrompts(storedSessionId)
 
         if (closingRuntimeId) {
@@ -1495,6 +1577,13 @@ export function useSessionActions({
         // the conversation just deleted.
         forgetRememberedSession([...removedIds, ...deletedIds], rememberedOwner)
       } catch (err) {
+        // The delete failed: the chat stays, and is remembered as before.
+        clearPendingSessionDelete(storedSessionId)
+
+        if (rememberedBefore && removedIds.includes(rememberedBefore) && !getRememberedSessionId(rememberedOwner)) {
+          setRememberedSessionId(rememberedBefore, rememberedOwner)
+        }
+
         if (droppedLocal.length) {
           setSessions(prev => [...droppedLocal, ...prev])
         }

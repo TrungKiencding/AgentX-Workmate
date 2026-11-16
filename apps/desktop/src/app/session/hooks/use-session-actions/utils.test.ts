@@ -12,6 +12,8 @@ import type { SessionInfo, SessionMessage } from '@/types/hermes'
 import {
   appendLiveSessionProjection,
   applyRuntimeInfo,
+  branchSeedFiles,
+  branchUserTurnAnchor,
   chatMessageArraysEquivalent,
   chatMessagesEquivalent,
   chatPartsEquivalent,
@@ -160,6 +162,92 @@ describe('toBranchMessages', () => {
 
     expect(out.map(b => b.source.id)).toEqual(['u', 'a'])
     expect(out[0]).toMatchObject({ content: 'hi', role: 'user' })
+  })
+})
+
+describe('branchUserTurnAnchor', () => {
+  // A live chat: turn one used a tool, so it streamed an interim bubble before
+  // its answer. The gateway holds that turn as ONE reply.
+  const live = [
+    msg('u1', 'user', 'U1'),
+    msg('a1i', 'assistant', 'Let me look…', { interim: true }),
+    msg('a1', 'assistant', 'A1'),
+    msg('u2', 'user', 'U2'),
+    msg('a2', 'assistant', 'A2'),
+    msg('u3', 'user', 'U3'),
+    msg('a3', 'assistant', 'A3')
+  ]
+
+  it('addresses a reply by the user turn it answers, however many bubbles came before', () => {
+    expect(branchUserTurnAnchor(live, 4)).toEqual({ include_reply: true, user_ordinal: 1 })
+    expect(branchUserTurnAnchor(live, 2)).toEqual({ include_reply: true, user_ordinal: 0 })
+    expect(branchUserTurnAnchor(live, 1)).toEqual({ include_reply: true, user_ordinal: 0 })
+    expect(branchUserTurnAnchor(live, 6)).toEqual({ include_reply: true, user_ordinal: 2 })
+  })
+
+  it('addresses a prompt by its own ordinal and stops after it', () => {
+    expect(branchUserTurnAnchor(live, 3)).toEqual({ include_reply: false, user_ordinal: 1 })
+    expect(branchUserTurnAnchor(live, 0)).toEqual({ include_reply: false, user_ordinal: 0 })
+  })
+
+  it('numbers a reply before any prompt -1 and skips hidden prompts', () => {
+    const messages = [
+      msg('greet', 'assistant', 'Xin chào'),
+      msg('hidden', 'user', 'goal follow-up', { hidden: true }),
+      msg('u1', 'user', 'U1'),
+      msg('a1', 'assistant', 'A1')
+    ]
+
+    expect(branchUserTurnAnchor(messages, 0)).toEqual({ include_reply: true, user_ordinal: -1 })
+    expect(branchUserTurnAnchor(messages, 3)).toEqual({ include_reply: true, user_ordinal: 0 })
+  })
+
+  it('counts from the latest compaction divider, and gives up above it', () => {
+    const messages = [
+      msg('old-u', 'user', 'archived'),
+      msg('old-a', 'assistant', 'archived reply'),
+      msg('divider', 'system', 'summary', { compaction: { summary: 'summary', userTurnsBefore: 2 } }),
+      msg('u', 'user', 'U'),
+      msg('a', 'assistant', 'A')
+    ]
+
+    expect(branchUserTurnAnchor(messages, 4)).toEqual({ include_reply: true, user_ordinal: 2 })
+    expect(branchUserTurnAnchor(messages, 3)).toEqual({ include_reply: false, user_ordinal: 2 })
+    expect(branchUserTurnAnchor(messages, 1)).toBeNull()
+    expect(branchUserTurnAnchor(messages, 99)).toBeNull()
+  })
+})
+
+describe('branchSeedFiles', () => {
+  it('carries the files an assistant turn produced or handed over', () => {
+    const turn = {
+      ...msg('a', 'assistant', 'done'),
+      createdFiles: [{ name: 'chart.png', path: '/out/chart.png' }],
+      parts: [
+        {
+          type: 'tool-call' as const,
+          toolCallId: 't1',
+          toolName: 'deliver_file',
+          args: {},
+          argsText: '',
+          result: JSON.stringify({ success: true, path: '/out/deck.pptx' })
+        },
+        {
+          type: 'tool-call' as const,
+          toolCallId: 't2',
+          toolName: 'deliver_file',
+          args: {},
+          argsText: '',
+          result: { error: 'missing' },
+          isError: true
+        },
+        { type: 'text' as const, text: 'done' }
+      ]
+    }
+
+    expect(branchSeedFiles(turn)).toEqual([{ path: '/out/chart.png' }, { path: '/out/deck.pptx' }])
+    expect(branchSeedFiles({ ...turn, role: 'user' })).toEqual([])
+    expect(branchSeedFiles(msg('plain', 'assistant', 'hi'))).toEqual([])
   })
 })
 
@@ -1006,6 +1094,32 @@ describe('preserveLocalPendingTurnMessages', () => {
 })
 
 describe('appendLiveSessionProjection', () => {
+  // A failed turn replayed on reconnect explains itself the way the live
+  // bubble did: the retained snapshot carries the frame's code and reason.
+  it("projects a retained failed turn with the gateway's failure code", () => {
+    const restored = appendLiveSessionProjection([], {
+      session_id: 'runtime-1',
+      inflight: {
+        user: 'do the thing',
+        error: 'HTTP 500: upstream',
+        failure_code: 'upstream_error',
+        failure_reason: 'overloaded',
+        status: 'error'
+      }
+    })
+
+    expect(restored.at(-1)).toMatchObject({ error: 'HTTP 500: upstream', errorCode: 'overloaded', role: 'assistant' })
+  })
+
+  it('reads the retained error text when an older backend sent no code', () => {
+    const restored = appendLiveSessionProjection([], {
+      session_id: 'runtime-1',
+      inflight: { user: 'do the thing', error: 'Connection error.', status: 'error' }
+    })
+
+    expect(restored.at(-1)?.errorCode).toBe('network_error')
+  })
+
   // Corrections typed while a turn ran are their own user bubbles on the same
   // turn. Resume must rebuild the prompt AND every correction, in order.
   it('projects mid-turn redirect corrections after the prompt that started the turn', () => {

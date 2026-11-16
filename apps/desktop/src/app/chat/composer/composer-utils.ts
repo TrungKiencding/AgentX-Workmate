@@ -8,12 +8,6 @@ import type { TriggerState } from './text-utils'
 
 export const COMPOSER_STACK_BREAKPOINT_PX = 320
 
-// Above the stack breakpoint but still cramped: the model pill sheds its label
-// for its chevron icon (freeing ~120px) so the controls stop crowding the input
-// before the whole row has to stack. Progressive collapse: full pill → icon
-// pill → stacked.
-export const COMPOSER_COMPACT_PILL_PX = 440
-
 // A single editor line is ~28px (--composer-input-min-height 1.625rem + 0.5rem
 // vertical padding). Anything taller means the text wrapped to a second line,
 // which is when the composer should expand to the stacked layout.
@@ -25,6 +19,25 @@ export const COMPOSER_FADE_BACKGROUND =
 // Quiet period after the last keystroke before persisting the draft;
 // unmount/pagehide flushes bypass it.
 export const DRAFT_PERSIST_DEBOUNCE_MS = 400
+
+/**
+ * A draft with text added from outside the editor (a dropped file, a button
+ * elsewhere in the app). `inline` continues the last line; `block` starts a
+ * new paragraph. With `once`, a draft that already holds the text is returned
+ * unchanged — the button was pressed again, not a second request.
+ */
+export function appendToDraft(draft: string, text: string, mode: 'block' | 'inline', once = false): string {
+  const value = text.trim()
+
+  if (!value || (once && draft.includes(value))) {
+    return draft
+  }
+
+  const base = mode === 'inline' ? draft.trimEnd() : draft
+  const sep = mode === 'inline' ? (base ? ' ' : '') : base && !base.endsWith('\n') ? '\n\n' : ''
+
+  return `${base}${sep}${value}`
+}
 
 // `draw` is in [0, 1). Replaying a stored draw against another pool lands on the
 // matching slot — the same line in a new language.

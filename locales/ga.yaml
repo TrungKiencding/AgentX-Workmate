@@ -26,6 +26,9 @@ approval:
 gateway:
   approval_expired: "⚠️ Tá an cead imithe in éag (níl an gníomhaire ag fanacht níos mó). Iarr ar an ngníomhaire iarracht eile a dhéanamh."
   draining:         "⏳ Ag fanacht le {count} gníomhaire(í) gníomhach roimh atosú..."
+  pairing_unknown_sender: "Dia duit! Níl aithne agam ort fós, mar sin ní féidir liom freagra a thabhairt.\n\nDo chód péireála: `{code}`\n\nIarr ar úinéir an bhota seo AgentX Workmate → Cainéil teachtaireachtaí a oscailt agus “Ceadaigh” a chliceáil ar d’iarratas, ansin seol teachtaireacht chugam arís. (Ó theirminéal: `{command}`)"
+  pairing_rate_limited: "An iomarca iarratas péireála faoi láthair. Bain triail eile as i gceann cúpla nóiméad."
+  home_channel_unset: "📬 Níl comhrá réamhshocraithe socraithe fós do {platform}. Is ansin a sheolann AgentX torthaí tascanna sceidealaithe agus teachtaireachtaí ó chainéil eile.\n\nClóscríobh {command} chun an comhrá seo a úsáid, nó déan neamhaird den teachtaireacht seo."
   goal_cleared:     "✓ Sprioc glanta."
   no_active_goal:   "Níl aon sprioc ghníomhach ann."
   config_read_failed: "⚠️ Níorbh fhéidir config.yaml a léamh: {error}"
@@ -450,3 +453,10 @@ license:
   read_only_expired:    "Chuaigh do phlean {plan} in éag ar {date}. Tá Workmate i mód léite amháin."
   read_only_revoked:    "Cúlghaireadh do cheadúnas AgentX. Tá Workmate i mód léite amháin."
   contact:              "Déan teagmháil le {contact} chun ceadúnas a fháil nó a athnuachan."
+
+file_mutation:
+  label:         "Seiceáil athruithe comhaid"
+  summary:       "NÍOR athraíodh {count} comhad sa bhabhta seo, is cuma cad a thugann an téacs thuas le fios. Rith `git status` nó `read_file` chun é a dheimhniú."
+  summary_plain: "Níorbh fhéidir {count} comhad a shábháil sa bhabhta seo, is cuma cad a deir an freagra thuas:"
+  more:          "… agus {count} eile"
+  failed:        "theip air"

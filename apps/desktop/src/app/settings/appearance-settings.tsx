@@ -21,6 +21,7 @@ import { $toolViewMode, setToolViewMode } from '@/store/tool-view'
 import { $translucency, setTranslucency } from '@/store/translucency'
 import { $zoomPercent, setZoomPercent } from '@/store/zoom'
 import { getBaseColors, useTheme } from '@/themes/context'
+import { themeDescription } from '@/themes/describe'
 import { installVscodeThemeFromMarketplace } from '@/themes/install'
 import { ACCENT_PRESETS, ACCENT_SKIN_NAME } from '@/themes/presets'
 import type { DesktopTheme } from '@/themes/types'
@@ -274,7 +275,9 @@ export function AppearanceSettings() {
         !needle ||
         theme.label.toLowerCase().includes(needle) ||
         theme.name.toLowerCase().includes(needle) ||
-        theme.description.toLowerCase().includes(needle)
+        theme.description.toLowerCase().includes(needle) ||
+        // …and by the description the person is actually reading.
+        themeDescription(theme, t).toLowerCase().includes(needle)
     )
     // Active theme first; stable sort keeps the rest in their original order.
     .sort((a, b) => Number(b.name === themeName) - Number(a.name === themeName))
@@ -360,7 +363,7 @@ export function AppearanceSettings() {
                               <div className="mt-3 px-1">
                                 <div className="truncate text-base font-semibold">{theme.label}</div>
                                 <div className="mt-0.5 line-clamp-2 text-sm text-(--ui-text-tertiary)">
-                                  {theme.description}
+                                  {themeDescription(theme, t)}
                                 </div>
                               </div>
                             </button>

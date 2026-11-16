@@ -75,7 +75,7 @@ def _tick(job, tmp_path, current_provider, deliveries):
 
 
 class TestDriftAlertOnce:
-    def test_two_drifted_ticks_alert_exactly_once(self, tmp_path):
+    def test_two_drifted_ticks_alert_exactly_once(self, tmp_path, caplog):
         job = _job()
         deliveries = []
         with cron_jobs.use_cron_store(tmp_path):
@@ -90,12 +90,15 @@ class TestDriftAlertOnce:
 
         assert len(deliveries) == 1, f"expected 1 alert, got {len(deliveries)}: {deliveries}"
         blob = deliveries[0].lower()
-        assert "drift" in blob
-        assert "pin" in blob
-        # The single alert must carry the complete remediation command —
-        # the generic summarizer's 180-char truncation must not eat it.
-        assert "cronjob action=update" in deliveries[0]
+        assert "settings changed" in blob
+        assert "update the model" in blob
+        assert "no ai usage was charged" in blob
+        assert "cronjob action=update" not in deliveries[0]
         assert "[drift_skip" not in deliveries[0]
+        # Changing presentation must preserve the original operator diagnosis.
+        assert "[drift_skip" in stored["last_error"]
+        assert "cronjob action=update" in stored["last_error"]
+        assert "cronjob action=update" in caplog.text
 
     def test_healed_drift_clears_bit_and_redrift_realerts(self, tmp_path):
         job = _job()
@@ -118,7 +121,7 @@ class TestDriftAlertOnce:
             fresh = [j for j in cron_jobs.load_jobs() if j["id"] == job["id"]][0]
             _tick(fresh, tmp_path, "nous", deliveries)
 
-        drift_alerts = [d for d in deliveries if "drift" in d.lower()]
+        drift_alerts = [d for d in deliveries if "settings changed" in d.lower()]
         assert len(drift_alerts) == 2, f"expected re-alert after heal: {deliveries}"
 
     def test_non_drift_failures_untouched_by_the_bit(self, tmp_path):
@@ -156,4 +159,5 @@ class TestDriftAlertOnce:
                 sched.run_one_job(fresh)
 
         assert len(deliveries) == 1, "non-drift failure must still deliver"
-        assert "boom unrelated" in deliveries[0]
+        assert "boom unrelated" not in deliveries[0]
+        assert "could not finish" in deliveries[0]

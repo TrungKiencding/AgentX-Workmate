@@ -19,7 +19,7 @@ export function isToolCallPart<T extends { type: string }>(part: T): part is Ext
   return part.type === 'tool-call'
 }
 
-type RunCategory = 'delegate' | 'edit' | 'explore' | 'other' | 'run'
+type RunCategory = 'browse' | 'delegate' | 'edit' | 'explore' | 'other' | 'run' | 'search'
 
 /** The words a run is narrated with — `assistant.toolRun` in the catalog, so
  *  "Using 2 tools" reads in the app's language. */
@@ -27,19 +27,14 @@ export type ToolRunCopy = Translations['assistant']['toolRun']
 
 // Clause order is fixed so the same run always reads the same way, whichever
 // category happens to be live.
-const CATEGORY_ORDER: readonly RunCategory[] = ['edit', 'explore', 'run', 'delegate', 'other']
+const CATEGORY_ORDER: readonly RunCategory[] = ['edit', 'explore', 'search', 'browse', 'run', 'delegate', 'other']
 
-const EXPLORE_TOOLS = new Set([
-  'list_files',
-  'read_file',
-  'search_files',
-  'session_search',
-  'skill_view',
-  'skills_list',
-  'vision_analyze',
-  'web_extract',
-  'web_search'
-])
+// Reading what is on this machine: counted in files.
+const EXPLORE_TOOLS = new Set(['list_files', 'read_file', 'search_files', 'skill_view', 'skills_list', 'vision_analyze'])
+
+// Asking a search engine or the chat history: counted in searches. Two web
+// searches used to read "Explored 2 files" — no file was involved.
+const SEARCH_TOOLS = new Set(['session_search', 'web_search'])
 
 function toolCategory(toolName: string): RunCategory {
   if (isFileEditTool(toolName)) {
@@ -54,8 +49,17 @@ function toolCategory(toolName: string): RunCategory {
     return 'delegate'
   }
 
-  if (EXPLORE_TOOLS.has(toolName) || toolName.startsWith('browser_')) {
+  if (EXPLORE_TOOLS.has(toolName)) {
     return 'explore'
+  }
+
+  if (SEARCH_TOOLS.has(toolName)) {
+    return 'search'
+  }
+
+  // Reading pages on the web, by fetch or in the browser: counted in pages.
+  if (toolName === 'web_extract' || toolName.startsWith('browser_')) {
+    return 'browse'
   }
 
   return 'other'

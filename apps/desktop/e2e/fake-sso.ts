@@ -202,6 +202,21 @@ export async function startFakeSso(options: FakeSsoOptions = {}): Promise<FakeSs
         return send(res, 404, { detail: 'this service predates licensing', error: 'not_found' })
       }
 
+      if (req.method === 'GET' && path === '/key/info') {
+        if (req.headers.authorization !== 'Bearer sk-fake-sso-0123456789abcdef') {
+          return send(res, 401, { error: 'invalid_key' })
+        }
+        return send(res, 200, {
+          key: 'sk-fake-sso-0123456789abcdef',
+          info: {
+            spend: 12.5,
+            max_budget: 50,
+            budget_duration: '30d',
+            budget_reset_at: '2026-12-01T00:00:00Z'
+          }
+        })
+      }
+
       if (req.method === 'GET' && path === '/v1/models') {
         return send(res, 200, { data: state.models.map(id => ({ id, object: 'model' })), object: 'list' })
       }

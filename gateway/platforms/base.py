@@ -476,7 +476,7 @@ def proxy_kwargs_for_bot(proxy_url: str | None) -> dict:
             logger.warning(
                 "aiohttp_socks not installed — SOCKS proxy %s ignored. "
                 "Run: pip install aiohttp-socks",
-                proxy_url,
+                safe_url_for_log(proxy_url),
             )
             return {}
     return {"proxy": proxy_url}
@@ -514,7 +514,7 @@ def proxy_kwargs_for_aiohttp(proxy_url: str | None) -> tuple[dict, dict]:
             logger.warning(
                 "aiohttp_socks not installed — SOCKS proxy %s ignored. "
                 "Run: pip install aiohttp-socks",
-                proxy_url,
+                safe_url_for_log(proxy_url),
             )
             return {}, {}
         return {}, {"proxy": proxy_url}
@@ -565,7 +565,12 @@ sys.path.insert(0, str(_Path(__file__).resolve().parents[2]))
 
 from gateway.config import Platform, PlatformConfig
 from gateway.session import SessionSource, build_session_key
-from hermes_constants import get_default_hermes_root, get_hermes_dir, get_hermes_home
+from hermes_constants import (
+    get_default_hermes_root,
+    get_hermes_dir,
+    get_hermes_home,
+    get_user_root,
+)
 
 if TYPE_CHECKING:
     from agent.display import ToolPreview
@@ -821,6 +826,9 @@ def get_image_cache_dir() -> Path:
     return d
 
 
+_ISOBMFF_IMAGE_MIMES = frozenset({"image/heic", "image/avif"})
+
+
 def _looks_like_image(data: bytes) -> bool:
     """Return True if *data* starts with a known image magic-byte sequence."""
     if len(data) < 4:
@@ -835,7 +843,16 @@ def _looks_like_image(data: bytes) -> bool:
         return True
     if data[:4] == b"RIFF" and len(data) >= 12 and data[8:12] == b"WEBP":
         return True
-    return False
+    # ISO-BMFF stills (iOS sends uncompressed photos as HEIC documents). The
+    # ftyp box's own size field must cover size+type+brand+version (16 bytes)
+    # and fit in the payload, so a truncated stub or a text file that reads
+    # "ftypheic" at offset 4 is not taken for an image. Brand detection is
+    # agent.image_routing's, which transcodes these to PNG before vision; ftyp
+    # videos such as MP4 sniff as something else and stay rejected.
+    if data[4:8] != b"ftyp" or not len(data) >= int.from_bytes(data[:4], "big") >= 16:
+        return False
+    from agent.image_routing import _sniff_mime_from_bytes
+    return _sniff_mime_from_bytes(data[:16]) in _ISOBMFF_IMAGE_MIMES
 
 
 def cache_image_from_bytes(data: bytes, ext: str = ".jpg") -> str:
@@ -1263,15 +1280,61 @@ def _profile_cache_roots() -> List[Path]:
     denied prefix and $HOME is not that prefix). See issue #31733.
     """
     roots: List[Path] = []
-    profiles_dir = _AGENTX_ROOT / "profiles"
-    try:
-        profile_dirs = [p for p in profiles_dir.iterdir() if p.is_dir()]
-    except OSError:
-        return roots
+    # Profiles hang off the user root: the signed-in account's home on the
+    # desktop, the install root otherwise.
+    profile_dirs: List[Path] = []
+    for profiles_dir in _unique_paths([_AGENTX_ROOT / "profiles", _user_root() / "profiles"]):
+        profile_dirs.extend(_child_dirs(profiles_dir))
     for profile_dir in profile_dirs:
         for subdir in _MEDIA_DELIVERY_CACHE_SUBDIRS:
             roots.append(profile_dir / "cache" / subdir)
     return roots
+
+
+def _user_root() -> Path:
+    """The signed-in account's home, else the install root (never raises)."""
+    try:
+        return get_user_root()
+    except Exception:
+        return _AGENTX_ROOT
+
+
+def _child_dirs(directory: Path) -> List[Path]:
+    try:
+        return [p for p in directory.iterdir() if p.is_dir()]
+    except OSError:
+        return []
+
+
+def _unique_paths(paths) -> List[Path]:
+    seen = set()
+    unique: List[Path] = []
+    for path in paths:
+        try:
+            key = Path(path).expanduser().resolve(strict=False)
+        except (OSError, RuntimeError, ValueError):
+            key = Path(path)
+        if key not in seen:
+            seen.add(key)
+            unique.append(Path(path))
+    return unique
+
+
+def _agentx_homes_on_install() -> List[Path]:
+    """Every AgentX home on this install whose secrets must stay unattachable.
+
+    The active home and the install root were the only two covered, but a
+    signed-in desktop keeps its homes under ``<root>/accounts/<slug>`` (and
+    ``…/profiles/<name>``): a profile gateway there could attach its own
+    account's ``.env`` / ``auth.json`` — or another account's — to a chat
+    reply. Enumerated at check time so homes created after startup count.
+    """
+    homes: List[Path] = [_AGENTX_HOME, _AGENTX_ROOT, _user_root()]
+    homes.extend(_child_dirs(_AGENTX_ROOT / "profiles"))
+    for account_home in _child_dirs(_AGENTX_ROOT / "accounts"):
+        homes.append(account_home)
+        homes.extend(_child_dirs(account_home / "profiles"))
+    return _unique_paths(homes)
 
 
 def _kanban_attachment_roots() -> List[Path]:
@@ -1280,7 +1343,9 @@ def _kanban_attachment_roots() -> List[Path]:
     if override:
         return [Path(override).expanduser()]
     home_override = os.environ.get("AGENTX_KANBAN_HOME", "").strip()
-    root = Path(home_override).expanduser() if home_override else _AGENTX_ROOT
+    # Same anchor as kanban_db.kanban_home(): the user root, so a signed-in
+    # account's board is found where it actually lives.
+    root = Path(home_override).expanduser() if home_override else _user_root()
     roots = [root / "kanban" / "attachments"]
     boards_root = root / "kanban" / "boards"
     try:
@@ -1395,10 +1460,14 @@ def _media_delivery_denied_paths() -> List[Path]:
     # tag can't deliver a live bearer token as a native attachment.
     # (session/kanban SQLite stores are handled by #41071 — kept out here.)
     _ROOT_CREDENTIAL_DIRS = (
+        # Pairing stores (who may talk to the bot, salted code hashes). Both
+        # the legacy and the consolidated layout — only the legacy name was
+        # listed, so ``platforms/pairing/*.json`` stayed attachable.
         "pairing",
+        os.path.join("platforms", "pairing"),
         "mcp-tokens",
     )
-    for hermes_root in (_AGENTX_HOME, _AGENTX_ROOT):
+    for hermes_root in _agentx_homes_on_install():
         for rel in _ROOT_CREDENTIAL_FILES:
             denied.append(hermes_root / rel)
         for rel in _ROOT_CREDENTIAL_DIRS:
@@ -6457,11 +6526,14 @@ class BasePlatformAdapter(ABC):
                         # 1024-char caption limit, and captioning that spoken
                         # form would suppress the full formatted reply the
                         # user is meant to receive as a separate message.
+                        # Telegram counts that limit in UTF-16 units, so an
+                        # emoji-heavy reply under 1024 code points can still
+                        # overflow it.
                         telegram_tts_caption = None
                         if (
                             self.platform == Platform.TELEGRAM
                             and text_content
-                            and text_content[:1024] == text_content
+                            and utf16_len(text_content) <= 1024
                         ):
                             telegram_tts_caption = text_content
                         tts_result = await self.play_tts(
@@ -7179,7 +7251,7 @@ class BasePlatformAdapter(ABC):
         if _len(content) <= max_length:
             return [content]
 
-        INDICATOR_RESERVE = 10   # room for " (XX/XX)"
+        INDICATOR_RESERVE = 12   # room for " (XXX/XXX)" once MarkdownV2-escaped to " \(XXX/XXX\)"
         FENCE_CLOSE = "\n```"
 
         chunks: List[str] = []

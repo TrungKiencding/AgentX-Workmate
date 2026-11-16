@@ -23,7 +23,118 @@ import nodePath from 'node:path'
 /** A canned assistant reply used for every chat completion request. */
 export const MOCK_REPLY = 'Hello from the mock inference server! The full boot chain is working.'
 
+// ─── Provider failures ─────────────────────────────────────────────────
+//
+// `failCompletionsWith(mode)` makes every completion fail the way a real
+// provider or the LiteLLM gateway does, so the desktop's plain-words error
+// block (lib/turn-error.ts) is exercised against the backend's real
+// classification, retries and terminal frame — with an ordinary prompt.
+
+/** How the mock fails a completion. */
+export type ProviderErrorMode =
+  | 'auth_failed'
+  | 'budget_exceeded'
+  | 'connection_drop'
+  | 'content_filtered'
+  | 'context_too_long'
+  | 'model_not_found'
+  | 'overloaded'
+  | 'rate_limited'
+  | 'server_error'
+  | 'stream_drop'
+
+/** HTTP failures, in the shapes OpenAI and LiteLLM send them. */
+const PROVIDER_HTTP_ERRORS: Record<
+  Exclude<ProviderErrorMode, 'connection_drop' | 'stream_drop'>,
+  { status: number; headers?: Record<string, string>; error: object }
+> = {
+  auth_failed: {
+    status: 401,
+    error: {
+      message:
+        'Authentication Error, Invalid proxy server token passed. Received API Key = sk-...e2e. Unable to find token in cache or `LiteLLM_VerificationTokenTable`',
+      type: 'auth_error',
+      code: '401'
+    }
+  },
+  budget_exceeded: {
+    status: 400,
+    error: { message: 'Budget has been exceeded! Current cost: 5.0123, Max budget: 5.0', type: 'budget_exceeded', code: '400' }
+  },
+  content_filtered: {
+    status: 400,
+    error: {
+      message: 'Your request was rejected as a result of our safety system. Your prompt may contain text that is not allowed.',
+      type: 'invalid_request_error',
+      code: 'content_policy_violation'
+    }
+  },
+  context_too_long: {
+    status: 400,
+    error: {
+      message:
+        "This model's maximum context length is 4096 tokens. However, your messages resulted in 5120 tokens. Please reduce the length of the messages.",
+      type: 'invalid_request_error',
+      param: 'messages',
+      code: 'context_length_exceeded'
+    }
+  },
+  model_not_found: {
+    status: 404,
+    error: {
+      message: 'The model `mock-model` does not exist or you do not have access to it.',
+      type: 'invalid_request_error',
+      code: 'model_not_found'
+    }
+  },
+  overloaded: {
+    status: 503,
+    // Short, so the backend's retries stay quick.
+    headers: { 'retry-after': '1' },
+    error: { message: 'The server is overloaded, please try again later.', type: 'server_error', code: 'overloaded' }
+  },
+  rate_limited: {
+    status: 429,
+    headers: { 'retry-after': '1' },
+    error: {
+      message:
+        'Rate limit reached for mock-model on requests per min (RPM): Limit 3, Used 3, Requested 1. Please try again in 20s.',
+      type: 'requests',
+      code: 'rate_limit_exceeded'
+    }
+  },
+  server_error: {
+    status: 500,
+    error: { message: 'The server had an error while processing your request. Sorry about that!', type: 'server_error' }
+  }
+}
+
+/** Fail the completion as `mode` says. */
+function respondWithProviderError(res: ServerResponse, mode: ProviderErrorMode, model: string): void {
+  if (mode === 'connection_drop') {
+    // No response at all: the client sees the connection close.
+    res.socket?.destroy()
+
+    return
+  }
+
+  if (mode === 'stream_drop') {
+    // The reply starts, then the connection goes away mid-stream.
+    res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' })
+    res.write(sseChunk(model, { content: 'The answer starts' }))
+    setTimeout(() => res.socket?.destroy(), 50)
+
+    return
+  }
+
+  const failure = PROVIDER_HTTP_ERRORS[mode]
+  res.writeHead(failure.status, { 'Content-Type': 'application/json', ...failure.headers })
+  res.end(JSON.stringify({ error: failure.error }))
+}
+
 export interface MockServerOptions {
+  /** Real agent/tool-loop fixture with an isolated per-server script cursor. */
+  scriptedTurns?: readonly ScriptedTurn[]
   /** Pause the matching stream after its first token for session-switch E2E coverage. */
   holdFirstStreamForPrompt?: string
 /** Pause the first completion whose request JSON contains this text. */
@@ -48,6 +159,8 @@ export interface MockServer {
   waitForHeldCompletion: () => Promise<void>
   releaseHeldStream: () => void
   heldCompletionCount: () => number
+  /** Fail every completion from now on as `mode` says; null answers normally again. */
+  failCompletionsWith: (mode: null | ProviderErrorMode) => void
   close: () => Promise<void>
 }
 
@@ -328,10 +441,12 @@ function includesBlockingClarifyTrigger(value: unknown): boolean {
  */
 export function startMockServer(options: MockServerOptions = {}): Promise<MockServer> {
   return new Promise((resolve, reject) => {
+    let scriptedTurnIndex = 0
     const receivedPrompts: string[] = []
     let resolveHeldStreamStarted: (() => void) | null = null
     let releaseHeldStream: (() => void) | null = null
     let heldCompletionCount = 0
+    let providerErrorMode: null | ProviderErrorMode = null
     const heldStreamStarted = new Promise<void>(resolveHeld => {
       resolveHeldStreamStarted = resolveHeld
     })
@@ -414,6 +529,18 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
           const userText = typeof lastUserMsg?.content === 'string' ? lastUserMsg.content : ''
           if (userText) {
             _receivedUserTexts.push(userText)
+          }
+
+          if (providerErrorMode) {
+            respondWithProviderError(res, providerErrorMode, model)
+
+            return
+          }
+          if (options.scriptedTurns?.length) {
+            const turn = options.scriptedTurns[Math.min(scriptedTurnIndex++, options.scriptedTurns.length - 1)]
+            if (stream) streamScriptedTurn(res, model, turn, `custom-${scriptedTurnIndex}`)
+            else nonStreamingScriptedTurn(res, model, turn, `custom-${scriptedTurnIndex}`)
+            return
           }
           const isInterimTrigger = userText.includes('E2E_INTERIM_TRIGGER')
           const isSidebarTrigger = userText.includes('E2E_SIDEBAR_TRIGGER')
@@ -561,6 +688,9 @@ export function startMockServer(options: MockServerOptions = {}): Promise<MockSe
         waitForHeldCompletion: () => heldStreamStarted,
         releaseHeldStream: () => releaseHeldStream?.(),
         heldCompletionCount: () => heldCompletionCount,
+        failCompletionsWith: mode => {
+          providerErrorMode = mode
+        },
         close: () =>
           new Promise((resolveClose, rejectClose) => {
             server.close((err) => {
@@ -663,6 +793,7 @@ function streamScriptedTurn(
   res: ServerResponse,
   model: string,
   turn: ScriptedTurn,
+  callNamespace = String(_scriptIndex),
 ): void {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -680,7 +811,7 @@ function streamScriptedTurn(
         sseChunk(model, {
           tool_calls: turn.toolCalls!.map((tc, idx) => ({
             index: idx,
-            id: `call_e2e_${_scriptIndex}_${idx}`,
+            id: `call_e2e_${callNamespace}_${idx}`,
             type: 'function',
             function: { name: tc.name, arguments: JSON.stringify(tc.args) },
           })),
@@ -706,7 +837,7 @@ function streamScriptedTurn(
           sseChunk(model, {
             tool_calls: turn.toolCalls!.map((tc, idx) => ({
               index: idx,
-              id: `call_e2e_${_scriptIndex}_${idx}`,
+              id: `call_e2e_${callNamespace}_${idx}`,
               type: 'function',
               function: { name: tc.name, arguments: JSON.stringify(tc.args) },
             })),
@@ -734,6 +865,7 @@ function nonStreamingScriptedTurn(
   res: ServerResponse,
   model: string,
   turn: ScriptedTurn,
+  callNamespace = String(_scriptIndex),
 ): void {
   const hasToolCalls = turn.toolCalls && turn.toolCalls.length > 0
   const finishReason = hasToolCalls ? 'tool_calls' : 'stop'
@@ -744,7 +876,7 @@ function nonStreamingScriptedTurn(
   }
   if (hasToolCalls) {
     message.tool_calls = turn.toolCalls!.map((tc, idx) => ({
-      id: `call_e2e_${_scriptIndex}_${idx}`,
+      id: `call_e2e_${callNamespace}_${idx}`,
       type: 'function',
       function: { name: tc.name, arguments: JSON.stringify(tc.args) },
     }))

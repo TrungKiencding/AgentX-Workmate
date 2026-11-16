@@ -256,7 +256,7 @@ export function useSessionTileActions({ runtimeId, scope, storedSessionId }: Ses
 
     update(state => ({
       ...state,
-      messages: finalizeInterruptedMessages(state.messages, state.streamId),
+      messages: finalizeInterruptedMessages(state.messages, state.streamId, { stopped: true }),
       busy: false,
       awaitingResponse: false,
       streamId: null,

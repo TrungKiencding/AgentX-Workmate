@@ -55,7 +55,7 @@ class TestFailoverReason:
 
     def test_enum_members_exist(self):
         expected = {
-            "auth", "auth_permanent", "billing", "rate_limit",
+            "auth", "auth_permanent", "billing", "budget_exceeded", "rate_limit",
             "upstream_rate_limit",
             "overloaded", "server_error", "timeout",
             "ssl_cert_verification",
@@ -1566,3 +1566,85 @@ class TestGatewayInjectedParameterRejection:
         assert result.retryable is False
 
 
+
+
+# ── Test: what a failure is reported as (failure_reason) ────────────────
+# The AgentX AI Gateway is LiteLLM: its spend cap and every provider's content
+# refusal arrive as plain 400s, and a refused connection as the OpenAI SDK's
+# "Connection error.". Each must be reported as what it is — the desktop
+# explains it in plain words and the SSO usage metrics count it — without
+# changing how the loop recovers.
+
+class TestGatewayBudgetExceeded:
+    @pytest.mark.parametrize("message", [
+        "Budget has been exceeded! Current cost: 5.0123, Max budget: 5.0",
+        "ExceededBudget: User=u-1 over budget. Spend=5.1, Budget=5.0",
+        "litellm.BudgetExceededError: budget_exceeded",
+    ])
+    def test_litellm_spend_cap_is_budget_exceeded_not_a_bad_request(self, message):
+        result = classify_api_error(MockAPIError(message, status_code=400))
+        assert result.reason == FailoverReason.budget_exceeded
+        assert result.failure_reason == "budget_exceeded"
+        # The same key fails until an administrator raises the cap: no retry,
+        # and no provider credit wall (no rotation, no top-up guidance).
+        assert result.retryable is False
+        assert result.should_rotate_credential is False
+        assert result.should_fallback is True
+
+    def test_thinking_budget_parameter_is_still_a_format_error(self):
+        result = classify_api_error(MockAPIError(
+            "thinking.budget_tokens: Input should be greater than or equal to 1024", status_code=400,
+        ))
+        assert result.reason == FailoverReason.format_error
+
+
+class TestGatewayContentRefusals:
+    @pytest.mark.parametrize("message", [
+        "litellm.ContentPolicyViolationError: The response was filtered due to the prompt "
+        "triggering Azure OpenAI's content management policy.",
+        "Your request was rejected as a result of our safety system. Your prompt may contain "
+        "text that is not allowed by our safety system.",
+        "Error code: 400 - {'error': {'code': 'content_policy_violation'}}",
+    ])
+    def test_refusal_through_the_gateway_is_content_policy_blocked(self, message):
+        result = classify_api_error(MockAPIError(message, status_code=400))
+        assert result.reason == FailoverReason.content_policy_blocked
+        assert result.retryable is False
+
+
+class TestConnectFailureIsReportedAsSuch:
+    def test_refused_connection_retries_as_transport_but_reports_connection_failed(self):
+        error = ConnectError("[Errno 61] Connection refused")
+        result = classify_api_error(error)
+        assert result.reason == FailoverReason.timeout  # same recovery as before
+        assert result.retryable is True
+        assert result.failure_reason == "connection_failed"
+
+    def test_sdk_connection_error_wrapping_a_connect_error(self):
+        class APIConnectionError(Exception):
+            pass
+
+        error = APIConnectionError("Connection error.")
+        error.__cause__ = ConnectError("[Errno 61] Connection refused")
+        result = classify_api_error(error)
+        assert result.reason == FailoverReason.timeout
+        assert result.failure_reason == "connection_failed"
+
+    def test_generic_connect_failure_message(self):
+        result = classify_api_error(RuntimeError("connect ECONNREFUSED 127.0.0.1:4000"))
+        assert result.reason == FailoverReason.timeout
+        assert result.failure_reason == "connection_failed"
+
+    @pytest.mark.parametrize("error", [ReadTimeout("read timed out"), TimeoutError("timed out")])
+    def test_a_timeout_is_still_reported_as_a_timeout(self, error):
+        result = classify_api_error(error)
+        assert result.reason == FailoverReason.timeout
+        assert result.failure_reason == "timeout"
+
+    def test_sdk_timeout_wrapping_a_connect_error_stays_a_timeout(self):
+        class APITimeoutError(Exception):
+            pass
+
+        error = APITimeoutError("Request timed out.")
+        error.__cause__ = ConnectError("connect timeout")
+        assert classify_api_error(error).failure_reason == "timeout"

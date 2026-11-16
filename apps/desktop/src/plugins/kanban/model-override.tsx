@@ -3,7 +3,7 @@
  *
  * The MENU is not ours: `ModelCatalogMenu` from the SDK is the same component
  * the chat composer renders, so search, provider grouping, `-fast` families,
- * and the thinking/effort submenu behave identically here. What differs is
+ * and the thinking-level dial behave identically here. What differs is
  * what a selection MEANS — the controller below holds a detached value instead
  * of writing to a live session, which is exactly the seam the SDK exposes.
  *
@@ -21,7 +21,8 @@ import {
   ModelCatalogMenu,
   ModelMenuCloseContext,
   type ModelMenuController,
-  reasoningEffortLabel
+  reasoningEffortLabel,
+  useI18n
 } from '@agentx/plugin-sdk'
 import { useState } from 'react'
 
@@ -41,15 +42,21 @@ export const EMPTY_OVERRIDE: TaskModelOverride = { effort: '', model: '', provid
 export const isInherited = (value: TaskModelOverride): boolean =>
   !value.model.trim() && !value.provider.trim() && !value.effort.trim()
 
-/** The trigger's label: `provider: model · High`, or the inherit copy. */
-export function overrideLabel(value: TaskModelOverride, inheritCopy: string): string {
+/** The trigger's label: `provider: model · High`, or the inherit copy.
+ *  `effortLabel` names a level in the UI language (the locale-free compact
+ *  label when omitted). */
+export function overrideLabel(
+  value: TaskModelOverride,
+  inheritCopy: string,
+  effortLabel: (effort: string) => string = reasoningEffortLabel
+): string {
   if (isInherited(value)) {
     return inheritCopy
   }
 
   const model = value.model.trim()
   const base = model ? (value.provider.trim() ? `${value.provider}: ${model}` : model) : inheritCopy
-  const effort = value.effort.trim() ? reasoningEffortLabel(value.effort) : ''
+  const effort = value.effort.trim() ? effortLabel(value.effort) : ''
 
   return effort ? `${base} · ${effort}` : base
 }
@@ -66,7 +73,14 @@ export function ModelOverrideField({
   value: TaskModelOverride
 }) {
   const k = useKanban()
+  const effortShort = useI18n().t.shell.modelOptions.effortShort
   const [open, setOpen] = useState(false)
+
+  const effortLabel = (effort: string) => {
+    const key = effort.trim().toLowerCase()
+
+    return key in effortShort ? effortShort[key as keyof typeof effortShort] : reasoningEffortLabel(effort)
+  }
 
   const controller: ModelMenuController = {
     // Picking a model seeds the depth from what the user last used for it, so
@@ -89,8 +103,10 @@ export function ModelOverrideField({
     },
 
     // Fast mode is a live-session request parameter, not something the worker
-    // spawn can carry (there is no --fast flag), so the menu is told this
-    // catalog has no fast support and only effort edits arrive here.
+    // spawn can carry (there is no --fast flag), so the menu doesn't offer it
+    // and only effort edits arrive here.
+    options: { fast: false },
+
     setOptions: (patch, row) => {
       if (patch.effort === undefined) {
         return
@@ -111,7 +127,7 @@ export function ModelOverrideField({
           type="button"
           variant="outline"
         >
-          <span className="min-w-0 truncate">{overrideLabel(value, k.modelInherit)}</span>
+          <span className="min-w-0 truncate">{overrideLabel(value, k.modelInherit, effortLabel)}</span>
           <span className="flex shrink-0 items-center gap-1">
             {!isInherited(value) && (
               <span
@@ -132,7 +148,7 @@ export function ModelOverrideField({
           </span>
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-72 p-0">
+      <DropdownMenuContent align="start" className="w-80 p-0">
         <ModelMenuCloseContext.Provider value={() => setOpen(false)}>
           <ModelCatalogMenu controller={controller} />
         </ModelMenuCloseContext.Provider>

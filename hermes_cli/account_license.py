@@ -486,7 +486,7 @@ def dispatch_blocked(component: str, log: logging.Logger) -> bool:
 _MID_TURN_TIMEOUT_SECONDS = 5.0
 
 
-def _is_account_gateway(base_url: str) -> bool:
+def is_account_gateway(base_url: str) -> bool:
     """Whether *base_url* is the AgentX AI Gateway this account's key was issued for."""
     from hermes_cli.account_provisioning import read_state
     from hermes_cli.litellm_admin import normalize_base_url
@@ -531,7 +531,7 @@ def license_behind_gateway_refusal(base_url: str) -> dict[str, Any] | None:
     afterwards decides. A refusal from any other provider is not the
     license's business.
     """
-    if not _is_account_gateway(base_url):
+    if not is_account_gateway(base_url):
         return None
     return _read_only_after_asking_again()
 

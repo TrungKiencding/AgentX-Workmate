@@ -10,6 +10,7 @@ import hermes_cli.mem_trim as mem_trim
 @pytest.fixture(autouse=True)
 def _reset_trim_state(monkeypatch):
     monkeypatch.setattr(mem_trim, "_last_trim_monotonic", 0.0)
+    monkeypatch.setattr(mem_trim, "_last_alloc_trim_monotonic", 0.0)
     monkeypatch.setattr(mem_trim, "_probe_done", True)
     monkeypatch.setattr(mem_trim, "_malloc_trim", None)
     monkeypatch.setattr(mem_trim, "_trim_call_count", 0)
@@ -216,3 +217,50 @@ def test_force_floor_coalesces_burst_closes(monkeypatch):
     monkeypatch.setattr(mem_trim.time, "monotonic", lambda: 106.0)
     assert mem_trim.trim_memory(force=True, reason="agent close") is True
     assert trim.call_count == 2
+
+
+def test_collect_false_trims_without_a_full_collection(monkeypatch):
+    calls = []
+    monkeypatch.setattr(mem_trim.gc, "collect", lambda: calls.append("gc"))
+    monkeypatch.setattr(mem_trim, "_malloc_trim", lambda pad: calls.append(("trim", pad)) or 1)
+    monkeypatch.setattr(mem_trim.time, "monotonic", lambda: 100.0)
+
+    assert mem_trim.trim_memory(reason="housekeeping", collect=False) is True
+    assert calls == [("trim", 0)]
+
+
+def test_collect_false_is_a_no_op_without_glibc(monkeypatch):
+    """macOS/Windows have no page release: an allocator-only trim must not even snapshot."""
+    monkeypatch.setattr(mem_trim.gc, "collect", Mock(side_effect=AssertionError("collected")))
+    monkeypatch.setattr(mem_trim, "collect_memory_snapshot", Mock(side_effect=AssertionError("snapshot")))
+
+    assert mem_trim.trim_memory(force=True, reason="agent close", collect=False) is False
+
+
+def test_allocator_only_trim_does_not_suppress_a_collecting_one(monkeypatch):
+    calls = []
+    clock = iter((100.0, 101.0))
+    monkeypatch.setattr(mem_trim.gc, "collect", lambda: calls.append("gc"))
+    monkeypatch.setattr(mem_trim, "_malloc_trim", lambda pad: 1)
+    monkeypatch.setattr(mem_trim.time, "monotonic", lambda: next(clock))
+
+    assert mem_trim.trim_memory(force=True, reason="agent close", collect=False) is True
+    # One second later, inside the 5 s force floor, a forced collecting trim still runs.
+    assert mem_trim.trim_memory(force=True, reason="cache pressure") is True
+    assert calls == ["gc"]
+
+
+def test_busy_path_call_sites_skip_the_full_collection():
+    """Agent close, TUI turn completion, gateway housekeeping and post-compression run on busy,
+    shared processes: none may force a full gc.collect()."""
+    from pathlib import Path
+
+    root = Path(mem_trim.__file__).resolve().parent.parent
+    for rel, reason in (
+        ("run_agent.py", "agent close"),
+        ("tui_gateway/server.py", "tui turn completion"),
+        ("gateway/run.py", "messaging gateway housekeeping"),
+        ("agent/context_compressor.py", "post-compression"),
+    ):
+        text = (root / rel).read_text(encoding="utf-8")
+        assert f'reason="{reason}", collect=False)' in text, rel

@@ -149,7 +149,14 @@ describe('startAgentxKeyGateSync', () => {
 describe('skipping the login gateway gate', () => {
   it('releases the main-process hold and leaves onboarding unconfigured', async () => {
     const { $desktopOnboarding } = await import('@/store/onboarding')
-    $desktopOnboarding.set({ configured: false, firstRunSkipped: false, requested: false, manual: false, reason: null, flow: { status: 'idle' } })
+    $desktopOnboarding.set({
+      configured: false,
+      firstRunSkipped: false,
+      requested: false,
+      manual: false,
+      reason: null,
+      flow: { status: 'idle' }
+    })
     const skip = vi.fn(async () => ({ ...REFUSED, phase: 'open' }))
     stubDesktop({ account: { keyGate: { skip } } })
     $agentxKeyGate.set(REFUSED)

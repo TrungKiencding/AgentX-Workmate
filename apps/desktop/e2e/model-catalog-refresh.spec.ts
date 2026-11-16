@@ -49,8 +49,9 @@ test('SSO model changes refresh on picker open, before send, and on app reopen',
     let page = launched.page
     await page.getByRole('button', { name: /Đăng nhập bằng AgentX|Sign in with AgentX/ }).click({ timeout: 180_000 })
     await page.locator('[contenteditable="true"]').first().waitFor({ timeout: 180_000 })
+    // The model pill sits under the composer, in its context strip.
     const modelPill = () =>
-      page.locator('[data-slot="composer-root"] button[aria-haspopup="menu"]').filter({ hasText: /mock/i }).first()
+      page.locator('[data-slot="composer-model"] button[aria-haspopup="menu"]').filter({ hasText: /mock/i }).first()
     await expect(modelPill()).toContainText(/mock model/i, { timeout: 60_000 })
 
     // The SSO administrator changes the grant while the app remains open.

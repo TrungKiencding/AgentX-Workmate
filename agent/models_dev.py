@@ -849,7 +849,9 @@ def _merge_catalog_entry_with_override(
     return merged
 
 
-def _get_provider_models(provider: str) -> Optional[Dict[str, Any]]:
+def _get_provider_models(
+    provider: str, *, allow_network: bool = True
+) -> Optional[Dict[str, Any]]:
     """Resolve an AgentX provider ID to its models dict from models.dev.
 
     Returns the models dict or None if the provider is unknown or has no data.
@@ -858,7 +860,12 @@ def _get_provider_models(provider: str) -> Optional[Dict[str, Any]]:
     if not mdev_provider_id:
         return None
 
-    data = fetch_models_dev()
+    # Zero-argument call on the default path — see get_provider_info().
+    data = (
+        fetch_models_dev()
+        if allow_network
+        else fetch_models_dev(allow_network=False)
+    )
     provider_data = data.get(mdev_provider_id)
     if not isinstance(provider_data, dict):
         return None
@@ -886,11 +893,17 @@ def _find_model_entry(models: Dict[str, Any], model: str) -> Optional[Dict[str, 
     return None
 
 
-def get_model_capabilities(provider: str, model: str) -> Optional[ModelCapabilities]:
+def get_model_capabilities(
+    provider: str, model: str, *, allow_network: bool = True
+) -> Optional[ModelCapabilities]:
     """Look up full capability metadata from models.dev cache.
 
     Uses the existing fetch_models_dev() and PROVIDER_TO_MODELS_DEV mapping.
     Returns None if model not found.
+
+    ``allow_network`` follows ``fetch_models_dev``: ``True`` (the default)
+    permits the one foreground fetch when no cache exists at all;
+    ``False`` answers from memory/disk cache only and never makes a request.
 
     EXPLICIT ``model_overrides`` entries (per-provider+model) win over
     catalog values for the fields they set. ``_default`` entries fill the
@@ -908,7 +921,7 @@ def get_model_capabilities(provider: str, model: str) -> Optional[ModelCapabilit
       - limit.output  (int) → max_output_tokens
       - family     (str)   → model_family
     """
-    models = _get_provider_models(provider)
+    models = _get_provider_models(provider, allow_network=allow_network)
     entry = _find_model_entry(models, model) if models is not None else None
 
     # Select the override AFTER the catalog lookup: explicit overrides

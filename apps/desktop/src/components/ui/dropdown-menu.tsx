@@ -178,6 +178,244 @@ function DropdownMenuRadioItem({
   )
 }
 
+// A stepped slider that lives INSIDE a menu (the composer's thinking level):
+// a track with one notch per option and a thumb on the chosen one. Built from
+// Radix radio items, because a menu blocks Tab — plain inputs in a menu are
+// unreachable from the keyboard. Keyboard model, like a slider sitting in a
+// list: the whole slider is ONE stop in the ↑/↓ order (arriving lands on the
+// thumb, ↑/↓ leave), ←/→ (mirrored in RTL) step the value, Enter/Space pick
+// the focused notch. Pointer: press anywhere on the track and drag.
+const STEP_SELECTOR = '[data-slot="dropdown-menu-step"]:not([data-disabled])'
+
+/** The colour at `t` (0…1) along evenly spaced `colors` — what the track's
+ *  gradient paints at that point, so the thumb (and anything echoing it) can
+ *  wear the exact colour under it. Mixed in OKLab so mid-points stay vivid. */
+export function colorAlongSteps(colors: readonly string[], t: number): string {
+  if (colors.length < 2) {
+    return colors[0] ?? 'var(--accent)'
+  }
+
+  const at = Math.min(Math.max(t, 0), 1) * (colors.length - 1)
+  const from = Math.min(Math.floor(at), colors.length - 2)
+  const share = Math.round((1 - (at - from)) * 100)
+
+  return `color-mix(in oklab, ${colors[from]} ${share}%, ${colors[from + 1]})`
+}
+
+export interface DropdownMenuStepOption {
+  /** Accessible name of the notch (the slider shows the value elsewhere). */
+  label: string
+  value: string
+}
+
+/** The next/previous enabled menu item OUTSIDE `group`, in document order. */
+function menuItemBeyond(group: HTMLElement, direction: 'next' | 'previous'): HTMLElement | undefined {
+  const menu = group.closest('[role="menu"]')
+
+  if (!menu) {
+    return undefined
+  }
+
+  const position = direction === 'next' ? Node.DOCUMENT_POSITION_FOLLOWING : Node.DOCUMENT_POSITION_PRECEDING
+
+  const items = [...menu.querySelectorAll<HTMLElement>('[role^="menuitem"]:not([data-disabled])')].filter(
+    item => !group.contains(item) && group.compareDocumentPosition(item) & position
+  )
+
+  return direction === 'next' ? items[0] : items.at(-1)
+}
+
+function DropdownMenuStepSlider({
+  className,
+  colors = ['var(--accent)'],
+  onValueChange,
+  options,
+  value,
+  ...props
+}: Omit<React.ComponentProps<typeof DropdownMenuPrimitive.RadioGroup>, 'children' | 'onValueChange' | 'value'> & {
+  /** The filled run's colours, start → end (a gradient when more than one);
+   *  the thumb takes the colour under it. */
+  colors?: readonly string[]
+  onValueChange: (value: string) => void
+  options: readonly DropdownMenuStepOption[]
+  value: string
+}) {
+  const trackRef = React.useRef<HTMLDivElement>(null)
+  const dragging = React.useRef(false)
+  const selected = options.findIndex(option => option.value === value)
+  const last = Math.max(options.length - 1, 1)
+  const at = (index: number) => `${(index / last) * 100}%`
+  const thumbColor = colorAlongSteps(colors, Math.max(selected, 0) / last)
+
+  // The notch nearest the pointer, along the track (mirrored in RTL).
+  const pickAt = (clientX: number) => {
+    const track = trackRef.current
+    const rect = track?.getBoundingClientRect()
+
+    if (!track || !rect || rect.width === 0) {
+      return
+    }
+
+    const rtl = getComputedStyle(track).direction === 'rtl'
+    const ratio = Math.min(Math.max((rtl ? rect.right - clientX : clientX - rect.left) / rect.width, 0), 1)
+    const option = options[Math.round(ratio * last)]
+
+    if (option && option.value !== value) {
+      onValueChange(option.value)
+    }
+  }
+
+  const endDrag = (event: React.PointerEvent<HTMLDivElement>) => {
+    dragging.current = false
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId)
+    }
+  }
+
+  return (
+    <DropdownMenuPrimitive.RadioGroup
+      className={cn('group/slider touch-none px-2.5 select-none', className)}
+      data-slot="dropdown-menu-step-slider"
+      onKeyDown={event => {
+        if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') {
+          return
+        }
+
+        const steps = [...event.currentTarget.querySelectorAll<HTMLElement>(STEP_SELECTOR)]
+        const from = steps.indexOf(event.target as HTMLElement)
+
+        if (from < 0) {
+          return
+        }
+
+        event.preventDefault()
+
+        const rtl = getComputedStyle(event.currentTarget).direction === 'rtl'
+        const next = steps[from + ((event.key === 'ArrowRight') !== rtl ? 1 : -1)]
+
+        if (!next) {
+          return
+        }
+
+        next.focus()
+
+        if (next.dataset.value !== undefined) {
+          onValueChange(next.dataset.value)
+        }
+      }}
+      // Capture phase: Radix's roving focus would otherwise walk ↑/↓ through
+      // every notch, one by one, before ever leaving the slider.
+      onKeyDownCapture={event => {
+        if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
+          return
+        }
+
+        event.preventDefault()
+        event.stopPropagation()
+        menuItemBeyond(event.currentTarget, event.key === 'ArrowDown' ? 'next' : 'previous')?.focus()
+      }}
+      onPointerCancel={endDrag}
+      onPointerDown={event => {
+        if (event.button !== 0) {
+          return
+        }
+
+        dragging.current = true
+        event.currentTarget.setPointerCapture(event.pointerId)
+        pickAt(event.clientX)
+      }}
+      onPointerMove={event => {
+        if (dragging.current) {
+          pickAt(event.clientX)
+        }
+      }}
+      onPointerUp={endDrag}
+      onValueChange={onValueChange}
+      value={value}
+      {...props}
+    >
+      <div className="relative h-7" ref={trackRef}>
+        {/* Two layers: the full gradient, and a grey cover sliding off it from
+            the thumb onward — so the colour under any point never changes,
+            the run just reveals more of it. The bar runs a few px past the
+            end notches, so the first and last stops sit ON the track. */}
+        <div
+          className="absolute -inset-x-1 top-1/2 h-1.5 -translate-y-1/2 rounded-full rtl:-scale-x-100"
+          style={{
+            backgroundImage: `linear-gradient(to right, ${(colors.length > 1 ? colors : [colors[0], colors[0]]).join(', ')})`
+          }}
+        />
+        <div
+          className="absolute -end-1 top-1/2 h-1.5 -translate-y-1/2 rounded-e-full bg-(--border-default) transition-[inset-inline-start] duration-(--dur-long) ease-(--ease-out) motion-reduce:transition-none"
+          style={{ insetInlineStart: at(Math.max(selected, 0)) }}
+        />
+        {options.map((option, index) => (
+          <DropdownMenuPrimitive.RadioItem
+            aria-label={option.label}
+            className="group/step absolute top-1/2 grid size-7 -translate-x-1/2 -translate-y-1/2 cursor-default place-items-center rounded-full outline-hidden rtl:translate-x-1/2"
+            data-slot="dropdown-menu-step"
+            data-value={option.value}
+            key={option.value}
+            onFocus={event => {
+              const group = event.currentTarget.closest<HTMLElement>('[data-slot="dropdown-menu-step-slider"]')
+              const from = event.relatedTarget
+
+              // Arriving from outside by KEYBOARD lands on the thumb, the way
+              // Tab lands on a radio group's checked radio. Hover focuses the
+              // notch under the pointer as usual (it has a pointer to blame).
+              if (
+                !group ||
+                event.currentTarget.dataset.state === 'checked' ||
+                (from instanceof Node && group.contains(from)) ||
+                group.matches(':hover')
+              ) {
+                return
+              }
+
+              group.querySelector<HTMLElement>(`${STEP_SELECTOR}[data-state="checked"]`)?.focus()
+            }}
+            // A notch is a setting you adjust while looking at the menu, not a
+            // command: picking it never closes the menu.
+            onSelect={event => event.preventDefault()}
+            style={{ insetInlineStart: at(index) }}
+            value={option.value}
+          >
+            {/* Notches: a pinprick of surface inside the coloured run, a darker
+                tick past it; the one under the pointer or keyboard grows. The
+                chosen notch hides under the thumb. */}
+            <span
+              className={cn(
+                'block rounded-full transition-[width,height,background-color] duration-(--dur-micro) ease-(--ease-out)',
+                index === selected
+                  ? 'size-0'
+                  : index < selected
+                    ? 'size-1 bg-(--bg-raised)/85 group-data-[highlighted]/step:size-2'
+                    : 'size-1.5 bg-(--border-strong) group-data-[highlighted]/step:size-2.5 group-data-[highlighted]/step:bg-(--text-tertiary)'
+              )}
+            />
+          </DropdownMenuPrimitive.RadioItem>
+        ))}
+        {/* The thumb is its own layer so it GLIDES between notches (and takes
+            the colour under it on the way) instead of blinking from one to the
+            next. Hover or focus wraps it in a soft halo of that colour; a
+            press squeezes it slightly. */}
+        <span
+          aria-hidden
+          className="pointer-events-none absolute top-1/2 size-[1.125rem] -translate-x-1/2 -translate-y-1/2 rounded-full border-[3px] bg-(--bg-app) shadow-sm transition-[inset-inline-start,border-color,box-shadow,scale] duration-(--dur-long) ease-(--ease-out) group-focus-within/slider:shadow-[0_0_0_5px_var(--thumb-halo)] group-hover/slider:shadow-[0_0_0_5px_var(--thumb-halo)] group-active/slider:scale-90 motion-reduce:transition-none rtl:translate-x-1/2"
+          style={
+            {
+              '--thumb-halo': `color-mix(in srgb, ${thumbColor} 22%, transparent)`,
+              borderColor: thumbColor,
+              insetInlineStart: at(Math.max(selected, 0))
+            } as React.CSSProperties
+          }
+        />
+      </div>
+    </DropdownMenuPrimitive.RadioGroup>
+  )
+}
+
 function DropdownMenuLabel({
   className,
   inset,
@@ -282,6 +520,7 @@ export {
   DropdownMenuSearch,
   DropdownMenuSeparator,
   DropdownMenuShortcut,
+  DropdownMenuStepSlider,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,

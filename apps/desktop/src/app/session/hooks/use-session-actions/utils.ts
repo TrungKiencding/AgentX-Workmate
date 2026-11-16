@@ -10,7 +10,9 @@ import {
 } from '@/lib/chat-messages'
 import { normalizePersonalityValue } from '@/lib/chat-runtime'
 import { embeddedImageUrls, textWithoutEmbeddedImages } from '@/lib/embedded-images'
+import { turnErrorCode } from '@/lib/turn-error'
 import { reconcileApprovalModeForProfile } from '@/store/approval-mode'
+import { primaryGatewayProfile } from '@/store/gateway'
 import { requestDesktopOnboardingForCredentialWarning } from '@/store/onboarding'
 import { $activeGatewayProfile, $profiles, normalizeProfileKey } from '@/store/profile'
 import {
@@ -44,6 +46,7 @@ import type {
 
 import type { ClientSessionState } from '../../../types'
 import { finalizeInterruptedMessages } from '../use-prompt-actions/rewind'
+import { visibleUserOrdinal } from '../use-prompt-actions/utils'
 
 function withAppendedText(message: ChatMessage, suffix: string): ChatMessage {
   let appended = false
@@ -155,11 +158,14 @@ const COMPARED_FIELDS = [
   'role',
   'pending',
   'error',
+  'errorCode',
   'hidden',
   'branchGroupId',
   'interim',
+  'stopped',
   'reactions',
-  'createdFiles'
+  'createdFiles',
+  'compaction'
 ] as const
 
 const IGNORED_FIELDS = ['timestamp', 'attachmentRefs', 'parts', 'rowId'] as const
@@ -269,13 +275,17 @@ export function chatMessagesEquivalent(a: ChatMessage, b: ChatMessage): boolean 
     a.role !== b.role ||
     a.pending !== b.pending ||
     a.error !== b.error ||
+    a.errorCode !== b.errorCode ||
     a.hidden !== b.hidden ||
     a.branchGroupId !== b.branchGroupId ||
     // Interim gates the action footer, so flipping it must repaint (e.g. a
     // previewed final settling onto a sealed interim bubble restores the bar).
     (a.interim ?? false) !== (b.interim ?? false) ||
+    (a.stopped ?? false) !== (b.stopped ?? false) ||
     !chatReactionsEquivalent(a.reactions, b.reactions) ||
-    !chatCreatedFilesEquivalent(a.createdFiles, b.createdFiles)
+    !chatCreatedFilesEquivalent(a.createdFiles, b.createdFiles) ||
+    a.compaction?.summary !== b.compaction?.summary ||
+    a.compaction?.userTurnsBefore !== b.compaction?.userTurnsBefore
   ) {
     return false
   }
@@ -549,11 +559,50 @@ export function preserveLocalPendingTurnMessages(
 
   const latestAuthoritativeUser = [...nextMessages].reverse().find(message => message.role === 'user')
   const preserved: ChatMessage[] = []
+
+  // The newest prompt the backend has accepted splits the local rows in two.
+  // Whatever stream rows sit BEFORE it locally belong to an earlier turn — one
+  // that was stopped, typically: Stop only clears `pending`, the rows keep
+  // their `assistant-stream-*` ids for the life of the view, and the stored
+  // transcript folds that turn into ONE row, so they never find a text-equal
+  // twin there. Treated as an uncommitted live reply they were re-appended at
+  // the END on every reconcile — below the prompt sent after them (pilot
+  // feedback 2026-11: "tin nhắn nằm trên suy luận của bot").
+  //
+  // Such a row is history. If the backend committed that turn (an assistant
+  // row precedes the prompt), the stored row is the authority and the local
+  // one is dropped; if it committed nothing, the local rows are the only copy
+  // and are kept — above the prompt, where they happened.
+  const anchorText = latestAuthoritativeUser ? textWithoutReferenceLines(chatMessageText(latestAuthoritativeUser)) : null
+  const anchorNextIndex = latestAuthoritativeUser ? nextMessages.indexOf(latestAuthoritativeUser) : -1
+
+  const anchorLocalIndex =
+    anchorText === null
+      ? -1
+      : previousMessages.findLastIndex(
+          message => message.role === 'user' && textWithoutReferenceLines(chatMessageText(message)) === anchorText
+        )
+
+  const priorTurnCommitted = (() => {
+    for (let index = anchorNextIndex - 1; index >= 0; index -= 1) {
+      const candidate = nextMessages[index]
+
+      if (isGatewaySystemMarker(candidate) || candidate.hidden) {
+        continue
+      }
+
+      return candidate.role === 'assistant'
+    }
+
+    return false
+  })()
+
+  const preservedBeforeAnchor: ChatMessage[] = []
   // Authoritative id → richer local pending row. Replacing (not appending)
   // avoids painting both the empty inflight shell and the full stream bubble.
   const replacements = new Map<string, ChatMessage>()
 
-  for (const message of previousMessages) {
+  for (const [localIndex, message] of previousMessages.entries()) {
     if (isGatewaySystemMarker(message)) {
       continue
     }
@@ -567,6 +616,16 @@ export function preserveLocalPendingTurnMessages(
       message.role === 'assistant' && (message.pending === true || message.id.startsWith('assistant-stream-'))
 
     if (!isOptimisticUser && !isPendingAssistant) {
+      continue
+    }
+
+    // A settled stream row from before the newest accepted prompt: an earlier
+    // turn's, never the live reply (see above).
+    if (isPendingAssistant && message.pending !== true && localIndex < anchorLocalIndex && !nextIds.has(message.id)) {
+      if (!priorTurnCommitted) {
+        preservedBeforeAnchor.push(message)
+      }
+
       continue
     }
 
@@ -645,7 +704,18 @@ export function preserveLocalPendingTurnMessages(
   const withReplacements =
     replacements.size > 0 ? nextMessages.map(message => replacements.get(message.id) ?? message) : nextMessages
 
-  return preserved.length ? [...withReplacements, ...preserved] : withReplacements
+  // Rows of an earlier, uncommitted turn go back above the prompt that
+  // followed them; the live turn's rows go at the end.
+  const ordered =
+    preservedBeforeAnchor.length > 0 && anchorNextIndex >= 0
+      ? [
+          ...withReplacements.slice(0, anchorNextIndex),
+          ...preservedBeforeAnchor,
+          ...withReplacements.slice(anchorNextIndex)
+        ]
+      : withReplacements
+
+  return preserved.length ? [...ordered, ...preserved] : ordered
 }
 
 /**
@@ -675,6 +745,15 @@ export function appendLiveSessionProjection(
   // the terminal frame may have been lost to a disconnect) — surface the
   // failure on the projected row instead of rendering the partial as healthy.
   const inflightError = projection.inflight?.error?.trim() ?? ''
+
+  const inflightErrorCode = inflightError
+    ? turnErrorCode({
+        code: projection.inflight?.failure_code,
+        reason: projection.inflight?.failure_reason,
+        text: inflightError
+      })
+    : ''
+
   const queuedUser = projection.queued?.user?.trim() ?? ''
 
   if (
@@ -783,7 +862,7 @@ export function appendLiveSessionProjection(
         role: 'assistant',
         parts: inflightAssistant ? [assistantTextPart(inflightAssistant)] : [],
         pending: inflightStreaming,
-        ...(inflightError ? { error: inflightError } : {})
+        ...(inflightError ? { error: inflightError, errorCode: inflightErrorCode } : {})
       })
     }
   }
@@ -952,6 +1031,79 @@ export const toBranchMessages = (messages: ChatMessage[]): BranchMessage[] =>
     .map(message => ({ content: chatMessageText(message), role: message.role, source: message }))
     .filter(({ content, role }) => content.trim() && (role === 'assistant' || role === 'user'))
 
+/** Where a branch of the open chat ends, as `session.branch` takes it. */
+export interface BranchUserTurnAnchor {
+  /** Keep the addressed turn's whole reply (true) or stop after its prompt. */
+  include_reply: boolean
+  /** The user turn, numbered like rewind's `truncate_before_user_ordinal`;
+   *  -1 addresses a reply that came before any prompt. */
+  user_ordinal: number
+}
+
+/**
+ * The message at `at`, addressed by its user turn instead of by a message
+ * count. While a reply streams, a turn that used tools shows as an interim
+ * bubble plus the answer — two messages where the gateway's history holds
+ * one turn — so a count taken from a live chat branched one turn too far.
+ * Prompts are one-to-one on both sides (compaction offsets included, see
+ * lib/compaction-ordinal). Null when the message sits above the latest
+ * compaction divider: the gateway no longer holds that turn as such.
+ */
+export function branchUserTurnAnchor(messages: readonly ChatMessage[], at: number): BranchUserTurnAnchor | null {
+  const target = messages[at]
+
+  if (!target) {
+    return null
+  }
+
+  const before = visibleUserOrdinal(messages, at)
+
+  if (before === null) {
+    return null
+  }
+
+  return target.role === 'user' && !target.hidden
+    ? { include_reply: false, user_ordinal: before }
+    : { include_reply: true, user_ordinal: before - 1 }
+}
+
+/**
+ * The files a copied assistant turn produced, for the branch seed: the ones
+ * the backend listed and the ones handed over through `deliver_file`. A seed
+ * carries text only, so without this a branch of a chat that made a report
+ * has no way back to the report. The gateway re-checks every path.
+ */
+export function branchSeedFiles(message: ChatMessage): Array<{ path: string }> {
+  if (message.role !== 'assistant') {
+    return []
+  }
+
+  const paths = new Set((message.createdFiles ?? []).map(file => file.path))
+
+  for (const part of message.parts) {
+    if (part.type !== 'tool-call' || part.toolName !== 'deliver_file' || part.isError) {
+      continue
+    }
+
+    const result = typeof part.result === 'string' ? safeJson(part.result) : part.result
+    const path = result && typeof result === 'object' ? (result as { path?: unknown }).path : undefined
+
+    if (typeof path === 'string' && path) {
+      paths.add(path)
+    }
+  }
+
+  return [...paths].map(path => ({ path }))
+}
+
+function safeJson(value: string): unknown {
+  try {
+    return JSON.parse(value)
+  } catch {
+    return null
+  }
+}
+
 export function upsertOptimisticSession(
   created: SessionCreateResponse,
   id: string,
@@ -1035,14 +1187,33 @@ export async function resolveStoredSession(storedSessionId: string): Promise<Ses
   // Direct by-id on the live backend — one row lookup, no list scan. Covers
   // single-profile users and any id on the active profile (e.g. an old session
   // past the sidebar's recent window). 404 just means it's not on this profile.
-  try {
-    const session = await getSession(storedSessionId)
+  //
+  // A bare GET is answered by the *primary* backend, whichever profile is
+  // active. So when the live gateway is on another profile — an assistant's
+  // chat opened from the Trợ lý page — the lookup has to name that profile.
+  // Bare, it asked the primary, missed, and the probe below then skipped the
+  // active profile as "already asked": the session resolved to no owner, its
+  // transcript was fetched from the wrong backend, and the chat opened blank
+  // (pilot feedback 2026-11: "bấm vào mất dữ liệu trò chuyện cũ").
+  const activeKey = normalizeProfileKey($activeGatewayProfile.get())
+  const activeIsPrimary = activeKey === normalizeProfileKey(primaryGatewayProfile())
 
-    // Older backends omit `profile` on unscoped GETs; the serving backend is
-    // the active gateway's, so back-fill that rather than caching an unowned
-    // row. A present stamp is preserved: in app-global remote mode a bare hit
-    // can legitimately carry another profile's row (see the branch tests).
-    session.profile ||= normalizeProfileKey($activeGatewayProfile.get())
+  try {
+    const session = activeIsPrimary
+      ? await getSession(storedSessionId)
+      : await getSession(storedSessionId, activeKey)
+
+    if (activeIsPrimary) {
+      // Older backends omit `profile` on unscoped GETs; the serving backend is
+      // the active gateway's, so back-fill that rather than caching an unowned
+      // row. A present stamp is preserved: in app-global remote mode a bare hit
+      // can legitimately carry another profile's row (see the branch tests).
+      session.profile ||= activeKey
+    } else {
+      // The profile we explicitly asked is authoritative (same contract as the
+      // cross-profile probe below).
+      session.profile = activeKey
+    }
 
     upsertResolvedSession(session, storedSessionId)
 
@@ -1054,8 +1225,6 @@ export async function resolveStoredSession(storedSessionId: string): Promise<Ses
   // Multi-profile only: probe each other profile by id (still one cheap lookup
   // each) rather than pulling every profile's recent sessions. The first hit
   // carries its owning `profile`, which routes the resume to the right backend.
-  const activeKey = normalizeProfileKey($activeGatewayProfile.get())
-
   const otherProfiles = $profiles
     .get()
     .map(profile => normalizeProfileKey(profile.name))

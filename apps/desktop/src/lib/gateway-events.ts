@@ -77,9 +77,11 @@ export function approvalReplaySessionId(
   if (eventType === 'gateway.ready') {
     return activeSessionId
   }
+
   if (eventType === 'session.info') {
     return routedSessionId
   }
+
   return null
 }
 

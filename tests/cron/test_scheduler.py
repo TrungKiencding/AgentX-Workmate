@@ -971,6 +971,39 @@ class TestRunJobModelResolution:
         assert error is None
         assert mock_agent_cls.call_args.kwargs["model"] == "explicit-model"
 
+    def test_failed_agent_run_keeps_its_classified_reason(self, tmp_path, monkeypatch):
+        """The failure kind is read from what the agent classified, not
+        re-guessed from its one-line summary ("Connection error." says nothing
+        about a refused local endpoint; review 2026-11-13)."""
+        from cron.scheduler import classify_cron_failure
+
+        monkeypatch.delenv("AGENTX_MODEL", raising=False)
+        job = {"id": "fail-job", "name": "fail", "prompt": "hi", "model": "explicit-model"}
+
+        with patch("cron.scheduler._hermes_home", tmp_path), \
+             patch("cron.scheduler._resolve_origin", return_value=None), \
+             patch("hermes_cli.env_loader.load_hermes_dotenv"), \
+             patch("hermes_cli.env_loader.reset_secret_source_cache"), \
+             patch("hermes_state.SessionDB", return_value=MagicMock()), \
+             patch("hermes_cli.runtime_provider.resolve_runtime_provider",
+                   return_value=self._RUNTIME), \
+             patch("run_agent.AIAgent") as mock_agent_cls:
+            mock_agent = MagicMock()
+            mock_agent.run_conversation.return_value = {
+                "final_response": "Connection error.",
+                "failed": True,
+                "completed": False,
+                "error": "Connection error.",
+                "failure_reason": "connection_failed",
+            }
+            mock_agent_cls.return_value = mock_agent
+            success, output, _, error = run_job(job)
+
+        assert success is False
+        assert "[failure_reason:connection_failed] Connection error." in error
+        assert "Connection error." in output  # the raw error stays in the run output
+        assert classify_cron_failure(error) == "unreachable"
+
 
 class TestRunJobSkillBacked:
     def test_run_job_preserves_skill_env_passthrough_into_worker_thread(self, tmp_path):

@@ -160,3 +160,15 @@ def test_proxy_branch_general_pool_has_tight_keepalive(monkeypatch):
     assert any(inst.kwargs.get("proxy") == "http://127.0.0.1:9/" for inst in instances)
 
 
+
+
+def test_proxy_branch_logs_proxy_without_credentials(monkeypatch, caplog):
+    """A proxy URL may embed credentials; the connect log line must carry the
+    host only, while the transport still receives the full URL."""
+    proxy = "http://alice:S3cretPass@127.0.0.1:3128"
+    with caplog.at_level("INFO"):
+        instances = _drive_connect(monkeypatch, proxy_url=proxy)
+    assert any(inst.kwargs.get("proxy") == proxy for inst in instances)
+    lines = [r.getMessage() for r in caplog.records if "proxy" in r.getMessage().lower()]
+    assert any("127.0.0.1:3128" in line for line in lines), lines
+    assert all("S3cretPass" not in line and "alice" not in line for line in lines), lines

@@ -239,6 +239,40 @@ export interface MessagingPlatformInfo {
   name: string
   state?: null | string
   updated_at?: null | string
+  /** WhatsApp only: the linked device session, if one exists on disk. */
+  whatsapp_setup?: WhatsAppSetupInfo
+}
+
+export interface WhatsAppSetupInfo {
+  account_name?: null | string
+  account_phone?: null | string
+  allowed_users_set: boolean
+  home_channel_set: boolean
+  linked?: boolean
+  mode: '' | 'bot' | 'self-chat'
+}
+
+export type WhatsAppLinkMode = 'bot' | 'self-chat'
+
+/** One in-app QR pairing run (`/api/messaging/whatsapp/onboarding/*`). */
+export interface WhatsAppOnboardingSession {
+  account_id: null | string
+  account_name: null | string
+  account_phone: null | string
+  allowed_users: string
+  error: null | string
+  expires_at: string
+  mode: WhatsAppLinkMode
+  pairing_id: string
+  qr_payload: null | string
+  status: 'cancelled' | 'connected' | 'error' | 'expired' | 'installing' | 'starting' | 'waiting'
+}
+
+export interface WhatsAppOnboardingApplyResponse {
+  needs_restart: boolean
+  ok: boolean
+  restart_error?: string
+  restart_started: boolean
 }
 
 export interface MessagingPlatformsResponse {
@@ -615,6 +649,10 @@ export interface SessionResumeResponse {
     /** Retained failed turn: the error the terminal frame carried (the frame
      *  itself may have been lost to a disconnect). */
     error?: string
+    /** …and its `failure_code` / `failure_reason`, so the replayed bubble
+     *  explains the failure the way the live one did. */
+    failure_code?: string
+    failure_reason?: string
     recoverable?: boolean
     status?: string
     streaming?: boolean
@@ -810,7 +848,12 @@ export interface CronJob {
   enabled: boolean
   id: string
   last_error?: null | string
+  /** Short plain-text excerpt of what the last good run said (redacted by the
+   *  backend); absent after a silent or failed run. */
+  last_output_preview?: null | string
   last_run_at?: null | string
+  /** 'ok' after a good run; anything else means the last run failed. */
+  last_status?: null | string
   model?: null | string
   name?: null | string
   next_run_at?: null | string
@@ -875,6 +918,8 @@ export interface AutomationBlueprintField {
   /** When false, options are suggestions — any value is accepted. */
   strict?: boolean
   help: string
+  /** Option value → words to show, when the catalog was served translated. */
+  optionLabels?: Record<string, string>
 }
 
 export interface AutomationBlueprint {
@@ -1143,6 +1188,19 @@ export interface SessionSearchResult {
   session_started: number | null
   snippet: string
   source: string | null
+  // The matched session's own row, when the backend could load it. The row is
+  // what a result is titled by; the snippet is only the text that matched.
+  archived?: boolean
+  ended_at?: null | number
+  input_tokens?: number
+  is_active?: boolean
+  last_active?: null | number
+  message_count?: number
+  output_tokens?: number
+  preview?: null | string
+  started_at?: null | number
+  title?: null | string
+  tool_call_count?: number
 }
 
 export interface SessionSearchResponse {

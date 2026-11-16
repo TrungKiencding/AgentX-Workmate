@@ -24,6 +24,19 @@ test('names the running gateway it left alone', async () => {
   assert.deepEqual(lines, ['[messaging] the gateway is already running (pid 46122)'])
 })
 
+test('says when it restarted a gateway that outlived its checkout', async () => {
+  const lines = await run(async () => ({
+    pid: 46122,
+    platforms: ['telegram'],
+    reason: 'restarted_stale',
+    started: true
+  }))
+
+  assert.deepEqual(lines, [
+    '[messaging] the running gateway (pid 46122) was started from a checkout that no longer exists; restarting it for telegram'
+  ])
+})
+
 test('explains every other decision the backend can make', () => {
   assert.equal(
     describeGatewayAutostart({ platforms: [], reason: 'no_platforms', started: false }),

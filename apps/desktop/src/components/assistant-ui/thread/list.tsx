@@ -15,6 +15,7 @@ import {
 } from 'react'
 import { type GetTargetScrollTop, useStickToBottom } from 'use-stick-to-bottom'
 
+import { useScrollbarReveal } from '@/hooks/use-scrollbar-reveal'
 import { useI18n } from '@/i18n'
 import { messageRenderWeight } from '@/lib/render-weight'
 import { cn } from '@/lib/utils'
@@ -80,7 +81,6 @@ export const resolveThreadScrollTarget: GetTargetScrollTop = (targetScrollTop, {
 interface ThreadMessageListProps {
   clampToComposer: boolean
   components: ThreadMessageComponents
-  emptyPlaceholder?: ReactNode
   loadingIndicator?: ReactNode
   sessionKey?: string | null
 }
@@ -214,7 +214,6 @@ export function liveTailStart(
 const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
   clampToComposer,
   components,
-  emptyPlaceholder,
   loadingIndicator,
   sessionKey
 }) => {
@@ -239,7 +238,6 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
   // part-appends can't churn group identity (that would defeat the rows memo
   // below on every tick). Weights are folded in separately for the budget.
   const groups = useMemo(() => buildGroups(structuralSignature), [structuralSignature])
-  const renderEmpty = groups.length === 0 && Boolean(emptyPlaceholder)
 
   // use-stick-to-bottom owns scrollTop (single writer): follow while locked,
   // escape on user scroll-up, re-lock at bottom. Snap instantly, not spring — a
@@ -251,6 +249,9 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
     resize: 'instant',
     targetScrollTop: resolveThreadScrollTarget
   })
+
+  // The transcript's thumb shows while the person scrolls, not while it sits.
+  useScrollbarReveal(scrollRef)
 
   const { olderAvailable, expandWindow } = useTranscriptWindow()
 
@@ -604,40 +605,33 @@ const ThreadMessageListInner: FC<ThreadMessageListProps> = ({
         data-slot="aui_thread-viewport"
         ref={scrollRef as React.RefCallback<HTMLDivElement>}
       >
-        {renderEmpty ? (
-          <div
-            className="mx-auto grid h-full w-full max-w-(--composer-width) grid-rows-[minmax(0,1fr)_auto] min-w-0 gap-(--conversation-turn-gap) px-6 py-8"
-            data-slot="aui_thread-content"
-          >
-            {emptyPlaceholder}
-          </div>
-        ) : (
-          <div
-            className={cn('mx-auto flex w-full max-w-(--composer-width) min-w-0 flex-col px-6', threadContentTopPad)}
-            data-slot="aui_thread-content"
-            ref={contentRef as React.RefCallback<HTMLDivElement>}
-          >
-            {(hiddenCount > 0 || olderAvailable) && (
-              <button
-                className="mx-auto mb-(--conversation-turn-gap) rounded-full border border-border/65 bg-(--composer-fill) px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
-                onClick={showEarlier}
-                type="button"
-              >
-                {t.assistant.thread.showEarlier}
-              </button>
-            )}
-            {rows}
-            {loadingIndicator}
-            {clampToComposer && (
-              <div
-                aria-hidden="true"
-                className="shrink-0"
-                data-slot="aui_composer-clearance"
-                style={{ height: 'var(--thread-last-message-clearance)' }}
-              />
-            )}
-          </div>
-        )}
+        <div
+          className={cn('mx-auto flex w-full max-w-(--composer-width) min-w-0 flex-col px-4', threadContentTopPad)}
+          data-slot="aui_thread-content"
+          ref={contentRef as React.RefCallback<HTMLDivElement>}
+        >
+          {(hiddenCount > 0 || olderAvailable) && (
+            <button
+              className="mx-auto mb-(--conversation-turn-gap) rounded-full border border-border/65 bg-(--composer-fill) px-3 py-1 text-xs text-muted-foreground hover:text-foreground"
+              onClick={showEarlier}
+              type="button"
+            >
+              {t.assistant.thread.showEarlier}
+            </button>
+          )}
+          {rows}
+          {loadingIndicator}
+          {/* Clearance keeps the LAST message off the composer; an empty
+              thread has none, and its composer is up at the home position. */}
+          {clampToComposer && groups.length > 0 && (
+            <div
+              aria-hidden="true"
+              className="shrink-0"
+              data-slot="aui_composer-clearance"
+              style={{ height: 'var(--thread-last-message-clearance)' }}
+            />
+          )}
+        </div>
       </div>
       {/* Last, and outside the scroller: it has to paint over the transcript
           without scrolling with it. Everything it does is in the stylesheet. */}

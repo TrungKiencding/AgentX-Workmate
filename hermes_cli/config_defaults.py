@@ -56,7 +56,7 @@ DEPLOYMENT_LITELLM_BASE_URL = "https://aigw.astralx.com.vn"
 #: Hosts the gateway answered at before. A saved chat or a fallback entry can
 #: still name one; it means this account's gateway, and the request goes to the
 #: address on record (``account_inference.AccountInference.allows``).
-RETIRED_GATEWAY_HOSTS = ("aigw.dev-server.cloud",)
+RETIRED_GATEWAY_HOSTS = ("aigw.dev-server.cloud", "vtn-4000.wondertek.space")
 
 #: Model pinned as an account's default the first time its key is minted.
 #:
@@ -250,6 +250,11 @@ DEFAULT_CONFIG = {
         # (docker/modal/ssh — they have their own probe).  Set False to
         # disable entirely.
         "environment_probe": True,
+        # Bot Mode teammate protocol: inside a bot's canonical "Bot Chat"
+        # session (desktop "Trợ lý" page), tell the agent how to message the
+        # other named agents on this machine. Silent until Bot Mode is used;
+        # never touches SOUL.md. See tools/bot_mode_protocol.py.
+        "bot_mode_protocol": True,
         # Embedder-supplied environment description appended to the system
         # prompt's environment-hints block. Lets a host that wraps AgentX
         # (sandbox runner, managed platform) explain the runtime environment

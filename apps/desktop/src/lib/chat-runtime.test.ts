@@ -5,11 +5,14 @@ import type { ComposerAttachment } from '@/store/composer'
 import {
   attachmentDisplayText,
   attachmentId,
+  BOT_CHAT_TITLE,
   coerceThinkingText,
   messageCreatedAt,
   optimisticAttachmentRef,
   parseCommandDispatch,
-  parseSlashCommand
+  parseSlashCommand,
+  sessionTitle,
+  toRuntimeMessage
 } from './chat-runtime'
 
 const DATA_URL = 'data:image/png;base64,iVBORw0KGgoAAAANS'
@@ -198,5 +201,46 @@ describe('messageCreatedAt', () => {
   it('treats a zero / non-finite timestamp as absent', () => {
     expect(messageCreatedAt({ timestamp: 0 }, NOW).getTime()).toBe(NOW)
     expect(messageCreatedAt({ timestamp: Number.NaN }, NOW).getTime()).toBe(NOW)
+  })
+})
+
+describe('toRuntimeMessage', () => {
+  it("hands a failed turn's code to the error block beside its raw text", () => {
+    const runtime = toRuntimeMessage({
+      error: 'HTTP 429: slow down',
+      errorCode: 'rate_limited',
+      id: 'a-1',
+      parts: [],
+      role: 'assistant'
+    })
+
+    expect(runtime.status).toEqual({ type: 'incomplete', reason: 'error', error: 'HTTP 429: slow down' })
+    expect(runtime.metadata.custom).toMatchObject({ errorCode: 'rate_limited' })
+  })
+
+  it('carries no code once the error is dismissed', () => {
+    const runtime = toRuntimeMessage({
+      errorCode: 'rate_limited',
+      id: 'a-1',
+      parts: [{ type: 'text', text: 'partial' }],
+      role: 'assistant'
+    })
+
+    expect(runtime.metadata.custom).not.toHaveProperty('errorCode')
+  })
+})
+
+describe('sessionTitle', () => {
+  const session = (title: null | string, preview = '') => ({ id: 's', title, preview }) as never
+
+  it('shows an assistant’s canonical "Bot Chat" as its main conversation, localized', () => {
+    expect(sessionTitle(session(BOT_CHAT_TITLE))).toBe('Main conversation')
+    expect(sessionTitle(session(`  ${BOT_CHAT_TITLE}  `))).toBe('Main conversation')
+  })
+
+  it('keeps every other title, then the preview, then the placeholder', () => {
+    expect(sessionTitle(session('Bot Chat notes'))).toBe('Bot Chat notes')
+    expect(sessionTitle(session('', 'first words'))).toBe('first words')
+    expect(sessionTitle(session(null))).toBe('Untitled session')
   })
 })

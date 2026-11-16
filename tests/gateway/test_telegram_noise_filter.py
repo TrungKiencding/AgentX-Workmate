@@ -3,6 +3,7 @@
 import pytest
 
 from agent.conversation_compression import (
+    COMPRESSION_REFUSED_WOULD_GROW_WARNING,
     CONTEXT_OVERFLOW_BLOCKED_WARNING_TEMPLATE,
     ROUTINE_COMPRESSION_STATUS_SAMPLES,
 )
@@ -57,6 +58,8 @@ NOISY_STATUS_MESSAGES = [
         "⚠ Skipping concurrent compression — another path is already "
         "compressing this session. Will retry after it finishes."
     ),
+    # Automatic anti-growth refusal: a no-op diagnostic (nothing dropped), pinned from the emit-site constant.
+    COMPRESSION_REFUSED_WOULD_GROW_WARNING,
 ]
 
 # Messages that must NEVER be swallowed by the compression-noise filter:
@@ -68,6 +71,8 @@ VISIBLE_COMPRESSION_MESSAGES = [
     "Compression aborted: 30 messages preserved",
     "Compressed with fallback: 30 → 12 messages",
     "No changes from compression: 30 messages",
+    # Manual /compress refused-would-grow feedback stays visible (manual_compression_feedback.py).
+    "Compression refused (summary would grow the conversation): 30 messages preserved",
     (
         "⚠ Compression aborted: auth failure. No messages were dropped — "
         "conversation continues unchanged. Run /compress to retry, or /new "
@@ -196,7 +201,7 @@ def test_chat_gateways_redact_secret_in_provider_error(platform):
     assert "sk-ABCDEF" not in sanitized
     assert "HTTP 401" not in sanitized
     # The user gets the safe provider-error category instead of the raw body.
-    assert "provider" in sanitized.lower()
+    assert "sign-in" in sanitized.lower()
 
 
 @pytest.mark.parametrize("platform", ["slack", "matrix"])
@@ -265,7 +270,7 @@ def test_telegram_status_sanitizes_raw_provider_security_errors():
     sanitized = _prepare_gateway_status_message(Platform.TELEGRAM, "lifecycle", raw)
 
     assert sanitized is not None
-    assert "provider rejected" in sanitized.lower()
+    assert "try rephrasing" in sanitized.lower()
     assert "cybersecurity risk" not in sanitized.lower()
     assert "HTTP 400" not in sanitized
     assert "req_123" not in sanitized
@@ -280,7 +285,7 @@ def test_telegram_final_response_sanitizes_raw_provider_errors():
 
     sanitized = _sanitize_gateway_final_response(Platform.TELEGRAM, raw)
 
-    assert "provider rejected" in sanitized.lower()
+    assert "try rephrasing" in sanitized.lower()
     assert "cybersecurity risk" not in sanitized.lower()
     assert "HTTP 400" not in sanitized
     assert "req_abc" not in sanitized
@@ -295,8 +300,8 @@ def test_telegram_final_response_redacts_auth_secrets():
 
     sanitized = _sanitize_gateway_final_response(Platform.TELEGRAM, raw)
 
-    assert "authentication failed" in sanitized.lower()
-    assert "check the configured credentials" in sanitized.lower()
+    assert "could not verify your connection" in sanitized.lower()
+    assert "connection settings" in sanitized.lower()
     assert "sk-live" not in sanitized
 
 
@@ -343,3 +348,164 @@ def test_chat_gateways_redact_all_issue_23810_credential_shapes(platform, shape_
     # Prose around the secret is preserved — redaction is surgical.
     assert "here is the token you asked me to echo" in sanitized
     assert sanitized.endswith("done.")
+
+
+@pytest.mark.parametrize("platform", CHAT_PLATFORMS)
+@pytest.mark.parametrize("prefix", [
+    "Billing or credits exhausted: ",
+    "❌ Billing or credits exhausted — ",
+    "API call failed after 3 retries: ",
+    "The request failed: ",
+])
+def test_long_nested_provider_failures_never_reach_chat(platform, prefix, caplog):
+    raw = prefix + 'HTTP 400: litellm.BadRequestError: {"error": {"message": "Your credit balance is too low"}}'
+    raw += "\nrequest_id=req_private diagnostic payload" * 50
+    raw += "\nAuthorization: Bearer sk-" + "A1" * 30
+    final = _sanitize_gateway_final_response(platform, raw)
+    status = _prepare_gateway_status_message(platform, "warn", raw)
+    assert final == status
+    assert "usage limit" in final
+    assert len(final) < 180
+    for detail in ("HTTP", "litellm", "req_private", "diagnostic payload", "sk-", "gateway logs"):
+        assert detail not in final
+    # Diagnostics are retained for operators, with credentials scrubbed.
+    assert "req_private" in caplog.text
+    assert "A1" * 30 not in caplog.text
+    assert _sanitize_gateway_final_response("local", raw) == raw
+
+
+@pytest.mark.parametrize("answer", [
+    "HTTP 404 means the resource was not found. " * 30,
+    "Here is how to fix this error:\nAPI call failed after 3 retries: HTTP 400\n" + "Explanation. " * 100,
+])
+def test_technical_explanations_are_not_replaced(answer):
+    assert _sanitize_gateway_final_response("telegram", answer) == answer
+
+
+def test_ambiguous_billing_failure_does_not_assert_exhaustion():
+    raw = "Provider reported usage/credit exhaustion (unverified — may be a content-filter rejection): out of extra usage"
+    safe = _sanitize_gateway_final_response("telegram", raw)
+    assert "usage limit" not in safe
+    assert "another model" in safe
+    assert "content-filter" not in safe
+
+
+@pytest.mark.parametrize("reason,hint", [
+    ("billing", "usage limit"), ("budget_exceeded", "usage limit"),
+    ("auth", "sign-in"), ("rate_limit", "wait a moment"),
+    ("content_policy_blocked", "rephrasing"), ("connection_failed", "not responding"),
+])
+def test_structured_failure_survives_new_provider_wording(reason, hint):
+    raw = 'New upstream error envelope: {"internal": "PRIVATE-DIAGNOSTIC"}'
+    safe = _sanitize_gateway_final_response("telegram", raw, failure_reason=reason)
+    assert hint in safe
+    assert "PRIVATE-DIAGNOSTIC" not in safe
+    assert _sanitize_gateway_final_response("telegram", safe) == safe
+    assert _sanitize_gateway_final_response("local", raw, failure_reason=reason) == raw
+
+
+def test_storage_failure_keeps_its_own_recovery_instructions():
+    text = "Your message was recorded. Please try again after checking disk space."
+    assert _sanitize_gateway_final_response("telegram", text, failure_reason="session_persistence_failed:disk") == text
+
+
+def test_decorative_prefix_on_long_prose_does_not_stall_filter():
+    import subprocess
+    import sys
+
+    # Run in a bounded process: a future regex regression must fail this test,
+    # rather than pinning the pytest process inside an uninterruptible match.
+    result = subprocess.run(
+        [sys.executable, "-c", (
+            "from gateway.run import _looks_like_gateway_provider_error\n"
+            "assert not _looks_like_gateway_provider_error(('⚠ ' * 20000) + 'ordinary response')\n"
+            "assert not _looks_like_gateway_provider_error('⚠ HTTP 404 means missing content. ' * 30)\n"
+        )], capture_output=True, text=True, timeout=10,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_structured_failure_takes_priority_over_nested_error_codes():
+    raw = "Nested upstream response mentions HTTP 401 and insufficient credits."
+    safe = _sanitize_gateway_final_response("telegram", raw, failure_reason="rate_limit")
+    assert "wait a moment" in safe
+    assert "usage limit" not in safe
+    assert "sign-in" not in safe
+
+
+@pytest.mark.parametrize("reason,hint", [
+    ("context_overflow", "new chat"), ("model_not_found", "another model"),
+    ("timeout", "try again"),
+])
+def test_structured_errors_offer_relevant_recovery(reason, hint):
+    safe = _sanitize_gateway_final_response("telegram", "PRIVATE-DIAGNOSTIC", failure_reason=reason)
+    assert hint in safe
+    assert "PRIVATE-DIAGNOSTIC" not in safe
+
+
+# ── A reply says what the person can do about *this* failure ────────────
+# (review 2026-11-13: the catch-all told every unmapped failure — a malformed
+# request, a gateway bug — that "the AI service is temporarily unavailable",
+# sending people to wait out an outage that was not happening.)
+
+
+@pytest.mark.parametrize("reason,hint,not_hint", [
+    # LiteLLM sends this as a 401; signing in again does not grant the model.
+    ("model_not_allowed", "cannot use the selected AI model", "sign-in"),
+    # An account privacy setting excludes the model's endpoints; rephrasing cannot help.
+    ("provider_policy_blocked", "provider settings", "rephras"),
+    ("format_error", "could not process this request", "temporarily"),
+    ("thinking_signature", "could not process this request", "temporarily"),
+    ("image_too_large", "smaller image", "temporarily"),
+    ("stream_interrupted", "cut off", "took too long"),
+    ("ssl_cert_verification", "secure connection", "local model"),
+    ("overloaded", "temporarily unavailable", "Something went wrong"),
+    ("server_error", "temporarily unavailable", "Something went wrong"),
+    # Nothing says the provider is at fault: do not blame it.
+    ("unknown", "Something went wrong", "AI service is temporarily"),
+])
+def test_structured_failure_reply_matches_what_happened(reason, hint, not_hint):
+    safe = _sanitize_gateway_final_response("telegram", "PRIVATE-DIAGNOSTIC", failure_reason=reason, failed=True)
+    assert hint in safe
+    assert not_hint not in safe
+    assert "PRIVATE-DIAGNOSTIC" not in safe
+
+
+def test_every_reported_failure_reason_gets_a_reply():
+    from agent.error_classifier import REPORTED_FAILURE_REASONS
+
+    for reason in REPORTED_FAILURE_REASONS:
+        safe = _sanitize_gateway_final_response("telegram", "PRIVATE-DIAGNOSTIC", failure_reason=reason, failed=True)
+        assert safe.startswith(("⚠️", "⏱️")), reason
+        assert "PRIVATE-DIAGNOSTIC" not in safe, reason
+
+
+def test_legacy_4xx_envelope_is_not_reported_as_an_outage():
+    safe = _sanitize_gateway_final_response("telegram", "API call failed after 3 retries: HTTP 400: Invalid schema for function")
+    assert "could not process this request" in safe
+    assert "temporarily" not in safe
+
+
+@pytest.mark.parametrize("answer", [
+    "Error code: E21 on this washing machine means the drain pump is blocked.",
+    "HTTP 500 errors usually mean the server crashed while handling the request.",
+    "Connection refused means nothing is listening on that port — start the server first.",
+    "Budget exceeded warnings appear when a project spends more than planned.",
+    "The request failed: curl returned 401 because the token you pasted expired.",
+])
+def test_a_successful_answer_is_never_rewritten_into_a_failure_notice(answer):
+    """The assistant's own answer can open with an error envelope's words."""
+    assert _sanitize_gateway_final_response("telegram", answer, failed=False) == answer
+
+
+def test_a_successful_answer_is_still_redacted():
+    answer = "Your key is sk-" + "A1" * 30 + " — keep it secret."
+    safe = _sanitize_gateway_final_response("telegram", answer, failed=False)
+    assert "A1" * 30 not in safe
+
+
+def test_a_failed_turn_without_a_reason_still_hides_the_envelope():
+    raw = "API call failed after 3 retries: HTTP 503: Service Unavailable req_private"
+    safe = _sanitize_gateway_final_response("telegram", raw, failed=True)
+    assert "temporarily unavailable" in safe
+    assert "req_private" not in safe

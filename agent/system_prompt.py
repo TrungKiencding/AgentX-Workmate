@@ -436,6 +436,26 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
             f"after explicit direction."
         )
 
+    # Bot Mode teammate protocol — only inside a bot's canonical "Bot Chat"
+    # (tools/bot_mode_protocol.py). Deterministic for the session (the title
+    # gate and a cached roster), so it doesn't break the prompt cache.
+    # config.yaml ``agent.bot_mode_protocol`` (default True).
+    if getattr(agent, "_bot_mode_protocol", True):
+        try:
+            from tools.bot_mode_protocol import (
+                BOT_CHAT_TITLE,
+                get_bot_mode_protocol_section,
+                session_title_for,
+            )
+
+            if session_title_for(agent) == BOT_CHAT_TITLE:
+                _bot_section = get_bot_mode_protocol_section(active_profile)
+                if _bot_section:
+                    post_workspace_parts.append(_bot_section)
+        except Exception:
+            # The probe must never block a prompt build.
+            pass
+
     platform_key = (agent.platform or "").lower().strip()
     # Resolve the built-in/plugin default hint for this platform, then apply
     # any per-platform override from config (platform_hints.<platform>).

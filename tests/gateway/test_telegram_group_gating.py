@@ -3,6 +3,8 @@ import json
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
+import pytest
+
 from gateway.config import Platform, PlatformConfig, load_gateway_config
 from gateway.platforms.base import MessageType
 from gateway.session import SessionSource
@@ -461,6 +463,44 @@ def _forum_message(*, chat_id, thread_id, is_topic_message, is_forum, chat_type=
     )
 
 
+def test_bot_created_forum_topic_anchor_is_not_a_reply_to_bot():
+    """Topic creation anchors must not bypass the group mention requirement."""
+    adapter = _make_adapter(require_mention=True)
+    topic_message = _forum_message(
+        chat_id=-100, thread_id=73, is_topic_message=True, is_forum=True
+    )
+    topic_message.reply_to_message = SimpleNamespace(
+        from_user=SimpleNamespace(id=999),
+        message_id=73,
+        forum_topic_created=SimpleNamespace(name="Bot-created topic"),
+    )
+
+    assert adapter._is_reply_to_bot(topic_message) is False
+    assert adapter._should_process_message(topic_message) is False
+
+    genuine_reply = _forum_message(
+        chat_id=-100, thread_id=73, is_topic_message=True, is_forum=True
+    )
+    genuine_reply.reply_to_message = SimpleNamespace(
+        from_user=SimpleNamespace(id=999), message_id=72
+    )
+    assert adapter._is_reply_to_bot(genuine_reply) is True
+
+
+def test_non_forum_reply_anchor_to_bot_still_bypasses_mention_gate():
+    """A reply-UI anchor is a real bot reply, not a forum creation event."""
+    adapter = _make_adapter(require_mention=True)
+    reply = _forum_message(
+        chat_id=-100, thread_id=73, is_topic_message=False, is_forum=False, chat_type="group"
+    )
+    reply.reply_to_message = SimpleNamespace(
+        from_user=SimpleNamespace(id=999), message_id=73
+    )
+
+    assert adapter._is_reply_to_bot(reply) is True
+    assert adapter._should_process_message(reply) is True
+
+
 def test_gating_ignores_non_forum_reply_anchor_thread_id():
     """A plain group reply's ``message_thread_id`` is a UI anchor, not a topic.
 
@@ -896,3 +936,26 @@ def test_identity_freshness_does_not_depend_on_host_uptime(monkeypatch):
 
     adapter._note_bot_username("new_helper_bot")
     assert adapter._bot_identity_is_fresh() is True
+
+
+def _channel_post(text, *, chat_id, mention):
+    entities = [_mention_entity(text)] if mention else []
+    return SimpleNamespace(
+        message_id=44, text=text, caption=None, entities=entities, caption_entities=[],
+        message_thread_id=None, is_topic_message=False,
+        chat=SimpleNamespace(id=chat_id, type="channel", title="Broadcast", is_forum=False),
+        from_user=None, sender_chat=SimpleNamespace(id=chat_id, type="channel"), reply_to_message=None, date=None)
+
+
+@pytest.mark.parametrize("guest_mode", [False, True])
+def test_channel_posts_run_the_group_gates(guest_mode):
+    adapter = _make_adapter(require_mention=True, allowed_chats=["-100"], guest_mode=guest_mode)
+    # Outside allowed_chats a channel post is dropped even when it mentions the bot: guest mode is
+    # a group affordance, and anyone who can post in a channel would otherwise cross the allowlist.
+    assert adapter._should_process_message(_channel_post("hi @agentx_bot", chat_id=-200, mention=True)) is False
+    # Allowlisted channel: require_mention holds, an explicit mention triggers.
+    assert adapter._should_process_message(_channel_post("ordinary post", chat_id=-100, mention=False)) is False
+    assert adapter._should_process_message(_channel_post("hi @agentx_bot", chat_id=-100, mention=True)) is True
+    # Guest mode still lets a group mention cross the allowlist.
+    group = _group_message("hi @agentx_bot", chat_id=-200, entities=[_mention_entity("hi @agentx_bot")])
+    assert adapter._should_process_message(group) is guest_mode

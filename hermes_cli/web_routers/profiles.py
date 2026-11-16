@@ -580,12 +580,38 @@ async def rename_profile_endpoint(name: str, body: ProfileRename):
     return {"ok": True, "name": body.new_name, "path": str(path)}
 
 
+def _close_live_sessions_of_profile(name: str) -> None:
+    """Tear down this process's chat sessions bound to profile ``name``.
+
+    The dashboard's in-process JSON-RPC gateway serves other profiles too
+    (Bot Mode group rooms run every assistant's turn here). A session left
+    bound to the deleted home keeps an agent that writes into it again, which
+    re-created ``profiles/<name>/`` seconds after the delete. Best-effort and
+    import-free: only acts when the gateway module is already loaded.
+    """
+    import sys
+
+    server = sys.modules.get("tui_gateway.server")
+    if server is None:
+        return
+    try:
+        from hermes_cli import profiles as profiles_mod
+
+        home = profiles_mod.get_profile_dir(profiles_mod.normalize_profile_name(name))
+        closed = server.close_sessions_for_profile_home(home)
+        if closed:
+            _log.info("closed %d live session(s) of profile %s before delete", closed, name)
+    except Exception:
+        _log.debug("closing live sessions of profile %s failed", name, exc_info=True)
+
+
 @router.delete("/api/profiles/{name}")
 async def delete_profile_endpoint(name: str):
     """Delete a profile. The dashboard collects the user's confirmation in
     its own dialog before this request, so we always pass ``yes=True`` to
     skip the CLI's interactive prompt."""
     from hermes_cli import profiles as profiles_mod
+    _close_live_sessions_of_profile(name)
     try:
         path = profiles_mod.delete_profile(name, yes=True)
     except FileNotFoundError as e:

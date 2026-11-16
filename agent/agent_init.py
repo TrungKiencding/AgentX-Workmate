@@ -1843,6 +1843,8 @@ def init_agent(
     # line).  Useful for users on exotic setups where the probe heuristics
     # are noisy.
     agent._environment_probe = bool(_agent_section.get("environment_probe", True))
+    # Bot Mode teammate protocol in canonical "Bot Chat" sessions (default True).
+    agent._bot_mode_protocol = bool(_agent_section.get("bot_mode_protocol", True))
     # Warm the probe off-thread: it shells out to python3/pip (~0.5s of
     # subprocess round-trips) and its result lands in the FIRST system
     # prompt build, which sits on the time-to-first-token critical path.

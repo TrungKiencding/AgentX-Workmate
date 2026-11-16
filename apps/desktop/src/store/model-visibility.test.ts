@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ModelOptionProvider } from '@/types/hermes'
 
@@ -325,5 +325,110 @@ describe('setProviderVisibility', () => {
     expect(next.has(modelVisibilityKey('nous', 'model'))).toBe(true)
     // The -fast sibling is represented by its base family, not its own key.
     expect(next.has(modelVisibilityKey('nous', 'model-fast'))).toBe(false)
+  })
+})
+
+describe('models granted after the list was customized', () => {
+  const gateway = (models: string[]) => provider('litellm', models)
+  const key = (model: string) => modelVisibilityKey('litellm', model)
+
+  it('shows a model the catalog did not list when the user last edited', () => {
+    // The user kept only Opus while the key reached Opus and DeepSeek.
+    const stored = new Set([key('claude-opus-5-5')])
+    const known = new Set([key('claude-opus-5-5'), key('deepseek-v4')])
+
+    // Later the gateway granted Sonnet.
+    const visible = effectiveVisibleKeys(
+      stored,
+      [gateway(['claude-opus-5-5', 'deepseek-v4', 'claude-sonnet-5-5'])],
+      known
+    )
+
+    expect(visible.has(key('claude-opus-5-5'))).toBe(true)
+    expect(visible.has(key('claude-sonnet-5-5'))).toBe(true)
+    // DeepSeek was on the list the user edited and they hid it: it stays hidden.
+    expect(visible.has(key('deepseek-v4'))).toBe(false)
+  })
+
+  it('keeps a provider the user hid as a whole hidden, new models included', () => {
+    const stored = new Set([emptyProviderSentinelKey('litellm')])
+    const known = new Set([key('claude-opus-5-5')])
+
+    const visible = effectiveVisibleKeys(stored, [gateway(['claude-opus-5-5', 'claude-sonnet-5-5'])], known)
+
+    expect(visible.has(key('claude-sonnet-5-5'))).toBe(false)
+    expect(visible.has(key('claude-opus-5-5'))).toBe(false)
+  })
+
+  it('shows a newly granted model even after the user hid everything', () => {
+    const known = new Set([key('claude-opus-5-5')])
+
+    const visible = effectiveVisibleKeys(new Set(), [gateway(['claude-opus-5-5', 'claude-sonnet-5-5'])], known)
+
+    expect(visible.has(key('claude-sonnet-5-5'))).toBe(true)
+    expect(visible.has(key('claude-opus-5-5'))).toBe(false)
+  })
+
+  it('a toggle made after the grant keeps the new model on the persisted list', () => {
+    const stored = new Set([key('claude-opus-5-5'), key('deepseek-v4')])
+    const known = new Set([key('claude-opus-5-5'), key('deepseek-v4')])
+    const providers = [gateway(['claude-opus-5-5', 'deepseek-v4', 'claude-sonnet-5-5'])]
+
+    const next = toggleModelVisibility(stored, providers, 'litellm', 'deepseek-v4', known)
+
+    expect(next.has(key('claude-sonnet-5-5'))).toBe(true)
+    expect(next.has(key('deepseek-v4'))).toBe(false)
+  })
+})
+
+describe('the persisted known set', () => {
+  const VISIBLE = 'agentx.desktop.visible-models'
+  const KNOWN = 'agentx.desktop.visible-models.known'
+
+  const freshStore = async () => {
+    vi.resetModules()
+
+    return import('./model-visibility')
+  }
+
+  afterEach(() => {
+    window.localStorage.removeItem(VISIBLE)
+    window.localStorage.removeItem(KNOWN)
+  })
+
+  it('reads a list saved before the known set existed as knowing only what it shows', async () => {
+    window.localStorage.setItem(VISIBLE, JSON.stringify(['litellm::claude-opus-5-5', 'nous::']))
+
+    const store = await freshStore()
+
+    expect([...(store.$knownModels.get() ?? [])]).toEqual(['litellm::claude-opus-5-5'])
+
+    const visible = store.effectiveVisibleKeys(
+      store.$visibleModels.get(),
+      [provider('litellm', ['claude-opus-5-5', 'claude-sonnet-5-5'])],
+      store.$knownModels.get()
+    )
+
+    expect(visible.has('litellm::claude-sonnet-5-5')).toBe(true)
+  })
+
+  it('records the catalog an edit was made against', async () => {
+    const store = await freshStore()
+    const providers = [provider('litellm', ['claude-opus-5-5', 'deepseek-v4'])]
+
+    store.setVisibleModels(new Set(['litellm::claude-opus-5-5']), providers)
+
+    expect(JSON.parse(window.localStorage.getItem(KNOWN) ?? '[]').sort()).toEqual([
+      'litellm::claude-opus-5-5',
+      'litellm::deepseek-v4'
+    ])
+    expect(store.$knownModels.get()?.has('litellm::deepseek-v4')).toBe(true)
+  })
+
+  it('stays null for a user who never customized', async () => {
+    const store = await freshStore()
+
+    expect(store.$visibleModels.get()).toBeNull()
+    expect(store.$knownModels.get()).toBeNull()
   })
 })

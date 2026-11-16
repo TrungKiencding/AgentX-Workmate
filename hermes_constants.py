@@ -147,6 +147,39 @@ def get_hermes_home() -> Path:
     return _hermes_home_from_env()
 
 
+# Resolved keys, keyed by the path string that was handed in. Path.resolve() is
+# a filesystem call and the redaction policy lookup runs per log record, so the
+# answer is remembered. Only paths that really exist are stored, see below.
+_HOME_KEY_CACHE: dict[str, str] = {}
+
+
+def hermes_home_key(path: str | Path | None = None) -> str:
+    """Stable key for an AgentX home/profile dir (``get_hermes_home()`` when ``path`` is None).
+
+    A directory that does not exist yet is resolved leniently and not cached,
+    because the answer can change once it is created (part of the path may
+    turn out to be a symlink).
+    """
+    candidate = Path(path) if path is not None else get_hermes_home()
+    raw = str(candidate)
+    cached = _HOME_KEY_CACHE.get(raw)
+    if cached is not None:
+        return cached
+    expanded = candidate.expanduser()
+    try:
+        resolved = expanded.resolve(strict=True)
+    except OSError:
+        return os.path.normcase(str(expanded.resolve(strict=False)))
+    key = os.path.normcase(str(resolved))
+    _HOME_KEY_CACHE[raw] = key
+    return key
+
+
+def reset_hermes_home_key_cache() -> None:
+    """Forget every remembered home key (for tests that move a home dir on disk)."""
+    _HOME_KEY_CACHE.clear()
+
+
 def get_process_hermes_home() -> Path:
     """Return the AgentX home for the running process, ignoring task overrides.
 
@@ -1630,3 +1663,74 @@ def partial_update_hint(exc: BaseException) -> list[str]:
         "    agentx update",
         "If that also fails, reinstall: https://github.com/TrungKiencding/AgentX-Workmate",
     ]
+
+
+# ---------------------------------------------------------------------------
+# Text AgentX writes into a *user* turn that the person never typed
+# ---------------------------------------------------------------------------
+# Producers (the cron scheduler, the gateway's model switch) and readers
+# (session previews, rosters) share these so a preview can recognise the
+# plumbing and show the conversation instead.
+
+# The cron scheduler opens every job prompt with one bracketed paragraph of
+# delivery guidance, closed by "]" and a blank line; the task follows.
+CRON_HINT_PREFIX = "[IMPORTANT: You are running as a scheduled cron job. "
+
+# A live model switch is recorded as a user-role bookkeeping row
+# (``display_kind="model_switch"``).
+MODEL_SWITCH_MARKER_PREFIX = "[System: The active model for this chat has changed to "
+
+
+# ---------------------------------------------------------------------------
+# A working directory that was deleted under the process
+# ---------------------------------------------------------------------------
+
+def safe_getcwd() -> str:
+    """``os.getcwd()``, tolerating a working directory that no longer exists.
+
+    A long-lived process can outlive its cwd — the messaging gateway keeps
+    running across an app upgrade that removes the checkout it was started
+    from. ``os.getcwd()`` then raises a bare ``[Errno 2] No such file or
+    directory`` with no filename, which read as a failure of whatever happened
+    to ask (pilot feedback 2026-11: ``write_file`` reported exactly that for a
+    file it had just written). Falls back to ``TERMINAL_CWD``, then the home
+    directory.
+    """
+    try:
+        return os.getcwd()
+    except OSError:
+        fallback = os.environ.get("TERMINAL_CWD") or ""
+        if fallback and os.path.isdir(fallback):
+            return fallback
+        return os.path.expanduser("~")
+
+
+def heal_working_directory() -> "str | None":
+    """Move the process out of a deleted working directory.
+
+    Returns the directory moved to, or ``None`` when the cwd was fine (the
+    overwhelmingly common case: one ``getcwd`` call). Hundreds of call sites
+    use ``os.getcwd()`` and relative paths; guarding each is whack-a-mole,
+    while a process whose cwd is gone has nothing to lose from a new one.
+    Called before every tool dispatch.
+    """
+    try:
+        os.getcwd()
+        return None
+    except OSError:
+        pass
+    candidates = [os.environ.get("TERMINAL_CWD") or ""]
+    try:
+        candidates.append(str(get_hermes_home()))
+    except Exception:  # noqa: BLE001 - any existing directory will do
+        pass
+    candidates.append(os.path.expanduser("~"))
+    for candidate in candidates:
+        if not candidate or not os.path.isdir(candidate):
+            continue
+        try:
+            os.chdir(candidate)
+        except OSError:
+            continue
+        return candidate
+    return None

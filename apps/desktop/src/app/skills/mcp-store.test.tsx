@@ -288,6 +288,8 @@ afterEach(async () => {
   queryClient.clear()
   // Probe results outlive the component on purpose; each test starts cold.
   ;(await import('./mcp-model')).probeCache.clear()
+  // So does a reload still in flight (a test may leave one unlanded).
+  ;(await import('./mcp-model')).resetMcpReloads()
   $activeGatewayProfile.set('default')
 })
 
@@ -1496,6 +1498,228 @@ describe('McpStore — mcp.json and search', () => {
     await waitFor(() => expect(getMcpCatalog).toHaveBeenCalledWith(true))
     expect(sync.tick).toHaveBeenCalledWith(false)
     await waitFor(() => expect(getHermesConfigRecord).toHaveBeenCalled())
+  })
+})
+
+// A reload (`reload.mcp`) shuts the backend's MCP loop down and rebuilds it,
+// and that cancels a probe (`POST /api/mcp/servers/{name}/test`) still
+// connecting on it: the test endpoint then answers `ok: false` with no error
+// text for a server that is merely still starting. Every mcp.json write fires
+// both at once, so a server added by hand read "Connection error" until the
+// person pressed Retry — while the reload was registering its tools.
+describe('McpStore — a probe and a reload take turns', () => {
+  const CANCELLED: HermesApi.McpTestResult = { ok: false, error: '', tools: [] }
+
+  /**
+   * The backend's MCP loop, as far as a probe can tell: `reload.mcp` cancels
+   * every probe in flight and every probe that starts before it has landed.
+   * A probe left alone takes a moment to connect, then answers `answer(name)`.
+   */
+  function mcpLoop(answer: (name: string) => HermesApi.McpTestResult) {
+    const inFlight = new Set<() => void>()
+    const reloads: Array<() => void> = []
+    let reloading = 0
+
+    request.mockImplementation((method: string) => {
+      if (method !== 'reload.mcp') {
+        return Promise.resolve({})
+      }
+
+      reloading += 1
+      ;[...inFlight].forEach(cancel => cancel())
+
+      return new Promise(resolve => {
+        reloads.push(() => {
+          reloading -= 1
+          resolve({ status: 'reloaded' })
+        })
+      })
+    })
+
+    testMcpServer.mockImplementation((name: string) => {
+      if (reloading > 0) {
+        return Promise.resolve(CANCELLED)
+      }
+
+      return new Promise<HermesApi.McpTestResult>(resolve => {
+        const cancel = () => {
+          clearTimeout(timer)
+          inFlight.delete(cancel)
+          resolve(CANCELLED)
+        }
+
+        const timer = setTimeout(() => {
+          inFlight.delete(cancel)
+          resolve(answer(name))
+        }, 15)
+
+        inFlight.add(cancel)
+      })
+    })
+
+    return {
+      /** The reloads asked for and not yet landed. */
+      pending: () => reloads.length,
+      /** Every reload asked for so far lands. */
+      land: () => reloads.splice(0).forEach(done => done())
+    }
+  }
+
+  const TWO_TOOLS: HermesApi.McpTestResult = {
+    ok: true,
+    tools: [
+      { name: 'ping', description: '' },
+      { name: 'echo', description: '' }
+    ]
+  }
+
+  const probesOf = (name: string) => testMcpServer.mock.calls.filter(([probed]) => probed === name).length
+
+  it('a server added by hand reads "Checking" while the reload connects it, then settles on its own', async () => {
+    const loop = mcpLoop(name => (name === 'my-server' ? TWO_TOOLS : (PROBES[name] ?? { ok: true, tools: [] })))
+    await renderStore()
+    await waitFor(() => expect(within(card('ghi-chu')).getByTestId('mcp-server-tools')).toBeTruthy())
+
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId('mcp-add-manual'))
+    })
+    await act(async () => {
+      fireEvent.click(within(await screen.findByTestId('mcp-config-dialog')).getByRole('button', { name: 'Save' }))
+    })
+
+    // The write landed and live sessions are reloading: the new server is still connecting.
+    await waitFor(() => expect(loop.pending()).toBe(1))
+    const added = await findCard('my-server')
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 60))
+    })
+    expect(within(added).getByTestId('mcp-server-status').textContent).toBe('Checking')
+    expect(within(added).queryByTestId('mcp-server-retry')).toBeNull()
+
+    await act(async () => {
+      loop.land()
+    })
+
+    // Connected, with nobody pressing Retry.
+    await waitFor(() => expect(within(card('my-server')).getByTestId('mcp-server-tools').textContent).toBe('2 tools'))
+    expect(within(card('my-server')).queryByTestId('mcp-server-status')).toBeNull()
+  })
+
+  it('a probe a reload cut short is asked again once the reload lands', async () => {
+    const slow = held<HermesApi.McpTestResult>()
+    const loop = mcpLoop(name => PROBES[name] ?? { ok: true, tools: [] })
+    const probeOnLoop = testMcpServer.getMockImplementation()!
+    let cutShort = false
+
+    // ghi-chu's first probe is still connecting when another card's switch reloads MCP.
+    testMcpServer.mockImplementation((name: string) => {
+      if (name === 'ghi-chu' && !cutShort) {
+        cutShort = true
+
+        return slow.promise
+      }
+
+      return probeOnLoop(name)
+    })
+    await renderStore()
+    await waitFor(() =>
+      expect(within(card('linear')).getByTestId('mcp-server-status').textContent).toBe('Needs sign-in')
+    )
+    expect(within(card('ghi-chu')).getByTestId('mcp-server-status').textContent).toBe('Checking')
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('switch', { name: 'Disable Linear' }))
+    })
+    await waitFor(() => expect(loop.pending()).toBe(1))
+    // The reload's shutdown cancels the probe on the loop.
+    await act(async () => {
+      slow.settle(CANCELLED)
+    })
+
+    expect(within(card('ghi-chu')).getByTestId('mcp-server-status').textContent).toBe('Checking')
+    expect(within(card('ghi-chu')).queryByTestId('mcp-server-retry')).toBeNull()
+
+    await act(async () => {
+      loop.land()
+    })
+
+    await waitFor(() => expect(within(card('ghi-chu')).getByTestId('mcp-server-tools').textContent).toBe('3 tools'))
+  })
+
+  it('a server that really fails still ends on the error, asked a bounded number of times', async () => {
+    const loop = mcpLoop(name =>
+      name === 'my-server'
+        ? { ok: false, error: 'spawn npx ENOENT', tools: [] }
+        : (PROBES[name] ?? { ok: true, tools: [] })
+    )
+
+    await renderStore()
+    await waitFor(() => expect(within(card('ghi-chu')).getByTestId('mcp-server-tools')).toBeTruthy())
+
+    await act(async () => {
+      fireEvent.click(await screen.findByTestId('mcp-add-manual'))
+    })
+    await act(async () => {
+      fireEvent.click(within(await screen.findByTestId('mcp-config-dialog')).getByRole('button', { name: 'Save' }))
+    })
+    await waitFor(() => expect(loop.pending()).toBe(1))
+    await findCard('my-server')
+    await act(async () => {
+      loop.land()
+    })
+
+    await waitFor(() =>
+      expect(within(card('my-server')).getByTestId('mcp-server-status').textContent).toBe('Connection error')
+    )
+    expect(within(card('my-server')).getByTestId('mcp-server-retry')).toBeTruthy()
+    // Asked once, after the reload: a failure nothing interrupted is the answer.
+    expect(probesOf('my-server')).toBe(1)
+  })
+
+  it('a failure a reload overlapped is asked once more, and the second answer stands', async () => {
+    const slow = held<HermesApi.McpTestResult>()
+
+    const loop = mcpLoop(name =>
+      name === 'ghi-chu'
+        ? { ok: false, error: 'spawn python3 ENOENT', tools: [] }
+        : (PROBES[name] ?? { ok: true, tools: [] })
+    )
+
+    const probeOnLoop = testMcpServer.getMockImplementation()!
+    let first = true
+
+    testMcpServer.mockImplementation((name: string) => {
+      if (name === 'ghi-chu' && first) {
+        first = false
+
+        return slow.promise
+      }
+
+      return probeOnLoop(name)
+    })
+    await renderStore()
+    await waitFor(() =>
+      expect(within(card('linear')).getByTestId('mcp-server-status').textContent).toBe('Needs sign-in')
+    )
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole('switch', { name: 'Disable Linear' }))
+    })
+    await waitFor(() => expect(loop.pending()).toBe(1))
+    await act(async () => {
+      slow.settle({ ok: false, error: 'spawn python3 ENOENT', tools: [] })
+    })
+    expect(within(card('ghi-chu')).getByTestId('mcp-server-status').textContent).toBe('Checking')
+
+    await act(async () => {
+      loop.land()
+    })
+
+    await waitFor(() =>
+      expect(within(card('ghi-chu')).getByTestId('mcp-server-status').textContent).toBe('Connection error')
+    )
+    expect(within(card('ghi-chu')).getByTestId('mcp-server-retry')).toBeTruthy()
+    expect(probesOf('ghi-chu')).toBe(2)
   })
 })
 

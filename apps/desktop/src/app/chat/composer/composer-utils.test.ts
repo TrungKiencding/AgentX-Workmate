@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   acceptsTriggerCompletion,
+  appendToDraft,
   composerLock,
   isPendingDraftPersistCurrent,
   type PendingDraftPersist,
@@ -154,5 +155,24 @@ describe('composerLock', () => {
         })
       }
     }
+  })
+})
+
+describe('appendToDraft', () => {
+  it('continues the line inline and starts a paragraph for a block', () => {
+    expect(appendToDraft('', '@file:a.md', 'inline')).toBe('@file:a.md')
+    expect(appendToDraft('Xem  ', '@file:a.md', 'inline')).toBe('Xem @file:a.md')
+    expect(appendToDraft('', 'Tóm tắt.', 'block')).toBe('Tóm tắt.')
+    expect(appendToDraft('Đang viết', 'Tóm tắt.', 'block')).toBe('Đang viết\n\nTóm tắt.')
+    expect(appendToDraft('Đang viết\n', 'Tóm tắt.', 'block')).toBe('Đang viết\nTóm tắt.')
+  })
+
+  it('adds a `once` text a single time, and leaves an empty insert alone', () => {
+    const first = appendToDraft('Đang viết', 'Tóm tắt.', 'block', true)
+
+    expect(appendToDraft(first, 'Tóm tắt.', 'block', true)).toBe(first)
+    // Without `once` the same text is a second request.
+    expect(appendToDraft(first, 'Tóm tắt.', 'inline')).toBe(`${first} Tóm tắt.`)
+    expect(appendToDraft('Đang viết', '   ', 'block')).toBe('Đang viết')
   })
 })

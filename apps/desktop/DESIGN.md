@@ -103,7 +103,8 @@ what most primitives write; either is fine, a hex is not.
 
 1. **Flat, not boxed.** No card-in-card, no divider borders inside a panel.
    Group with whitespace and a single hairline, never nested rounded boxes.
-   Cards and the composer carry a border, never a shadow.
+   Cards and the composer carry a border, never a shadow — with one
+   exception: the folder list on the home surface (§ Chat).
 2. **Elevation is a level, not a look.** Something that floats takes elevation
    level 1 (`shadow-md`) or level 2 (`shadow-nous`), and each level brings its
    own 1px edge. No per-surface shadows, no glows, no backdrop blur.
@@ -141,8 +142,40 @@ what most primitives write; either is fine, a hex is not.
 - **One action, one home.** A command may have keyboard, palette, and visible
   affordances, but they invoke the same action and state. Do not fork behavior
   per entry point.
-- **Projects own workspace cwd.** Use Sidebar → Projects for local folders and
-  worktrees; do not reintroduce a per-session/right-sidebar folder-picker flow.
+- **Work and Assistants share the sidebar header.** Bot Mode contributes a labelled
+  `SegmentedControl` to `sidebar.header`, using the existing control motion and
+  focus treatment. It navigates to the assistant roster and returns to the
+  workspace destination the user left; it does not create or reset a session.
+  Keep the control inside the rail above New chat, full-width with two equal
+  segments. Read the live route on click so fast toggles honour the last click.
+  Temporary overlays such as Schedules and Settings never replace the Work
+  destination. A main-session re-click must also cancel a pending route to a
+  different chat, while a stable re-click preserves navigation history.
+  Schedules occupies the former Assistants sidebar position and opens the
+  existing Cron overlay. Keep it visible even when no jobs exist or the
+  statusbar is hidden; creating and repairing a schedule needs a clear home.
+  The titlebar slots share one grid between pane and system controls: the
+  center takes the remaining space and truncates long context labels rather
+  than overlapping either side.
+- **Projects own workspace cwd, chosen before the first message.** A project
+  is a folder (or a few) and is added straight from the OS folder picker — the
+  Projects "+", ⌘O, the palette, or "Open another folder…" under the composer —
+  never through a form. A new chat's folder is picked in the context bar under
+  the composer (`WorkspacePicker`, spec §5.8: an inline control, recent
+  projects first, then repos found on disk, then "Open another folder…" / "No
+  folder"). Once the chat exists its folder is settled: the same control only
+  shows it and offers a new chat there; moving a chat is the row menu's "Move
+  to project". Do not reintroduce a right-sidebar folder picker or a mid-chat
+  cwd switch, and never let a hidden state (a drilled-in project, an inherited
+  folder) decide where a chat runs without the context bar saying so.
+- **One sidebar, no modes.** Projects sit above Chats: each project is a row
+  that opens and closes in place (collapsed by default, remembered, opened for
+  you when you open one of its chats) with its five most recent chats and a
+  "Show all N chats" row that drills into its full list and lanes. Chats lists
+  only what no listed project holds — no folder, or a hidden project — so
+  nothing shows twice and nothing is lost. Repos the disk scan found stay out
+  of the sidebar until someone chats in them (`sidebarProjects`); the folder
+  picker offers them. Ownership is one rule, `owningProjectId`.
 
 Navigation must preserve context. A background session finishing, a tool result
 arriving, or a project refresh may update badges and cached data; it must not
@@ -273,6 +306,7 @@ takes one of two levels, and each level's shadow carries its own 1px
 | Level | Token | Recipe | Surfaces |
 | --- | --- | --- | --- |
 | 0 | `shadow-xs` and `shadow-composer` = `none`; `shadow-sm` = the 1px ring alone | — | page, cards, the composer, the active segment |
+| home | `--elevation-home-card` | a 1px contact shadow under a soft `0 10px 28px -14px` drop (stronger in dark); no ring — the sheet keeps its hairline | the home surface's folder list, the only object on an empty page, and nothing else |
 | 1 | `shadow-md` = `--elevation-1` | `0 4px 16px rgb(0 0 0 / .08)` + ring | popover, menu, select, toast, the "Mới nhất" pill, composer drawers, the thread timeline popover |
 | 2 | `shadow-nous` = `shadow-lg` = `--elevation-2` | `0 16px 48px rgb(0 0 0 / .16)` + ring | dialog, command palette, session switcher, route overlays |
 
@@ -488,7 +522,6 @@ belong to the home greeting and onboarding.
 - `--switch-md-track-width/-height` (32×18px) · `--switch-md-thumb` (14px) —
   the Switch (spec §5.6's 28×16 / 12, one step up). `--status-pill-h-sm/-md`
   (24/30px; `md` rides `--control-h-sm`) — the `StatusPill`.
-  `--intro-card-min-height` (56px) — the home surface's task card.
 - **Radius rungs are fixed** (spec §3.8) — `--radius-scalar` is gone, and the
   `rounded-*` utilities no longer ride it:
 
@@ -529,7 +562,6 @@ overrides.
 | `text` | boxless secondary ink, underline on hover | inline "Huỷ", "Xoá bộ lọc" |
 | `textStrong` | medium primary ink, underlined in `--border-strong` | the actionable word in a row ("Đổi", "Mở log") |
 | `chip` | the spec's **inline control**: 14px (`text-sm`) secondary label + 18px glyph, a `--bg-hover` frame only on hover; pair with `size="chip"` | context-bar items, in-row pickers, "Thêm" |
-| `card` | an **interactive card**: a flat `--bg-app` tile under `--border-default`; hover firms the edge to `--border-strong`, pressed `--bg-subtle` — never a lift, never a shadow; pair with `size="card"` | the home surface's ways in |
 
 **Sizes** ride the `--control-h-*` ramp. Labels are 15px (`text-base`), 14px
 at `sm`, weight 500 only at `lg`:
@@ -544,7 +576,6 @@ at `sm`, weight 500 only at `lg`:
 | `inline` | flush, zero box | buttons inside a heading/sentence |
 | `micro` | flush, 13px text, 14px glyph | status-stack headers, table footers, the toast stack's row |
 | `chip` | 28px, 8px padding | the `chip` variant's size |
-| `card` | padding-driven (12×16), 56px floor, left-aligned, 18px glyph | the `card` variant's size |
 | `icon` / `icon-sm` / `icon-lg` | 36/30/44px square; 20/18/20px glyph | icon-only actions |
 | `icon-xs` | 24px square, 14px glyph | inline icon actions and pane-header chrome (`ICON_BUTTON` in `master-detail.tsx` pairs with it) — the hit-target floor |
 | `icon-titlebar` | 24px (`--titlebar-control-size` / `-height`) | the titlebar's own controls — off the ramp, never under the 24px floor |
@@ -757,6 +788,21 @@ running — while staying quieter than the content they frame.
   is up, so a launch-time read can say "not configured"; the hook re-reads
   whenever the gateway opens while no one shows as signed in, so the name
   appears on its own instead of only after Settings → Account re-reads it.
+- **The model allowance** (`ComposerAccountQuota`, `app/chat/composer/account-quota.tsx`)
+  sits at the far right of the context strip below the chat composer, after the
+  model selector. It shares `composerUndersideControl` with the model and folder:
+  one quiet 28px row, a 16px ring and remaining percentage, with a tooltip for
+  its label. The model truncates before the quota shrinks or the row wraps.
+  Clicking opens the shared Popover upward, aligned to the right edge:
+  remaining percentage first, then used
+  percentage and the server's reset timestamp in local time. Never show monetary
+  amounts, descriptive footer copy or the last-check timestamp in this surface.
+  Signal blue is normal, warning at 20% remaining, danger at zero; copy carries
+  the warning as well as colour. Unlimited, unknown, stale and exhausted are
+  distinct. Never infer a reset or replenish money locally. Keep cached values
+  visibly stale through transient failures; clear them on identity changes or
+  denied access. The feature-owned atom refreshes on focus, after turns and
+  every 30 seconds while visible. It adds no model tools or prompt content.
 - **The projects tree keeps Codicon only for data.** A project's icon is a
   Codicon name the user picked, and the tree's lead glyphs (home, branch,
   kanban, repo) share that column, so they stay Codicon as file-tree
@@ -1102,49 +1148,129 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 
 ## Chat, tools & boot surfaces
 
-- **The home surface is the empty transcript** (`components/chat/intro.tsx`):
-  a greeting at the 30px display rung in the Newsreader serif
-  (`font-serif-display text-3xl`, regular weight, `tracking-display`,
-  `text-balance`), one muted
-  16px line (`text-md`, the catalog's `bodyVariants`; `intro-copy.jsonl` only
-  in English with a personality) capped at 38rem, then **at most four task
-  cards** (`Button variant="card"` on the `.intro-cards` two-column grid,
-  capped at 40rem): an 18px Tabler glyph before a 15px medium title over a
-  14px one-line description. The composer stays the only CTA; the block leads
-  the eye down to it. **The block centres with `justify-content: safe
-  center`**: centred while it fits, and once a short window can't hold the
-  greeting, the line and the cards it starts at the top and overflows *down*
-  into the scroller — never split above the top edge and under the composer,
-  which cut the first line and hid the last card. It fronts
-  the fresh draft *and* a routed conversation that exists but has no messages
-  yet (a new chat in a project) once it has resumed and nothing is running.
-  - Every card is grounded in something the app already knows — the session you
-    were last in, a project you already added — plus four fixed starters whose
-    title, description *and* prompt live in the locale files. **The starters
-    take the folder's side**: inside a git repository the coding pair leads
-    (explain the code folder, plan a change), anywhere else the office pair
-    leads (summarise a document, draft an email, then plan the week and
-    explain "this folder"). The same `repoStatusForCwd` probe the composer's
-    coding rail uses decides it, so cards, placeholder and branch strip never
-    disagree. **Nothing here invents a suggestion**: no recent session, no
-    resume card. The selection rule is the pure `introChipSources()` in
-    `intro-chips.ts` and the wide slot is `introCardSpan()` (the resume card
-    spans both columns and leads — the row is asymmetric on purpose), so both
-    are testable without a renderer; `Intro` only renders. Clicking a card runs
-    one *existing* action (`openSession`, `requestStartWorkSession`,
-    `requestComposerInsert`) — the home surface owns no navigation of its own.
+The conversation's **session resources** surface (`app/chat/session-resources/`)
+is a 320px card in the chat's upper-right corner: 16px corners, level-1 shadow,
+single-line rows. It exists once a conversation has started (a bound session
+with transcript content); an empty draft or allocated-but-empty session has no
+card, toggle, or reserved gutter. One icon toggles it.
+
+**The card never covers the conversation unasked.** `index.tsx` measures the
+chat and sets `data-layout`; the stylesheet lays out from that attribute alone
+(the 1040px threshold lives in one place, `DOCK_MIN_WIDTH`).
+
+- **Docked** (chat ≥ 1040px): the card has its own column. The conversation's
+  containing block narrows to reserve it, keeping transcript and docked
+  composer on the same centerline — do not reserve the gutter with padding:
+  absolute-positioned children center on the padding box while in-flow
+  children use the content box. Shown by one remembered choice
+  (`$sessionResourcesPinned`, persisted): closing it is a choice about the
+  card, not about one conversation, so it stays closed in the next one.
+- **Floating** (narrower — a small window, a split tile, a viewer open beside
+  the chat): the card can only sit over the transcript, so it is closed until
+  asked for, per conversation. Opening a file from it keeps it in reach for
+  the next file; touching the conversation it covers puts it away. Opening a
+  file from the docked card therefore *hides* the card when the viewer takes
+  its column — the reply stays readable. Closed, its launcher carries the
+  number of outputs (a small primary-colored count, described to assistive
+  tech, gone once the card is open): the default window is narrower than the
+  dock threshold, so without it nothing at the edge said a file was made.
+
+The transcript reserves symmetric scrollbar gutters so overflowing history
+stays centered with the composer. Its thumb is hidden at rest and shows while the
+person scrolls (wheel, trackpad, keys, dragging the bar) or reaches for the
+bar's edge (`hooks/use-scrollbar-reveal.ts`); the app's own scrolling — a
+streaming reply followed to the bottom — does not show it. The composer stays mounted and its floating
+mode retains viewport positioning.
+
+**Every row needs evidence** (`model.ts` — the rules are its header). An output
+is a file the backend verified (`files_created`), the target of a successful
+writing tool, or an explicit hand-over in the reply (a link or image to a
+file, a `MEDIA:` tag, an artifact). A source is what the user brought or a
+successful reading tool opened, web search hits, and links a reply cites. A
+path that is only *mentioned* — in prose, in inline code, in a command's
+output, in a file-search listing — is neither; a failed or still-running call
+proves nothing; an arbitrary tool's relative path is not resolved against the
+session folder. A file that was read and then edited is listed once, as an
+output. Newest turn first; within a turn, what the model handed over
+(`deliver_file`, `MEDIA:`, a link or image in the reply, an artifact) leads,
+then the backend's verified files, then whatever a tool wrote on the way — a
+deck is not buried under the check renders that preceded it. A compaction
+that summarizes turns away moves their files onto its divider, so the list
+does not lose them while the conversation stays open. Two files of one name
+show their folder. Do not add pattern-matching for paths here: widen the
+backend's verified list instead.
+
+Only Changes, Outputs, Sources, the actual items, and their add actions are
+visible. No explanatory subtitles, counters, search field, or pinning step.
+Changes (the folder's uncommitted work, shown only when there is some) opens
+the cwd-scoped review. An output's type tag is its extension — short, and the
+same in every language. "Create an output" writes a whole, sendable request
+into the scoped composer, once; a surface without a composer (a read-only
+messaging conversation) does not offer it. Source addition uses the existing
+file picker. A file deleted or moved away since leaves the list
+(`presence.ts`: checked when the list changes, when the window comes back,
+and every 15s while shown; a file restored from the trash returns; no answer
+from the stat is not "gone") — the transcript's own cards keep the record. Long inventories scroll without an item cap; full
+targets remain available through tooltips.
+
+Reading the history never blocks a frame: the collector reads newest messages
+first in ~8ms passes and the list fills in; it is kept across collapses, so
+reopening the card rereads nothing. A hidden tab reads nothing. Stale opens
+are guarded across session/profile/cwd changes. Background events never open
+a viewer.
+
+An identity-less new-chat draft has no resource sidebar or project / Changes
+summary, even if its selected folder is inherited from the previous
+conversation. Late message or repo-status updates may not populate that draft.
+Keep workspace caches intact so returning to the original conversation restores
+its resources; the composer's separate workspace controls still own folder
+selection and working-tree status.
+
+- **The home surface is a greeting and a folder list** (`components/chat/intro.tsx`,
+  `app/chat/home-workspaces.tsx`), centred in the room above the docked
+  composer (`.home-surface`, `justify-content: safe center` — once a short
+  window can't hold it, it starts at the top and scrolls instead of splitting
+  under the titlebar). Top to bottom:
+  - a 15px greeting in secondary ink beside the time of day, drawn the way the
+    platform's widgets mark it — the sun in `--tint-yellow` until noon, the
+    sunset in `--tint-orange` until six, the moon in `--tint-indigo` after;
+  - one **headline** at the 30px display rung in the Newsreader serif
+    (`font-serif-display text-3xl`, regular weight, `tracking-display`,
+    `text-balance`): a plain question a person would ask ("Hôm nay bạn muốn
+    làm gì?") from the catalog's `assistant.intro.headlines` (`intro-copy.jsonl`
+    only in English with a personality), the same line while a chat stays
+    empty, a new one per chat. Keep these short and literal — no slogans;
+  - on a fresh draft only (the one moment its folder can still be chosen), an
+    **inset grouped list** of where the chat will work: the three most recent
+    folders in the composer picker's own order (`pickableWorkspaces`), the
+    chosen one always among them with an accent check, then "no folder" under
+    a full-width rule and an accent "Open another folder…" row. 44px rows, a
+    24px soft `IconTile` per folder, separators inset to the text that step
+    aside for a highlighted row, one sheet with `--elevation-home-card`, and a
+    13px footnote under it. Row choice is the pure `homeWorkspaceRows()`; a
+    folder no project names takes the last slot, so picking a listed one never
+    slides the rows under the pointer. It is the same choice as the context
+    bar under the composer, which stays.
+  No suggestion cards, no paragraph about the product: the composer is the
+  call to action.
+  - It fronts the fresh draft *and* a routed conversation that exists but has
+    no messages yet (a new chat in a project) once it has resumed and nothing
+    is running — but never the chat a draft's first send just created, whose
+    slice is empty for a beat after the route re-homes onto it
+    (`STARTED_BY_SEND_ROUTE_STATE` in `routes.ts`); that beat used to flash the
+    greeting back up under the send.
   - The greeting names the user only when the account store actually has a
     display name, and then in full, as the account spells it ("Chào buổi
     chiều, Lê Trung Kiên"). No name, no comma, no invented placeholder.
   - **One entrance, once per app launch** — not once per empty state. The
-    greeting rises at `--dur-long`; the body and each card follow on a 40ms
-    step at `--dur-short`, all settled by 400ms. `prefers-reduced-motion`
+    greeting, the headline and the folder list rise 6px at `--dur-long` on a
+    60ms step; every later arrival is a plain fade. `prefers-reduced-motion`
     collapses it to an instant crossfade — the app-wide reduced-motion
     kill-switch (0.01ms, top of `styles.css`) outranks the intro's own fade —
     with no stagger and no transform.
   - **The ground is the glyph field** (`components/glyph-field`, the model in
     `lib/glyph-field.ts`). At rest it is blank paper. A primary click anywhere
-    on the chat surface — the greeting, a card, the composer — sends a ring of
+    on the chat surface — the greeting, the composer — sends a ring of
     10px JetBrains Mono characters out from the pointer: each one flashes in
     the accent as the edge reaches it and settles into a grey trace, brightest
     where the ring crosses the strokes of a hidden drawing (one per app
@@ -1154,10 +1280,9 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
     bitmap and no animation frame. It grounds the empty chat only — characters
     behind a transcript compete with the text — and reduced motion gets blank
     paper. Off is Settings → Appearance → Nền cuộc trò chuyện.
-  - The greeting and its line sit in a pool of clear paper (`.intro-head`: the
-    surface colour, spread and blurred past the text block), and the cards are
-    opaque flat tiles on the page colour, so the field runs right up to the
-    words but never under them.
+  - The greeting and headline sit in a pool of clear paper (`.home-hero::before`:
+    the surface colour, spread and blurred past the text block), so the field
+    runs right up to the words but never under them.
 - The transcript and composer are built on `@assistant-ui/react`. Extend the
   existing components under `src/components/assistant-ui` and
   `src/app/chat/composer`; do not fork a second markdown, message, tool-call, or
@@ -1282,6 +1407,31 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   28px, `--bg-app` under a hairline. The drag-to-dock target is the shared
   drop sheet (a 2px dashed `--border-strong` edge on `--bg-subtle`) firming as
   the composer nears it — no coloured glow.
+- **Messaging setup teaches in place.** `messaging/setup-guide.tsx` is an
+  optional, non-modal coach inside the platform detail. It opens once per
+  platform on each device; the presentation-only marker is globally scoped
+  and stores no form values. The header's question mark replays it, each
+  field's question mark opens that field, and Skip/Escape return to the full
+  form with drafts intact. Navigation never saves, enables, or verifies a
+  connection. Save and restart use the existing actions. A short fade/rise
+  follows manual step changes; reduced motion is still. Detailed guides link
+  to the landing's `/docs/kenh-tin-nhan/` platform anchors.
+- **Coach steps show the real screen.** `messaging/guide-figures.tsx` maps a
+  platform's coach step to masked screenshots captured from the live service
+  (`src/assets/messaging-guide/`, WebP at 1x): one at a time under the step
+  text, capped at `max-w-xl`/`max-h-96`, back/next when there are several, a
+  click opens the natural size in a dialog. Tokens, IDs, phone numbers, names
+  and avatars are masked or replaced before a capture lands; a step without a
+  capture shows nothing. Step 1 of the full form offers "Xem từng bước có ảnh"
+  next to the web guide.
+- **WhatsApp links in place.** Step 1 is "Liên kết điện thoại": pick self-chat
+  or a separate number, show the bridge's QR (white mat in both themes, it
+  rotates every ~20s), and the scan saves + enables + restarts on its own —
+  the one coach action that writes, because the scan is the person's explicit
+  act. The run lives in `useWhatsAppLink` at the detail level so the coach and
+  the form share it; leaving the platform cancels it. Fields Workmate writes
+  itself (`WHATSAPP_ENABLED/MODE/DM_POLICY`) stay under "Nâng cao" and are not
+  walked by the coach.
 - **External messaging transcripts are live, branded, and read-only.** Their
   sidebar conversation row carries the platform avatar; a visible header above
   the transcript pairs its title with a quiet, logo-bearing platform `TagChip`.
@@ -1339,7 +1489,16 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
   menu — so prose keeps its flow. The files a turn produced without handing
   over (a script's stdout named them) close the turn as `CreatedFilesCard`,
   the changed-files card's sibling: one row per file, open on click, save on
-  the hover control, and it stays with its turn. All three share one action
+  the hover control, and it stays with its turn. What the backend counts
+  (`tui_gateway/deliverables.py`): paths with spaces are tried against the
+  disk; a file extracted, downloaded or copied with its old dates counts by
+  its inode change time; data and script files (`.json`, `.py` …) only when
+  the turn named them and no file tool wrote them; nothing in the temp
+  folder unless the reply names it; after a `deliver_file` hand-over, only
+  the other files the reply names; and no workspace walk while another
+  conversation works in the same folder. The list is pinned to the reply both
+  in the database and in the live history, so a transcript rebuilt from
+  memory (`/compress`, `/undo`) and a branch keep it. All three share one action
   home, `store/deliverables.ts`; none of them opens the rail on arrival.
 - **The rail shows documents, not bytes.** A file target's `previewKind`
   now routes `pdf` to Chromium's own viewer in the preview webview, `document`
@@ -1376,7 +1535,10 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 - **Model catalogs follow the account's grant.** Chat refreshes on opening,
   returning to the window, reconnecting, and once a minute while visible;
   opening a model picker also refreshes. An idle send checks again before
-  creating or using its conversation. Preserve a model that is still granted;
+  creating or using its conversation — as the submit pipeline's `beforeSend`
+  gate, so the user's message and the waiting row are already on screen while
+  the check runs; a refusal (or Stop pressed meanwhile) takes the message down
+  and hands the words back to the composer. Preserve a model that is still granted;
   replace a retired one between turns through the existing session switch,
   without discarding history. Keep cached rows during connectivity failures
   and retain Refresh Models as recovery. Refreshing never rotates the account key.
@@ -1528,7 +1690,7 @@ keys the palette runs on — "↑↓ di chuyển · ↵ chọn · esc đóng"
 | Anything leaving | the property it entered on | the paired `--dur-*-exit` · `--ease-in` |
 | Reaction / particle / reorder settle | `transform`, `opacity` | `--dur-long-exit` · `--spring-pop` (no overshoot) |
 | Page-tab underline sliding (`PageTabs`) | `transform`, `opacity` (its width snaps) | `--dur-short` · `--ease-in-out`; reduced motion → a jump |
-| Card hover (`Button variant="card"`, `StoreCard`) | `border-color` (`--border-default` → `--border-strong`) | `--dur-micro` · `--ease-out` — never translate, never scale, never a shadow |
+| Card hover (`StoreCard`) | `border-color` (`--border-default` → `--border-strong`) | `--dur-micro` · `--ease-out` — never translate, never scale, never a shadow |
 | Skeleton (`animate-skeleton`) | `opacity` 1 ↔ 0.6 | 1.6s · `--ease-in-out`, starting after 300ms; reduced motion → shown, still |
 | Glyph field ring (canvas, see § Chat) | each character's alpha and tint, every frame while a ring flashes; the trace's fade as the canvas's `opacity` | edge eases out over 2.4s; flash 420ms and trace 3.2s time constants (`lib/glyph-field.ts`); reduced motion → no ring |
 | Thinking row (`TypingDots` + the label's `shimmer`) | each dot's `opacity` and `translateY` (2px), a beat apart; the shimmer band | 1.4s lap (`--thinking-lap-ms`), `--ease-in-out`, dots 15% apart; shimmer 1.8s with a 0.4s rest; unfocused, hidden or reduced motion → still dots, plain label |
@@ -1738,7 +1900,8 @@ The detailed state contract lives in the scoped
 - [ ] No `className` overriding a primitive's padding / size / radius / chrome?
 - [ ] One primary (`--bg-inverse`) action per context, rightmost, never the
       accent or the brand?
-- [ ] Cards and the composer carry a border, not a shadow; a floating surface
+- [ ] Cards and the composer carry a border, not a shadow (the home folder
+      list's lift is the one exception); a floating surface
       takes `shadow-md` (level 1) or `shadow-nous` (level 2) and nothing else?
 - [ ] Hierarchy by ink, not by size — nothing under 13px, no uppercase, no
       tracking?

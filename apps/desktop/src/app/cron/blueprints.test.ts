@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { AutomationBlueprint } from '@/hermes'
 
-import { initialBlueprintValues } from './blueprints'
+import { blueprintOptionLabel, initialBlueprintValues } from './blueprints'
 
 function blueprint(fields: AutomationBlueprint['fields']): AutomationBlueprint {
   return {
@@ -101,5 +101,29 @@ describe('initialBlueprintValues', () => {
     )
 
     expect(values).toEqual({ deliver: 'telegram' })
+  })
+})
+
+describe('blueprintOptionLabel', () => {
+  const field = {
+    name: 'day',
+    type: 'enum' as const,
+    label: 'Vào ngày nào?',
+    default: 'sunday',
+    options: ['sunday', 'monday'],
+    optional: false,
+    help: ''
+  }
+
+  it('shows the translated label and keeps the value as the identifier', () => {
+    const translated = { ...field, optionLabels: { sunday: 'Chủ nhật' } }
+
+    expect(blueprintOptionLabel(translated, 'sunday')).toBe('Chủ nhật')
+    // An option the catalog has no words for still renders.
+    expect(blueprintOptionLabel(translated, 'monday')).toBe('monday')
+  })
+
+  it('shows the raw value for an untranslated catalog', () => {
+    expect(blueprintOptionLabel(field, 'sunday')).toBe('sunday')
   })
 })

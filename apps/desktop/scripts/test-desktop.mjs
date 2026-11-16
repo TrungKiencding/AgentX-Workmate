@@ -7,6 +7,7 @@ import { listPackage } from '@electron/asar'
 
 import PACKAGE_JSON from '../package.json' with { type: 'json' }
 import { isCredentialEnvVar } from './utils.mjs'
+import { sandboxShellEnv } from './sandbox-env.mjs'
 
 const MODE = process.argv[2] || 'help'
 const ARCH = process.arch === 'arm64' ? 'arm64' : 'x64'
@@ -303,11 +304,12 @@ function launchFresh() {
   env.AGENTX_DESKTOP_TEST_MODE = 'fresh-install'
   env.AGENTX_DESKTOP_USER_DATA_DIR = userDataDir
   env.AGENTX_HOME = hermesHome
+  Object.assign(env, sandboxShellEnv(sandbox, env.PATH))
   delete env.AGENTX_DESKTOP_AGENTX
   delete env.AGENTX_DESKTOP_AGENTX_ROOT
 
   const child = spawn(APP.binary, [], {
-    cwd: os.homedir(),
+    cwd,
     detached: true,
     env,
     stdio: 'ignore'
