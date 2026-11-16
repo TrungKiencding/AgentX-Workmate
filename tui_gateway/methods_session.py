@@ -2832,7 +2832,7 @@ def _(rid, params: dict) -> dict:
             return _err(rid, 4008, "nothing to branch — send a message first")
         count = params.get("count")
         if isinstance(count, int) and count > 0:
-            history = history[:count]
+            history = history[: branch_cut_index(history, count)]
         new_key = _new_session_key()
         new_sid = uuid.uuid4().hex[:8]
         source = _session_source(session)
@@ -2874,16 +2874,7 @@ def _(rid, params: dict) -> dict:
             # were the write-amplification pattern removed in #23254.
             db.append_messages_batch(
                 new_key,
-                [
-                    {
-                        "role": msg.get("role", "user"),
-                        "content": msg.get("content"),
-                        # Preserve the parent's original message timestamps —
-                        # branch copies are history, not new activity (9d73006ad).
-                        "timestamp": msg.get("timestamp"),
-                    }
-                    for msg in history
-                ],
+                branch_seed_rows(history),
                 chunk_rows=500,
             )
             db.set_session_title(new_key, title)

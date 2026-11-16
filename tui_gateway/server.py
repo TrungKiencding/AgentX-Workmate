@@ -6,6 +6,7 @@ import copy
 import functools
 import hashlib
 import inspect
+import itertools
 import json
 import logging
 import os
@@ -42,6 +43,7 @@ from agent.replay_cleanup import sanitize_replay_history
 from agent.skill_commands import describe_skill_invocation
 from agent.conversation_loop import INTERRUPT_WAITING_FOR_MODEL_PREFIX
 from tui_gateway import git_probe
+from tui_gateway.deliverables import branch_cut_index, branch_seed_rows
 from tui_gateway.usage_outcome import FALLBACK_CODE as FALLBACK_FAILURE_CODE
 from tui_gateway.usage_outcome import exception_failure_code, turn_failure_code
 from tui_gateway.turn_marker import (
@@ -3071,17 +3073,7 @@ def _persist_branch_seed(session: dict) -> None:
             # _branch_seed_persisted unset).
             db.append_messages_batch(
                 key,
-                [
-                    {
-                        "role": msg.get("role", "user"),
-                        "content": msg.get("content"),
-                        # Preserve the parent's original message timestamps —
-                        # append_message would otherwise stamp time.time() and the
-                        # branch's copied history would all appear authored "now".
-                        "timestamp": msg.get("timestamp"),
-                    }
-                    for msg in seed
-                ],
+                branch_seed_rows(seed),
                 chunk_rows=500,
             )
             session["_branch_seed_persisted"] = True
@@ -7437,9 +7429,36 @@ def _coerce_seed_history(value: Any) -> list[dict]:
         if not isinstance(content, str) or not content.strip():
             continue
 
-        history.append({"role": role, "content": content})
+        entry: dict = {"role": role, "content": content}
+        files = _coerce_seed_files(item.get("files_created")) if role == "assistant" else []
+        if files:
+            # The files the copied turn produced: shown on its reply, the
+            # way the original turn showed them (presentation only).
+            entry["display_metadata"] = {"files_created": files}
+        history.append(entry)
 
     return history
+
+
+def _coerce_seed_files(value: Any) -> list[dict]:
+    """``files_created`` records a client copied into a branch seed, re-checked.
+
+    Only the shape the gateway itself emits survives, and the file is stat'ed
+    again: a seed is client input, and a card must point at a real file.
+    """
+    if not isinstance(value, list):
+        return []
+    from tui_gateway.deliverables import DEFAULT_LIMIT, describe_file
+
+    files: list[dict] = []
+    for record in value[:DEFAULT_LIMIT]:
+        path = record.get("path") if isinstance(record, dict) else None
+        if not isinstance(path, str) or not os.path.isabs(os.path.expanduser(path)):
+            continue
+        described = describe_file(os.path.expanduser(path))
+        if described is not None:
+            files.append(described)
+    return files
 
 
 def _content_display_text(content: Any) -> str:
@@ -9974,8 +9993,73 @@ def _start_notification_poller(sid: str, session: dict) -> threading.Event:
     return stop
 
 
+# Turns in flight (and recently finished) per folder, so the deliverables
+# walk can tell when another conversation was writing into the same folder at
+# the same time: whatever it produced would otherwise land on this turn's
+# "files created" card. Entries are (folder, started, ended-or-None).
+_WORKSPACE_TURNS: dict[int, tuple[str, float, float | None]] = {}
+_WORKSPACE_TURNS_LOCK = threading.Lock()
+_WORKSPACE_TURN_SEQ = itertools.count(1)
+# A turn whose end was never recorded stops counting as "running" after this
+# long, and finished ones are forgotten once nothing still running can overlap.
+_WORKSPACE_TURN_MAX_SECONDS = 6 * 3600
+
+
+def _workspace_folder(cwd: str) -> str:
+    try:
+        return os.path.realpath(cwd)
+    except (OSError, ValueError):
+        return cwd
+
+
+def _workspace_turn_begin(cwd: str, started_at: float) -> int:
+    token = next(_WORKSPACE_TURN_SEQ)
+    with _WORKSPACE_TURNS_LOCK:
+        horizon = started_at - _WORKSPACE_TURN_MAX_SECONDS
+        for key, (_folder, began, ended) in list(_WORKSPACE_TURNS.items()):
+            if (ended if ended is not None else began) < horizon:
+                del _WORKSPACE_TURNS[key]
+        _WORKSPACE_TURNS[token] = (_workspace_folder(cwd), started_at, None)
+    return token
+
+
+def _workspace_turn_end(token: int | None) -> None:
+    if token is None:
+        return
+    with _WORKSPACE_TURNS_LOCK:
+        entry = _WORKSPACE_TURNS.get(token)
+        if entry is not None and entry[2] is None:
+            _WORKSPACE_TURNS[token] = (entry[0], entry[1], time.time())
+
+
+def _workspace_shared_during(token: int | None, cwd: str, started_at: float, now: float) -> bool:
+    """Whether another turn ran in an overlapping folder while this one ran."""
+    folder = _workspace_folder(cwd)
+    with _WORKSPACE_TURNS_LOCK:
+        others = [entry for key, entry in _WORKSPACE_TURNS.items() if key != token]
+    for other_folder, began, ended in others:
+        end = ended if ended is not None else min(now, began + _WORKSPACE_TURN_MAX_SECONDS)
+        if end < started_at or began > now:
+            continue
+        if _folders_overlap(folder, other_folder):
+            return True
+    return False
+
+
+def _folders_overlap(a: str, b: str) -> bool:
+    if a == b:
+        return True
+    a_slash, b_slash = a.rstrip(os.sep) + os.sep, b.rstrip(os.sep) + os.sep
+    return a_slash.startswith(b_slash) or b_slash.startswith(a_slash)
+
+
 def _turn_files_created(
-    session: dict, history: list, result: Any, final_text: Any, started_at: float
+    session: dict,
+    history: list,
+    result: Any,
+    final_text: Any,
+    started_at: float,
+    workspace_turn: int | None = None,
 ) -> list[dict]:
     """Deliverable files this turn produced, or ``[]`` — never raises.
 
@@ -9983,7 +10067,10 @@ def _turn_files_created(
     past the turn-start snapshot). The bounded workspace walk runs only for a
     session whose cwd the user picked explicitly: a desktop session's default
     cwd is a launch directory such as ``$HOME``, and nothing that other apps
-    drop there during a turn is this turn's output.
+    drop there during a turn is this turn's output. Nor does it run when
+    another conversation was working in the same folder during this turn:
+    the walk cannot tell whose files it finds, and the paths this turn named
+    still count.
     """
     try:
         from tui_gateway.deliverables import collect_turn_deliverables
@@ -9994,6 +10081,8 @@ def _turn_files_created(
             new_messages = messages[len(history):] if len(messages) > len(history) else list(messages)
         cwd = _session_cwd(session)
         workspace_root = cwd if session.get("explicit_cwd") else None
+        if workspace_root and _workspace_shared_during(workspace_turn, cwd, started_at, time.time()):
+            workspace_root = None
         excluded_roots = [str(get_hermes_home()), str(_session_home(session))]
         return collect_turn_deliverables(
             new_messages,
@@ -10008,10 +10097,37 @@ def _turn_files_created(
         return []
 
 
-def _persist_turn_files_created(agent, session: dict, files: list[dict]) -> None:
-    """Pin ``files_created`` to the turn's reply row (best effort, presentation only)."""
+def _turn_reply_message(result: Any) -> dict | None:
+    """The assistant message that closed the turn, as the live history holds it."""
+    messages = result.get("messages") if isinstance(result, dict) else None
+    if not isinstance(messages, list):
+        return None
+    for message in reversed(messages):
+        if isinstance(message, dict) and message.get("role") == "assistant":
+            return message
+        if isinstance(message, dict) and message.get("role") == "user":
+            return None
+    return None
+
+
+def _persist_turn_files_created(agent, session: dict, files: list[dict], result: Any = None) -> None:
+    """Pin ``files_created`` to the turn's reply (best effort, presentation only).
+
+    Twice: on the stored row, which a cold reload reads, and on the reply in
+    the live history, which every transcript rebuilt from memory reads
+    (``/compress`` — even one that removes nothing — undo, retry). Pinned only
+    to the row, a still-open conversation lost its file cards the moment it
+    was rebuilt. ``display_metadata`` never reaches the provider: the request
+    builder strips it from every outgoing message.
+    """
+    if not files:
+        return
+    reply = _turn_reply_message(result)
+    if reply is not None:
+        metadata = reply.get("display_metadata")
+        reply["display_metadata"] = {**(metadata if isinstance(metadata, dict) else {}), "files_created": files}
     db = getattr(agent, "_session_db", None)
-    if db is None or not files:
+    if db is None:
         return
     session_id = getattr(agent, "session_id", None) or session.get("session_key")
     try:
@@ -10105,6 +10221,9 @@ def _run_prompt_submit(
         marker_text = session.pop("_auto_continue_prompt", None) or text
         if isinstance(marker_text, str) and marker_text.strip():
             record_turn_start(marker_home, marker_key, marker_text, attempts=marker_attempt)
+        # Lets this turn's deliverables walk notice another conversation
+        # writing into the same folder meanwhile (and theirs notice this one).
+        _workspace_turn = _workspace_turn_begin(_session_cwd(session), _turn_started_wall)
         try:
             from tools.approval import (
                 reset_current_session_key,
@@ -10548,10 +10667,12 @@ def _run_prompt_submit(
             # archives…) ride the terminal frame so the desktop can render
             # them as file cards, and are pinned to the reply row so a
             # rehydrated transcript shows the same cards.
-            files_created = _turn_files_created(session, history, result, raw, _turn_started_wall)
+            files_created = _turn_files_created(
+                session, history, result, raw, _turn_started_wall, _workspace_turn
+            )
             if files_created:
                 payload["files_created"] = files_created
-                _persist_turn_files_created(agent, session, files_created)
+                _persist_turn_files_created(agent, session, files_created, result)
             if result.get("response_previewed"):
                 payload["response_previewed"] = True
             # Forward the structured billing-wall descriptor (provider,
@@ -10768,6 +10889,7 @@ def _run_prompt_submit(
                 )
                 _emit("error", sid, {"message": str(e)})
         finally:
+            _workspace_turn_end(_workspace_turn)
             # Drop both local snapshots of the pre-turn history before asking
             # glibc to return pages. session["history"] already points at the
             # new/pruned result; retaining either list defeats this trim.
