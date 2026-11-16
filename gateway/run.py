@@ -15632,22 +15632,26 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                                 and store_profile != "default"
                                 else ""
                             )
+                        # In the owner's display language: the person reading
+                        # it is often the owner, testing their own bot, and
+                        # the in-app "Allow" is the way most of them approve.
                         await adapter.send(
                             source.chat_id,
-                            f"Hi~ I don't recognize you yet!\n\n"
-                            f"Here's your pairing code: `{code}`\n\n"
-                            f"Ask the bot owner to approve you in the AgentX "
-                            f"app (Messaging channels), or to run:\n"
-                            f"`agentx {profile_arg}pairing approve "
-                            f"{platform_name} {code}`"
+                            t(
+                                "gateway.pairing_unknown_sender",
+                                code=code,
+                                command=(
+                                    f"agentx {profile_arg}pairing approve "
+                                    f"{platform_name} {code}"
+                                ),
+                            ),
                         )
                 else:
                     adapter = self._adapter_for_source(source)
                     if adapter:
                         await adapter.send(
                             source.chat_id,
-                            "Too many pairing requests right now~ "
-                            "Please try again later!"
+                            t("gateway.pairing_rate_limited"),
                         )
                     # Record rate limit so subsequent messages are silently ignored
                     pairing_store._record_rate_limit(platform_name, source.user_id)
@@ -18742,12 +18746,10 @@ class GatewayRunner(GatewayAuthorizationMixin, GatewayKanbanWatchersMixin, Gatew
                     if source.platform == Platform.SLACK
                     else "/sethome"
                 )
-                notice = (
-                    f"📬 No home channel is set for {platform_name.title()}. "
-                    f"A home channel is where AgentX delivers cron job results "
-                    f"and cross-platform messages.\n\n"
-                    f"Type {sethome_cmd} to make this chat your home channel, "
-                    f"or ignore to skip."
+                notice = t(
+                    "gateway.home_channel_unset",
+                    platform=platform_name.title(),
+                    command=sethome_cmd,
                 )
                 await self._deliver_platform_notice(source, notice)
         

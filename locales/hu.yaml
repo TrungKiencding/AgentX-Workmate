@@ -22,6 +22,9 @@ approval:
 gateway:
   approval_expired: "⚠️ A jóváhagyás lejárt (az ügynök már nem vár). Kérd meg az ügynököt, hogy próbálja újra."
   draining:         "⏳ {count} aktív ügynök befejezésére várunk az újraindítás előtt..."
+  pairing_unknown_sender: "Szia! Még nem ismerlek, ezért nem tudok válaszolni.\n\nA párosítási kódod: `{code}`\n\nKérd meg a bot tulajdonosát, hogy nyissa meg az AgentX Workmate → Üzenetküldő csatornák részt, és kattintson az „Engedélyezés” gombra a kérésednél, majd írj újra. (Terminálból: `{command}`)"
+  pairing_rate_limited: "Jelenleg túl sok párosítási kérés érkezik. Próbáld újra néhány perc múlva."
+  home_channel_unset: "📬 A(z) {platform} számára még nincs alapértelmezett csevegés beállítva. Ide küldi az AgentX az ütemezett feladatok eredményeit és a más csatornákról érkező üzeneteket.\n\nÍrd be: {command}, hogy ezt a csevegést használd, vagy hagyd figyelmen kívül ezt az üzenetet."
   goal_cleared:     "✓ A cél törölve."
   no_active_goal:   "Nincs aktív cél."
   config_read_failed: "⚠️ Nem sikerült olvasni a config.yaml fájlt: {error}"

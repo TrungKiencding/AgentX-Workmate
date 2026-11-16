@@ -22,6 +22,9 @@ approval:
 gateway:
   approval_expired: "⚠️ Phê duyệt đã hết hạn (agent không còn chờ nữa). Hãy bảo agent thử lại."
   draining:         "⏳ Đang chờ {count} agent đang chạy kết thúc trước khi khởi động lại..."
+  pairing_unknown_sender: "Xin chào! AgentX chưa biết bạn nên chưa trả lời được.\n\nMã ghép nối của bạn: `{code}`\n\nHãy nhờ chủ bot mở AgentX Workmate → Kênh tin nhắn và bấm “Cho phép” ở yêu cầu của bạn, rồi nhắn lại. (Hoặc chạy lệnh: `{command}`)"
+  pairing_rate_limited: "Đang có quá nhiều yêu cầu ghép nối. Vui lòng thử lại sau vài phút."
+  home_channel_unset: "📬 Chưa chọn cuộc trò chuyện mặc định cho {platform}. Đây là nơi AgentX gửi kết quả của lịch tự động và tin nhắn từ các kênh khác.\n\nGõ {command} để dùng cuộc trò chuyện này, hoặc bỏ qua tin nhắn này."
   goal_cleared:     "✓ Đã xoá mục tiêu."
   no_active_goal:   "Hiện không có mục tiêu nào."
   config_read_failed: "⚠️ Không đọc được config.yaml: {error}"

@@ -22,6 +22,9 @@ approval:
 gateway:
   approval_expired: "⚠️ Approbation expirée (l'agent n'attend plus). Demandez à l'agent de réessayer."
   draining:         "⏳ Vidage de {count} agent(s) actif(s) avant redémarrage..."
+  pairing_unknown_sender: "Bonjour ! Je ne vous connais pas encore, je ne peux donc pas répondre.\n\nVotre code d’association : `{code}`\n\nDemandez au propriétaire de ce bot d’ouvrir AgentX Workmate → Canaux de messagerie et de cliquer sur « Autoriser » pour votre demande, puis écrivez-moi à nouveau. (Depuis un terminal : `{command}`)"
+  pairing_rate_limited: "Trop de demandes d’association pour le moment. Réessayez dans quelques minutes."
+  home_channel_unset: "📬 Aucune discussion par défaut n’est définie pour {platform}. C’est là qu’AgentX envoie les résultats des tâches planifiées et les messages des autres canaux.\n\nTapez {command} pour utiliser cette discussion, ou ignorez ce message."
   goal_cleared:     "✓ Objectif effacé."
   no_active_goal:   "Aucun objectif actif."
   config_read_failed: "⚠️ Impossible de lire config.yaml : {error}"

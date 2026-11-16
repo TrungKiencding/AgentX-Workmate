@@ -33,6 +33,9 @@ gateway:
   # Messenger replies to slash commands and implicit state changes.
   approval_expired: "⚠️ Approval expired (agent is no longer waiting). Ask the agent to try again."
   draining:         "⏳ Draining {count} active agent(s) before restart..."
+  pairing_unknown_sender: "Hi! I don't know you yet, so I can't reply.\n\nYour pairing code: `{code}`\n\nAsk the owner of this bot to open AgentX Workmate → Messaging channels and click “Allow” on your request, then message me again. (From a terminal: `{command}`)"
+  pairing_rate_limited: "Too many pairing requests right now. Please try again in a few minutes."
+  home_channel_unset: "📬 No default chat is set for {platform} yet. It is where AgentX sends scheduled-task results and messages from other channels.\n\nType {command} to use this chat, or ignore this message."
   goal_cleared:     "✓ Goal cleared."
   no_active_goal:   "No active goal."
   config_read_failed: "⚠️ Could not read config.yaml: {error}"

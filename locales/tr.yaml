@@ -22,6 +22,9 @@ approval:
 gateway:
   approval_expired: "⚠️ Onay süresi doldu (ajan artık beklemiyor). Ajanın tekrar denemesini isteyin."
   draining:         "⏳ Yeniden başlatmadan önce {count} aktif ajan bekleniyor..."
+  pairing_unknown_sender: "Merhaba! Seni henüz tanımıyorum, bu yüzden yanıt veremiyorum.\n\nEşleştirme kodun: `{code}`\n\nBu botun sahibinden AgentX Workmate → Mesajlaşma kanalları'nı açıp isteğinde “İzin ver”e tıklamasını iste, sonra bana tekrar yaz. (Terminalden: `{command}`)"
+  pairing_rate_limited: "Şu anda çok fazla eşleştirme isteği var. Lütfen birkaç dakika sonra tekrar dene."
+  home_channel_unset: "📬 {platform} için henüz varsayılan sohbet ayarlanmadı. AgentX zamanlanmış görev sonuçlarını ve diğer kanallardan gelen mesajları buraya gönderir.\n\nBu sohbeti kullanmak için {command} yaz ya da bu mesajı yok say."
   goal_cleared:     "✓ Hedef temizlendi."
   no_active_goal:   "Aktif hedef yok."
   config_read_failed: "⚠️ config.yaml okunamadı: {error}"

@@ -255,7 +255,28 @@ async def test_pairing_dm_names_the_signed_in_account(monkeypatch):
 
     text = adapter.send.await_args.args[1]
     assert "`agentx --account xuan-1234abcd pairing approve telegram 7XDFU84K`" in text
-    assert "AgentX app" in text
+    assert "AgentX Workmate" in text
+
+
+@pytest.mark.asyncio
+async def test_pairing_dm_speaks_the_owner_display_language(monkeypatch):
+    """A Vietnamese desktop owner testing their own bot reads the in-app
+    remedy in Vietnamese; the terminal command stays verbatim."""
+    _clear_auth_env(monkeypatch)
+    monkeypatch.setenv("AGENTX_LANGUAGE", "vi")
+    config = GatewayConfig(
+        platforms={Platform.TELEGRAM: PlatformConfig(enabled=True)},
+    )
+    runner, adapter = _make_runner(Platform.TELEGRAM, config)
+    runner.pairing_store.generate_code.return_value = "7XDFU84K"
+    runner.pairing_store.cli_scope_args.return_value = ""
+
+    await runner._handle_message(_make_event(Platform.TELEGRAM, "935154431", "935154431"))
+
+    text = adapter.send.await_args.args[1]
+    assert "Mã ghép nối của bạn: `7XDFU84K`" in text
+    assert "Kênh tin nhắn" in text and "Cho phép" in text
+    assert "`agentx pairing approve telegram 7XDFU84K`" in text
 
 
 @pytest.mark.asyncio
