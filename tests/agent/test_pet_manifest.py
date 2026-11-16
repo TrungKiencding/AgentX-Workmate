@@ -41,7 +41,6 @@ class _Response:
 def scripted(monkeypatch, tmp_path):
     """Route httpx.get through a queue of outcomes; isolate the pets dir."""
     monkeypatch.setenv("AGENTX_HOME", str(tmp_path))
-    monkeypatch.setenv("HERMES_HOME", str(tmp_path))
     monkeypatch.setattr("agent.pet.store.get_hermes_home", lambda: tmp_path)
     manifest.clear_cache()
     outcomes: list = []
