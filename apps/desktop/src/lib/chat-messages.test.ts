@@ -1481,7 +1481,7 @@ describe('file-edit diffs on a reopened chat', () => {
   // A stored tool row holds only the tool's own result: a reopened chat lost
   // every "+N" edit row and the files-changed card. The turn pins its diffs to
   // the reply (display_metadata.edit_diffs, by tool call id).
-  const turn = (metadata: unknown) => [
+  const turn = (metadata: SessionMessage['display_metadata']): SessionMessage[] => [
     { role: 'user' as const, content: 'ghi báo cáo', timestamp: 1 },
     {
       role: 'assistant' as const,
@@ -1514,7 +1514,7 @@ describe('file-edit diffs on a reopened chat', () => {
 
   it('leaves edit rows alone when no diffs were pinned or the metadata is malformed', () => {
     for (const metadata of [undefined, { edit_diffs: 'x' }, { edit_diffs: { 'call-write': { inline_diff: 42 } } }]) {
-      const reply = toChatMessages(turn(metadata)).find(message => message.role === 'assistant')!
+      const reply = toChatMessages(turn(metadata as SessionMessage['display_metadata'])).find(message => message.role === 'assistant')!
 
       expect(deriveChangedFiles(reply.parts)).toEqual([])
     }

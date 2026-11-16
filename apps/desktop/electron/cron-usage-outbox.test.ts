@@ -6,7 +6,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { accountSlugForIdentity } from './account-slug'
-import { cronUsageHomes, CronUsageOutbox, OUTBOX_DIR, PASS_MAX_EVENTS, parseCronUsageEvent } from './cron-usage-outbox'
+import { cronUsageHomes, CronUsageOutbox, OUTBOX_DIR, parseCronUsageEvent, PASS_MAX_EVENTS } from './cron-usage-outbox'
 import type { UsageDelivery, UsageEventFacts, UsageIdentity } from './usage-reporter'
 import { UsageReporter } from './usage-reporter'
 
@@ -225,6 +225,7 @@ describe('draining', () => {
     queue(home, event(1, NOW))
     queue(home, event(2, NOW))
     queue(home, event(3, NOW))
+
     const deliver = vi.fn(async (_who: UsageIdentity, events: UsageEventFacts[]): Promise<UsageDelivery> =>
       events.some(e => e.event_id === uuid(2)) ? { refused: 422 } : 'accepted'
     )
