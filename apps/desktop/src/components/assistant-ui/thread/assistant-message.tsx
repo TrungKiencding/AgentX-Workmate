@@ -77,6 +77,10 @@ export const AssistantMessage: FC<{
   // tool-heavy turn doesn't grow a copy/refresh bar per paragraph (see
   // ChatMessage.interim).
   const isInterim = useAuiState(s => s.message.metadata?.custom?.interim === true)
+  // The user stopped this reply before it finished: say so, or a reply that
+  // stopped mid-thought reads as an answer that silently never came.
+  const isStopped = useAuiState(s => s.message.metadata?.custom?.stopped === true)
+  const { t } = useI18n()
 
   // The thinking/stall indicator belongs to the TAIL of the thread, period. A
   // stale pending bubble mid-transcript (a turn that ended without its settle
@@ -158,6 +162,11 @@ export const AssistantMessage: FC<{
               <PreviewAttachment key={target} source="explicit-link" target={target} />
             ))}
           </div>
+        )}
+        {isStopped && (
+          <p className="mt-1 text-xs text-(--ui-text-tertiary)" data-slot="aui_assistant-message-stopped">
+            {t.assistant.thread.stopped}
+          </p>
         )}
         <MessagePrimitive.Error>
           {/* Retrying regenerates from this turn's prompt, so only the latest

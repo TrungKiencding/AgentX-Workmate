@@ -95,10 +95,35 @@ export async function runRewindSubmit(
 }
 
 /** Cancel/stop finalize: drop empty pending/stream placeholders, un-pend the rest. */
-export function finalizeInterruptedMessages(messages: ChatMessage[], streamId?: null | string): ChatMessage[] {
+/** Whether a bubble shows anything: text, reasoning, a tool row, an image… */
+function hasVisibleContent(message: ChatMessage): boolean {
+  return message.parts.some(part =>
+    part.type === 'text' || part.type === 'reasoning' ? Boolean(part.text.trim()) : true
+  )
+}
+
+/**
+ * Settles the bubbles of a turn that ended early (Stop, a dropped connection,
+ * a switch away). A bubble with nothing in it is dropped; one that already
+ * shows something — reasoning, tool rows that ran, partial text — is kept:
+ * Stop during the model's thinking used to make the whole answer vanish,
+ * leaving the question with no trace of what happened to it.
+ *
+ * `stopped` marks the kept bubbles as stopped by the user, which the
+ * transcript says under them.
+ */
+export function finalizeInterruptedMessages(
+  messages: ChatMessage[],
+  streamId?: null | string,
+  { stopped = false }: { stopped?: boolean } = {}
+): ChatMessage[] {
   return messages
-    .filter(message => !((message.pending || message.id === streamId) && !chatMessageText(message).trim()))
-    .map(message => (message.pending || message.id === streamId ? { ...message, pending: false } : message))
+    .filter(message => !((message.pending || message.id === streamId) && !hasVisibleContent(message)))
+    .map(message =>
+      message.pending || message.id === streamId
+        ? { ...message, pending: false, ...(stopped && message.role === 'assistant' ? { stopped: true } : {}) }
+        : message
+    )
 }
 
 // ---------------------------------------------------------------------------

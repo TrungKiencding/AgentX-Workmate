@@ -162,6 +162,7 @@ const COMPARED_FIELDS = [
   'hidden',
   'branchGroupId',
   'interim',
+  'stopped',
   'reactions',
   'createdFiles',
   'compaction'
@@ -280,6 +281,7 @@ export function chatMessagesEquivalent(a: ChatMessage, b: ChatMessage): boolean 
     // Interim gates the action footer, so flipping it must repaint (e.g. a
     // previewed final settling onto a sealed interim bubble restores the bar).
     (a.interim ?? false) !== (b.interim ?? false) ||
+    (a.stopped ?? false) !== (b.stopped ?? false) ||
     !chatReactionsEquivalent(a.reactions, b.reactions) ||
     !chatCreatedFilesEquivalent(a.createdFiles, b.createdFiles) ||
     a.compaction?.summary !== b.compaction?.summary ||

@@ -607,14 +607,14 @@ export function usePromptActions({
 
     if (!sessionId) {
       releaseBusy()
-      setMessages(finalizeInterruptedMessages($messages.get()))
+      setMessages(finalizeInterruptedMessages($messages.get(), null, { stopped: true }))
 
       return
     }
 
     updateSessionState(sessionId, state => {
       const streamId = state.streamId
-      const messages = finalizeInterruptedMessages(state.messages, streamId)
+      const messages = finalizeInterruptedMessages(state.messages, streamId, { stopped: true })
 
       return {
         ...state,

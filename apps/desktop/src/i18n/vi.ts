@@ -4362,6 +4362,7 @@ export const vi: Translations = {
       dismissError: 'Bỏ qua lỗi',
       filesChanged: count => `${count} tệp thay đổi`,
       reviewChanges: 'Xem lại',
+      stopped: 'Đã dừng',
       createdFiles: count => `${count} tệp đã tạo trong lượt này`,
       readAloudFailed: 'Đọc to thất bại',
       preparingAudio: 'Đang chuẩn bị âm thanh...',

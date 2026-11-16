@@ -4175,6 +4175,7 @@ export const zh: Translations = {
       dismissError: '关闭错误',
       filesChanged: count => `${count} 个文件已更改`,
       reviewChanges: '查看',
+      stopped: '已停止',
       createdFiles: count => `本轮已创建 ${count} 个文件`,
       readAloudFailed: '朗读失败',
       preparingAudio: '正在准备音频...',

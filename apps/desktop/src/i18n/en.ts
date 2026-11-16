@@ -4128,6 +4128,7 @@ export const en: Translations = {
       dismissError: 'Dismiss error',
       filesChanged: count => (count === 1 ? '1 file changed' : `${count} files changed`),
       reviewChanges: 'Review',
+      stopped: 'Stopped',
       createdFiles: count => (count === 1 ? '1 file created in this turn' : `${count} files created in this turn`),
       readAloudFailed: 'Read aloud failed',
       preparingAudio: 'Preparing audio...',

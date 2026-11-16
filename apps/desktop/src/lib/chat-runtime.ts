@@ -450,6 +450,7 @@ export function toRuntimeMessage(message: ChatMessage): ThreadMessage {
       // turn's created files to its created-files card.
       custom: {
         ...(message.interim ? { interim: true } : {}),
+        ...(message.stopped ? { stopped: true } : {}),
         ...(message.createdFiles?.length ? { createdFiles: message.createdFiles } : {}),
         ...(message.error && message.errorCode ? { errorCode: message.errorCode } : {}),
         ...reactionMeta

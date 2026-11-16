@@ -4118,6 +4118,7 @@ export const zhHant = defineLocale({
       dismissError: '关闭错误',
       filesChanged: count => `${count} 個檔案已變更`,
       reviewChanges: '檢視',
+      stopped: '已停止',
       createdFiles: count => `本輪已建立 ${count} 個檔案`,
       readAloudFailed: '朗讀失敗',
       preparingAudio: '正在準備音訊...',

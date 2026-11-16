@@ -4310,6 +4310,7 @@ export const ja = defineLocale({
       dismissError: 'エラーを閉じる',
       filesChanged: count => `${count} 件のファイルを変更`,
       reviewChanges: 'レビュー',
+      stopped: '停止しました',
       createdFiles: count => `このターンで ${count} 件のファイルを作成`,
       readAloudFailed: '読み上げに失敗しました',
       preparingAudio: '音声を準備中...',

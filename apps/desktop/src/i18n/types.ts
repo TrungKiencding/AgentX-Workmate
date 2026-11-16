@@ -3483,6 +3483,8 @@ export interface Translations {
       dismissError: string
       filesChanged: (count: number) => string
       reviewChanges: string
+      /** Under a reply the user stopped before it finished. */
+      stopped: string
       createdFiles: (count: number) => string
       readAloudFailed: string
       preparingAudio: string

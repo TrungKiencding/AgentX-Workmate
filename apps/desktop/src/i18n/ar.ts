@@ -4349,6 +4349,7 @@ export const ar = defineLocale({
       dismissError: 'تجاهل الخطأ',
       filesChanged: count => `${count} ملفات تم تغييرها`,
       reviewChanges: 'مراجعة',
+      stopped: 'تم الإيقاف',
       createdFiles: count => `${count} ملفات تم إنشاؤها في هذه الجولة`,
       readAloudFailed: 'فشلت القراءة بصوت عال',
       preparingAudio: 'جار تجهيز الصوت',
