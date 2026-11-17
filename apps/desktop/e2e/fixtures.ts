@@ -22,7 +22,6 @@
 
 import { spawnSync } from 'node:child_process'
 import * as fs from 'node:fs'
-import { createRequire } from 'node:module'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
@@ -481,19 +480,6 @@ export function findElectron(): string {
   // In dev mode, we use the `electron` binary directly (not the packaged app).
   // The dev:electron script in package.json does exactly this: `electron .`
   // after building. We replicate that here.
-  // `require('electron')` returns this platform's executable path (the .app
-  // binary on macOS). Since Electron 42 it also downloads the binary on first
-  // use — `npm ci` no longer runs a postinstall that fills dist/.
-  try {
-    const electronPath: unknown = createRequire(path.join(REPO_ROOT, 'package.json'))('electron')
-
-    if (typeof electronPath === 'string' && fs.existsSync(electronPath)) {
-      return electronPath
-    }
-  } catch {
-    // fall through to the dist/ and PATH lookups below
-  }
-
   const localElectron = path.join(REPO_ROOT, 'node_modules', 'electron', 'dist', 'electron')
 
   if (fs.existsSync(localElectron)) {

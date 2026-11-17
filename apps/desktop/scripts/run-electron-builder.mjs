@@ -44,25 +44,6 @@ function electronDistDir() {
   }
 }
 
-// Electron >= 42 no longer downloads its binary in a postinstall script; the
-// download happens on first use instead, so after a plain `npm ci` the dist is
-// absent. Fetch it the same way the old postinstall did (electron's own
-// install.js — honours ELECTRON_MIRROR / the electron cache) so a host build
-// keeps reusing the installed dist rather than falling through to
-// electron-builder's re-unpack path. Failure is non-fatal: the caller then
-// lets electron-builder fetch Electron itself, as before.
-export function ensureElectronDist(dist, run = spawnSync) {
-  if (!dist || fs.existsSync(distBinary(dist))) {
-    return
-  }
-  const installer = path.join(path.dirname(dist), "install.js")
-  if (!fs.existsSync(installer)) {
-    return
-  }
-  console.log("[run-electron-builder] downloading the Electron binary (electron install.js)")
-  run(process.execPath, [installer], { stdio: "inherit" })
-}
-
 function distBinary(dist) {
   if (process.platform === "darwin") {
     return path.join(dist, "Electron.app", "Contents", "MacOS", "Electron")
@@ -110,10 +91,6 @@ function main() {
   const argv = process.argv.slice(2)
   const dist = electronDistDir()
   const args = []
-
-  if (targetsHostPlatform(argv)) {
-    ensureElectronDist(dist)
-  }
 
   if (!targetsHostPlatform(argv)) {
     console.log(

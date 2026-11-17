@@ -1,11 +1,8 @@
 import assert from 'node:assert/strict'
-import fs from 'node:fs'
-import os from 'node:os'
-import path from 'node:path'
 
 import { describe, test } from 'vitest'
 
-import { ensureElectronDist, targetsHostPlatform } from './run-electron-builder.mjs'
+import { targetsHostPlatform } from './run-electron-builder.mjs'
 
 describe('targetsHostPlatform', () => {
   test('no platform flag means the host, which is electron-builder default', () => {
@@ -43,38 +40,5 @@ describe('targetsHostPlatform', () => {
   test('an arch flag is not a platform flag', () => {
     assert.equal(targetsHostPlatform(['--x64'], 'darwin'), true)
     assert.equal(targetsHostPlatform(['--win', 'nsis', '--x64'], 'darwin'), false)
-  })
-})
-
-describe('ensureElectronDist', () => {
-  // Electron >= 42 dropped its download-on-postinstall, so after `npm ci` the
-  // dist is missing until something runs electron's install.js.
-  function fakeElectronPkg({ withInstaller }) {
-    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'electron-pkg-'))
-    if (withInstaller) {
-      fs.writeFileSync(path.join(root, 'install.js'), '')
-    }
-
-    return { root, dist: path.join(root, 'dist') }
-  }
-
-  test('runs electron install.js when the dist is missing', () => {
-    const { root, dist } = fakeElectronPkg({ withInstaller: true })
-    const calls = []
-    ensureElectronDist(dist, (cmd, args) => calls.push([cmd, args]))
-    assert.deepEqual(calls, [[process.execPath, [path.join(root, 'install.js')]]])
-  })
-
-  test('does nothing when there is no installer to run', () => {
-    const { dist } = fakeElectronPkg({ withInstaller: false })
-    const calls = []
-    ensureElectronDist(dist, (cmd, args) => calls.push([cmd, args]))
-    assert.deepEqual(calls, [])
-  })
-
-  test('does nothing without a resolvable electron package', () => {
-    const calls = []
-    ensureElectronDist(null, (cmd, args) => calls.push([cmd, args]))
-    assert.deepEqual(calls, [])
   })
 })

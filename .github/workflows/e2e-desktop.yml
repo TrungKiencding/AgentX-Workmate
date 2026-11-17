@@ -46,18 +46,12 @@ jobs:
         run: |
           npm i -g npm@12
 
-      # Full npm ci (not --ignore-scripts): node-pty's native build is
+      # Full npm ci (not --ignore-scripts): electron's postinstall
+      # downloads the binary we launch, and node-pty's native build is
       # needed for the terminal pane.
       - uses: ./.github/actions/retry
         with:
           command: npm ci
-
-      # Electron >= 42 has no postinstall; it downloads its binary on first
-      # require('electron'). Fetch it here (with retries) so the download
-      # doesn't eat into the first spec's beforeAll timeout.
-      - uses: ./.github/actions/retry
-        with:
-          command: node node_modules/electron/install.js
 
       # ── Python (for the agentx serve backend) ──────────────────────────
       - name: Install uv

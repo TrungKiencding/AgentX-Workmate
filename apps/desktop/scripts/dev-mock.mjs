@@ -20,7 +20,6 @@
  *   "Hello from the mock inference server! The full boot chain is working."
  */
 
-import { createRequire } from 'node:module'
 import http from 'node:http'
 import fs from 'node:fs'
 import os from 'node:os'
@@ -177,14 +176,6 @@ providers:
 // ── Electron launch ────────────────────────────────────────────────────
 
 function findElectron() {
-  // require('electron') yields this platform's binary path and, since
-  // Electron 42, downloads it on first use (no postinstall any more).
-  try {
-    const electronPath = createRequire(path.join(REPO_ROOT, 'package.json'))('electron')
-    if (typeof electronPath === 'string' && fs.existsSync(electronPath)) return electronPath
-  } catch {
-    // fall through
-  }
   const local = path.join(REPO_ROOT, 'node_modules', 'electron', 'dist', 'electron')
   if (fs.existsSync(local)) return local
   const r = spawnSync('which', ['electron'], { encoding: 'utf8' })
