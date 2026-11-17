@@ -107,3 +107,21 @@ test('lockfile resolves the pinned electron', () => {
     )
   }
 })
+
+test('root allowScripts approves the pinned electron', () => {
+  // npm 12 (used by CI) blocks install scripts that `allowScripts` does not
+  // name at the exact installed version. A stale entry silently skipped
+  // electron's postinstall, so CI ran with no Electron binary in dist/.
+  const spec = electronSpec(desktopPkg())
+  const rootPkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf-8'))
+  const allowed = Object.keys((rootPkg.allowScripts ?? {}) as Record<string, boolean>).filter(key =>
+    key.startsWith('electron@')
+  )
+
+  assert.deepEqual(
+    allowed,
+    [`electron@${spec}`],
+    `package.json allowScripts must approve exactly electron@${spec} (found ${JSON.stringify(allowed)}); ` +
+      'otherwise npm 12 skips the postinstall that downloads the Electron binary.'
+  )
+})
