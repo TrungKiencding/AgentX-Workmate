@@ -138,6 +138,7 @@ describe('sessionBucketLabel', () => {
     if (monthBucket.kind !== 'month') {
       throw new Error(`expected month bucket, got ${monthBucket.kind}`)
     }
+
     expect(sessionBucketLabel(monthBucket, labels)).toBe(fmtMonth.format(monthBucket.at))
 
     const monthYearBucket = calendarBucket(secondsAt(2025, 11, 3), THU_NOON, 1)
@@ -145,6 +146,7 @@ describe('sessionBucketLabel', () => {
     if (monthYearBucket.kind !== 'monthYear') {
       throw new Error(`expected monthYear bucket, got ${monthYearBucket.kind}`)
     }
+
     expect(sessionBucketLabel(monthYearBucket, labels)).toBe(fmtMonthYear.format(monthYearBucket.at))
   })
 })

@@ -39,7 +39,9 @@ describe('summarizeToolRun', () => {
     expect(settled([tool('browser_navigate', { url: 'https://a.example' }, {}), tool('browser_click', {}, {})])).toBe(
       'Visited 2 pages'
     )
-    expect(settled([read('a.ts'), web('x'), web('y'), ran('ls')])).toBe('Explored a.ts, searched 2 times, ran 1 command')
+    expect(settled([read('a.ts'), web('x'), web('y'), ran('ls')])).toBe(
+      'Explored a.ts, searched 2 times, ran 1 command'
+    )
     expect(summarizeToolRun([web('x')], true, vi)).toBe('Đang tìm x')
     expect(toolPresentVerb('web_search', vi)).toBe('Đang tìm')
   })

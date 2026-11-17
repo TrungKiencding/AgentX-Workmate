@@ -151,10 +151,7 @@ export function ProjectOverviewRow({
           {!project.isNoProject && <ProjectMenu anchorRef={rowRef} project={project} />}
         </>
       }
-      className={cn(
-        'group/workspace row-hover',
-        dragging && 'cursor-grabbing bg-(--ui-sidebar-surface-background)'
-      )}
+      className={cn('group/workspace row-hover', dragging && 'cursor-grabbing bg-(--ui-sidebar-surface-background)')}
       ref={rowRef}
     >
       <SidebarRowBody
@@ -179,13 +176,11 @@ export function ProjectOverviewRow({
       {project.isNoProject ? shell : <ProjectContextMenu project={project}>{shell}</ProjectContextMenu>}
       {open && (
         <SidebarRowNest>
-          {preview.length > 0 ? (
-            renderRows?.(preview)
-          ) : (
-            <ProjectFootRow>{s.projectEmpty}</ProjectFootRow>
-          )}
+          {preview.length > 0 ? renderRows?.(preview) : <ProjectFootRow>{s.projectEmpty}</ProjectFootRow>}
           {hidden > 0 && onEnter && (
-            <ProjectFootRow onClick={() => onEnter(project.id)}>{s.projects.showAll(project.sessionCount)}</ProjectFootRow>
+            <ProjectFootRow onClick={() => onEnter(project.id)}>
+              {s.projects.showAll(project.sessionCount)}
+            </ProjectFootRow>
           )}
         </SidebarRowNest>
       )}

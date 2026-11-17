@@ -24,21 +24,23 @@ describe('collectFinishedRoutines', () => {
       default: [{ job_id: 'main-job', last_run_at: ago(86_400_000), name: 'Việc của trợ lý chính' }],
       'tai-chinh': [{ job_id: 'j1', last_run_at: null, name: 'Bản tin tài chính' }]
     }
-    vi.spyOn(host, 'requestPrimary').mockImplementation(async (method: string, params: Record<string, unknown> = {}) => {
-      if (method === 'profiles.list') {
-        return { profiles: [{ name: 'default' }, { name: 'tai-chinh' }, { name: 'broken' }] } as never
-      }
+    vi.spyOn(host, 'requestPrimary').mockImplementation(
+      async (method: string, params: Record<string, unknown> = {}) => {
+        if (method === 'profiles.list') {
+          return { profiles: [{ name: 'default' }, { name: 'tai-chinh' }, { name: 'broken' }] } as never
+        }
 
-      if (method === 'cron.manage' && params.profile === 'broken') {
-        throw new Error('store unreadable')
-      }
+        if (method === 'cron.manage' && params.profile === 'broken') {
+          throw new Error('store unreadable')
+        }
 
-      if (method === 'cron.manage') {
-        return { jobs: stores[String(params.profile)] ?? [] } as never
-      }
+        if (method === 'cron.manage') {
+          return { jobs: stores[String(params.profile)] ?? [] } as never
+        }
 
-      throw new Error(`unexpected ${method}`)
-    })
+        throw new Error(`unexpected ${method}`)
+      }
+    )
   })
 
   afterEach(() => {

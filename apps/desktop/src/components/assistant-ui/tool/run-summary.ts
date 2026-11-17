@@ -30,7 +30,14 @@ export type ToolRunCopy = Translations['assistant']['toolRun']
 const CATEGORY_ORDER: readonly RunCategory[] = ['edit', 'explore', 'search', 'browse', 'run', 'delegate', 'other']
 
 // Reading what is on this machine: counted in files.
-const EXPLORE_TOOLS = new Set(['list_files', 'read_file', 'search_files', 'skill_view', 'skills_list', 'vision_analyze'])
+const EXPLORE_TOOLS = new Set([
+  'list_files',
+  'read_file',
+  'search_files',
+  'skill_view',
+  'skills_list',
+  'vision_analyze'
+])
 
 // Asking a search engine or the chat history: counted in searches. Two web
 // searches used to read "Explored 2 files" — no file was involved.

@@ -270,6 +270,7 @@ export class WorkmateBrowserWindow {
     if (!cdp || !extensionId) {
       return null
     }
+
     const deadline = Date.now() + 5_000
 
     while (Date.now() < deadline) {

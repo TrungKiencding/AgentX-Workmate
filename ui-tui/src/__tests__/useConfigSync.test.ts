@@ -424,6 +424,7 @@ describe('syncMcpReload (revision-aware ack)', () => {
       on: vi.fn(),
       off: vi.fn()
     } as any
+
     const state = freshState()
     let clock = 0
     const now = () => clock

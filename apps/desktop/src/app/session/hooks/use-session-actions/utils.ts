@@ -573,7 +573,9 @@ export function preserveLocalPendingTurnMessages(
   // row precedes the prompt), the stored row is the authority and the local
   // one is dropped; if it committed nothing, the local rows are the only copy
   // and are kept — above the prompt, where they happened.
-  const anchorText = latestAuthoritativeUser ? textWithoutReferenceLines(chatMessageText(latestAuthoritativeUser)) : null
+  const anchorText = latestAuthoritativeUser
+    ? textWithoutReferenceLines(chatMessageText(latestAuthoritativeUser))
+    : null
   const anchorNextIndex = latestAuthoritativeUser ? nextMessages.indexOf(latestAuthoritativeUser) : -1
 
   const anchorLocalIndex =
@@ -1199,9 +1201,7 @@ export async function resolveStoredSession(storedSessionId: string): Promise<Ses
   const activeIsPrimary = activeKey === normalizeProfileKey(primaryGatewayProfile())
 
   try {
-    const session = activeIsPrimary
-      ? await getSession(storedSessionId)
-      : await getSession(storedSessionId, activeKey)
+    const session = activeIsPrimary ? await getSession(storedSessionId) : await getSession(storedSessionId, activeKey)
 
     if (activeIsPrimary) {
       // Older backends omit `profile` on unscoped GETs; the serving backend is

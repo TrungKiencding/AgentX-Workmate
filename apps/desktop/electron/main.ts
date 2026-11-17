@@ -13195,7 +13195,10 @@ function hideWindowForActiveWork(win: BrowserWindow) {
 // The confirmation itself, shared by "quit" and "close the last window".
 // Attached to `parent` when it can be seen; a sheet on a hidden window would
 // never appear, so that case gets an app-level dialog.
-function confirmQuitWithActiveWork(prompt: NonNullable<ReturnType<typeof quitPromptFor>>, parent?: BrowserWindow | null) {
+function confirmQuitWithActiveWork(
+  prompt: NonNullable<ReturnType<typeof quitPromptFor>>,
+  parent?: BrowserWindow | null
+) {
   const options: Electron.MessageBoxOptions = {
     buttons: prompt.buttons,
     cancelId: 0,

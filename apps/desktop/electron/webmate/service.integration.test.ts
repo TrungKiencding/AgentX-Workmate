@@ -36,6 +36,7 @@ async function until(condition: () => boolean, label: string, timeoutMs = 10_000
     if (condition()) {
       return
     }
+
     await sleep(50)
   }
 
@@ -155,6 +156,7 @@ test.skipIf(!fs.existsSync(chrome))(
         if (!msg.action) {
           return
         }
+
         seen.push(msg.action)
         ws.send(JSON.stringify({ id: msg.id, ok: true, result: { busy: msg.payload?.resume ? 0 : busy } }))
 

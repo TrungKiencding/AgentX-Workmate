@@ -27,14 +27,24 @@ const tool = (id: string): ChatMessagePart =>
 const reasoning = (value: string): ChatMessagePart => ({ type: 'reasoning', text: value }) as ChatMessagePart
 
 // What the view holds after: prompt → (tool, reasoning, text) ×2 → Stop → "continue".
-const STOPPED_A = row('assistant-stream-1', 'assistant', [tool('c1'), reasoning('plan'), text('Cả 3 nguồn khớp hoàn toàn.')], {
-  interim: true,
-  pending: false
-})
+const STOPPED_A = row(
+  'assistant-stream-1',
+  'assistant',
+  [tool('c1'), reasoning('plan'), text('Cả 3 nguồn khớp hoàn toàn.')],
+  {
+    interim: true,
+    pending: false
+  }
+)
 
-const STOPPED_B = row('assistant-stream-2', 'assistant', [tool('c2'), reasoning('check'), text('Kiểm tra thứ tự vị trí:')], {
-  pending: false
-})
+const STOPPED_B = row(
+  'assistant-stream-2',
+  'assistant',
+  [tool('c2'), reasoning('check'), text('Kiểm tra thứ tự vị trí:')],
+  {
+    pending: false
+  }
+)
 
 const LOCAL = [
   row('m1', 'user', [text('Phân tích bảng xếp hạng')]),
@@ -51,7 +61,8 @@ const STORED = [
   row('m3', 'user', [text('continue')])
 ]
 
-const order = (messages: ChatMessage[]) => messages.map(message => `${message.role}:${chatMessageText(message).slice(0, 18)}`)
+const order = (messages: ChatMessage[]) =>
+  messages.map(message => `${message.role}:${chatMessageText(message).slice(0, 18)}`)
 
 describe('a message sent after a stopped turn stays below it', () => {
   it('does not re-append the stopped turn after the new prompt', () => {
@@ -93,7 +104,10 @@ describe('a message sent after a stopped turn stays below it', () => {
 
 describe('a stopped turn the backend never committed', () => {
   // Stopped before anything was stored: the local rows are the only copy.
-  const STORED_WITHOUT_IT = [row('m1', 'user', [text('Phân tích bảng xếp hạng')]), row('m3', 'user', [text('continue')])]
+  const STORED_WITHOUT_IT = [
+    row('m1', 'user', [text('Phân tích bảng xếp hạng')]),
+    row('m3', 'user', [text('continue')])
+  ]
 
   it('keeps its rows, above the prompt that followed them', () => {
     const merged = preserveLocalPendingTurnMessages(STORED_WITHOUT_IT, LOCAL)

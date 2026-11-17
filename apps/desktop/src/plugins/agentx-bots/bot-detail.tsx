@@ -263,7 +263,7 @@ function RoutineRow({
   const failed = Boolean(job.last_status && job.last_status !== 'ok')
   // Say why, in words, when the backend knows (pilot feedback 2026-11-10: the
   // row said only "last run failed" and nothing anywhere said what to do).
-  const failure = failed ? ((job.last_error_kind && b.failure[job.last_error_kind]) || b.lastFailed) : ''
+  const failure = failed ? (job.last_error_kind && b.failure[job.last_error_kind]) || b.lastFailed : ''
 
   const toggle = async (next: boolean) => {
     setPending(next)
@@ -354,9 +354,7 @@ function useProfileSessions(profile: string) {
 /** Rows a person opens: never a group room's plumbing session (older ones
  *  predate their own source tag and are known by title). */
 export function conversationRows(rows: readonly ProfileSession[]): ProfileSession[] {
-  return rows.filter(
-    row => !(row.title || '').startsWith('Group: ') && row.source !== 'bot-room' && !isRoutineRun(row)
-  )
+  return rows.filter(row => !(row.title || '').startsWith('Group: ') && row.source !== 'bot-room' && !isRoutineRun(row))
 }
 
 /** What the assistant's routines produced, newest first. */

@@ -91,7 +91,17 @@ describe('useScrollbarReveal', () => {
     const { el } = mount()
     Object.defineProperty(el, 'scrollHeight', { configurable: true, value: 1000 })
     Object.defineProperty(el, 'clientHeight', { configurable: true, value: 400 })
-    el.getBoundingClientRect = () => ({ left: 0, right: 600, top: 0, bottom: 400, width: 600, height: 400, x: 0, y: 0, toJSON: () => ({}) })
+    el.getBoundingClientRect = () => ({
+      left: 0,
+      right: 600,
+      top: 0,
+      bottom: 400,
+      width: 600,
+      height: 400,
+      x: 0,
+      y: 0,
+      toJSON: () => ({})
+    })
 
     act(() => void el.dispatchEvent(new PointerEvent('pointermove', { clientX: 300, bubbles: true })))
     expect(el.hasAttribute('data-scrolling')).toBe(false)

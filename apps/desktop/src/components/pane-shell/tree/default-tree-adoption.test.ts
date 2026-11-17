@@ -164,7 +164,10 @@ describe('healing a layout persisted by the old fallback', () => {
   })
 
   it('leaves a preset that stacks panes with sessions alone', () => {
-    const quad = split('row', [group(['sessions', 'files'], { id: 'q1' }), group(['workspace', 'terminal'], { id: 'q2' })])
+    const quad = split('row', [
+      group(['sessions', 'files'], { id: 'q1' }),
+      group(['workspace', 'terminal'], { id: 'q2' })
+    ])
     $layoutTree.set(quad)
     markActivePreset('quad')
 

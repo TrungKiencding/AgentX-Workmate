@@ -279,12 +279,7 @@ interface ProjectContextMenuProps {
 // Wrap a project row so right-clicking it opens the same actions as its kebab.
 // The kebab's row-anchored Appearance popover can't nest in a context menu, so
 // here Appearance is a submenu with the same swatch + icon picker.
-export function ProjectContextMenu({
-  project,
-  scoped = false,
-  onExitScope,
-  children
-}: ProjectContextMenuProps) {
+export function ProjectContextMenu({ project, scoped = false, onExitScope, children }: ProjectContextMenuProps) {
   const { t } = useI18n()
   const p = t.sidebar.projects
 

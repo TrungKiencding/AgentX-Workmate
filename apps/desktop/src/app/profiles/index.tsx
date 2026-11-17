@@ -257,9 +257,11 @@ function ProfileDetail({ profile }: { profile: ProfileInfo }) {
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-md font-semibold tracking-tight text-foreground">{profile.name}</h3>
             {profile.is_default && <PanelPill tone="good">{p.defaultBadge}</PanelPill>}
-            {profile.has_env && <PanelPill tone="muted" verbatim>
-              .env
-            </PanelPill>}
+            {profile.has_env && (
+              <PanelPill tone="muted" verbatim>
+                .env
+              </PanelPill>
+            )}
           </div>
           <p className="mt-1 truncate font-mono text-2xs text-muted-foreground/55" title={displayPath(profile.path)}>
             {displayPath(profile.path)}

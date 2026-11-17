@@ -172,7 +172,7 @@ describe('workspaceLabel', () => {
     expect(workspaceLabel(TREE, '/work/bao-cao/thang-9')).toBe('Báo cáo quý 3')
   })
 
-  it("an auto project only names its own root — a folder inside it reads as itself", () => {
+  it('an auto project only names its own root — a folder inside it reads as itself', () => {
     const tree = [node({ id: '/Users/me', isAuto: true, label: 'me' })]
 
     expect(workspaceLabel(tree, '/Users/me')).toBe('me')

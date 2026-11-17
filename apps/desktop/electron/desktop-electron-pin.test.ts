@@ -114,6 +114,7 @@ test('root allowScripts approves the pinned electron', () => {
   // electron's postinstall, so CI ran with no Electron binary in dist/.
   const spec = electronSpec(desktopPkg())
   const rootPkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf-8'))
+
   const allowed = Object.keys((rootPkg.allowScripts ?? {}) as Record<string, boolean>).filter(key =>
     key.startsWith('electron@')
   )

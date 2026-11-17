@@ -609,7 +609,7 @@ describe('tombstone pruning', () => {
   })
 })
 
-describe('the new chat\'s folder (setDraftWorkspace)', () => {
+describe("the new chat's folder (setDraftWorkspace)", () => {
   beforeEach(() => {
     vi.clearAllMocks()
     $activeSessionId.set(null)
@@ -624,7 +624,7 @@ describe('the new chat\'s folder (setDraftWorkspace)', () => {
     setNewChatWorkspaceTarget(undefined)
   })
 
-  it('points the draft at the folder, then adopts the backend\'s normalized path and branch', async () => {
+  it("points the draft at the folder, then adopts the backend's normalized path and branch", async () => {
     const info = deferred<{ branch?: string; cwd?: string }>()
     fakeGateway({ 'config.get': () => info.promise })
 
@@ -916,7 +916,7 @@ describe('following the active chat into another folder', () => {
     fakeGateway()
   })
 
-  it('opens the new project\'s row at the overview — it never drills in', async () => {
+  it("opens the new project's row at the overview — it never drills in", async () => {
     await followActiveSessionCwd('/work/b/src')
 
     expect($projectScope.get()).toBe(ALL_PROJECTS)

@@ -173,6 +173,7 @@ test('getVenvSitePackagesEntries: reads pyvenv.cfg version on POSIX and resolves
   // Exercise the POSIX layout on every host, with the host's filesystem path
   // rules. A hardcoded /venv/... mock silently misses Windows backslashes.
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'agentx-posix-venv-layout-'))
+
   try {
     const expected = path.join(root, 'lib', 'python3.12', 'site-packages')
     fs.mkdirSync(expected, { recursive: true })

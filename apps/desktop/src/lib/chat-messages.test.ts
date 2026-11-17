@@ -1494,7 +1494,13 @@ describe('file-edit diffs on a reopened chat', () => {
         }
       ]
     },
-    { role: 'tool' as const, tool_call_id: 'call-write', tool_name: 'write_file', content: '{"bytes_written": 6}', timestamp: 3 },
+    {
+      role: 'tool' as const,
+      tool_call_id: 'call-write',
+      tool_name: 'write_file',
+      content: '{"bytes_written": 6}',
+      timestamp: 3
+    },
     { role: 'assistant' as const, content: 'Đã ghi.', timestamp: 4, display_metadata: metadata }
   ]
 
@@ -1502,19 +1508,27 @@ describe('file-edit diffs on a reopened chat', () => {
 
   it('puts the stored diff back on its edit row, so the files-changed card returns', () => {
     const messages = toChatMessages(
-      turn(JSON.stringify({ edit_diffs: { 'call-write': { inline_diff: diff, inline_diff_stats: { added: 3, removed: 0 } } } }))
+      turn(
+        JSON.stringify({
+          edit_diffs: { 'call-write': { inline_diff: diff, inline_diff_stats: { added: 3, removed: 0 } } }
+        })
+      )
     )
 
     const reply = messages.find(message => message.role === 'assistant')!
     const edit = reply.parts.find(part => part.type === 'tool-call' && part.toolCallId === 'call-write')
 
     expect(edit && edit.type === 'tool-call' && (edit.result as Record<string, unknown>).inline_diff).toBe(diff)
-    expect(deriveChangedFiles(reply.parts)).toEqual([{ added: 3, name: 'bao cao.md', path: '/w/bao cao.md', removed: 0 }])
+    expect(deriveChangedFiles(reply.parts)).toEqual([
+      { added: 3, name: 'bao cao.md', path: '/w/bao cao.md', removed: 0 }
+    ])
   })
 
   it('leaves edit rows alone when no diffs were pinned or the metadata is malformed', () => {
     for (const metadata of [undefined, { edit_diffs: 'x' }, { edit_diffs: { 'call-write': { inline_diff: 42 } } }]) {
-      const reply = toChatMessages(turn(metadata as SessionMessage['display_metadata'])).find(message => message.role === 'assistant')!
+      const reply = toChatMessages(turn(metadata as SessionMessage['display_metadata'])).find(
+        message => message.role === 'assistant'
+      )!
 
       expect(deriveChangedFiles(reply.parts)).toEqual([])
     }

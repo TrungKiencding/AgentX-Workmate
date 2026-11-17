@@ -143,7 +143,9 @@ export function ModelPill({
           strip would otherwise use (secondary/tertiary) sit too close to read
           as a hierarchy, and tertiary is already the lightest ink that keeps
           AA contrast. */}
-      <span className="min-w-0 truncate text-(--text-primary)">{concise ? conciseModelName(currentModel) : displayModelName(currentModel)}</span>
+      <span className="min-w-0 truncate text-(--text-primary)">
+        {concise ? conciseModelName(currentModel) : displayModelName(currentModel)}
+      </span>
       {fastOn || showLevel ? (
         <span
           className="flex shrink-0 items-center gap-1 text-(--text-tertiary) transition-colors duration-(--dur-micro)"

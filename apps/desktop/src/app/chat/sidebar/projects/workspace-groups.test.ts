@@ -996,9 +996,7 @@ describe('owningProjectId', () => {
     const explicit = [makeProject('p_site', ['/work/site'])]
 
     expect(owningProjectId(makeSession('/work/site/src'), [], explicit)).toBe('p_site')
-    expect(
-      owningProjectId(makeSession('/repo/app/pkg', { git_repo_root: '/repo/app' }), [], [])
-    ).toBe('/repo/app')
+    expect(owningProjectId(makeSession('/repo/app/pkg', { git_repo_root: '/repo/app' }), [], [])).toBe('/repo/app')
   })
 
   it('a chat with no folder belongs to no project', () => {
@@ -1056,7 +1054,7 @@ describe('owningProjectId', () => {
     expect(owningProjectId(makeSession('/work/new/docs'), tree, [])).toBe('p_new')
   })
 
-  it('an auto project around a fresh folder does not claim it; the folder\'s own id waits for the refresh', () => {
+  it("an auto project around a fresh folder does not claim it; the folder's own id waits for the refresh", () => {
     const tree = [projectNode({ id: '/Users/me', isAuto: true, path: '/Users/me' })]
 
     expect(owningProjectId(makeSession('/Users/me/fresh'), tree, [])).toBe('/Users/me/fresh')

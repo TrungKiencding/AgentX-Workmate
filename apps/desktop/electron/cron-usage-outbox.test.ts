@@ -240,14 +240,17 @@ describe('draining', () => {
     expect(waiting(home)).toEqual([])
   })
 
-  it.each([404, 405, 409])('keeps them when the console refuses for a reason that is not the events (HTTP %i)', async status => {
-    const home = accountHome()
-    queue(home, event(1, NOW))
-    queue(home, event(2, NOW))
+  it.each([404, 405, 409])(
+    'keeps them when the console refuses for a reason that is not the events (HTTP %i)',
+    async status => {
+      const home = accountHome()
+      queue(home, event(1, NOW))
+      queue(home, event(2, NOW))
 
-    expect(await outbox(async () => ({ refused: status })).outbox.drain()).toEqual({ sent: 0, dropped: 0, kept: 2 })
-    expect(waiting(home)).toEqual([`${uuid(1)}.json`, `${uuid(2)}.json`])
-  })
+      expect(await outbox(async () => ({ refused: status })).outbox.drain()).toEqual({ sent: 0, dropped: 0, kept: 2 })
+      expect(waiting(home)).toEqual([`${uuid(1)}.json`, `${uuid(2)}.json`])
+    }
+  )
 
   it('keeps an event dated ahead of the clock (a clock out of step) instead of deleting it', async () => {
     const home = accountHome()

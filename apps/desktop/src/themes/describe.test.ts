@@ -37,9 +37,9 @@ describe('theme descriptions follow the app language', () => {
     const names = new Set(BUILT_IN.map(theme => theme.name))
 
     for (const locale of ['en', 'vi', 'zh'] as Locale[]) {
-      expect(Object.keys(TRANSLATIONS[locale].settings.appearance.themeDescriptions).filter(name => !names.has(name))).toEqual(
-        []
-      )
+      expect(
+        Object.keys(TRANSLATIONS[locale].settings.appearance.themeDescriptions).filter(name => !names.has(name))
+      ).toEqual([])
     }
   })
 })

@@ -508,7 +508,8 @@ function messageEvidence(message: ChatMessage, cwd: string): MessageEvidence {
 
     // deliver_file is the hand-over itself; other writers write on the way.
     const writtenRank = part.toolName === 'deliver_file' ? RANK.handover : RANK.written
-    const add = role === 'writes' ? (target: string, options?: ResourceOptions) => output(target, options, writtenRank) : source
+    const add =
+      role === 'writes' ? (target: string, options?: ResourceOptions) => output(target, options, writtenRank) : source
 
     // The backend resolves symlinks (e.g. macOS /var -> /private/var). Its
     // result is authoritative over the requested path; use that evidence to

@@ -469,7 +469,9 @@ function storedEditDiffs(messages: SessionMessage[]): Map<string, StoredEditDiff
 
       diffs.set(toolCallId, {
         inline_diff: entry.inline_diff,
-        ...(stats && typeof stats === 'object' ? { inline_diff_stats: stats as StoredEditDiff['inline_diff_stats'] } : {})
+        ...(stats && typeof stats === 'object'
+          ? { inline_diff_stats: stats as StoredEditDiff['inline_diff_stats'] }
+          : {})
       })
     }
   }
@@ -1134,7 +1136,10 @@ export function messageOutputFiles(message: ChatMessage): DeliverableFile[] {
     if (record && typeof record.path === 'string' && record.path && !files.has(record.path)) {
       files.set(record.path, {
         mimeType: typeof record.mime_type === 'string' ? record.mime_type : undefined,
-        name: typeof record.name === 'string' && record.name ? record.name : record.path.split(/[\\/]/).pop() || record.path,
+        name:
+          typeof record.name === 'string' && record.name
+            ? record.name
+            : record.path.split(/[\\/]/).pop() || record.path,
         path: record.path,
         sizeBytes: typeof record.size_bytes === 'number' ? record.size_bytes : undefined
       })

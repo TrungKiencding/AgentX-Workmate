@@ -125,7 +125,10 @@ describe('mergeSearchResults', () => {
 
   // The reported bug: right-click → delete on a result left the row in place.
   it('drops a deleted conversation that only the server hits knew about', () => {
-    const serverMatches = [hit({ session_id: 'gone', title: 'Agent notes' }), hit({ session_id: 'kept', title: 'Agent' })]
+    const serverMatches = [
+      hit({ session_id: 'gone', title: 'Agent notes' }),
+      hit({ session_id: 'kept', title: 'Agent' })
+    ]
 
     expect(merge({ serverMatches }).map(row => row.id)).toEqual(['gone', 'kept'])
     expect(merge({ removed: new Set(['gone']), serverMatches }).map(row => row.id)).toEqual(['kept'])

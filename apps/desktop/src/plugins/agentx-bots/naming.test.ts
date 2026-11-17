@@ -182,7 +182,7 @@ describe('routine runs', () => {
   })
 })
 
-describe('cleanPreview and AgentX\'s own text', () => {
+describe("cleanPreview and AgentX's own text", () => {
   it('never shows the scheduler hint or a model-switch marker as the conversation', () => {
     expect(cleanPreview('[IMPORTANT: You are running as a scheduled cron job. DELIVER...')).toBe('')
     expect(
