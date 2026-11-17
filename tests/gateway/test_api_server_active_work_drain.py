@@ -131,7 +131,15 @@ class TestDrainWaitsForApiWork:
         task_started = asyncio.Event()
         allow_task = asyncio.Event()
 
-        def delayed_create_task(coro):
+        # The patch target resolves to the shared ``asyncio`` module, so it
+        # also intercepts aiohttp's own create_task calls (aiohttp >= 3.14.4
+        # spawns its server handler and client request tasks that way).
+        # Delay only the /v1/runs worker; let everything else start normally
+        # or the TestClient request below deadlocks behind ``allow_task``.
+        def delayed_create_task(coro, **kwargs):
+            if getattr(coro, "__name__", "") != "_run_and_close":
+                return original_create_task(coro, **kwargs)
+
             async def delayed():
                 task_started.set()
                 await allow_task.wait()
