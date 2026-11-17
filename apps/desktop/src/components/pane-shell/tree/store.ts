@@ -984,22 +984,45 @@ export const $sessionTileEdgeHover = computed(
     dragging === SESSION_TILE_DRAG && ((hint?.pos !== undefined && hint.pos !== 'center') || hint?.stack !== undefined)
 )
 
+/** The group holding the uncloseable main workspace (first group if none). */
+function mainGroupId(tree: LayoutNode): string | undefined {
+  const mainPane = allPaneIds(tree).find(isUncloseablePane)
+
+  return (mainPane ? findGroupOfPane(tree, mainPane)?.id : undefined) ?? groupLeafIds(tree)[0]
+}
+
 /**
  * Adopt panes present in `source` but missing from `target`: each joins the
- * group its source siblings map to in the target (first group as a last
- * resort). Layout changes never lose panes.
+ * group its source siblings map to in the target. Layout changes never lose
+ * panes — but they never resurrect a CLOSED one either: a dismissed pane stays
+ * out until a reveal or a reset brings it back.
+ *
+ * A pane with no sibling to follow (alone in its source zone — the terminal in
+ * the default tree) is NOT parked in an arbitrary group. It used to land in the
+ * tree's first group, which is the sessions column: closing the terminal tab
+ * and relaunching put a `terminal` tab in the left sidebar. A registered pane
+ * is left to `adoptContributedPanes` (its dock / placement hint knows where it
+ * belongs); an unregistered one (a disabled plugin keeping its slot) stacks
+ * with main, adoption's documented last resort.
  */
 function adoptMissingPanes(target: LayoutNode, source: LayoutNode): LayoutNode {
   const have = new Set(allPaneIds(target))
+  const dismissed = $dismissedPanes.get()
+  const registered = new Set(registry.getArea('panes').map(c => c.id))
   let next = target
 
   for (const paneId of allPaneIds(source)) {
-    if (have.has(paneId)) {
+    if (have.has(paneId) || dismissed.has(paneId)) {
       continue
     }
 
     const sibling = findGroupOfPane(source, paneId)?.panes.find(p => have.has(p))
-    const targetId = (sibling ? findGroupOfPane(next, sibling)?.id : undefined) ?? groupLeafIds(next)[0]
+
+    if (!sibling && registered.has(paneId)) {
+      continue
+    }
+
+    const targetId = (sibling ? findGroupOfPane(next, sibling)?.id : undefined) ?? mainGroupId(next)
 
     if (targetId) {
       // Silent adoption: don't steal the target zone's active tab (logs).
@@ -1026,11 +1049,81 @@ export function declareDefaultTree(tree: LayoutNode) {
     return
   }
 
-  const next = adoptMissingPanes(current, tree)
+  const next = adoptMissingPanes(healMisadoptedPanes(current, tree), tree)
 
   if (next !== current) {
     commit(next)
   }
+
+  // Sibling-less panes the default places were skipped above — dock them now.
+  adoptContributedPanes()
+}
+
+/**
+ * Repair trees persisted by the old first-group fallback (see
+ * `adoptMissingPanes`): the terminal stacked into the sessions column, often
+ * while still recorded as closed.
+ *
+ *  - A pane that is in the tree AND dismissed is a contradiction nothing else
+ *    produces (every reveal path clears the record) — drop it from the tree;
+ *    the dismissal stands.
+ *  - On the untouched default layout, a pane the user never placed that sits in
+ *    the first zone although the default puts it elsewhere is pulled out, so
+ *    adoption re-docks it where it belongs. Presets and user drags are left
+ *    alone (Quad stacks files with sessions on purpose).
+ */
+function healMisadoptedPanes(current: LayoutNode, defaults: LayoutNode): LayoutNode {
+  const dismissed = $dismissedPanes.get()
+  const userPlaced = $userPlacedPanes.get()
+  let next: LayoutNode | null = current
+
+  for (const paneId of allPaneIds(current)) {
+    if (dismissed.has(paneId)) {
+      next = next && removePane(next, paneId)
+    }
+  }
+
+  const firstId = next ? groupLeafIds(next)[0] : undefined
+  const first = next && firstId ? findGroup(next, firstId) : null
+
+  if (next && first && first.panes.length > 1 && $activePresetId.get() === 'default') {
+    const home = first.panes.find(id => findGroupOfPane(defaults, id))
+    const homeGroup = home ? findGroupOfPane(defaults, home) : null
+
+    for (const paneId of first.panes) {
+      const defaultGroup = findGroupOfPane(defaults, paneId)
+
+      if (homeGroup && defaultGroup && defaultGroup.id !== homeGroup.id && !userPlaced.has(paneId)) {
+        next = next && removePane(next, paneId)
+      }
+    }
+  }
+
+  if (!next) {
+    return current
+  }
+
+  // The bogus stack pinned the zone's tab bar ON (`insertAtGroup` sets
+  // `headerHidden: false` on a center drop). A zone the heal left lone again
+  // goes back to the auto-hidden default; an explicit `true` stays.
+  for (const groupId of groupLeafIds(current)) {
+    const before = findGroup(current, groupId)
+    const after = findGroup(next, groupId)
+
+    if (before && after && after.panes.length === 1 && before.panes.length > 1 && after.headerHidden === false) {
+      next = replaceGroup(next, { ...after, headerHidden: undefined })
+    }
+  }
+
+  return next
+}
+
+function replaceGroup(node: LayoutNode, replacement: GroupNode): LayoutNode {
+  if (node.type === 'group') {
+    return node.id === replacement.id ? replacement : node
+  }
+
+  return { ...node, children: node.children.map(child => replaceGroup(child, replacement)) }
 }
 
 /**
@@ -1267,6 +1360,9 @@ export function applyTree(tree: LayoutNode, presetId: string) {
   clearAllPaneSizeOverrides()
   saveUserPlaced(new Set())
   commit(previous ? adoptMissingPanes(tree, previous) : tree)
+  // Registered panes the preset doesn't place, with no sibling to follow, dock
+  // by their own hint.
+  adoptContributedPanes()
   markActivePreset(presetId)
 
   // Picking a named layout is an intent to SEE its panes. Toggle-gated panes

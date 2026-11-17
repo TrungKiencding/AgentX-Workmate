@@ -186,7 +186,17 @@ registry.registerMany([
     // NO minHeight: a tool panel drags all the way down to its collapsed
     // header (the sash floors it at COLLAPSED_ZONE_PX and folds the zone to
     // its rail there). A real floor left a sliver of unusable terminal.
-    data: { placement: 'bottom', height: '20vh', maxHeight: '80vh', revealOnPreset: true },
+    //
+    // dock: where the terminal RE-ENTERS the tree (reopened after Close, or
+    // healed from an old layout) — under the right rail, its DEFAULT_TREE
+    // spot. Without it adoption fell back to stacking it as a tab into main.
+    data: {
+      placement: 'bottom',
+      dock: { pane: 'files', pos: 'bottom' },
+      height: '20vh',
+      maxHeight: '80vh',
+      revealOnPreset: true
+    },
     render: () => <WiredPane part="terminal" />
   },
   {
