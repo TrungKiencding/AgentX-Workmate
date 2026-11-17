@@ -1,0 +1,18 @@
+# OSV-Scanner configuration for the lockfiles in this directory
+# (package-lock.json, uv.lock). See .github/workflows/osv-scanner.yml.
+#
+# Every entry must say why the advisory does not apply to how we use the
+# package, and must carry an ignoreUntil date so it resurfaces for review.
+
+[[IgnoredVulns]]
+# minimatch globparts-amplification DoS, fixed only in the 11.x line.
+# minimatch 10.2.6 / 9.0.9 are pulled solely by build/dev tooling (eslint,
+# @eslint/config-array, @typescript-eslint/typescript-estree, app-builder-lib,
+# @electron/universal) and only ever see glob patterns we write in our own
+# configs, never user input. 11.0 removes makeRe()/Minimatch#regexp and changes
+# the shape of Minimatch#set, which app-builder-lib and eslint read, and none
+# of those consumers accepts ^11 yet — forcing it via overrides risks silently
+# wrong file matching in packaging. Drop this once they move to minimatch 11.
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-02-17
+reason = "dev/build-only minimatch (eslint, electron-builder) with trusted patterns; 11.x breaks consumer APIs"

@@ -1,0 +1,16 @@
+# OSV-Scanner configuration for the lockfiles in this directory
+# (package-lock.json). See .github/workflows/osv-scanner.yml.
+#
+# Every entry must say why the advisory does not apply to how we use the
+# package, and must carry an ignoreUntil date so it resurfaces for review.
+
+[[IgnoredVulns]]
+# minimatch globparts-amplification DoS, fixed only in the 11.x line.
+# minimatch 10.2.6 is pulled only by serve-handler (behind `docusaurus serve`,
+# the local preview server), which matches it against patterns from our own
+# config, never request input. The site ships as static files. serve-handler
+# does not accept minimatch 11 yet; see the repo-root osv-scanner.toml for why
+# 11.x is not forced via overrides.
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-02-17
+reason = "only serve-handler (local docusaurus serve) uses it, with config-defined patterns; 11.x breaks consumer APIs"
