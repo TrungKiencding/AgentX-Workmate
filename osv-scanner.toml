@@ -16,3 +16,97 @@
 id = "GHSA-g3hv-75wg-m249"
 ignoreUntil = 2027-02-17
 reason = "dev/build-only minimatch (eslint, electron-builder) with trusted patterns; 11.x breaks consumer APIs"
+
+
+# --- Electron held at 40.10.6 -------------------------------------------------
+# None of the advisories below has a fix on the Electron 40 line; closing them
+# all needs 42.11.16+ (the eMudhra certificate mitigation never reached 41.x).
+# Electron 42 moved macOS notifications to UNNotification, which refuses
+# ad-hoc-signed apps, and the macOS release is ad-hoc signed today (no
+# Developer ID), so 42 would silently stop turn/approval notifications on
+# macOS (verified: Electron 40 shows the notification, 42 emits 'failed'
+# UNErrorDomain 1). Revisit together with Developer ID signing / Electron 43+.
+
+[[IgnoredVulns]]
+# electron: SameSite cookie restrictions are not applied to windows opened from links
+id = "GHSA-2p8c-gr87-2676"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: Frame subscription trusts GPU-supplied frame geometry
+id = "GHSA-3qxv-5xgr-q7w9"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: Extension tabs.query returns tab URLs and titles without the tabs permission
+id = "GHSA-98mx-cjp9-gchm"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: openExternal permission requests can be attributed to the wrong origin
+id = "GHSA-997q-gvvc-jwmx"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: Sandboxed iframe can bypass the allow-popups restriction via the OpenURL navigation path
+id = "GHSA-9f4c-93c8-jc8g"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: <webview> can enable Node.js integration in Web Workers despite embedder restrictions
+id = "GHSA-9qh4-3jw8-366w"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: HID and USB permission checks can be attributed to the wrong origin
+id = "GHSA-fw47-9c62-h3vw"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: Windows opened from a sandboxed top-level document do not inherit its sandbox restrictions
+id = "GHSA-gr2m-v5gq-v685"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: Off-screen rendering on macOS trusts GPU-supplied frame geometry
+id = "GHSA-h3v5-h239-pg29"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: drops inherited HTML sandbox restrictions for popups opened through OpenURLFromTab
+id = "GHSA-hq2x-r82h-9wj4"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: File and HTTP protocol handlers allow cross-origin reads without corsEnabled
+id = "GHSA-j84w-jfhq-vhvj"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: Mitigation for compromised eMudhra intermediate certificates
+id = "GHSA-jr5w-w6x2-84p9"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: Local race condition in Squirrel.Mac update installation on macOS
+id = "GHSA-vv43-5jgx-7qv8"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
+
+[[IgnoredVulns]]
+# electron: Pointer lock permission requests can be attributed to the wrong frame
+id = "GHSA-x562-297c-g43g"
+ignoreUntil = 2027-02-17
+reason = "Electron 42 breaks macOS notifications on ad-hoc-signed builds (UNNotification); revisit with Developer ID signing / Electron 43+"
