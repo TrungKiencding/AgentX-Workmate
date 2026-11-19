@@ -1222,6 +1222,26 @@ def _canonicalize_api_tool_calls(api_messages) -> None:
         am["tool_calls"] = new_tcs
 
 
+_HOUSEKEEPING_TOOLS = frozenset({"memory", "todo", "skill_manage", "session_search"})
+
+
+def _all_housekeeping_tool_calls(tool_calls) -> bool:
+    """True when every call in an assistant turn is housekeeping (memory/todo/skills/recall).
+
+    todo and session_search are deferred behind Tool Search, so a call to them
+    usually arrives wrapped in the ``tool_call`` bridge: it is classified by
+    the tool it invokes, not by the bridge name. ``all()`` of an empty batch
+    is True, matching the historical inline check.
+    """
+    from tools.tool_search import recorded_underlying_call
+
+    return all(
+        recorded_underlying_call(tc.function.name, tc.function.arguments)[0]
+        in _HOUSEKEEPING_TOOLS
+        for tc in tool_calls
+    )
+
+
 def _invalid_tool_name_error_content(name: str, valid_tool_names) -> str:
     """Error-result content for a tool call whose name isn't a real tool.
 
@@ -7126,12 +7146,8 @@ def run_conversation(
                 # Classify tools in this turn to determine if they are all housekeeping.
                 # This classification is needed regardless of whether the turn has visible content,
                 # because a substantive tool-only turn must invalidate any older housekeeping fallback.
-                _HOUSEKEEPING_TOOLS = frozenset({
-                    "memory", "todo", "skill_manage", "session_search",
-                })
-                _all_housekeeping = all(
-                    tc.function.name in _HOUSEKEEPING_TOOLS
-                    for tc in assistant_message.tool_calls
+                _all_housekeeping = _all_housekeeping_tool_calls(
+                    assistant_message.tool_calls
                 )
 
                 # If this turn has substantive tools (non-housekeeping), clear any older fallback.

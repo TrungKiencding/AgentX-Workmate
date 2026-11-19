@@ -140,7 +140,8 @@ def gui_toolset_label(label: str) -> str:
 
 
 # Toolsets that are OFF by default for new installs.
-# They're still in _AGENTX_CORE_TOOLS (available at runtime if enabled),
+# Their tools are still in the platform bundles (_AGENTX_PLATFORM_TOOLS, so
+# available at runtime if enabled),
 # but the setup checklist won't pre-select them for first-time users.
 #
 # Video gen is off by default — it's a niche, paid, slow feature. Users
@@ -2320,7 +2321,7 @@ def _get_platform_tools(
     # If the saved list contains any configurable keys directly, the user
     # has explicitly configured this platform — use direct membership.
     # This avoids the subset-inference bug where composite toolsets like
-    # "agentx-cli" (which include all _AGENTX_CORE_TOOLS) cause disabled
+    # "agentx-cli" (which include all _AGENTX_PLATFORM_TOOLS) cause disabled
     # toolsets to re-appear as enabled.
     has_explicit_config = any(ts in explicit_known_keys for ts in toolset_names)
 

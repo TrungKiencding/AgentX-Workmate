@@ -596,11 +596,16 @@ class DCPContextEngine(ContextEngine):
         )
 
     def _tool_name(self, tool_call: Any) -> str | None:
+        """Name of the tool a transcript entry invoked, with the tool_call
+        bridge peeled so deferred tools (e.g. ``todo``) keep their protection."""
         if not isinstance(tool_call, dict):
             return None
         function = tool_call.get("function")
         if isinstance(function, dict) and isinstance(function.get("name"), str):
-            return function["name"]
+            from tools.tool_search import recorded_underlying_call
+
+            name, _ = recorded_underlying_call(function["name"], function.get("arguments"))
+            return name
         return None
 
     def _tool_signature(self, tool_call: dict[str, Any]) -> str:

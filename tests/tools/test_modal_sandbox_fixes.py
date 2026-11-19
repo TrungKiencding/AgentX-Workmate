@@ -35,15 +35,32 @@ class TestToolResolution:
     """Verify get_tool_definitions returns all expected tools for eval."""
 
     def test_terminal_and_file_toolsets_resolve_all_tools(self):
-        """enabled_toolsets=['terminal', 'file'] should produce 6 tools."""
+        """enabled_toolsets=['terminal', 'file'] should resolve 6 tools.
+
+        Checked before Tool Search assembly: ``process`` is a deferred built-in
+        (toolsets._AGENTX_DEFERRED_TOOLS), so the model-facing list carries it
+        behind the tool_search/tool_describe/tool_call bridge instead.
+        """
+        from model_tools import get_tool_definitions
+        tools = get_tool_definitions(
+            enabled_toolsets=["terminal", "file"],
+            quiet_mode=True,
+            skip_tool_search_assembly=True,
+        )
+        names = {t["function"]["name"] for t in tools}
+        expected = {"terminal", "process", "read_file", "write_file", "search_files", "patch"}
+        assert expected == names, f"Expected {expected}, got {names}"
+
+    def test_process_reaches_the_model_through_the_tool_search_bridge(self):
         from model_tools import get_tool_definitions
         tools = get_tool_definitions(
             enabled_toolsets=["terminal", "file"],
             quiet_mode=True,
         )
-        names = {t["function"]["name"] for t in tools}
-        expected = {"terminal", "process", "read_file", "write_file", "search_files", "patch"}
-        assert expected == names, f"Expected {expected}, got {names}"
+        by_name = {t["function"]["name"]: t for t in tools}
+        assert "process" not in by_name
+        assert {"tool_search", "tool_describe", "tool_call"} <= set(by_name)
+        assert "- process:" in by_name["tool_search"]["function"]["description"]
 
     def test_terminal_tool_present(self):
         """The terminal tool must be present (not silently dropped)."""

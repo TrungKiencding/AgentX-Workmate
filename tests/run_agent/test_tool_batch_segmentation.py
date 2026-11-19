@@ -227,6 +227,25 @@ class TestPlanToolBatchSegments:
         segments = _plan_tool_batch_segments(calls)
         assert _kinds(segments) == ["sequential", "parallel"]
 
+    def test_bridged_parallel_safe_tool_is_admitted_on_the_tool_it_invokes(self):
+        """Deferred session_search arrives as a tool_call bridge entry."""
+        bridged = json.dumps({"name": "session_search", "arguments": {"query": "x"}})
+        calls = [_tc("tool_call", bridged), _tc("tool_call", bridged), _tc("web_search")]
+        assert _kinds(_plan_tool_batch_segments(calls)) == ["parallel"]
+
+    def test_bridged_unsafe_tool_stays_a_barrier(self):
+        bridged = json.dumps({"name": "todo", "arguments": {"todos": []}})
+        calls = [_tc("web_search"), _tc("tool_call", bridged), _tc("web_search")]
+        assert _kinds(_plan_tool_batch_segments(calls)) == ["sequential"]
+
+    def test_malformed_bridge_call_stays_a_barrier(self):
+        calls = [
+            _tc("web_search"),
+            _tc("tool_call", json.dumps({"arguments": {}})),  # no name
+            _tc("web_search"),
+        ]
+        assert _kinds(_plan_tool_batch_segments(calls)) == ["sequential"]
+
     def test_flattened_segments_always_preserve_emission_order(self):
         calls = [
             _tc("terminal", '{"command":"x"}', call_id="b1"),
@@ -455,6 +474,42 @@ class TestSegmentedDispatchIntegration:
         t1_pos = executed.index("t1")
         assert {"s1", "s2"} == set(executed[:t1_pos])
         assert {"s3", "s4"} == set(executed[t1_pos + 1:])
+
+    def test_bridged_session_search_calls_run_concurrently(self, agent):
+        """session_search is deferred behind Tool Search, so the model calls
+        it through the tool_call bridge; the batch must keep the concurrency
+        the direct call had, and each worker must dispatch the unwrapped tool."""
+        bridged = json.dumps({"name": "session_search", "arguments": {"query": "x"}})
+        calls = [
+            _tc("tool_call", bridged, call_id="q1"),
+            _tc("tool_call", bridged, call_id="q2"),
+        ]
+        msg = SimpleNamespace(content="", tool_calls=calls)
+        messages = []
+        rendezvous = threading.Barrier(2, timeout=10)
+        dispatched = []
+        lock = threading.Lock()
+
+        def fake_invoke(name, args, task_id, tool_call_id, **kwargs):
+            with lock:
+                dispatched.append((name, args, tool_call_id))
+            rendezvous.wait()  # both calls must be in flight at once
+            return json.dumps({"ok": True})
+
+        with (
+            patch(
+                "agent.tool_executor._tool_search_scoped_names",
+                return_value=frozenset({"session_search"}),
+            ),
+            patch.object(agent, "_invoke_tool", side_effect=fake_invoke),
+        ):
+            agent._execute_tool_calls(msg, messages, "task-1")
+
+        assert [m["tool_call_id"] for m in messages] == ["q1", "q2"]
+        assert sorted(dispatched, key=lambda d: d[2]) == [
+            ("session_search", {"query": "x"}, "q1"),
+            ("session_search", {"query": "x"}, "q2"),
+        ]
 
     def test_homogeneous_safe_batch_still_uses_plain_concurrent_path(self, agent):
         calls = [_tc("web_search", '{"query":"a"}'), _tc("web_search", '{"query":"b"}')]

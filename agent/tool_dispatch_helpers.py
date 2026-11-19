@@ -141,12 +141,16 @@ def _plan_tool_batch_segments(tool_calls, *, execution_cwd: Optional[Path] = Non
       the file headers in the patch body, not a possibly-stale ``path=``
       argument.
     * Anything not in ``_PARALLEL_SAFE_TOOLS`` and not an opted-in MCP
-      tool → barrier.
+      tool → barrier.  A ``tool_call`` bridge entry is judged by the tool it
+      invokes (deferred built-ins such as ``session_search`` and deferred MCP
+      tools arrive wrapped).
 
     Parallel runs shorter than two calls are demoted to sequential (no
     concurrency win, and the sequential executor owns the richer inline
     dispatch), and adjacent sequential segments are merged.
     """
+    from tools.tool_search import recorded_underlying_call
+
     segments: list[list] = []  # [kind, calls] pairs, normalized to tuples on return
     current: list = []
     # (canonical_path, is_writer) reservations for the current parallel run.
@@ -216,7 +220,14 @@ def _plan_tool_batch_segments(tool_calls, *, execution_cwd: Optional[Path] = Non
             current.append(tool_call)
             continue
 
-        if tool_name in _PARALLEL_SAFE_TOOLS or _is_mcp_tool_parallel_safe(tool_name):
+        # A deferred tool (e.g. session_search) arrives wrapped in the
+        # tool_call bridge; admit it on the tool it invokes, exactly like the
+        # executors' unwrap. Path-scoped tools are core and never bridged.
+        admission_name, _ = recorded_underlying_call(tool_name, function_args)
+        if (
+            admission_name in _PARALLEL_SAFE_TOOLS
+            or _is_mcp_tool_parallel_safe(admission_name)
+        ):
             current.append(tool_call)
             continue
 

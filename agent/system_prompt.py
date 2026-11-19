@@ -35,7 +35,6 @@ from agent.prompt_builder import (
     GOOGLE_MODEL_OPERATIONAL_GUIDANCE,
     AGENTX_AGENT_HELP_GUIDANCE,
     KANBAN_GUIDANCE,
-    MEMORY_GUIDANCE,
     OPENAI_MODEL_EXECUTION_GUIDANCE,
     PARALLEL_TOOL_CALL_GUIDANCE,
     PLATFORM_HINTS,
@@ -46,6 +45,7 @@ from agent.prompt_builder import (
     TELEGRAM_RICH_MESSAGES_HINT,
     TOOL_USE_ENFORCEMENT_GUIDANCE,
     TOOL_USE_ENFORCEMENT_MODELS,
+    build_memory_guidance,
     drain_truncation_warnings,
 )
 from agent.runtime_cwd import resolve_context_cwd
@@ -225,7 +225,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
 
     # Tool-aware behavioral guidance: only inject when the tools are loaded
     tool_guidance = []
-    # MEMORY_GUIDANCE instructs the model to save facts to the built-in
+    # The memory guidance instructs the model to save facts to the built-in
     # MEMORY.md/USER.md stores. With both disabled in config no store is built,
     # so the guidance would steer the model at a tool whose every call returns
     # "Memory is not available". Defaults to True for the rare code paths that
@@ -234,7 +234,11 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
         agent, "_user_profile_enabled", True
     )
     if "memory" in agent.valid_tool_names and builtin_memory_active:
-        tool_guidance.append(MEMORY_GUIDANCE)
+        # session_search is deferred behind Tool Search: only point at it when
+        # it is directly callable (a direct call to a deferred name fails).
+        tool_guidance.append(
+            build_memory_guidance("session_search" in agent.valid_tool_names)
+        )
     if "session_search" in agent.valid_tool_names:
         tool_guidance.append(SESSION_SEARCH_GUIDANCE)
     if "skill_manage" in agent.valid_tool_names:
@@ -370,6 +374,7 @@ def build_system_prompt_parts(agent: Any, system_message: Optional[str] = None) 
                 platform=agent.platform,
                 cwd=resolve_context_cwd(),
                 model=agent.model,
+                valid_tool_names=agent.valid_tool_names,
             )
             stable_parts.extend(coding_prefix_parts)
         except Exception:

@@ -39,24 +39,41 @@ class TestBlankSlateMinimalToolsets:
 
 
 
-    def test_tool_schema_survives_disabled_toolsets_from_config(self):
+    def test_tool_schema_survives_disabled_toolsets_from_config(self, monkeypatch):
         """Regression: disabled_toolsets must not erase the minimal Blank Slate
         surface when passed to model_tools.  Before the fix, posture toolsets
         like ``coding`` in disabled_toolsets caused model_tools to subtract
         terminal, read_file, write_file, etc. (#57315).
+
+        This pins disabled_toolsets SUBTRACTION, not deferral policy: Tool
+        Search is switched off so the expected list stays independent of
+        toolsets._AGENTX_DEFERRED_TOOLS (``process`` is deferred, which would
+        otherwise swap it for the three bridge tools here).
         """
         import model_tools
+        from tools.tool_search import ToolSearchConfig
+
+        monkeypatch.setattr(
+            "tools.tool_search.load_config",
+            lambda: ToolSearchConfig.from_raw({"enabled": "off"}),
+        )
+        # The quiet-mode memo is not keyed on tool-search config: drop it on
+        # both sides so this eager list neither reads nor leaks a stale entry.
+        model_tools._clear_tool_defs_cache()
         from hermes_cli.tools_config import _get_platform_tools
         cfg = {}
         _blank_slate_minimal_toolsets(cfg)
         _blank_slate_minimize_config(cfg)
         enabled = sorted(_get_platform_tools(cfg, "cli"))
         disabled = cfg.get("agent", {}).get("disabled_toolsets") or []
-        defs = model_tools.get_tool_definitions(
-            enabled_toolsets=enabled,
-            disabled_toolsets=disabled,
-            quiet_mode=True,
-        )
+        try:
+            defs = model_tools.get_tool_definitions(
+                enabled_toolsets=enabled,
+                disabled_toolsets=disabled,
+                quiet_mode=True,
+            )
+        finally:
+            model_tools._clear_tool_defs_cache()
         names = sorted(
             {(d.get("function") or {}).get("name") or d.get("name") for d in defs}
         )

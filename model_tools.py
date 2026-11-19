@@ -464,12 +464,13 @@ def _compute_tool_definitions(
             if validate_toolset(toolset_name):
                 from toolsets import bundle_non_core_tools, get_toolset
                 if toolset_name.startswith("agentx-") or (get_toolset(toolset_name) or {}).get("posture"):
-                    # Platform bundles (agentx-*) include _AGENTX_CORE_TOOLS, and
-                    # posture toolsets (`posture: True`, e.g. `coding`) re-list
-                    # those same core tools without owning them, so subtracting
-                    # the whole toolset would strip core tools shared by other
-                    # enabled toolsets and empty the tool list (#33924, #57315).
-                    # Subtract only the non-core delta; keep core.
+                    # Platform bundles (agentx-*) include _AGENTX_PLATFORM_TOOLS,
+                    # and posture toolsets (`posture: True`, e.g. `coding`)
+                    # re-list those same shared built-ins without owning them,
+                    # so subtracting the whole toolset would strip built-ins
+                    # shared by other enabled toolsets and empty the tool list
+                    # (#33924, #57315). Subtract only the bundle's own delta;
+                    # keep the shared built-ins.
                     to_remove = bundle_non_core_tools(toolset_name)
                     tools_to_include.difference_update(to_remove)
                     resolved = sorted(to_remove)
@@ -613,11 +614,12 @@ def _compute_tool_definitions(
         logger.warning("Schema sanitization skipped: %s", e)
 
     # ── Tool Search (progressive disclosure) ────────────────────────────
-    # Conditionally replace MCP + plugin (non-core) tools with three bridge
-    # tools (tool_search / tool_describe / tool_call) when the deferrable
-    # surface exceeds the configured threshold (default 10% of context
-    # window). Core AgentX tools (toolsets._AGENTX_CORE_TOOLS) are NEVER
-    # deferred. See tools/tool_search.py for full design notes.
+    # Replace every non-core tool (MCP, plugin, and the deferred built-ins in
+    # toolsets._AGENTX_DEFERRED_TOOLS such as computer_use) with three bridge
+    # tools (tool_search / tool_describe / tool_call) whenever any is present;
+    # the context-window threshold only sizes the embedded listing. Core
+    # AgentX tools (toolsets._AGENTX_CORE_TOOLS) are NEVER deferred. See
+    # tools/tool_search.py for full design notes.
     #
     # This is deliberately the last step before returning — sanitization
     # has already normalized schemas, and the assembly is idempotent in

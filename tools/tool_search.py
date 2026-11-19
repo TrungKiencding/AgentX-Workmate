@@ -1,14 +1,18 @@
 """Progressive tool disclosure ("tool search") for AgentX Workmate.
 
-When enabled, MCP and non-core plugin tools are replaced in the model-visible
-tools array by three bridge tools — ``tool_search``, ``tool_describe``,
-``tool_call`` — and surfaced on demand. Core AgentX tools never defer.
+When enabled, MCP tools, non-core plugin tools and the deferred built-ins
+(``toolsets._AGENTX_DEFERRED_TOOLS``: computer_use, desktop pane tools) are
+replaced in the model-visible tools array by three bridge tools —
+``tool_search``, ``tool_describe``, ``tool_call`` — and surfaced on demand.
+Core AgentX tools never defer.
 
 Design constraints this module is built around (see ``openclaw-tool-search-report``
 for the full rationale):
 
 * Core tools defined in ``toolsets._AGENTX_CORE_TOOLS`` are *never* deferred.
-  Always-load means always-load. No exceptions.
+  Always-load means always-load. No exceptions. Built-ins that should hide
+  behind the bridge by default belong in ``toolsets._AGENTX_DEFERRED_TOOLS``
+  (still shipped by every platform bundle, just not core).
 * Tiered disclosure (July 2026 plan): the moment ANY deferrable (MCP/plugin)
   tools are present, they hide behind the bridge. What scales with catalog
   size is the *listing*, not the activation decision:
@@ -221,7 +225,7 @@ def is_deferrable_tool_name(name: str) -> bool:
             return False
         if entry.toolset.startswith("mcp-"):
             return True
-        # Non-MCP, non-core → plugin tool, eligible.
+        # Non-MCP, non-core → plugin tool or deferred built-in, eligible.
         return True
     except Exception:
         return False
@@ -1049,6 +1053,52 @@ def resolve_underlying_call(args: Dict[str, Any]) -> Tuple[Optional[str], Dict[s
     return name, raw_args, None
 
 
+def recorded_underlying_call(name: Any, arguments: Any) -> Tuple[Any, Any]:
+    """Peel a *recorded* ``tool_call`` bridge entry down to the tool it invoked.
+
+    Transcripts keep the name the model emitted, so once a built-in is
+    deferred (``toolsets._AGENTX_DEFERRED_TOOLS``) its calls appear under the
+    bridge name ``tool_call``. Code that classifies calls by name — todo
+    hydration, parallel admission, compression summaries, housekeeping
+    detection, DCP protection — calls this first so it sees the same tool the
+    executor's unwrap dispatched.
+
+    Returns ``(underlying_name, underlying_arguments)`` (arguments as a dict)
+    for a well-formed single-tool bridge call; anything else — another tool,
+    unparseable or malformed bridge arguments — comes back unchanged. Parsing
+    reads only the recorded arguments: no registry, config, or deferral lookup,
+    so a transcript classifies the same way whatever the live tool-search
+    settings are.
+    """
+    if name != TOOL_CALL_NAME:
+        return name, arguments
+    args = arguments
+    if isinstance(args, str):
+        try:
+            args = json.loads(args)
+        except (json.JSONDecodeError, TypeError):
+            return name, arguments
+    if not isinstance(args, dict):
+        return name, arguments
+    inner_name = args.get("name")
+    if not isinstance(inner_name, str) or not inner_name.strip():
+        return name, arguments
+    inner_name = inner_name.strip()
+    if inner_name in BRIDGE_TOOL_NAMES:
+        return name, arguments
+    inner_args = args.get("arguments")
+    if inner_args is None:
+        inner_args = {}
+    if isinstance(inner_args, str):
+        try:
+            inner_args = json.loads(inner_args)
+        except (json.JSONDecodeError, TypeError):
+            return name, arguments
+    if not isinstance(inner_args, dict):
+        return name, arguments
+    return inner_name, inner_args
+
+
 __all__ = [
     "TOOL_SEARCH_NAME",
     "TOOL_DESCRIBE_NAME",
@@ -1073,6 +1123,7 @@ __all__ = [
     "dispatch_tool_search",
     "dispatch_tool_describe",
     "resolve_underlying_call",
+    "recorded_underlying_call",
     "scoped_deferrable_names",
     "validate_deferred_call_args",
 ]

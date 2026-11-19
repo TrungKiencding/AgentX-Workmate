@@ -176,7 +176,14 @@ AGENTX_AGENT_HELP_GUIDANCE = (
     f"or capabilities, {_HELP_AUTHORITY}"
 )
 
-MEMORY_GUIDANCE = (
+# The memory brief's pointer to session_search. ``session_search`` is deferred
+# behind Tool Search (toolsets._AGENTX_DEFERRED_TOOLS) and a direct call to a
+# deferred name is rejected as an unknown tool, so the pointer is only included
+# when the tool is in the model-visible list (see build_memory_guidance).
+_MEMORY_SESSION_SEARCH_POINTER = "; use session_search to recall those from past transcripts"
+
+
+_MEMORY_GUIDANCE_TEMPLATE = (
     "You have persistent memory across sessions. Save durable facts using the memory "
     "tool: user preferences, environment details, tool quirks, and stable conventions. "
     "Memory is injected into every turn, so keep it compact and focused on facts that "
@@ -185,7 +192,7 @@ MEMORY_GUIDANCE = (
     "that prevents the user from having to correct or remind you again. "
     "User preferences and recurring corrections matter more than procedural task details.\n"
     "Do NOT save task progress, session outcomes, completed-work logs, or temporary TODO "
-    "state to memory; use session_search to recall those from past transcripts. "
+    "state to memory{session_search_pointer}. "
     "Specifically: do not record PR numbers, issue numbers, commit SHAs, 'fixed bug X', "
     "'submitted PR Y', 'Phase N done', file counts, or any artifact that will be stale "
     "in 7 days. If a fact will be stale in a week, it does not belong in memory. "
@@ -198,6 +205,15 @@ MEMORY_GUIDANCE = (
     "cause repeated work or override the user's current request. Procedures and "
     "workflows belong in skills, not memory."
 )
+
+
+def build_memory_guidance(session_search_visible: bool = True) -> str:
+    """Return the memory brief, naming session_search only when it is directly callable."""
+    pointer = _MEMORY_SESSION_SEARCH_POINTER if session_search_visible else ""
+    return _MEMORY_GUIDANCE_TEMPLATE.format(session_search_pointer=pointer)
+
+
+MEMORY_GUIDANCE = build_memory_guidance(True)
 
 SESSION_SEARCH_GUIDANCE = (
     "When the user references something from a past conversation or you suspect "

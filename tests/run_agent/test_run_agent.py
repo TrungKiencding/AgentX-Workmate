@@ -878,6 +878,103 @@ class TestHydrateTodoStore:
             agent._hydrate_todo_store(history)
         assert not agent._todo_store.has_items()
 
+    @staticmethod
+    def _todo_result(call_id="c1", content="write report"):
+        return {
+            "role": "tool",
+            "tool_call_id": call_id,
+            "content": json.dumps({"todos": [
+                {"id": "1", "content": content, "status": "in_progress"},
+            ]}),
+        }
+
+    @staticmethod
+    def _bridged_call(call_id="c1", name="todo"):
+        """``todo`` is deferred behind Tool Search: the transcript records the
+        call under the ``tool_call`` bridge name."""
+        return {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [{
+                "id": call_id,
+                "type": "function",
+                "function": {
+                    "name": "tool_call",
+                    "arguments": json.dumps({"name": name, "arguments": {"todos": []}}),
+                },
+            }],
+        }
+
+    def test_hydrates_from_direct_todo_call(self, agent):
+        history = [{"role": "user", "content": "go"},
+                   self._assistant_todo_call(), self._todo_result()]
+        with patch("run_agent._set_interrupt"):
+            agent._hydrate_todo_store(history)
+        assert [i["content"] for i in agent._todo_store.read()] == ["write report"]
+
+    def test_hydrates_from_todo_called_through_tool_call_bridge(self, agent):
+        history = [{"role": "user", "content": "go"},
+                   self._bridged_call(), self._todo_result()]
+        with patch("run_agent._set_interrupt"):
+            agent._hydrate_todo_store(history)
+        assert [i["content"] for i in agent._todo_store.read()] == ["write report"]
+
+    def test_bridged_todo_call_writes_the_live_store_and_rehydrates(self, agent):
+        """End to end: the model calls deferred ``todo`` through tool_call;
+        the executor unwraps it into the agent-level todo handler, and a fresh
+        agent rebuilt from that transcript restores the same list."""
+        call = SimpleNamespace(
+            id="tc1", type="function",
+            function=SimpleNamespace(
+                name="tool_call",
+                arguments=json.dumps({"name": "todo", "arguments": {"todos": [
+                    {"id": "1", "content": "ship it", "status": "in_progress"},
+                ]}}),
+            ),
+        )
+        msg = SimpleNamespace(content="", tool_calls=[call])
+        messages = []
+        # The desktop todo panel (tui_gateway tool.complete) keys on the name
+        # the callbacks receive — it must be the unwrapped tool.
+        agent.tool_start_callback = MagicMock()
+        agent.tool_complete_callback = MagicMock()
+        with patch(
+            "agent.tool_executor._tool_search_scoped_names",
+            return_value=frozenset({"todo"}),
+        ):
+            agent._execute_tool_calls(msg, messages, "task-1")
+
+        assert [i["content"] for i in agent._todo_store.read()] == ["ship it"]
+        assert messages[-1]["tool_call_id"] == "tc1"
+        start_args = agent.tool_start_callback.call_args.args
+        complete_args = agent.tool_complete_callback.call_args.args
+        assert start_args[:2] == ("tc1", "todo")
+        assert complete_args[:2] == ("tc1", "todo")
+        assert "todos" in complete_args[2]
+        assert json.loads(complete_args[3])["todos"][0]["content"] == "ship it"
+
+        transcript = [
+            {"role": "user", "content": "go"},
+            {"role": "assistant", "content": None, "tool_calls": [{
+                "id": "tc1", "type": "function",
+                "function": {"name": "tool_call", "arguments": call.function.arguments},
+            }]},
+            messages[-1],
+        ]
+        agent._todo_store.write([], merge=False)
+        with patch("run_agent._set_interrupt"):
+            agent._hydrate_todo_store(transcript)
+        assert [i["content"] for i in agent._todo_store.read()] == ["ship it"]
+
+    def test_bridge_to_another_tool_does_not_hydrate(self, agent):
+        """A todos-shaped result paired with a bridged call to a different
+        tool must not seed the store (GHSA-5g4g-6jrg-mw3g pairing rule)."""
+        history = [{"role": "user", "content": "go"},
+                   self._bridged_call(name="session_search"), self._todo_result()]
+        with patch("run_agent._set_interrupt"):
+            agent._hydrate_todo_store(history)
+        assert not agent._todo_store.has_items()
+
 
 
 
@@ -913,10 +1010,12 @@ class TestBuildSystemPrompt:
 
 
     def test_memory_guidance_when_memory_tool_loaded(self, agent_with_memory_tool):
-        from agent.prompt_builder import MEMORY_GUIDANCE
+        from agent.prompt_builder import build_memory_guidance
 
         prompt = agent_with_memory_tool._build_system_prompt()
-        assert MEMORY_GUIDANCE in prompt
+        # The fixture loads memory without session_search (deferred behind
+        # Tool Search), so the brief omits its session_search pointer.
+        assert build_memory_guidance(session_search_visible=False) in prompt
 
 
 

@@ -58,7 +58,7 @@ import re
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Iterable, Optional
 
 from hermes_cli._subprocess_compat import bounded_git_probe
 
@@ -211,9 +211,22 @@ def _edit_format_line(model: Optional[str]) -> str:
     return _EDIT_FORMAT_GUIDANCE[family][1]
 
 
+# The brief's todo sentence. ``todo`` is deferred behind Tool Search
+# (toolsets._AGENTX_DEFERRED_TOOLS), and a direct call to a deferred name is
+# rejected as an unknown tool, so ``RuntimeMode.system_prompt_parts`` swaps
+# this sentence for _NO_TODO_SENTENCE whenever ``todo`` is not in the
+# model-visible tool list.
+_TODO_SENTENCE = (
+    "- Track multi-step work with `todo`. Reference code as `path:line` instead "
+    "of pasting whole files."
+)
+_NO_TODO_SENTENCE = "- Reference code as `path:line` instead of pasting whole files."
+
+
 # Operating brief for the coding posture. Tool names referenced here (read_file,
-# search_files, patch, write_file, terminal, todo) are in the coding toolset and
-# in _AGENTX_CORE_TOOLS, so they're present on every surface this fires on.
+# search_files, patch, write_file, terminal) are in the coding toolset and in
+# _AGENTX_CORE_TOOLS, so they're present on every surface this fires on; the
+# one deferred name (todo) sits in _TODO_SENTENCE, which is gated on it.
 CODING_AGENT_GUIDANCE = (
     "You are a coding agent pairing with the user inside their codebase. "
     "Operate like a careful senior engineer.\n"
@@ -253,8 +266,7 @@ CODING_AGENT_GUIDANCE = (
     "paths for the same flaw and fix the class, not just the reported site.\n"
     "- When fixing linter/type errors on a file, stop after about three "
     "attempts on the same file and ask the user rather than looping.\n"
-    "- Track multi-step work with `todo`. Reference code as `path:line` instead "
-    "of pasting whole files.\n"
+    + _TODO_SENTENCE + "\n"
     "\n"
     "Respect the user's repo: don't commit, push, or rewrite history unless "
     "asked, and never read, print, or commit secrets — leave `.env` and "
@@ -520,12 +532,19 @@ class RuntimeMode:
             return None
         return [self.profile.toolset, *_enabled_mcp_servers(config)]
 
-    def system_prompt_parts(self) -> tuple[list[str], list[str], list[str]]:
+    def system_prompt_parts(
+        self, valid_tool_names: Optional[Iterable[str]] = None
+    ) -> tuple[list[str], list[str], list[str]]:
         """Return prefix, workspace, and trailing posture blocks separately.
 
         The operating brief carries a model-family edit-format nudge appended
         to it (one cached string, not a separate block) so the model is steered
         toward the `patch` mode it handles best — see ``_edit_format_line``.
+
+        ``valid_tool_names`` is the model-visible tool list: when given and it
+        lacks ``todo`` (deferred behind Tool Search, or disabled), the brief's
+        todo sentence is dropped so the prompt never names a tool the model
+        cannot call directly. ``None`` keeps the full brief.
 
         The three lists preserve the historical flat prompt order: the brief,
         the live workspace snapshot, then configured operator instructions.
@@ -539,6 +558,8 @@ class RuntimeMode:
         trailing: list[str] = []
         if self.profile.guidance:
             brief = self.profile.guidance
+            if valid_tool_names is not None and "todo" not in valid_tool_names:
+                brief = brief.replace(_TODO_SENTENCE, _NO_TODO_SENTENCE)
             edit_line = _edit_format_line(self.model)
             if edit_line:
                 brief = f"{brief}\n{edit_line}"
@@ -666,11 +687,15 @@ def coding_system_prompt_parts(
     cwd: Optional[str | Path] = None,
     config: Optional[dict[str, Any]] = None,
     model: Optional[str] = None,
+    valid_tool_names: Optional[Iterable[str]] = None,
 ) -> tuple[list[str], list[str], list[str]]:
-    """Return coding prefix, workspace snapshot, and trailing guidance."""
+    """Return coding prefix, workspace snapshot, and trailing guidance.
+
+    ``valid_tool_names`` — see :meth:`RuntimeMode.system_prompt_parts`.
+    """
     return resolve_runtime_mode(
         platform=platform, cwd=cwd, config=config, model=model
-    ).system_prompt_parts()
+    ).system_prompt_parts(valid_tool_names=valid_tool_names)
 
 
 def coding_compact_skill_categories(

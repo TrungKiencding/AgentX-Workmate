@@ -4672,7 +4672,14 @@ class AIAgent:
         assistant_msg: Dict[str, Any],
         tool_call_id: str,
     ) -> bool:
-        """True when the assistant message issued a ``todo`` call with this id."""
+        """True when the assistant message issued a ``todo`` call with this id.
+
+        ``todo`` is deferred behind Tool Search, so the transcript usually
+        records it as a ``tool_call`` bridge entry; the bridge is peeled from
+        the recorded arguments before the name check.
+        """
+        from tools.tool_search import recorded_underlying_call
+
         tool_calls = assistant_msg.get("tool_calls")
         if not isinstance(tool_calls, list):
             return False
@@ -4680,7 +4687,11 @@ class AIAgent:
         for tool_call in tool_calls:
             if cls._get_tool_call_id_static(tool_call) != tool_call_id:
                 continue
-            if cls._get_tool_call_name_static(tool_call) == "todo":
+            name, _ = recorded_underlying_call(
+                cls._get_tool_call_name_static(tool_call),
+                cls._get_tool_call_args_static(tool_call),
+            )
+            if name == "todo":
                 return True
         return False
 
@@ -4733,6 +4744,15 @@ class AIAgent:
             return ""
         fn = getattr(tc, "function", None)
         return getattr(fn, "name", "") or ""
+
+    @staticmethod
+    def _get_tool_call_args_static(tc) -> Any:
+        """Extract the raw ``arguments`` (usually a JSON string) from a tool_call entry."""
+        if isinstance(tc, dict):
+            fn = tc.get("function")
+            return fn.get("arguments") if isinstance(fn, dict) else None
+        fn = getattr(tc, "function", None)
+        return getattr(fn, "arguments", None)
 
     _VALID_API_ROLES = frozenset({"system", "user", "assistant", "tool", "function", "developer"})
 

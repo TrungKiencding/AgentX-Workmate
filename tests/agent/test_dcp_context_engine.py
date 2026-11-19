@@ -232,6 +232,38 @@ def test_deduplication_respects_protected_tools():
     assert messages[1]["content"] == "old output"
 
 
+def test_deduplication_protects_deferred_tool_called_through_bridge():
+    """todo/cronjob are deferred behind Tool Search, so the transcript records
+    them as tool_call bridge entries; their protection must still apply."""
+    engine = DCPContextEngine(config={}, context_length=200000)
+    bridged = {"name": "todo", "arguments": {"todos": []}}
+    messages = [
+        {"role": "assistant", "content": "", "tool_calls": [_tool_call("a", "tool_call", bridged)]},
+        {"role": "tool", "tool_call_id": "a", "content": "old output"},
+        {"role": "assistant", "content": "", "tool_calls": [_tool_call("b", "tool_call", bridged)]},
+        {"role": "tool", "tool_call_id": "b", "content": "new output"},
+    ]
+
+    engine._apply_deduplication(messages, set())
+
+    assert messages[1]["content"] == "old output"
+
+
+def test_deduplication_still_prunes_unprotected_tool_called_through_bridge():
+    engine = DCPContextEngine(config={}, context_length=200000)
+    bridged = {"name": "session_search", "arguments": {"query": "x"}}
+    messages = [
+        {"role": "assistant", "content": "", "tool_calls": [_tool_call("a", "tool_call", bridged)]},
+        {"role": "tool", "tool_call_id": "a", "content": "old output"},
+        {"role": "assistant", "content": "", "tool_calls": [_tool_call("b", "tool_call", bridged)]},
+        {"role": "tool", "tool_call_id": "b", "content": "new output"},
+    ]
+
+    engine._apply_deduplication(messages, set())
+
+    assert "duplicate tool output removed" in messages[1]["content"]
+
+
 def test_purge_errors_preserves_error_summary():
     engine = DCPContextEngine(config={"strategies": {"purgeErrors": {"turns": 0}}}, context_length=200000)
     messages = [

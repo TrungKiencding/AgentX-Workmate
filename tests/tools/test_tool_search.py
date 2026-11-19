@@ -71,10 +71,12 @@ class TestClassification:
     def test_core_tools_never_defer(self):
         """The critical invariant from the OpenClaw report."""
         from tools.tool_search import is_deferrable_tool_name
-        # Sample of core tools from _AGENTX_CORE_TOOLS.
+        # Sample of core tools from _AGENTX_CORE_TOOLS. (todo and
+        # session_search are deferred built-ins — see
+        # tests/tools/test_deferred_builtin_tools.py.)
         for core_name in ["terminal", "read_file", "write_file", "patch",
-                          "search_files", "todo", "memory", "browser_navigate",
-                          "web_search", "session_search", "clarify",
+                          "search_files", "memory", "browser_navigate",
+                          "web_search", "clarify",
                           "execute_code", "delegate_task", "send_message"]:
             assert not is_deferrable_tool_name(core_name), (
                 f"Core tool '{core_name}' must NEVER be deferrable"

@@ -427,16 +427,17 @@ class MemoryManager:
 
         self._providers.append(provider)
 
-        # Core tool names are reserved — a memory provider must never register
-        # a tool that shadows a built-in (e.g. ``clarify``, ``delegate_task``).
+        # Built-in tool names (core and deferred) are reserved — a memory
+        # provider must never register a tool that shadows a built-in (e.g.
+        # ``clarify``, ``delegate_task``, ``computer_use``).
         # Built-ins always win, so such a tool is dropped at agent init and
         # would otherwise linger in ``_tool_to_provider`` and hijack dispatch
         # (#40466). Reject it here, at the door, so it never enters the routing
         # table at all — matching the built-ins-always-win invariant used by
         # the TTS/browser/search provider registries.
-        from toolsets import _AGENTX_CORE_TOOLS
+        from toolsets import _AGENTX_PLATFORM_TOOLS
 
-        _core_tool_names = set(_AGENTX_CORE_TOOLS)
+        _builtin_tool_names = set(_AGENTX_PLATFORM_TOOLS)
 
         # Index tool names → provider for routing
         for raw_schema in provider.get_tool_schemas():
@@ -444,7 +445,7 @@ class MemoryManager:
             if schema is None:
                 continue
             tool_name = schema["name"]
-            if tool_name in _core_tool_names:
+            if tool_name in _builtin_tool_names:
                 logger.warning(
                     "Memory provider '%s' tool '%s' shadows a reserved core "
                     "tool name; registration ignored. Core tools always win — "
@@ -801,14 +802,14 @@ class MemoryManager:
     def get_all_tool_schemas(self) -> List[Dict[str, Any]]:
         """Collect tool schemas from all providers.
 
-        Reserved core tool names (``clarify``, ``delegate_task``, etc.) are
+        Reserved built-in tool names (``clarify``, ``delegate_task``, etc.) are
         skipped — they are rejected from the routing table in
         :meth:`add_provider`, so the manager must not advertise a schema it
         will never route. Built-ins always win (#40466).
         """
-        from toolsets import _AGENTX_CORE_TOOLS
+        from toolsets import _AGENTX_PLATFORM_TOOLS
 
-        _core_tool_names = set(_AGENTX_CORE_TOOLS)
+        _builtin_tool_names = set(_AGENTX_PLATFORM_TOOLS)
         schemas = []
         seen = set()
         for provider in self._providers:
@@ -823,7 +824,7 @@ class MemoryManager:
                         )
                         continue
                     name = schema["name"]
-                    if name in _core_tool_names:
+                    if name in _builtin_tool_names:
                         continue
                     if name not in seen:
                         schemas.append(schema)

@@ -1745,6 +1745,11 @@ def _summarize_tool_result_unguarded(tool_name: str, tool_args: str, tool_conten
         args = {}
     if not isinstance(args, dict):
         args = {}
+    # Deferred tools (todo, cronjob, process, session_search, MCP…) are
+    # recorded as tool_call bridge entries: summarize the tool they invoked.
+    from tools.tool_search import recorded_underlying_call
+
+    tool_name, args = recorded_underlying_call(tool_name, args)
 
     content = tool_content or ""
     content_len = len(content)

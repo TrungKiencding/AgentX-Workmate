@@ -26,18 +26,20 @@ Usage:
 from typing import Dict, List, Any, Set, Optional, Tuple
 
 
-# Shared tool list for CLI and all messaging platform toolsets.
-# Edit this once to update all platforms simultaneously.
+# Core tools: shipped by every platform bundle AND always sent to the model
+# with their full schema — Tool Search never defers them
+# (tools/tool_search.py::is_deferrable_tool_name). Keep this list to tools the
+# model reaches for on ordinary turns; cold, event-triggered built-ins go in
+# _AGENTX_DEFERRED_TOOLS below instead.
 _AGENTX_CORE_TOOLS = [
     # Web
     "web_search", "web_extract",
-    # Terminal + process management
-    "terminal", "process",
-    # Desktop GUI affordances: read the embedded terminal pane, close an agent's
-    # read-only terminal tab, open a URL/file in the preview pane, focus a
-    # pane, and react to a message with an emoji (all gated on AGENTX_DESKTOP
-    # via check_fn — hidden outside the GUI).
-    "read_terminal", "close_terminal", "open_preview", "focus_pane", "react_to_message",
+    # Terminal (background-process management is deferred — see
+    # _AGENTX_DEFERRED_TOOLS)
+    "terminal",
+    # React to a message with an emoji (desktop GUI affordance, gated on
+    # AGENTX_DESKTOP via check_fn — hidden outside the GUI).
+    "react_to_message",
     # Hand a produced file to the desktop chat as a file card (gated the same way).
     "deliver_file",
     # File manipulation
@@ -59,21 +61,17 @@ _AGENTX_CORE_TOOLS = [
     "browser_exec",
     # Text-to-speech
     "text_to_speech",
-    # Planning & memory
-    "todo", "memory",
+    # Memory (the todo planning list is deferred — see _AGENTX_DEFERRED_TOOLS)
+    "memory",
     # NOTE: the desktop Project tools (project_list/create/switch) are
     # deliberately NOT here. They only make sense where a GUI can follow the
     # move, so they live in the `project` toolset and are enabled solely by the
     # GUI gateway (tui_gateway/server.py::_load_enabled_toolsets) — keeping them
     # off every CLI/messaging/cron schema (narrow waist).
-    # Session history search
-    "session_search",
     # Clarifying questions
     "clarify",
     # Code execution + delegation
     "execute_code", "delegate_task",
-    # Cronjob management
-    "cronjob",
     # Home Assistant smart home control (gated on HASS_TOKEN via check_fn)
     "ha_list_entities", "ha_get_state", "ha_list_services", "ha_call_service",
     # Kanban multi-agent coordination — only in schema when the agent is
@@ -85,9 +83,44 @@ _AGENTX_CORE_TOOLS = [
     "kanban_comment", "kanban_create", "kanban_link",
     "kanban_unblock",
     "kanban_attach", "kanban_attach_url", "kanban_attachments",
-    # Computer use (macOS, gated on cua-driver being installed via check_fn)
-    "computer_use",
 ]
+
+# Deferred built-ins: still shipped by every platform bundle (and so still
+# enabled/disabled through the same toolsets), but NOT core, so whenever Tool
+# Search is on they sit in the deferred catalog behind tool_search /
+# tool_describe / tool_call instead of sending their schema on every request.
+# Mirrors the upstream agent's default ``tools.tool_search.defer`` list
+# (upstream e16ad33a9d, "core-tool deferral"), which landed after this fork
+# branched and was never ported. Eagerly listed, cheaper models reach for
+# these on plain file tasks (opening Word/PowerPoint to "verify" a file it just
+# wrote), and their schemas cost every request ~7K tokens.
+#
+# Prompt text must not tell the model to call a deferred tool directly — a
+# direct call to a deferred name is rejected as an unknown tool. Gate such
+# sentences on ``agent.valid_tool_names`` (see coding_context's todo sentence
+# and prompt_builder.build_memory_guidance). Code that reads tool names back
+# out of a transcript must peel the ``tool_call`` bridge first
+# (tools.tool_search.recorded_underlying_call).
+_AGENTX_DEFERRED_TOOLS = [
+    # Desktop GUI affordances: read the embedded terminal pane, close an
+    # agent's read-only terminal tab, open a URL/file in the preview pane, and
+    # focus a pane (all gated on AGENTX_DESKTOP via check_fn — hidden outside
+    # the GUI).
+    "read_terminal", "close_terminal", "open_preview", "focus_pane",
+    # Computer use (gated on cua-driver being installed via check_fn)
+    "computer_use",
+    # Planning list, cross-session history search, cron scheduling, and
+    # background-process management (poll/wait/kill terminal(background=true)
+    # processes). All event-triggered: the model reaches for them on a minority
+    # of turns.
+    "todo", "session_search", "cronjob", "process",
+]
+
+# Every built-in a platform bundle ships: core first, then deferred. Bundles
+# and anything that must treat built-ins as a whole (shadowing protection,
+# bundle-delta subtraction) use this list; only the never-defer decision uses
+# _AGENTX_CORE_TOOLS on its own.
+_AGENTX_PLATFORM_TOOLS = _AGENTX_CORE_TOOLS + _AGENTX_DEFERRED_TOOLS
 
 # Webhook events may originate from untrusted third-party content (for example,
 # public PR titles/comments). Keep the default webhook toolset intentionally
@@ -471,7 +504,7 @@ TOOLSETS = {
     
     "agentx-cli": {
         "description": "Full interactive CLI toolset - all default tools plus cronjob management",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
@@ -482,19 +515,19 @@ TOOLSETS = {
         # homeassistant) are excluded by _get_platform_tools() unless
         # the user explicitly enables them.
         "description": "Default cron toolset - same core tools as agentx-cli; gated by `agentx tools`",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-telegram": {
         "description": "Telegram bot toolset - full access for personal use (terminal has safety checks)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
     
     "agentx-discord": {
         "description": "Discord bot toolset - full access (terminal has safety checks via dangerous command approval)",
-        "tools": _AGENTX_CORE_TOOLS + [
+        "tools": _AGENTX_PLATFORM_TOOLS + [
             "discord",
             "discord_admin",
         ],
@@ -503,61 +536,61 @@ TOOLSETS = {
     
     "agentx-whatsapp": {
         "description": "WhatsApp bot toolset - similar to Telegram (personal messaging, more trusted)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
     
     "agentx-slack": {
         "description": "Slack bot toolset - full access for workspace use (terminal has safety checks)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
     
     "agentx-signal": {
         "description": "Signal bot toolset - encrypted messaging platform (full access)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-bluebubbles": {
         "description": "BlueBubbles iMessage bot toolset - Apple iMessage via local BlueBubbles server",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-homeassistant": {
         "description": "Home Assistant bot toolset - smart home event monitoring and control",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-email": {
         "description": "Email bot toolset - interact with AgentX via email (IMAP/SMTP)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-mattermost": {
         "description": "Mattermost bot toolset - self-hosted team messaging (full access)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-matrix": {
         "description": "Matrix bot toolset - decentralized encrypted messaging (full access)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-dingtalk": {
         "description": "DingTalk bot toolset - enterprise messaging platform (full access)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-feishu": {
         "description": "Feishu/Lark bot toolset - enterprise messaging via Feishu/Lark (full access)",
-        "tools": _AGENTX_CORE_TOOLS + [
+        "tools": _AGENTX_PLATFORM_TOOLS + [
             "feishu_doc_read",
             "feishu_drive_list_comments",
             "feishu_drive_list_comment_replies",
@@ -569,31 +602,31 @@ TOOLSETS = {
 
     "agentx-weixin": {
         "description": "Weixin bot toolset - personal WeChat messaging via iLink (full access)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-qqbot": {
         "description": "QQBot toolset - QQ messaging via Official Bot API v2 (full access)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-wecom": {
         "description": "WeCom bot toolset - enterprise WeChat messaging (full access)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-wecom-callback": {
         "description": "WeCom callback toolset - enterprise self-built app messaging (full access)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
     "agentx-yuanbao": {
         "description": "Yuanbao Bot 元宝消息平台工具集 - 群信息、成员查询、私聊、贴纸表情",
-        "tools": _AGENTX_CORE_TOOLS + [
+        "tools": _AGENTX_PLATFORM_TOOLS + [
             "yb_query_group_info",
             "yb_query_group_members",
             "yb_send_dm",
@@ -606,7 +639,7 @@ TOOLSETS = {
 
     "agentx-sms": {
         "description": "SMS bot toolset - interact with AgentX via SMS (Twilio)",
-        "tools": _AGENTX_CORE_TOOLS,
+        "tools": _AGENTX_PLATFORM_TOOLS,
         "includes": []
     },
 
@@ -701,20 +734,22 @@ def get_toolset(name: str, *, include_registry: bool = True) -> Optional[Dict[st
 def bundle_non_core_tools(toolset_name: str) -> Set[str]:
     """Return a ``agentx-*`` bundle's platform-specific tools, excluding core.
 
-    Platform bundles are defined as ``_AGENTX_CORE_TOOLS + [platform extras]``.
-    When a bundle name appears in ``disabled_toolsets``, subtracting the whole
-    bundle would strip core tools (terminal, read_file, …) shared by every
-    other enabled toolset, emptying the model's tool list (#33924). This
-    returns only the bundle's non-core delta (its own extras plus those of any
-    one-level ``includes``), so disabling a bundle removes its platform tools
-    while leaving core intact.
+    Platform bundles are defined as ``_AGENTX_PLATFORM_TOOLS + [platform
+    extras]``. When a bundle name appears in ``disabled_toolsets``, subtracting
+    the whole bundle would strip core tools (terminal, read_file, …) shared by
+    every other enabled toolset, emptying the model's tool list (#33924). This
+    returns only the bundle's delta over the shared built-ins (its own extras
+    plus those of any one-level ``includes``), so disabling a bundle removes
+    its platform tools while leaving every shared built-in — core and
+    deferred alike — intact.
 
     Bundle nesting is one level deep in practice (only ``agentx-gateway``
     includes other bundles, and those leaves don't nest further), so a single
     ``includes`` pass is sufficient. Unknown/garbage names fall back to the
-    full resolution minus core — never re-introducing the core wipe.
+    full resolution minus the shared built-ins — never re-introducing the core
+    wipe.
     """
-    core = set(_AGENTX_CORE_TOOLS)
+    core = set(_AGENTX_PLATFORM_TOOLS)
     ts_def = get_toolset(toolset_name)
     if not (ts_def and "tools" in ts_def):
         return set(resolve_toolset(toolset_name)) - core
@@ -799,7 +834,7 @@ def resolve_toolset(name: str, visited: Set[str] = None, *, include_registry: bo
     toolset = get_toolset(name, include_registry=include_registry)
     if not toolset:
         # Auto-generate a toolset for plugin platforms (agentx-<name>).
-        # Gives them _AGENTX_CORE_TOOLS plus any tools the plugin registered
+        # Gives them _AGENTX_PLATFORM_TOOLS plus any tools the plugin registered
         # into a toolset matching the platform name. This is a registry-derived
         # view, so it only applies when registry tools are requested; the static
         # view (include_registry=False) has no plugin-platform definition.
@@ -808,7 +843,7 @@ def resolve_toolset(name: str, visited: Set[str] = None, *, include_registry: bo
             try:
                 from gateway.platform_registry import platform_registry
                 if platform_registry.is_registered(platform_name):
-                    plugin_tools = set(_AGENTX_CORE_TOOLS)
+                    plugin_tools = set(_AGENTX_PLATFORM_TOOLS)
                     try:
                         from tools.registry import registry
                         plugin_tools.update(

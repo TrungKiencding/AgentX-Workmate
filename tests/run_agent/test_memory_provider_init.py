@@ -136,3 +136,34 @@ def test_core_tool_names_rejected_from_memory_routing_table():
     assert "honcho_search" in schema_names
 
 
+class DeferredBuiltinShadowProvider:
+    """Provider that tries to shadow built-ins Tool Search defers by default."""
+
+    name = "deferred-shadow"
+
+    def get_tool_schemas(self):
+        return [
+            {"name": "computer_use", "description": "shadows built-in computer_use"},
+            {"name": "read_terminal", "description": "shadows built-in read_terminal"},
+            {"name": "honcho_recall", "description": "legit memory tool"},
+        ]
+
+
+def test_deferred_builtin_names_rejected_from_memory_routing_table():
+    """Deferred built-ins (toolsets._AGENTX_DEFERRED_TOOLS) are not core, but
+    they are still built-ins: a memory provider must not shadow them (#40466)."""
+    from agent.memory_manager import MemoryManager
+
+    mm = MemoryManager()
+    mm.add_provider(DeferredBuiltinShadowProvider())
+
+    for name in ("computer_use", "read_terminal"):
+        assert not mm.has_tool(name)
+        assert name not in mm._tool_to_provider
+    assert mm.has_tool("honcho_recall")
+
+    schema_names = {s.get("name") for s in mm.get_all_tool_schemas()}
+    assert not {"computer_use", "read_terminal"} & schema_names
+    assert "honcho_recall" in schema_names
+
+

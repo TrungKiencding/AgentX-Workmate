@@ -115,6 +115,63 @@ class TestCodingContextBlock:
         agent = _make_agent(valid_tool_names=[], platform="cli")
         assert "coding agent" not in _stable_prompt(agent)
 
+    def test_todo_sentence_dropped_when_todo_is_not_directly_callable(self, monkeypatch, tmp_path):
+        """todo is deferred behind Tool Search; a direct call to a deferred
+        name is rejected, so the brief must not tell the model to call it."""
+        from agent.coding_context import _NO_TODO_SENTENCE, _TODO_SENTENCE
+
+        _init_code_repo(tmp_path)
+        monkeypatch.setenv("TERMINAL_CWD", str(tmp_path))
+        stable = _stable_prompt(_make_agent(valid_tool_names=["read_file"], platform="cli"))
+        assert "coding agent" in stable
+        assert _TODO_SENTENCE not in stable
+        assert "`todo`" not in stable
+        assert _NO_TODO_SENTENCE in stable
+
+    def test_todo_sentence_kept_when_todo_is_directly_callable(self, monkeypatch, tmp_path):
+        """Tool search off (or todo made eager): the brief is byte-identical
+        to the historical one."""
+        from agent.coding_context import CODING_AGENT_GUIDANCE, _TODO_SENTENCE
+
+        _init_code_repo(tmp_path)
+        monkeypatch.setenv("TERMINAL_CWD", str(tmp_path))
+        stable = _stable_prompt(
+            _make_agent(valid_tool_names=["read_file", "todo"], platform="cli")
+        )
+        assert _TODO_SENTENCE in stable
+        assert CODING_AGENT_GUIDANCE in stable
+
+
+class TestMemoryGuidanceSessionSearchPointer:
+    """session_search is deferred behind Tool Search: the memory brief names
+    it only when it is in the model-visible tool list."""
+
+    def test_pointer_omitted_when_session_search_is_deferred(self):
+        stable = _stable_prompt(_make_agent(valid_tool_names=["memory"]))
+        assert "Save durable facts using the memory" in stable
+        assert "session_search" not in stable
+
+    def test_pointer_and_guidance_present_when_session_search_is_visible(self):
+        from agent.prompt_builder import MEMORY_GUIDANCE, SESSION_SEARCH_GUIDANCE
+
+        stable = _stable_prompt(
+            _make_agent(valid_tool_names=["memory", "session_search"])
+        )
+        assert MEMORY_GUIDANCE in stable
+        assert SESSION_SEARCH_GUIDANCE in stable
+
+    def test_builder_only_differs_by_the_pointer(self):
+        from agent.prompt_builder import (
+            MEMORY_GUIDANCE,
+            _MEMORY_SESSION_SEARCH_POINTER,
+            build_memory_guidance,
+        )
+
+        assert build_memory_guidance(True) == MEMORY_GUIDANCE
+        without = build_memory_guidance(False)
+        assert "session_search" not in without
+        assert without == MEMORY_GUIDANCE.replace(_MEMORY_SESSION_SEARCH_POINTER, "")
+
 
 def test_build_system_prompt_records_stable_prefix():
     agent = _make_agent()
